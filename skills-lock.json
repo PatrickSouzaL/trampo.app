@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "ask-docs": {
+      "source": "crewaiinc/skills",
+      "sourceType": "github",
+      "skillPath": "skills/ask-docs/SKILL.md",
+      "computedHash": "82da92b6d3448e91838b2c484845beacaa3ca99674a8b728803a05f379bebba3"
+    },
+    "build-flow": {
+      "source": "crewaiinc/skills",
+      "sourceType": "github",
+      "skillPath": "skills/build-flow/SKILL.md",
+      "computedHash": "c5770dd15e0b26e6df8fa27ff909116c69af0d7eb1a271a5920dc19842601541"
+    },
+    "connect-tools-and-mcp": {
+      "source": "crewaiinc/skills",
+      "sourceType": "github",
+      "skillPath": "skills/connect-tools-and-mcp/SKILL.md",
+      "computedHash": "e015b38485d2abaa8825399cc7ebe9d0d524ea23d4c38b08050c56aee70d13ce"
+    },
+    "design-agent": {
+      "source": "crewaiinc/skills",
+      "sourceType": "github",
+      "skillPath": "skills/design-agent/SKILL.md",
+      "computedHash": "a23e972fb9df4e4fa49c1dac081fbaf4e61cdd41f3a9d85e75640877f387c935"
+    },
+    "design-task": {
+      "source": "crewaiinc/skills",
+      "sourceType": "github",
+      "skillPath": "skills/design-task/SKILL.md",
+      "computedHash": "26f6910774b868eecb653f866ab217f3e42da9ee50da6ea8239239c8f102efd1"
+    }
+  }
+}
