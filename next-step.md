@@ -1,20 +1,53 @@
-# Próximo Passo de Execução (Conclusão do Marco M1: Revisão Adversarial e Checkpoint)
+# Próximo passo: Marco M2.2 (`packages/config`)
 
-## Status Atual
-- Tarefas M1.1 a M1.5 concluídas e salvas no Obsidian.
-- Tarefas pendentes: M1.6 (Revisão Adversarial) e M1.7 (Geração do próximo next-step).
-- Restrição Ativa: O motor atual (Opus) está operando em esforço normal. A delegação paralela profunda (Fan-Out) está estritamente proibida para preservar a janela de tokens.
+## O que acabou de ser entregue (M2.1, 2026-10-18)
+- O portal Next foi movido com `git mv` para `apps/web-portal/` (`@trampo/web-portal`), com o histórico preservado. O commit `35d74e5` só tem renames.
+- Raiz do workspace (commit `8f4b820`):
+  - `package.json` privado, com `pnpm@11.4.0+sha512` e `engines`;
+  - `.nvmrc`;
+  - `pnpm-workspace.yaml` com `catalog:` exato e as seis políticas de supply chain;
+  - `turbo.json` sem `globalEnv`;
+  - `.gitignore` ajustado;
+  - `pnpm-lock.yaml` gerado por `pnpm import`, no lugar do `package-lock.json`.
+- O único script de instalação (`unrs-resolver`) foi **negado** em `allowBuilds`, e nenhum script de dependência rodou.
+- Guardrails verdes: install limpo, `turbo run build typecheck lint`, `dev` com HTTP 200 e `git log --follow`.
+- Branch `feat/monorepo-workspace`, só local (sem push).
 
-## Ação Manual Necessária (Human-in-the-Loop)
-- [x] Motor calibrado para esforço normal. Pronto para retomar de forma sequencial.
+## Ação manual (HITL) antes do próximo comando
+1. **HITL-010:** o seu PATH tem um pnpm **12.14.0** standalone, instalado em 2026-10-18 às 11:34, na frente do 11.4.0. Recomendado: apague `%LOCALAPPDATA%\pnpm`, tire `%LOCALAPPDATA%\pnpm\bin` (e `PNPM_HOME`) das variáveis de ambiente do usuário, abra um terminal novo e confirme que `pnpm -v` responde `11.4.0`. Se você **não** reconhece essa instalação, avise.
+2. **HITL-011:** o `next dev` grava `apps/web-portal/AGENTS.md` com instruções para agentes. Recomendado: desligar com `agentRules: false` (a equipe aplica na M2.2).
 
-## Prompt para Enviar ao Agente
+Detalhes em `../base/00-orquestracao/HITL-QUEUE.md`.
 
-"Equipe, vamos finalizar o Marco 1. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos (factcheck/review).
+## Prompt para enviar ao agente
 
-1. `[ORCHESTRATOR]`: Acione o `[APPSEC]` e o `[ARCHITECT]`.
-2. `[APPSEC]` e `[ARCHITECT]`: Leiam OBRIGATORIAMENTE os artefatos gerados: `ADR-001`, `contratos-zod.md` e `threat-model.md`. Façam a execução do item **M1.6 (Revisão adversarial)**: cruzem a matriz de ameaças com os contratos. Verifiquem rapidamente se as restrições de payload duplo e isolamento de PII (LGPD) estão bem definidas.
-3. `[SCRIBE]`: Caso a revisão aponte alguma falha crítica, corrija o documento correspondente. Se estiver tudo sólido, atualize o `STATE.md` marcando M1.6 como `[x]`.
-4. `[SCRIBE]`: Execute o item **M1.7**: gere o novo `./next-step.md` focando no início do Marco M2 (Inicialização do Monorepo Turborepo/Nx e configuração do ambiente TypeScript Strict). E marque M1.7 como `[x]` no `STATE.md`, alterando o status do Marco M1 para `concluido`.
+```text
+Equipe, vamos executar a M2.2. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos.
 
-Pare a execução e aguarde minha aprovação após o passo 4.
+Respostas HITL:
+- HITL-010: [removi o pnpm standalone; `pnpm -v` agora = <cole a saída>] ou [mantenho o 12.x: abram um ADR de upgrade]
+- HITL-011: [desligar com agentRules: false] ou [commitar o AGENTS.md gerado]
+
+1. [SCRIBE]: Registre as respostas acima e feche o HITL-010 e o HITL-011 na HITL-QUEUE.
+2. [ORCHESTRATOR]: Confirme que `pnpm -v` = 11.4.0 e `node -v` ≥ 24. Se o HITL-010 não estiver resolvido, use o pnpm de %APPDATA%\npm por caminho explícito.
+3. [DEV]: Execute somente a M2.2 do BACKLOG (ADR-001 §10.3; threat-model SR-03 e SR-13):
+   - crie `packages/config` (`@trampo/config`, sem build) com:
+     - `tsconfig.base.json` strict: strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes, noImplicitOverride, verbatimModuleSyntax, lib ES2024;
+     - preset ESLint 9 flat de segurança: no-explicit-any, react/no-danger, no-unsanitized, no-restricted-syntax para innerHTML, outerHTML, insertAdjacentHTML, srcdoc, document.write e acesso computado; no-eval, no-implied-eval, no-new-func; regexp/no-super-linear-backtracking e regexp/no-super-linear-move;
+     - preset de pureza do domínio para apps/api/src/domain/**;
+     - configuração do dependency-cruiser com as arestas proibidas da §10.3;
+   - fixe todas as dependências novas no `catalog:` com versão exata. Respeite a quarentena e NÃO abra exceção de minimumReleaseAge, trustPolicy ou allowBuilds sem a análise do [APPSEC] registrada;
+   - ligue o portal aos presets (tsconfig `extends` e eslint.config) e aplique a decisão do HITL-011 no next.config.ts;
+   - não altere a semântica do código do portal. Se o strict revelar erro de tipo no portal, corrija com a menor mudança possível e registre.
+   O pacote de contratos é a M3: NÃO execute agora.
+4. [APPSEC]: Antes do `pnpm install`, audite cada dependência nova: idade, proveniência, scripts e mantenedor. Confirme que nenhum script não autorizado rodou (`.modules.yaml`).
+5. [QA_EVALS]: Valide os guardrails da M2.2:
+   - `pnpm install --frozen-lockfile` limpo;
+   - `pnpm turbo run build typecheck lint` verde;
+   - `depcruise` verde;
+   - teste negativo: um arquivo temporário com `innerHTML` e outro com `any` FALHAM no lint e depois são removidos;
+   - nenhum `any` novo.
+6. [SCRIBE]: Marque a M2.2 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG, faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md para a M3 (packages/contracts).
+
+Pare a execução e aguarde minha aprovação após o passo 6.
+```
