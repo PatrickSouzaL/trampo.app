@@ -1,53 +1,42 @@
-# Próximo passo: Marco M3 (`packages/contracts`)
+# Próximo passo: P0-RUN-01 (runbook das contas de LLM)
 
-## O que acabou de ser entregue (M2.2, 2026-10-18; Marco M2 concluído)
-- `packages/config` (`@trampo/config`, sem build):
-  - `tsconfig.base.json` strict;
-  - preset ESLint de segurança (SR-03);
-  - preset de pureza do domínio (SR-13);
-  - `dependency-cruiser` com 11 regras de fronteira (§10.3).
-- O portal estende a base strict e usa o preset de segurança (passou sem nenhuma correção de código). O `next.config.ts` ganhou `agentRules: false`.
-- Dependências novas auditadas antes do install, fixadas no `catalog:` e sem scripts de instalação:
-  - `eslint-plugin-no-unsanitized` 4.1.5;
-  - `eslint-plugin-regexp` 3.3.1;
-  - `dependency-cruiser` 18.6.0;
-  - `@types/node` 24.19.2.
-- A exceção de `trustPolicy` do `undici-types` foi removida; ficam duas.
-- Cada regra foi provada com um teste negativo:
-  - lint do portal: 11 erros (`innerHTML` e afins) e 2 erros (`any`);
-  - preset de domínio: 9 erros;
-  - depcruise: 9 violações.
-- Achado corrigido: o `exclude` do dependency-cruiser escondia as arestas para `dist/`, o que deixaria a extensão importar `user-criteria` sem ser barrada.
-- HITL-010 e HITL-011 fechados. Branch `feat/monorepo-workspace`, só local (sem push).
+## O que acabou de ser entregue (M3, 2026-10-18)
+- `packages/contracts` (`@trampo/contracts`):
+  - fonte **idêntica, byte a byte**, ao código verificado em 2026-10-17, extraída por script da §4 do contratos-zod (inclusive os 22 caracteres invisíveis das regexes);
+  - ESM compilado com `tsc` para `dist/`, com 7 subpath exports e zod 4.6.7 como dependência única.
+- 38 testes no Vitest, com **cobertura de 100%** (statements, branches, funções e linhas):
+  - os 21 originais, portados com diff de uma linha;
+  - 13 propriedades com fast-check, provadas por mutação;
+  - snapshot do JSON Schema;
+  - uma invariante que estava sem teste, achada pela cobertura de branches.
+- Guardrails verdes: install `--frozen-lockfile`, `turbo run build typecheck lint test` (7/7), `lint:deps` e varredura de `z.object` frouxo, `z.url()` puro e `any`.
+- Dependências novas auditadas (zod, vitest, @vitest/coverage-v8, vite, fast-check), todas com proveniência contínua e sem scripts de instalação.
+- **Incidente resolvido:** o `contratos-zod.md` foi zerado por um script da equipe e reconstruído com validação independente (detalhes no SESSION-LOG, sessão 5).
+- Branch `feat/monorepo-workspace`, só local (sem push).
 
 ## Ação manual (HITL) antes do próximo comando
-- Nenhuma ação manual necessária.
-- (Opcional) Se a variável `PNPM_HOME` ainda estiver nas variáveis de ambiente do seu usuário, ela pode ser apagada: o diretório que ela apontava não existe mais.
+- Nenhuma ação manual obrigatória.
+- (Recomendado) Abra `02-arquitetura/contratos-zod.md` no Obsidian e confira em **File recovery** (ou no histórico do Sync) que a versão atual bate com a anterior ao incidente. A diferença esperada é só o que a M3 acrescentou.
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, vamos executar a M3. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos.
+Equipe, vamos executar a P0-RUN-01. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos.
 
-1. [ORCHESTRATOR]: Leia STATE.md e HITL-QUEUE.md. Confirme `pnpm -v` = 11.4.0, `node -v` ≥ 24 e o branch feat/monorepo-workspace limpo.
-2. [APPSEC]: Antes do `pnpm install`, audite cada dependência nova (zod, vitest, @vitest/coverage-v8, fast-check): idade, proveniência, scripts e mantenedor. Fixe as versões no `catalog:` com versão exata (zod ≥ 4.6.6). NÃO abra exceção de minimumReleaseAge, trustPolicy ou allowBuilds sem a análise registrada.
-3. [DEV]: Execute somente a M3 do BACKLOG (contratos-zod §4; ADR-001 §10.4):
-   - crie `packages/contracts` (`@trampo/contracts`): ESM, compilado com `tsc` para `dist/` com `.d.ts`, estendendo `@trampo/config/tsconfig.base.json`, com o preset de segurança no eslint.config;
-   - use os subpath exports `.`, `./limits`, `./primitives`, `./api`, `./analysis-report`, `./job-facts` e `./user-criteria`, com zod como dependência única;
-   - copie os arquivos da §4 do contratos-zod SEM mudar a semântica;
-   - porte a suíte de 21 testes para Vitest e acrescente:
-     - testes de propriedade (fast-check) para `truncateCodePoints` e `safeText`;
-     - o snapshot do JSON Schema de `JobFactsSchema`;
-   - acrescente as tarefas `build` e `test` no pacote, para que o turbo as rode.
-   O código da API, da extensão e do ui-kit fica para as próximas tarefas: NÃO execute agora.
-4. [QA_EVALS]: Valide os guardrails da M3:
-   - `pnpm install --frozen-lockfile` limpo;
-   - `pnpm turbo run build typecheck lint test` verde;
-   - `pnpm --filter @trampo/contracts test` com 100% de cobertura;
-   - testes 1–19, 15b e 15c verdes;
-   - `pnpm lint:deps` verde (a regra contracts-only-zod precisa passar);
-   - nenhum `z.object` frouxo, nenhum `z.url()` puro e nenhum `any`.
-5. [SCRIBE]: Marque a M3 como [x] no STATE.md (checkpoint imediato), atualize o contratos-zod.md se algo mudar, registre no SESSION-LOG, faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md para a próxima tarefa do BACKLOG.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (P0-RUN-01) e HITL-QUEUE.md (HITL-002 e HITL-008). Confirme que nenhum HITL bloqueia a tarefa.
+2. [APPSEC]: Antes de escrever, confira na documentação OFICIAL e ATUAL de cada provedor (Groq, Cloudflare Workers AI e Google AI Studio):
+   - onde se liga o Zero Data Retention no Groq;
+   - como criar um token da Cloudflare com escopo só para Workers AI;
+   - onde ficam os limites do free tier no AI Studio;
+   - os termos de uso de dados de cada provedor.
+   Registre as fontes com data. Nada de memória de treino como fonte.
+3. [SCRIBE]: Escreva `../base/03-infra-runbook/llm.md` (o arquivo existe e está vazio) com:
+   - checklist verificável por provedor: criar a conta com 2FA (HITL-008), ligar o ZDR no Groq, criar o token da Cloudflare com escopo mínimo, criar a chave do AI Studio e consultar os limites;
+   - onde guardar as chaves: SÓ no `.env` local da API, fora do git e do cofre. Criar o `apps/api/.env.example` fica para a tarefa da API;
+   - revogação e rotação de cada chave;
+   - como verificar, sem expor a chave, que ela funciona (comando que não imprime o segredo).
+   Guardrail: nenhum valor de segredo no documento.
+4. [SCRIBE]: Atualize o HITL-002 na HITL-QUEUE apontando para o runbook, marque a P0-RUN-01 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG, faça o commit local se algo mudar no repositório (push NÃO autorizado) e gere o novo ./next-step.md.
 
-Pare a execução e aguarde minha aprovação após o passo 5.
+Pare a execução e aguarde minha aprovação após o passo 4.
 ```

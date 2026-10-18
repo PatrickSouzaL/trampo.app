@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    // Os .d.ts do zod também são checados (perfil verificado em 2026-10-17). Eles usam o global
+    // `URL`, que vem de @types/node; o código de src/ não usa nenhuma API do Node.
+    "skipLibCheck": false
+  },
+  "include": ["src/**/*.ts"]
+}

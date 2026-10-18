@@ -26,6 +26,13 @@ catalog:
   eslint-plugin-no-unsanitized: 4.1.5
   eslint-plugin-regexp: 3.3.1
   dependency-cruiser: 18.6.0
+  # Contratos (M3). zod na versão em que o contrato foi verificado (contratos-zod P10: >= 4.6.6, exata).
+  zod: 4.6.7
+  # Testes. vite é peer obrigatório do vitest 5 e fica declarado de forma explícita (ADR-001 §10.2).
+  vitest: 5.0.5
+  '@vitest/coverage-v8': 5.0.5
+  vite: 8.3.4
+  fast-check: 4.10.2
 
 # Scripts de instalação de dependências: proibidos por padrão. Cada exceção é revisada pelo [APPSEC].
 strictDepBuilds: true

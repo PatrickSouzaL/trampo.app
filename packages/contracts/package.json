@@ -1,0 +1,37 @@
+{
+  "name": "@trampo/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Contratos Zod v1 compartilhados por extensão, portal, API e evals (contratos-zod; ADR-001 §10.4).",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./limits": { "types": "./dist/limits.d.ts", "default": "./dist/limits.js" },
+    "./primitives": { "types": "./dist/primitives.d.ts", "default": "./dist/primitives.js" },
+    "./api": { "types": "./dist/api.d.ts", "default": "./dist/api.js" },
+    "./analysis-report": { "types": "./dist/analysis-report.d.ts", "default": "./dist/analysis-report.js" },
+    "./job-facts": { "types": "./dist/job-facts.d.ts", "default": "./dist/job-facts.js" },
+    "./user-criteria": { "types": "./dist/user-criteria.d.ts", "default": "./dist/user-criteria.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@trampo/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "fast-check": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

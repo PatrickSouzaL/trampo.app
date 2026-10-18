@@ -67,8 +67,8 @@ module.exports = {
     {
       name: "contracts-only-zod",
       severity: "error",
-      comment: "@trampo/contracts tem dependência única: zod.",
-      from: { path: "^packages/contracts/" },
+      comment: "@trampo/contracts tem dependência única: zod (só o código publicado; os testes usam vitest).",
+      from: { path: "^packages/contracts/src/" },
       to: {
         dependencyTypes: ["npm", "npm-dev", "npm-optional", "npm-peer", "npm-no-pkg", "npm-unknown", "core"],
         pathNot: "node_modules/zod/",

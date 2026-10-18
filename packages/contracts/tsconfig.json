@@ -1,0 +1,12 @@
+{
+  "extends": "@trampo/config/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    // Mesmo perfil em que o contrato foi verificado em 2026-10-17 (contratos-zod, nota de status).
+    "noPropertyAccessFromIndexSignature": true,
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}
