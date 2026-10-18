@@ -14,10 +14,18 @@ catalog:
   typescript: 5.9.3
   tailwindcss: 4.3.3
   '@tailwindcss/turbopack': 4.3.3
-  '@types/node': 20.19.43
+  # Tipos da menor versão aceita em engines.node (>=24), para não usar API exclusiva do Node 26.
+  '@types/node': 24.19.2
   '@types/react': 19.3.0
   '@types/react-dom': 19.3.0
   turbo: 2.11.8
+  # Lint e fronteiras de import (M2.2, threat-model SR-03 e SR-13). typescript-eslint e
+  # eslint-plugin-react nas mesmas versões que o eslint-config-next já traz (uma instância de plugin só).
+  typescript-eslint: 8.71.2
+  eslint-plugin-react: 7.37.5
+  eslint-plugin-no-unsanitized: 4.1.5
+  eslint-plugin-regexp: 3.3.1
+  dependency-cruiser: 18.6.0
 
 # Scripts de instalação de dependências: proibidos por padrão. Cada exceção é revisada pelo [APPSEC].
 strictDepBuilds: true
@@ -37,9 +45,6 @@ blockExoticSubdeps: true
 trustPolicy: no-downgrade
 # Exceções SEMPRE com versão exata e justificativa do [APPSEC] (registro: SESSION-LOG 2026-10-18).
 trustPolicyExclude:
-  # Só tipos (.d.ts), publicado em 2024-11-13 pelo mantenedor das versões vizinhas; integridade
-  # idêntica à do package-lock.json do npm. Sai junto com o upgrade do @types/node (M2.2).
-  - undici-types@6.21.0
   # Backport da linha 3.x publicado 1 dia após o 4.3.3 (com proveniência) pelo mesmo mantenedor;
   # 2025-04-21, sem script de instalação. Transitiva do eslint-config-next.
   - eslint-import-resolver-typescript@3.10.1

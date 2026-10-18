@@ -11,9 +11,12 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "lint:deps": "depcruise apps packages --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
+    "@trampo/config": "workspace:*",
+    "dependency-cruiser": "catalog:",
     "turbo": "catalog:"
   }
 }

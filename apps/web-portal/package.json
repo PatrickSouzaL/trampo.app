@@ -15,6 +15,7 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@trampo/config": "workspace:*",
     "@tailwindcss/turbopack": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

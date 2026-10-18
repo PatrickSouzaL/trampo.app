@@ -1,0 +1,23 @@
+{
+  "name": "@trampo/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Presets compartilhados: tsconfig strict, ESLint de segurança e fronteiras de import (ADR-001 §10.3).",
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./eslint/security": "./eslint/security.js",
+    "./eslint/domain-purity": "./eslint/domain-purity.js",
+    "./dependency-cruiser": "./dependency-cruiser.cjs"
+  },
+  "dependencies": {
+    "eslint-plugin-no-unsanitized": "catalog:",
+    "eslint-plugin-react": "catalog:",
+    "eslint-plugin-regexp": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "peerDependencies": {
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  }
+}
