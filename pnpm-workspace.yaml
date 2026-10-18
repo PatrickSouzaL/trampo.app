@@ -1,0 +1,48 @@
+# Workspace trampo.app (ADR-001 §10). Políticas de cadeia de suprimentos: threat-model T26.
+packages:
+  - apps/*
+  - packages/*
+  - evals
+
+# Versões EXATAS das dependências compartilhadas (sem ^/~). Atualizar só com changelog lido (T40).
+catalog:
+  next: 16.4.2
+  react: 19.3.0
+  react-dom: 19.3.0
+  eslint-config-next: 16.4.2
+  eslint: 9.39.5
+  typescript: 5.9.3
+  tailwindcss: 4.3.3
+  '@tailwindcss/turbopack': 4.3.3
+  '@types/node': 20.19.43
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0
+  turbo: 2.11.8
+
+# Scripts de instalação de dependências: proibidos por padrão. Cada exceção é revisada pelo [APPSEC].
+strictDepBuilds: true
+allowBuilds:
+  # NEGADO (false). O postinstall (napi-postinstall) só baixa o binário nativo da rede se ele faltar;
+  # o binário da plataforma já vem como optionalDependency, com integridade no lockfile. Transitiva do
+  # eslint-config-next (via eslint-import-resolver-typescript). Revisão [APPSEC]: SESSION-LOG 2026-10-18 (3).
+  unrs-resolver: false
+
+# Pacote publicado há menos de 3 dias não é instalado (janela para detectar versão comprometida).
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - '@trampo/*'
+
+# Subdependências só do registry (sem git/tarball arbitrário) e sem regressão de proveniência.
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
+# Exceções SEMPRE com versão exata e justificativa do [APPSEC] (registro: SESSION-LOG 2026-10-18).
+trustPolicyExclude:
+  # Só tipos (.d.ts), publicado em 2024-11-13 pelo mantenedor das versões vizinhas; integridade
+  # idêntica à do package-lock.json do npm. Sai junto com o upgrade do @types/node (M2.2).
+  - undici-types@6.21.0
+  # Backport da linha 3.x publicado 1 dia após o 4.3.3 (com proveniência) pelo mesmo mantenedor;
+  # 2025-04-21, sem script de instalação. Transitiva do eslint-config-next.
+  - eslint-import-resolver-typescript@3.10.1
+  # Backport da correção de ReDoS (CVE-2022-25883) para a linha 6.x, 3 dias após o 7.5.4;
+  # 2023-07-10, sem script de instalação. Excluí-lo traria de volta uma versão vulnerável.
+  - semver@6.3.1

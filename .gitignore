@@ -1,8 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Monorepo (ADR-001 §10.5): padrões sem "/" inicial valem em todos os apps e pacotes.
 
 # dependencies
-/node_modules
-/.pnp
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,14 +12,20 @@
 !.yarn/versions
 
 # testing
-/coverage
+coverage/
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build/
+dist/
+
+# monorepo tooling
+.turbo/
+.output/
+.wxt/
 
 # misc
 .DS_Store
@@ -30,8 +37,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files: segredos nunca no git; só o modelo .env.example é versionado
 .env*
+!.env.example
 
 # vercel
 .vercel
