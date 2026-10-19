@@ -1,6 +1,7 @@
 // Toda resposta de erro da API é um ApiError do contrato público: acionável e sem vazamento
 // (sem stack trace, sem detalhes do Zod, sem nomes internos). contratos-zod §4.7.
 import { ApiErrorSchema, type ApiError, type ApiErrorCode } from "@trampo/contracts/api";
+import type { FastifyReply } from "fastify";
 
 /** Status HTTP e mensagem padrão de cada código (pt-BR, texto seguro para o painel). */
 const CATALOG: Record<ApiErrorCode, { status: number; message: string }> = {
@@ -38,4 +39,15 @@ export function apiError(
     status: 500,
     body: { code: "ERRO_INTERNO", message: CATALOG.ERRO_INTERNO.message, requestId: null, retryAfterSeconds: null },
   };
+}
+
+/** Responde um ApiError a partir de um hook. Devolve o reply para o hook async encerrar o ciclo. */
+export function sendApiError(
+  reply: FastifyReply,
+  requestId: string,
+  code: ApiErrorCode,
+  options: { status?: number } = {},
+): FastifyReply {
+  const { status, body } = apiError(code, requestId, options);
+  return reply.code(status).send(body);
 }
