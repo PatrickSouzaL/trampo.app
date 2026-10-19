@@ -1,76 +1,58 @@
-# Próximo passo: F1-SEC-00 (numeração da OWASP GenAI LLM Top 10 2026 no PDF oficial)
+# Próximo passo: decisão HITL-014 (adiantar a F1-DOM-05 antes do S-4?)
 
-> **Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.**
-> (AGENTS §2, Fase 5, e §4.4. A parada é por reciclagem de sessão, não por HITL: a próxima tarefa não exige nenhuma ação sua.)
+> **Parada por marco de decisão humana** (AGENTS §1.1 e §2, Fase 5), não por contexto. A próxima tarefa sem conta nem chave exige escolher uma interface de arquitetura antes dos dados do S-4.
 
-## O que acabou de ser entregue (F1-OBS-01, 2026-10-19, ADR-010)
+## O que acabou de ser entregue (F1-SEC-00, 2026-10-19)
 
-### Logger com lista fechada (SR-12)
-- **Achado:** o campo `msg` do Fastify é texto livre e vazava dados. Exemplos:
-  - o 404 padrão grava a URL com a query;
-  - `Reply was already sent` grava a URL;
-  - `err.message` vira `msg` no pino.
+### Fontes oficiais conferidas (acesso em 2026-10-19)
+- **OWASP GenAI LLM Top 10 2026:**
+  - PDF baixado de `genai.owasp.org`, pelo botão *Download* da página do recurso: `OWASP-GenAI-LLM-Top-10-2026-v1.0.pdf`, com o sha256 registrado no threat model.
+  - **Os 10 IDs e títulos `LLMxx:2026` conferem** com o threat model.
+  - O "v1.0" só aparece no nome do arquivo. Dentro do PDF, o rótulo é "Version 2026".
+  - A página `genai.owasp.org/llm-top-10/` ainda mostra a 2025.
+- **OWASP Top 10:2025** (`top10.owasp.org/2025`) e **API Security Top 10:2023**, conferidos com as CWEs mapeadas de cada categoria usada.
 
-  Serializers de plugin e `child()` também conseguiam trocar os serializers da F1-API-00.
-- **Imposição na escrita final:** o `hooks.streamWrite` do pino é da raiz, e nenhum `child`, plugin ou formatter o alcança. Ele reconstrói cada linha só com:
-  - `level`, `time`, `msg`, `reqId` e `responseTime`;
-  - `req{id, method, route}`, `res{statusCode}` e `err{type, code, statusCode}`;
-  - `signal`.
+### Divergências corrigidas (4, só no cofre)
+1. **T27 (vazamento de segredos):** `A04:2025` virou `A02:2025; A07:2025`. A A04 (Cryptographic Failures) só cobre chave criptográfica embutida. Segredo em configuração ou variável de ambiente é A02, e credencial embutida é A07.
+2. **SESSION-LOG, "OWASP A03" para XSS:** usava a numeração 2021. Agora é `A05:2025`.
+3. **SESSION-LOG, "LLM05" para saída imprópria:** usava a numeração 2025. Agora é `LLM10:2026`.
+4. **IDs sem edição** (`LLM01`, `API4`, `API8`): receberam a edição.
 
-  Cada campo tem a forma validada. A `route` só aparece se for uma rota registrada.
-- **Mensagens:** `msg` vem de um catálogo de enums. Qualquer outra vira `mensagem_fora_do_catalogo`.
-- **O resto da política:**
-  - nenhum cabeçalho é gravado;
-  - o `redact` foi rejeitado, porque é denylist e seria código morto;
-  - o `buildApp` só aceita `logger: false` ou `{ level, stream }`.
-
-### Porta `Telemetry`
-- **Evento:** schema estrito, só com enums e números. Não tem perfil, `userId`, `reqId` nem `model`.
-- **`llmExtractionEvent`:** monta o evento a partir do `ExtractionOutcome` do router.
-- **Catálogo de 6 métricas:** contadores e histogramas, com rótulos de cardinalidade fechada.
-- **`InMemoryTelemetry`:** descarta e conta evento inválido e nunca lança.
-- O exportador externo fica para o S-5.
-
-### Qualidade
-- **Testes:** API com **461**, 57 deles novos.
-  - O SR-12 é provado por canário numa requisição real, com 200, 404, 400, 415 e 500, um child logger malicioso e um serializer de plugin.
-  - As propriedades rodam 1.000 execuções cada.
-- **A propriedade achou um defeito:** `responseTime` igual a 2^53 virava um inteiro inseguro. Já está corrigido.
-- **Cobertura:** **100%** (324/324 ramos).
-- **Mutação:** **69/69** mortos. O código equivalente foi removido.
-- **Guardrails:**
-  - 15/15 tarefas do turbo, três vezes;
-  - `--frozen-lockfile` limpo e depcruise verde;
-  - e2e da extensão 10/10;
-  - smoke do JS compilado;
-  - nenhuma dependência nova.
+### Registro e varredura
+- A tabela completa (referência → título oficial → confere/diverge) está em `threat-model` §0.1.
+- **Varredura:** nenhuma referência antiga ou sem edição restou no cofre. **Nenhum ID OWASP aparece no código**, então nenhum comentário mudou e o build não precisou rodar de novo.
+- ADR-001, `contratos-zod` e ADR-005 a ADR-010 conferem ou não citam IDs.
 
 ### Branch
-- Commit local no **`feat/api-borda`**, **sem push**. Continua valendo a sua decisão: nada de push nem PR até a fatia Ingress + Auth + Rate Limit ficar completa.
+- Commit local no **`feat/api-borda`** (só este `next-step.md`), **sem push**.
 
-## Fila depois desta tarefa
-- **F1-OBS-02:** depende dos adapters (S-1) e das contas (HITL-004 e HITL-007).
-- **S-5:** exige criar contas de hospedagem, então é HITL.
-- **F1-LLM-01 parte 2 e F1-LLM-02:** dependem do S-1 (HITL-003).
-- **F1-API-02 e F1-API-03:** HITL-004 e HITL-007.
-- **F1-DOM-04:** ⛔ pelo S-4. **F1-DOM-02:** depende do ADR-002, um marco humano.
-
-Por isso, a próxima tarefa é a **F1-SEC-00**: só leitura de fonte oficial e ajuste do threat model, sem conta e sem chave.
+## Por que parou
+- O **F1-DOM-05 (`FactResolver`, E6)** é o único item sem conta e sem chave. Ele funde a saída do LLM com os **sinais da Camada 1**, e quem produz esses sinais é o F1-DOM-04, ⛔ pelo S-4 (HITL-003).
+- Adiantá-lo exige fixar agora a interface desses sinais. Detalhes e opções estão no **HITL-014**:
+  - **A (recomendada):** ADR curto com a porta `DeterministicSignals` como contrato do consumidor, depois o `FactResolver`.
+  - **B:** esperar o HITL-003 e o S-4.
+- O restante da fila continua com HITL:
+  - F1-OBS-02, F1-API-02 e F1-API-03: HITL-004 e HITL-007;
+  - S-5: contas de hospedagem;
+  - F1-LLM-01 parte 2 e F1-LLM-02: S-1;
+  - F1-DOM-02: ADR-002;
+  - F1-OPS-01: exige push e CI, não autorizados.
 
 ## Ação manual (HITL) antes do próximo comando
-- Nenhuma, além de **reciclar a sessão** (veja o aviso no topo).
+- **HITL-014:** responda A ou B no prompt abaixo.
 - Em background: HITL-003 (30 vagas).
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, vamos executar a F1-SEC-00 (conferir a numeração da OWASP GenAI LLM Top 10 2026 no PDF oficial v1.0 e ajustar o threat model). Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
+Equipe, HITL-014: [A / B]. HITL-003: [em andamento / concluído: N vagas]. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
 
-HITL-003: [em andamento / concluído: N vagas]
+Se A (F1-DOM-05, FactResolver):
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md (HITL-014), BACKLOG.md (F1-DOM-04 e F1-DOM-05), ADR-001 §5.5 a §5.7 e os contratos de JobFacts. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda limpo.
+2. [ARCHITECT]: Escreva o ADR-011 com a porta DeterministicSignals (contrato do consumidor, domínio puro, sem zod no domínio), que o F1-DOM-04 vai implementar. Registre os limiares (5%, 0,4, 0,5) como hipóteses calibráveis.
+3. [APPSEC]: Audite. Omissão suspeita do LLM não apaga evidência; conflito leva a "não informado" mais aviso; injection reduz a confiança; nada de perfil além dos termos marcados.
+4. [DEV] + [QA_EVALS]: Implementem o FactResolver em apps/api/src/domain com 100% de linhas e ramos, propriedades no fast-check e mutação. `pnpm turbo run build typecheck lint test`, depcruise e e2e verdes.
+5. [SCRIBE]: Faça o checkpoint no STATE.md, registre no SESSION-LOG, faça o commit local (push NÃO autorizado) e gere o novo ./next-step.md.
 
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (F1-SEC-00) e o threat-model inteiro (toda referência LLMxx:2026, A0x:2025 e API Top 10). Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda limpo.
-2. [APPSEC]: Busque a fonte OFICIAL (genai.owasp.org / owasp.org: PDF v1.0 da LLM Top 10 2026, Top 10:2025 e API Security Top 10:2023). Registre a URL, a data de acesso e o título exato de cada item usado. Se o PDF 2026 não existir ou divergir, registre o que existe e NÃO invente numeração.
-3. [APPSEC]: Monte uma tabela (referência no threat model → título oficial → confere/diverge) e corrija só o que diverge, no threat-model, no ADR-001 e nos ADR-005 a ADR-010 que citarem o item. Nada de código.
-4. [QA_EVALS]: Faça uma varredura (grep) para provar que nenhuma referência antiga ficou para trás no cofre e no repositório (comentários de código inclusive). `pnpm turbo run build typecheck lint test` continua verde se algum comentário mudar.
-5. [SCRIBE]: Marque a F1-SEC-00 no STATE.md (checkpoint imediato), registre no SESSION-LOG com a nota de verificação, faça o commit local se o repositório mudar (push NÃO autorizado) e gere o novo ./next-step.md. Na Fase 5, avancem sozinhos só se não houver HITL e o contexto estiver seguro.
+Se B: o [ORCHESTRATOR] só registra a decisão no HITL-QUEUE e no STATE.md e para até o HITL-003 ser concluído.
 ```
