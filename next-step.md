@@ -1,65 +1,70 @@
-# Próximo passo: F1-API-01 (borda da API, SR-07)
+# Próximo passo: P0-EVL-01 (spec do golden dataset e anotação das 30 vagas)
 
-> **Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.**
-> (AGENTS §2, Fase 5, e §4.4. A parada é por reciclagem de sessão, não por HITL: a próxima tarefa não exige nenhuma ação sua.)
+> **Reciclagem de sessão** (AGENTS §4.4): ADR extenso e quatro arquivos do cofre reescritos nesta conversa. A P0-EVL-01 não exige HITL, mas precisa ler 30 vagas e anotar 30 gabaritos, o que pede uma janela nova.
+>
+> Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
 
-## O que acabou de ser entregue (F1-DOM-01 completa, 2026-10-19)
+## O que acabou de ser entregue (2026-10-19)
 
-### Parte 1: `JobTextNormalizer` (commit `54412d6`, ADR-005)
-- `sha256` por porta `TextHasher` (adapter `node:crypto` provado com o NIST).
-- A única exceção de valor no domínio é `@trampo/contracts/limits`, trancada pela regra `contracts-limits-leaf`.
-- `toWellFormed` → [NFKC → fins de linha → invisíveis → re-truncamento → espaços → máscaras de PII e URL → delimitadores → guarda final], repetido até o ponto fixo → sha256. Versão `n1`.
+### Decisões aplicadas
+- **HITL-015: opção A.** O ADR-002 foi redigido como **proposta**, sem código.
+- **HITL-003: fechado.** São 30 vagas (15 LinkedIn, 15 Gupy), conferidas **só pelo cabeçalho**. A pasta `evals/golden/raw/` está ignorada pelo git.
 
-### Parte 2: `RelevantSectionSelector` (ADR-006)
-- **Micro-payload do LLM por blocos.** Os blocos de **contato** (F-04, nomes de recrutadores) e de **diretiva ao modelo** (T2, mesmo sob "Requisitos") são descartados antes do orçamento.
-- **Faixas de prioridade:** salário e modelo de trabalho → cabeçalho (300) → relevante → não classificado → boilerplate.
-- **Montagem:** corte parcial com sobra ≥ 200 e ordem original. O marcador `[…]` usa U+2026, que a vaga não consegue forjar (o NFKC troca as reticências por três pontos).
-- **Orçamento:** 6.000, com falha fechada fora de [1.000, 15.000]. Versão `sel1`.
-- **Refactor:** `countCodePoints`, `truncateWithinCeiling` e `DependencyContractError` agora ficam em `domain/text/code-points.ts`. A saída do normalizador não mudou.
+### ADR-002 (`base/02-arquitetura/ADRs/ADR-002-scoring-engine.md`, `status: proposto`)
+- **Fórmula:**
+  - média ponderada das dimensões;
+  - obrigatório e eliminatório entram com peso 5;
+  - "não informado" e conflito valem 0,5, para que uma vaga vaga não pareça boa;
+  - penalidades de −30 (violado), −5 (não informado) e proporcional no parcial;
+  - deal-breaker leva a "foge" com teto 20; faixas de 75 e 45.
+- **Regras por dimensão:**
+  - stack, com deal-breaker por `dealBreakerScope`;
+  - modelo de trabalho, senioridade e contrato, por regra de conjunto;
+  - salário sem câmbio, com hora × 220 e ano ÷ 12;
+  - localização só para híbrido ou presencial;
+  - idiomas pelo nível;
+  - benefícios;
+  - red flags pela tolerância.
+- **Saída do motor:** o motor só emite `reason` de um enum fechado. O texto fica com o ReportComposer.
+- **Desvio proposto (D-S6):** a assinatura ganha `llmExtracted`. Hoje o resolver não distingue "o LLM disse vazio" de "não houve LLM".
+- **Auditoria `[APPSEC]` (sem veto):** strings do LLM só entram por igualdade contra a lista do usuário, e o F1-DOM-02 terá regra de lint para isso. Conflito eliminatório nunca elimina nem recomenda. Os templates não podem ecoar critérios.
+- **Invariantes:** 10, que viram testes de propriedade no F1-DOM-02.
 
-### Qualidade
-- API com **134 testes**:
-  - 9 propriedades no fast-check;
-  - SR-09 com 20 entradas patológicas de 64 KiB, cada uma em < 200 ms;
-  - cobertura de **100%** no domínio (63/63 ramos);
-  - **15/15** mutantes mortos (6 do normalizador e 9 do seletor).
-- 15/15 tarefas do turbo, depcruise verde e e2e da extensão 10/10.
+### Cofre
+- HITL-QUEUE: HITL-003 e HITL-015 fechados; **HITL-016** (aprovar o ADR-002) e **HITL-017** (complemento opcional de vagas) abertos.
+- BACKLOG: P0-EVL-01 🔜 e F1-DOM-02 ⛔ HITL-016.
+- STATE e SESSION-LOG atualizados.
 
-### Fila depois desta tarefa
-- **F1-DOM-04:** ⛔ pelo S-4 (HITL-003).
-- **F1-DOM-05:** depende da forma dos sinais do F1-DOM-04.
-- **F1-DOM-02:** exige o **ADR-002** (fórmula e pesos da nota), um marco de aprovação humana.
+### Código
+Nenhum. O repositório só mudou neste arquivo.
 
-Por isso, a próxima tarefa é a borda da API.
+## Lacunas das 30 vagas (pelos cabeçalhos)
+- **Com salário:** 2 de 10.
+- **Contrato:** só PJ 1 de 3; "CLT ou PJ" 0 de 3; estágio 0 de 1.
+- **Dupla senioridade:** 0 de 3.
+- **Modelo:** remoto 4 de 5; "remoto ou híbrido" nenhuma.
+- **Tamanho:** nenhuma muito longa (a maior tem 5,5 KB).
+- **Bônus:** a `linkedin-13` traz um conflito real de modelo de trabalho, ótimo caso para o `FactResolver`.
 
-- Branch `feat/monorepo-workspace`, só local (sem push).
-
-## Ação manual (HITL) antes do próximo comando
-- Nenhuma, além de **reciclar a sessão** (veja o aviso no topo).
-- Em background: HITL-003 (30 vagas), com o guia na HITL-QUEUE. Ele destrava a P0-EVL-01, os Spikes S-1, S-2 e S-4 e, por consequência, o F1-DOM-04.
+## Ações manuais (HITL), nenhuma bloqueia a P0-EVL-01
+- **HITL-016:** aprovar o ADR-002 e decidir D-S1 a D-S9 (§6 do ADR). Pode responder no mesmo prompt abaixo.
+- **HITL-017 (opcional):** cerca de 10 vagas a mais, com salário, contratos variados e dupla senioridade, no mesmo formato.
+- Em aberto, para depois: HITL-004 (Supabase), HITL-007 (Upstash) e HITL-006.
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, vamos executar a F1-API-01 (borda da API). Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
+Equipe, HITL-016: [aprovado conforme recomendação / aprovado com variações: D-S? ... / ainda não]. HITL-017: [vou coletar / dispensado]. Atuem de forma estritamente SEQUENCIAL E ATÔMICA, sem instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
 
-[Opcional] HITL-003: [concluído: N vagas / ainda não].
-
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (F1-API-01), o ADR-001 §5.1 (E0 Borda: ordem onRequest → parser → preValidation), o threat-model (SR-07, T18, T19 e T37, se houver) e o código atual de apps/api/src/presentation/build-app.ts e main.ts. Confirme pnpm 11.4.0, Node ≥ 24 e o branch limpo.
-2. [ARCHITECT] + [APPSEC]: Decidam e registrem ANTES de codar:
-   - só o parser JSON. Sem Content-Type application/json, 415. Content-Encoding diferente de identity, 415, e nenhum plugin de descompressão;
-   - bodyLimit = HTTP_BODY_MAX_BYTES (de @trampo/contracts/limits), checado pelo Content-Length e no streaming, com 413 ANTES do parse;
-   - requestTimeout e connectionTimeout explícitos (o padrão do Fastify é ilimitado), e também keepAliveTimeout e headersTimeout;
-   - trustProxy: a hospedagem ainda não foi decidida (S-5 / ADR-003). Escolham um padrão seguro (false) e a forma de configurar por ambiente, validada com Zod no main.ts, sem confiar em X-Forwarded-For por padrão;
-   - CORS com as origens EXATAS (chrome-extension://<ID> e a origem do portal) vindas do ambiente, sem curinga, sem credentials se não forem necessárias, e com preflight restrito aos métodos e headers usados. Decidam se usam @fastify/cors (proveniência, idade mínima, árvore) ou um hook próprio;
-   - o mapeamento de 413 e 415 para ApiError (PAYLOAD_GRANDE_DEMAIS e PAYLOAD_INVALIDO? Conferir o catálogo do contrato v1).
-3. [DEV]: Implemente SOMENTE a borda (presentation + main.ts + .env.example só com nomes). Não implemente JWT (F1-API-02) nem rate limit (F1-API-03).
-4. [QA_EVALS]: Valide com fastify.inject e, onde o inject não exercita o socket (Content-Length mentiroso, streaming lento, timeouts), com um servidor real em porta efêmera:
-   - 413 sem parse (prova: o handler e o parser não rodam);
-   - 415 para tipo não JSON e para gzip;
-   - CORS: origem permitida, origem negada, preflight;
-   - proto poisoning recusado;
-   - timeouts;
-   - 100% dos testes verdes; `pnpm install --frozen-lockfile` limpo; `pnpm turbo run build typecheck lint test` verde; `pnpm lint:deps` verde; `test:e2e` da extensão verde.
-5. [SCRIBE]: Marque a F1-API-01 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG (e em ADR, se houver decisão de arquitetura), faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md. Na Fase 5, avancem sozinhos só se não houver HITL e o contexto estiver seguro.
+0. [SCRIBE]: Se o HITL-016 foi respondido, registre a decisão no HITL-QUEUE, mude o status do ADR-002 (aceito, ou aceito com as variações aplicadas no texto) e faça o checkpoint no STATE.md. Não implemente o ScoringEngine nesta sessão.
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (P0-EVL-01, S-1, S-4), threat-model (T1, T2, T4, T12, SR-04) e os contratos job-facts e enums. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda.
+2. [QA_EVALS]: Escreva ../base/04-qualidade-evals/golden-dataset-spec.md:
+   - formato do caso;
+   - categorias: normal, ambígua, injection visível, injection oculta, controle negativo e armadilha de negação;
+   - método de anonimização: nomes de pessoas, e-mail, telefone e empresa quando identificar a pessoa;
+   - métricas por campo e tolerâncias do gate de CI;
+   - marcação de casos sintéticos.
+   Depois, anote os JobFacts esperados à mão para as 30 vagas de evals/golden/raw/. Os casos anonimizados versionáveis vão para evals/golden/cases/; o raw continua fora do git.
+3. [APPSEC]: Audite. Nenhum dado pessoal nos casos versionados (varredura de e-mail, telefone, CPF/CNPJ e nomes); nenhum texto de vaga colado no chat; injection sintética separada do real.
+4. [QA_EVALS] + [SCRIBE]: Se o volume pedir, divida em P0-EVL-01 parte 1 (spec e anonimização) e parte 2 (anotação). Atualize STATE, BACKLOG e SESSION-LOG, faça commit local sem push e gere o novo ./next-step.md.
 ```

@@ -2,6 +2,27 @@
 // Só `import type` de @trampo/contracts (exceção de valor: ./limits, ADR-005 D2) e arquivos do próprio
 // domínio; sem rede, relógio, aleatoriedade nem zod em runtime (preset domainPurity + dependency-cruiser).
 export {
+  DEFAULT_FACT_RESOLVER_POLICY,
+  FACT_RESOLVER_VERSION,
+  FactResolver,
+  MAX_STACK_TERMS,
+  type FactField,
+  type FactProvenance,
+  type FactResolution,
+  type FactResolverDeps,
+  type FactResolverInput,
+  type FactResolverPolicy,
+  type ResolverWarning,
+} from "./fusion/fact-resolver.js";
+export type {
+  DeterministicSignals,
+  InjectionLevel,
+  SalarySignal,
+  SetSignal,
+  SignalStrength,
+  StackMentionSignal,
+} from "./ports/deterministic-signals.js";
+export {
   JOB_TEXT_NORMALIZER_VERSION,
   JobTextNormalizer,
   type JobTextNormalizerDeps,
