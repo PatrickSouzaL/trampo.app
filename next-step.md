@@ -1,42 +1,52 @@
-# Próximo passo: P0-RUN-01 (runbook das contas de LLM)
+# Próximo passo: F1-EXT-00 (esqueleto WXT da extensão)
 
-## O que acabou de ser entregue (M3, 2026-10-18)
-- `packages/contracts` (`@trampo/contracts`):
-  - fonte **idêntica, byte a byte**, ao código verificado em 2026-10-17, extraída por script da §4 do contratos-zod (inclusive os 22 caracteres invisíveis das regexes);
-  - ESM compilado com `tsc` para `dist/`, com 7 subpath exports e zod 4.6.7 como dependência única.
-- 38 testes no Vitest, com **cobertura de 100%** (statements, branches, funções e linhas):
-  - os 21 originais, portados com diff de uma linha;
-  - 13 propriedades com fast-check, provadas por mutação;
-  - snapshot do JSON Schema;
-  - uma invariante que estava sem teste, achada pela cobertura de branches.
-- Guardrails verdes: install `--frozen-lockfile`, `turbo run build typecheck lint test` (7/7), `lint:deps` e varredura de `z.object` frouxo, `z.url()` puro e `any`.
-- Dependências novas auditadas (zod, vitest, @vitest/coverage-v8, vite, fast-check), todas com proveniência contínua e sem scripts de instalação.
-- **Incidente resolvido:** o `contratos-zod.md` foi zerado por um script da equipe e reconstruído com validação independente (detalhes no SESSION-LOG, sessão 5).
+## O que acabou de ser entregue (P0-RUN-01, 2026-10-18)
+- Runbook `../base/03-infra-runbook/llm.md`, verificado em 13 fontes oficiais de hoje. Cobre:
+  - 2FA antes de tudo;
+  - Groq com **ZDR global antes da primeira chamada**;
+  - Cloudflare com token personalizado, só Workers AI e com TTL;
+  - Google com projeto dedicado sem faturamento e chave restrita à Gemini API;
+  - revogação e rotação de cada chave;
+  - um teste em PowerShell que só imprime o código HTTP.
+- Guardrail confirmado: nenhum valor de segredo no documento. O teste foi checado pelo parser e executado só com um `.env` falso.
+- **Novo HITL-012:** os termos do Gemini gratuito proíbem enviar "personal information", e isso entra em conflito com o D-H4 (nomes "minimizados, não garantidamente removidos"). Recomendação: Gemini **fora da cadeia** nas Fases 0 e 1.
 - Branch `feat/monorepo-workspace`, só local (sem push).
 
 ## Ação manual (HITL) antes do próximo comando
-- Nenhuma ação manual obrigatória.
-- (Recomendado) Abra `02-arquitetura/contratos-zod.md` no Obsidian e confira em **File recovery** (ou no histórico do Sync) que a versão atual bate com a anterior ao incidente. A diferença esperada é só o que a M3 acrescentou.
+- **Nenhuma ação obrigatória para a F1-EXT-00.**
+- Quando puder (é pré-requisito do Spike S-1):
+  1. **HITL-002:** siga `../base/03-infra-runbook/llm.md` e responda só "HITL-002 concluído", **sem nenhum valor de chave**.
+  2. **HITL-012:** escolha uma opção: (1) Gemini fora da cadeia nas Fases 0 e 1, que é a recomendada; (2) Gemini só se o S-1 medir zero PII residual; (3) manter o D-H4.
+  3. **HITL-003:** colete as 30 vagas reais. Isso destrava a P0-EVL-01 e os Spikes S-1, S-2 e S-4.
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, vamos executar a P0-RUN-01. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos.
+Equipe, vamos executar a F1-EXT-00. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos.
 
-1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (P0-RUN-01) e HITL-QUEUE.md (HITL-002 e HITL-008). Confirme que nenhum HITL bloqueia a tarefa.
-2. [APPSEC]: Antes de escrever, confira na documentação OFICIAL e ATUAL de cada provedor (Groq, Cloudflare Workers AI e Google AI Studio):
-   - onde se liga o Zero Data Retention no Groq;
-   - como criar um token da Cloudflare com escopo só para Workers AI;
-   - onde ficam os limites do free tier no AI Studio;
-   - os termos de uso de dados de cada provedor.
-   Registre as fontes com data. Nada de memória de treino como fonte.
-3. [SCRIBE]: Escreva `../base/03-infra-runbook/llm.md` (o arquivo existe e está vazio) com:
-   - checklist verificável por provedor: criar a conta com 2FA (HITL-008), ligar o ZDR no Groq, criar o token da Cloudflare com escopo mínimo, criar a chave do AI Studio e consultar os limites;
-   - onde guardar as chaves: SÓ no `.env` local da API, fora do git e do cofre. Criar o `apps/api/.env.example` fica para a tarefa da API;
-   - revogação e rotação de cada chave;
-   - como verificar, sem expor a chave, que ela funciona (comando que não imprime o segredo).
-   Guardrail: nenhum valor de segredo no documento.
-4. [SCRIBE]: Atualize o HITL-002 na HITL-QUEUE apontando para o runbook, marque a P0-RUN-01 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG, faça o commit local se algo mudar no repositório (push NÃO autorizado) e gere o novo ./next-step.md.
+[Opcional] Respostas HITL: HITL-012: [opção 1, 2 ou 3]. HITL-002: [concluído / ainda não].
 
-Pare a execução e aguarde minha aprovação após o passo 4.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-EXT-00 e F1-EXT-01), HITL-QUEUE.md e o ADR-001 §5.0 e §5.0.1. Registre as respostas HITL, se vieram. Confirme pnpm 11.4.0, Node ≥ 24 e o branch limpo.
+2. [APPSEC]: Antes do `pnpm install`, audite as dependências novas (wxt na versão EXATA da linha 0.21.x, react, react-dom e o que mais o esqueleto exigir): idade, proveniência, scripts e mantenedor. Fixe no `catalog:` com versão exata e reutilize o vite 8.3.4 já fixado, se o WXT aceitar (se não aceitar, PARE e registre). NÃO abra exceção de minimumReleaseAge, trustPolicy ou allowBuilds sem a análise registrada.
+3. [DEV]: Execute somente a F1-EXT-00 do BACKLOG:
+   - crie `apps/extension` (`@trampo/extension`): WXT, MV3, React, entrypoints `background` e `sidepanel`, estendendo o `@trampo/config` (tsconfig strict e preset de segurança);
+   - endureça o manifesto conforme o ADR-001 §5.0.1:
+     - permissões mínimas: `activeTab`, `scripting`, `sidePanel` e `storage`;
+     - sem `host_permissions` e sem `<all_urls>`;
+     - CSP explícita no build de loja;
+     - `externally_connectable` declarado de forma explícita (D-H7);
+     - sem `default_popup`;
+     - `minimum_chrome_version`;
+   - Service Worker sem handler de `fetch`, com `openPanelOnActionClick: false` no `onInstalled`;
+   - `no-restricted-imports` no eslint.config da extensão proibindo `@trampo/contracts` (raiz) e `@trampo/contracts/user-criteria` (F-02);
+   - sem lógica de negócio, extratores ou UI de relatório: isso fica para a F1-EXT-02 em diante.
+4. [QA_EVALS]: Valide:
+   - `pnpm install --frozen-lockfile` limpo, sem scripts não autorizados (`.modules.yaml`);
+   - `pnpm turbo run build typecheck lint test` verde;
+   - `pnpm lint:deps` verde;
+   - **inspeção do manifest.json GERADO** no build de produção: permissões exatas, ausência de `host_permissions`, `<all_urls>`, `default_popup` e CSP de dev;
+   - testes negativos: um import de `@trampo/contracts/user-criteria` e um de `@trampo/contracts` na extensão FALHAM no lint e no depcruise, e depois são removidos.
+5. [SCRIBE]: Marque a F1-EXT-00 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG, faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md.
+
+Pare a execução e aguarde minha aprovação após o passo 5.
 ```
