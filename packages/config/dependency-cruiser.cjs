@@ -95,6 +95,23 @@ module.exports = {
       },
     },
     {
+      name: "application-inward-only",
+      severity: "error",
+      comment: "A aplicação não depende das camadas de fora: infrastructure, presentation e main.ts (ADR-008 D1).",
+      from: { path: "^apps/api/src/application/" },
+      to: { path: "^apps/api/src/(infrastructure/|presentation/|main\\.ts$)" },
+    },
+    {
+      name: "application-only-zod-and-contracts",
+      severity: "error",
+      comment: "Na aplicação, os únicos pacotes são zod e @trampo/contracts: sem módulos do Node nem SDKs (ADR-008 D1).",
+      from: { path: "^apps/api/src/application/" },
+      to: {
+        dependencyTypes: ["npm", "npm-dev", "npm-optional", "npm-peer", "npm-no-pkg", "npm-unknown", "core"],
+        pathNot: "(node_modules/zod/|^packages/contracts/)",
+      },
+    },
+    {
       name: "contracts-limits-leaf",
       severity: "error",
       comment: "limits não importa nada: é o que torna segura a exceção de valor do domínio (ADR-005 D2).",

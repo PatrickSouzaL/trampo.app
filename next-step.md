@@ -1,53 +1,43 @@
-# Próximo passo: F1-LLM-01, parte 1 (`LlmOutputGuard`, SR-01)
+# Próximo passo: F1-LLM-03 (`LlmProviderRouter`, com portas e fakes)
 
 > **Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.**
 > (AGENTS §2, Fase 5, e §4.4. A parada é por reciclagem de sessão, não por HITL: a próxima tarefa não exige nenhuma ação sua.)
 
-## O que acabou de ser entregue (F1-API-01, 2026-10-19, ADR-007)
+## O que acabou de ser entregue (F1-LLM-01 parte 1, 2026-10-19, ADR-008)
 
-### Borda da API (E0, SR-07)
-- **Só o parser JSON.** O `text/plain` foi removido. O 415 sai para tipo não JSON, `charset` diferente de UTF-8 e `Content-Encoding` diferente de `identity` (gzip, br e listas). A checagem roda no `onRequest`, **antes de ler o corpo**, e não há nenhum plugin de descompressão.
-- **`bodyLimit = HTTP_BODY_MAX_BYTES`:** 413 sem parse, tanto pelo Content-Length (antes de chegar um byte do corpo) quanto pela contagem no streaming chunked.
-- **Proto poisoning** (`onProtoPoisoning` e `onConstructorPoisoning`) em `error`, declarado e testado.
-- **Timeouts explícitos:**
-
-  | Prazo | Valor |
-  |---|---|
-  | headers | 5 s |
-  | request | 10 s |
-  | conexão | 30 s |
-  | keep-alive | 5 s |
-
-  `connectionsCheckingInterval` ficou em 1 s, porque o padrão do Node, de 30 s, atrasaria os prazos. Os erros de socket (408, 431 e 400) saem como `ApiError`.
-- **`trustProxy`:** `false` por padrão. `TRUST_PROXY` aceita só IP ou CIDR, validado com Zod no `main.ts`, e recusa `true`, `*`, `/0` e contagem de saltos.
-- **CORS por hook próprio** (sem dependência nova). As origens exatas vêm de `CORS_ALLOWED_ORIGINS`, validadas na subida:
-  - origem fora da lista dá 403 na borda;
-  - sem `credentials`;
-  - preflight só com GET, POST e PUT e com `authorization` e `content-type`;
-  - as respostas de erro também levam CORS.
+### `LlmOutputGuard` (E5)
+- **Onde mora:** `apps/api/src/application/llm/llm-output-guard.ts`. O domínio não pode rodar zod, e o guard é política, não adapter.
+- **Fronteira nova no depcruise:** `application` não importa `infrastructure`, `presentation` nem `main.ts`, e só usa os pacotes `zod` e `@trampo/contracts`.
+- **Pipeline:**
+  1. 8 KiB em bytes UTF-8, **antes do parse**;
+  2. `JSON.parse` com *reviver* que recusa `__proto__` e `constructor`, inclusive escapados (sem `eval` e sem dependência nova);
+  3. pré-saneamento **contado**;
+  4. `JobFactsSchema` estrito.
+- **Resultado fechado:** `ok` com os fatos e o `LlmOutputSanitization`, ou falha com **só o motivo** (`resposta_grande_demais`, `json_invalido`, `poluicao_de_prototipo`, `schema_invalido`). O guard não tem logger nem parâmetro de perfil e nunca lança.
+- **Saneamento:**
+  - texto livre (`title`, `city`): NFKC → espaços → invisíveis → `<>` → corte → remoção do token com URL ou esquema → NFKC final. Vazio vira `null`;
+  - tags com URL, invisível ou fora do padrão saem **inteiras**;
+  - duplicatas e cortes de array são contados;
+  - nenhuma conversão de tipo;
+  - `injectionSignal` (URL, invisível ou marcação) fica pronto para o SR-08 e para o aviso `possivel_prompt_injection`.
+- Versão `g1`, que entra no `extractorVersion` do cache.
 
 ### Qualidade
-- API com **224 testes**, 90 novos, 9 deles em servidor real numa porta efêmera:
-  - Content-Length mentiroso para mais e para menos;
-  - chunked;
-  - slowloris;
-  - socket ocioso;
-  - keep-alive;
-  - HTTP malformado;
-  - headers grandes demais.
-- **18/18** mutantes mortos.
-- **Instabilidade introduzida e corrigida:** com os testes novos, os testes de relógio do SR-09 passaram a falhar no turbo paralelo, por disputa de CPU (de 1 a 28 ms parado, até 557 ms sob carga). Agora o SR-09 mede o **melhor de 3**, com o **mesmo orçamento de 200 ms**, e os projetos do Vitest rodam em sequência (domínio antes da borda).
-- 15/15 tarefas do turbo **em paralelo, três vezes seguidas**; `--frozen-lockfile` limpo; depcruise verde; e2e da extensão 10/10.
+- API com **322 testes**, 98 novos:
+  - saídas maliciosas: JSON gigante, *proto poisoning*, chaves extras, URLs e `javascript:`, invisíveis, `1e308`, `1e400`, `"NaN"`, arrays enormes, tipos trocados e JSON truncado;
+  - 5 propriedades: nunca lança; ok passa no schema; ok sem URL; idempotente; a falha não ecoa a resposta. Um contador prova que elas não são vazias.
+- Cobertura de **100%** (123/123 ramos). Mutação: **20/20** não equivalentes; o 21º era equivalente e o código foi removido.
+- 15/15 tarefas do turbo **três vezes**; `--frozen-lockfile` limpo; depcruise verde; e2e da extensão 10/10.
 
 ### Branch
-- O `feat/monorepo-workspace` já tinha sido mergeado no `master` pelo PR #1. Esta tarefa foi para o novo branch local **`feat/api-borda`**, com commit local e **sem push**.
+- Commit local no **`feat/api-borda`** (junto com a F1-API-01), **sem push**.
 
 ## Fila depois desta tarefa
-- **F1-LLM-01, parte 2 (adapter do Groq):** depende do S-1 (modelo, `reasoning_effort` e tetos de token medidos).
-- **F1-API-02:** HITL-004 (Supabase). **F1-API-03:** HITL-007 (Upstash).
-- **F1-DOM-04:** ⛔ pelo S-4 (HITL-003). **F1-DOM-02:** exige o ADR-002, um marco de aprovação humana.
+- **F1-LLM-01 parte 2 (adapter do Groq e SR-01)** e **F1-LLM-02 (Cloudflare):** dependem do S-1, que depende do HITL-003.
+- **F1-API-02 / F1-DB-01:** HITL-004. **F1-API-03 / F1-CACHE-01:** HITL-007.
+- **F1-DOM-04:** ⛔ pelo S-4. **F1-DOM-02:** exige o ADR-002, um marco humano.
 
-Por isso, a próxima tarefa é o `LlmOutputGuard`, que não depende de provedor nem de chave.
+Por isso, a próxima tarefa é o **router**. Ele não depende de provedor nem de chave e pode ser provado com *fakes*.
 
 ## Ação manual (HITL) antes do próximo comando
 - Nenhuma, além de **reciclar a sessão** (veja o aviso no topo).
@@ -57,23 +47,23 @@ Por isso, a próxima tarefa é o `LlmOutputGuard`, que não depende de provedor 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, vamos executar a F1-LLM-01 parte 1 (LlmOutputGuard, E5). Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
+Equipe, vamos executar a F1-LLM-03 (LlmProviderRouter, Camada 3). Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
 
 HITL-003: [em andamento / concluído: N vagas]
 
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (F1-LLM-01), o ADR-001 (E5 Guarda de saída e §5.5), o contratos-zod (JobFactsSchema e safeText), o threat-model (SR-01, T1, T2, T3, T17 e a regra de remover URL dos campos de texto) e o código atual de apps/api/src (domínio e ports). Confirme pnpm 11.4.0, Node ≥ 24 e o branch (feat/api-borda ou o que o humano indicar) limpo.
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (F1-LLM-03), o ADR-001 §5.5 (tabela do LlmProviderRouter, porta JobFactsExtractor e ExtractionOutcome), o ADR-008 (LlmOutputGuard e injectionSignal), o threat-model (T7, T28, T30 e T39) e o código atual de apps/api/src (domain e application). Confirme pnpm 11.4.0, Node ≥ 24 e o branch (feat/api-borda ou o que o humano indicar) limpo.
 2. [ARCHITECT] + [APPSEC]: Decidam e registrem em ADR ANTES de codar:
-   - onde o guard mora (domínio puro ou application) e a sua porta de entrada: string bruta do provedor → resultado tipado (ok com JobFacts | falha com motivo fechado);
-   - teto de tamanho em bytes da resposta ANTES do parse;
-   - parse seguro (secure-json-parse ou equivalente, com __proto__ e constructor em erro), sem eval;
-   - pré-saneamento: remover URLs e esquemas (javascript:, data:) dos campos de texto livre de saída, reaplicar o NFKC e os invisíveis e limitar strings e arrays;
-   - validação com o JobFactsSchema estrito (chave extra = falha), sem coerção silenciosa;
-   - nenhum dado do perfil do usuário no guard (LGPD) e nenhum texto do LLM em log.
-3. [DEV]: Implemente SOMENTE o guard e os seus testes. Não implemente o adapter do Groq (parte 2, depende do S-1) nem o router (F1-LLM-03).
+   - as portas em application: JobFactsExtractor (por provedor), Clock (relógio monotônico injetado), QuotaLedger e o estado do circuit breaker (interfaces, sem Redis);
+   - prazo global (ANALYSIS_DEADLINE_MS = 12 s), por tentativa min(10 s, restante − 300 ms), sem tentar com menos de 2,5 s restantes;
+   - orçamento de NO MÁXIMO 2 chamadas de LLM por análise, somando retry e troca de provedor;
+   - 429 troca de provedor na hora e respeita Retry-After (com teto); timeout e erro do provedor; circuit breaker por provedor; breaker diário global;
+   - a cadeia vem de configuração validada (groq → cloudflare_workers_ai; google_ai_studio recusado nas Fases 0 e 1, HITL-012), e todo resultado ok passou pelo LlmOutputGuard;
+   - resultado fechado (ExtractionOutcome), sem texto do LLM em log e sem dado de perfil.
+3. [DEV]: Implemente SOMENTE o router, as portas e fakes em memória para os testes. Não implemente adapters HTTP (Groq/Cloudflare dependem do S-1) nem o QuotaLedger em Redis (HITL-007).
 4. [QA_EVALS]:
-   - Testes com saídas maliciosas: JSON gigante, proto poisoning, chaves extras, URLs e javascript: nos textos, invisíveis, números absurdos (1e308, NaN como string), arrays enormes, tipos trocados e JSON truncado.
-   - Propriedades no fast-check: nunca lança, saída ok sempre passa no JobFactsSchema e nunca contém URL.
+   - Testes com relógio falso: prazo global, orçamento de 2 chamadas nunca excedido, 429 com troca, Retry-After, breaker abrindo e fechando, cota esgotada e cadeia vazia ou inválida.
+   - Propriedades no fast-check: para qualquer sequência de respostas dos provedores, nunca mais de 2 chamadas, nunca passa do prazo e nunca lança.
    - Cobertura de 100% e mutação.
    - `pnpm install --frozen-lockfile` limpo; `pnpm turbo run build typecheck lint test` verde; `pnpm lint:deps` verde; `test:e2e` da extensão verde.
-5. [SCRIBE]: Marque a F1-LLM-01 parte 1 no STATE.md (checkpoint imediato), registre no SESSION-LOG e em ADR, faça o commit local (push NÃO autorizado) e gere o novo ./next-step.md. Na Fase 5, avancem sozinhos só se não houver HITL e o contexto estiver seguro.
+5. [SCRIBE]: Marque a F1-LLM-03 no STATE.md (checkpoint imediato), registre no SESSION-LOG e em ADR, faça o commit local (push NÃO autorizado) e gere o novo ./next-step.md. Na Fase 5, avancem sozinhos só se não houver HITL e o contexto estiver seguro.
 ```

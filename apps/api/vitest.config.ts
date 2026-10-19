@@ -8,7 +8,7 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: "dominio", include: ["test/domain/**/*.test.ts", "test/infrastructure/**/*.test.ts"], sequence: { groupOrder: 0 } },
+        test: { name: "dominio", include: ["test/domain/**/*.test.ts", "test/application/**/*.test.ts", "test/infrastructure/**/*.test.ts"], sequence: { groupOrder: 0 } },
       },
       {
         extends: true,
@@ -17,8 +17,9 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
-      // Domínio inteiro (AGENTS §1.5) e o adapter de hash que a chave de cache usa (ADR-005 D1).
-      include: ["src/domain/**/*.ts", "src/infrastructure/crypto/**/*.ts"],
+      // Domínio inteiro (AGENTS §1.5), a aplicação (LlmOutputGuard, ADR-008) e o adapter de hash que a
+      // chave de cache usa (ADR-005 D1).
+      include: ["src/domain/**/*.ts", "src/application/**/*.ts", "src/infrastructure/crypto/**/*.ts"],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
     },
