@@ -37,6 +37,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# vagas reais brutas (HITL-003): podem conter nomes, e-mails e telefones de terceiros. Só entra
+# no git o que passar pela anonimização da P0-EVL-01.
+evals/golden/raw/
+
 # env files: segredos nunca no git; só o modelo .env.example é versionado
 .env*
 !.env.example
