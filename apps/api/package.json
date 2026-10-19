@@ -1,0 +1,30 @@
+{
+  "name": "@trampo/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API do Trampo: Fastify 5 sobre um domínio puro (ADR-001 §7). Roda JS compilado.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint",
+    "test": "vitest run --coverage",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@fastify/type-provider-zod": "catalog:",
+    "@trampo/contracts": "workspace:*",
+    "fastify": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@trampo/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "fast-check": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

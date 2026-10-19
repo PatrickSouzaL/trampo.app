@@ -1,0 +1,81 @@
+# Workspace trampo.app (ADR-001 §10). Políticas de cadeia de suprimentos: threat-model T26.
+packages:
+  - apps/*
+  - packages/*
+  - evals
+
+# Versões EXATAS das dependências compartilhadas (sem ^/~). Atualizar só com changelog lido (T40).
+catalog:
+  next: 16.4.2
+  react: 19.3.0
+  react-dom: 19.3.0
+  eslint-config-next: 16.4.2
+  eslint: 9.39.5
+  typescript: 5.9.3
+  tailwindcss: 4.3.3
+  '@tailwindcss/turbopack': 4.3.3
+  # Tipos da menor versão aceita em engines.node (>=24), para não usar API exclusiva do Node 26.
+  '@types/node': 24.19.2
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0
+  turbo: 2.11.8
+  # Lint e fronteiras de import (M2.2, threat-model SR-03 e SR-13). typescript-eslint e
+  # eslint-plugin-react nas mesmas versões que o eslint-config-next já traz (uma instância de plugin só).
+  typescript-eslint: 8.71.2
+  eslint-plugin-react: 7.37.5
+  eslint-plugin-no-unsanitized: 4.1.5
+  eslint-plugin-regexp: 3.3.1
+  dependency-cruiser: 18.6.0
+  # Contratos (M3). zod na versão em que o contrato foi verificado (contratos-zod P10: >= 4.6.6, exata).
+  zod: 4.6.7
+  # Testes. vite é peer obrigatório do vitest 5 e fica declarado de forma explícita (ADR-001 §10.2).
+  vitest: 5.0.5
+  '@vitest/coverage-v8': 5.0.5
+  vite: 8.3.4
+  fast-check: 4.10.2
+  # Extensão MV3 (F1-EXT-00). WXT ainda é pré-1.0: versão EXATA (ADR-001 §10.2). Usa o vite 8.3.4 acima.
+  wxt: 0.21.4
+  '@wxt-dev/module-react': 1.2.2
+  # E2E da extensão (F1-EXT-01). Só o core, sem dependências e sem download de navegador: usa o
+  # Edge/Chrome instalado, com Extensions.loadUnpacked via CDP.
+  playwright-core: 1.64.1
+  # API (F1-API-00). fastify sem proveniência em nenhuma versão (publicação manual do mantenedor):
+  # não há regressão. type-provider-zod ganhou proveniência na 1.0.1.
+  fastify: 5.12.7
+  '@fastify/type-provider-zod': 1.0.1
+
+# Peers usados SÓ nos .d.ts do type-provider-zod (o runtime nunca importa swagger nem openapi-types).
+# Marcados como opcionais para o autoInstallPeers não instalar a árvore do Swagger. Revisão [APPSEC]:
+# SESSION-LOG 2026-10-19 (10).
+packageExtensions:
+  '@fastify/type-provider-zod@1.0.1':
+    peerDependenciesMeta:
+      '@fastify/swagger':
+        optional: true
+      openapi-types:
+        optional: true
+
+# Scripts de instalação de dependências: proibidos por padrão. Cada exceção é revisada pelo [APPSEC].
+strictDepBuilds: true
+allowBuilds:
+  # NEGADO (false). O postinstall (napi-postinstall) só baixa o binário nativo da rede se ele faltar;
+  # o binário da plataforma já vem como optionalDependency, com integridade no lockfile. Transitiva do
+  # eslint-config-next (via eslint-import-resolver-typescript). Revisão [APPSEC]: SESSION-LOG 2026-10-18 (3).
+  unrs-resolver: false
+
+# Pacote publicado há menos de 3 dias não é instalado (janela para detectar versão comprometida).
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - '@trampo/*'
+
+# Subdependências só do registry (sem git/tarball arbitrário) e sem regressão de proveniência.
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
+# Exceções SEMPRE com versão exata e justificativa do [APPSEC] (registro: SESSION-LOG 2026-10-18).
+trustPolicyExclude:
+  # Backport da linha 3.x publicado 1 dia após o 4.3.3 (com proveniência) pelo mesmo mantenedor;
+  # 2025-04-21, sem script de instalação. Transitiva do eslint-config-next.
+  - eslint-import-resolver-typescript@3.10.1
+  # Backport da correção de ReDoS (CVE-2022-25883) para a linha 6.x, 3 dias após o 7.5.4;
+  # 2023-07-10, sem script de instalação. Excluí-lo traria de volta uma versão vulnerável.
+  - semver@6.3.1

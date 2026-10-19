@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/turbo/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "outputs": [".output/**"],
+      "env": ["TRAMPO_API_ORIGIN"]
+    },
+    "test": {
+      "dependsOn": ["^build", "build"]
+    }
+  }
+}

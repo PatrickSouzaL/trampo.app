@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "seniorityLevels": {
+      "minItems": 0,
+      "maxItems": 3,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "estagio",
+          "junior",
+          "pleno",
+          "senior",
+          "especialista",
+          "lideranca"
+        ]
+      }
+    },
+    "yearsExperienceMin": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 40
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workModels": {
+      "minItems": 0,
+      "maxItems": 3,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "remoto",
+          "hibrido",
+          "presencial"
+        ]
+      }
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "city": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "stateUf": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "AC",
+                    "AL",
+                    "AP",
+                    "AM",
+                    "BA",
+                    "CE",
+                    "DF",
+                    "ES",
+                    "GO",
+                    "MA",
+                    "MT",
+                    "MS",
+                    "MG",
+                    "PA",
+                    "PB",
+                    "PR",
+                    "PE",
+                    "PI",
+                    "RJ",
+                    "RN",
+                    "RS",
+                    "RO",
+                    "RR",
+                    "SC",
+                    "SP",
+                    "SE",
+                    "TO"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "countryIso2": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "city",
+            "stateUf",
+            "countryIso2"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "salary": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "min": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10000000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10000000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "currency": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "BRL",
+                    "USD",
+                    "EUR"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "period": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "hora",
+                    "mes",
+                    "ano"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "min",
+            "max",
+            "currency",
+            "period"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "contractTypes": {
+      "minItems": 0,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "clt",
+          "pj",
+          "cooperado",
+          "estagio",
+          "temporario"
+        ]
+      }
+    },
+    "stackRequired": {
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[\\p{L}\\p{N}.][\\p{L}\\p{N} +#.\\/_-]{0,39}$"
+      }
+    },
+    "stackNiceToHave": {
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[\\p{L}\\p{N}.][\\p{L}\\p{N} +#.\\/_-]{0,39}$"
+      }
+    },
+    "benefits": {
+      "minItems": 0,
+      "maxItems": 15,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "plano_saude",
+          "plano_odontologico",
+          "vale_refeicao",
+          "vale_alimentacao",
+          "auxilio_home_office",
+          "auxilio_educacao",
+          "bem_estar_academia",
+          "plr_bonus",
+          "participacao_societaria",
+          "previdencia_privada",
+          "seguro_vida",
+          "auxilio_creche",
+          "horario_flexivel",
+          "folga_aniversario",
+          "outro"
+        ]
+      }
+    },
+    "languageRequirements": {
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "ingles",
+              "espanhol",
+              "frances",
+              "alemao",
+              "italiano",
+              "mandarim",
+              "japones",
+              "portugues",
+              "outro"
+            ]
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "basico",
+                  "intermediario",
+                  "avancado",
+                  "fluente",
+                  "nativo"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "language",
+          "level",
+          "required"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "redFlagSignals": {
+      "minItems": 0,
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "salario_omitido",
+          "escopo_excessivo",
+          "sobreaviso_nao_remunerado",
+          "teste_tecnico_longo",
+          "multiplas_funcoes",
+          "linguagem_vaga"
+        ]
+      }
+    },
+    "extractionConfidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "title",
+    "seniorityLevels",
+    "yearsExperienceMin",
+    "workModels",
+    "location",
+    "salary",
+    "contractTypes",
+    "stackRequired",
+    "stackNiceToHave",
+    "benefits",
+    "languageRequirements",
+    "redFlagSignals",
+    "extractionConfidence"
+  ],
+  "additionalProperties": false
+}

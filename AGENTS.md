@@ -66,11 +66,11 @@ Sempre que o usuário iniciar uma sessão (ou pedir para executar o `./next-step
 4. **[FASE 4 - PERSISTÊNCIA NO OBSIDIAN (SSOT)]:**
    - `[SCRIBE]` atualiza `../base/00-orquestracao/STATE.md` (progresso atual), registra o que foi feito em `../base/00-orquestracao/SESSION-LOG.md` e documenta decisões em `../base/02-arquitetura/ADRs/`.
    - Se uma etapa futura exigir ação humana (ex: criar conta no Supabase, rodar migration SQL, gerar API Key da Groq), o `[SCRIBE]` cria o guia passo a passo em `../base/03-infra-runbooks/` e adiciona o item pendente em `../base/00-orquestracao/HITL-QUEUE.md`.
-5. **[FASE 5 - GERAÇÃO DO PRÓXIMO PASSO (`./next-step.md`)]:**
-   - Antes de encerrar sua resposta no terminal, o `[SCRIBE]` DEVE sobrescrever o arquivo `./next-step.md` na raiz de `trampo.app` contendo:
-     1. O resumo do que acabou de ser entregue.
-     2. Qualquer ação manual (HITL) que o humano precise fazer antes do próximo comando (ou "Nenhuma ação manual necessária").
-     3. O **Prompt Exato (Copy-Paste)** que o humano deve enviar para o Claude/Antigravity iniciar a próxima etapa lógica do projeto.
+5. **[FASE 5 - GERAÇÃO DO PRÓXIMO PASSO E LOOP AUTÔNOMO]:**
+   - O `[SCRIBE]` DEVE sobrescrever o arquivo `./next-step.md` na raiz de `trampo.app` contendo: (1) O resumo do que acabou de ser entregue e (2) O próximo prompt lógico da esteira.
+   - **Avaliação de Continuidade (Continuous Loop):** O `[ORCHESTRATOR]` avalia as dependências operacionais para decidir se paralisa ou auto-alimenta a esteira.
+     - **[PARADA OBRIGATÓRIA]:** SE o próximo passo exigir uma Ação Externa do Humano (qualquer instrução manual ou item no `HITL-QUEUE.md`) OU se a sessão estiver com alto consumo de tokens acumulados (risco iminente de *Context Collapse* / Corrupção de Estado), PARE a execução imediatamente e devolva o controle ao terminal.
+     - **[AVANÇO AUTÔNOMO]:** SE NÃO houver dependência de ação humana E a janela de contexto estiver segura, o `[ORCHESTRATOR]` possui autorização (*Clearance*) para prosseguir. Ele deve auto-injetar o prompt do `next-step.md` e reiniciar o ciclo autonomamente a partir da Fase 1, relatando obrigatoriamente no terminal: *"HITL não exigido e Contexto Seguro. Avançando automaticamente para a próxima tarefa do Marco."*
 
 ---
 

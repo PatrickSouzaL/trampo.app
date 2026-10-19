@@ -1,0 +1,14 @@
+{
+  // Ordem importa: a base strict do @trampo/config vem por último e prevalece sobre o que o WXT gera.
+  "extends": ["./.wxt/tsconfig.json", "@trampo/config/tsconfig.base.json"],
+  "compilerOptions": {
+    // A base tem só ES2024 (sem DOM); a extensão roda em páginas e no Service Worker.
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    // Sem tipos globais automáticos: os do Node (process, Buffer) não existem no navegador.
+    "types": [],
+    "noEmit": true
+  },
+  // Os testes rodam no Node e têm perfil próprio (test/tsconfig.json).
+  "exclude": ["node_modules", ".output", "test", "vitest.config.ts"]
+}
