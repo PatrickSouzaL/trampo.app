@@ -50,3 +50,20 @@ export type {
 export type { CircuitPhase, ProviderState, ProviderStateStore } from "./ports/provider-state-store.js";
 export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
 export type { Random } from "./ports/random.js";
+export {
+  LlmExtractionEventSchema,
+  TELEMETRY_LATENCY_MAX_MS,
+  TELEMETRY_STEPS_MAX,
+  TelemetryEventSchema,
+  type LlmExtractionEvent,
+  type Telemetry,
+  type TelemetryEvent,
+} from "./ports/telemetry.js";
+export {
+  METRIC_CATALOG,
+  llmExtractionEvent,
+  telemetryMetricSamples,
+  type ExtractionTelemetryContext,
+  type MetricName,
+  type MetricSample,
+} from "./telemetry/extraction-telemetry.js";

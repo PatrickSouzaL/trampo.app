@@ -5,18 +5,22 @@ import { randomUUID } from "node:crypto";
 
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "@fastify/type-provider-zod";
 import { HTTP_BODY_MAX_BYTES } from "@trampo/contracts/limits";
-import Fastify, { type FastifyServerOptions } from "fastify";
+import Fastify from "fastify";
 
 import { apiError } from "./api-error.js";
 import { edgeClientErrorHandler } from "./edge/client-error.js";
 import { createCorsHook } from "./edge/cors.js";
 import { mediaTypeHook } from "./edge/media-type.js";
 import { EDGE_TIMEOUTS, type EdgeTimeouts } from "./edge/timeouts.js";
+import { createLoggerOptions, type LoggerConfig } from "./logging/log-policy.js";
 import { healthRoutes } from "./routes/health.js";
 
 export interface BuildAppOptions {
-  /** `false` nos testes; em produção, JSON do pino com os serializers mínimos abaixo. */
-  readonly logger?: FastifyServerOptions["logger"];
+  /**
+   * `false` desliga o log. Senão, vale a lista fechada do ADR-010, que não é configurável: só o nível e o
+   * destino mudam (os testes do SR-12 capturam as linhas pelo `stream`).
+   */
+  readonly logger?: false | LoggerConfig;
   /** Origens exatas de navegador (ADR-007 D6). Padrão: nenhuma. */
   readonly corsAllowedOrigins?: readonly string[];
   /** IPs ou CIDRs dos saltos de proxy reais (ADR-007 D5). Padrão: `false` (ignora X-Forwarded-For). */
@@ -25,34 +29,22 @@ export interface BuildAppOptions {
   readonly timeouts?: Partial<EdgeTimeouts>;
 }
 
-/** Log de requisição sem IP, sem query string e sem headers (threat-model T23; ADR-001 §5.9). */
-const MINIMAL_SERIALIZERS = {
-  req: (req: { id: string; method: string; routeOptions?: { url?: string | undefined } }) => ({
-    id: req.id,
-    method: req.method,
-    route: req.routeOptions?.url ?? "rota_desconhecida",
-  }),
-  res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
-};
-
 /** Qualquer valor pode ser lançado: lê só os campos que importam, sem confiar no tipo. */
-function inspectThrown(thrown: unknown): { statusCode: number; isValidation: boolean; name: string; code: string | undefined } {
+function inspectThrown(thrown: unknown): { statusCode: number; isValidation: boolean } {
   const fields: Record<string, unknown> = typeof thrown === "object" && thrown !== null ? { ...thrown } : {};
-  const name = thrown instanceof Error ? thrown.name : "nao_error";
   const status = fields["statusCode"];
   return {
     statusCode: typeof status === "number" && Number.isInteger(status) ? status : 500,
     isValidation: fields["validation"] !== undefined,
-    name,
-    code: typeof fields["code"] === "string" ? fields["code"] : undefined,
   };
 }
 
 export function buildApp(options: BuildAppOptions = {}) {
   const timeouts: EdgeTimeouts = { ...EDGE_TIMEOUTS, ...options.timeouts };
+  // Conjunto fechado das rotas registradas: só elas aparecem no campo `route` do log (ADR-010 D1).
+  const knownRoutes = new Set<string>();
   const app = Fastify({
-    // base: null tira hostname e pid de toda linha (o nome da máquina não vai para o provedor de logs).
-    logger: options.logger ?? { level: "info", base: null, serializers: MINIMAL_SERIALIZERS },
+    logger: options.logger === false ? false : createLoggerOptions(options.logger ?? {}, knownRoutes),
     // O id de correlação é sempre do servidor (UUID): o header do cliente é ignorado.
     genReqId: () => randomUUID(),
     requestIdHeader: false,
@@ -72,6 +64,9 @@ export function buildApp(options: BuildAppOptions = {}) {
     },
     clientErrorHandler: edgeClientErrorHandler,
   }).withTypeProvider<ZodTypeProvider>();
+  app.addHook("onRoute", (route) => {
+    knownRoutes.add(route.url);
+  });
 
   // Só o parser JSON (secure-json-parse) fica registrado: text/plain sai (ADR-007 D1).
   app.removeContentTypeParser("text/plain");
@@ -101,8 +96,8 @@ export function buildApp(options: BuildAppOptions = {}) {
             ? "PAYLOAD_INVALIDO"
             : "ERRO_INTERNO";
     if (code === "ERRO_INTERNO") {
-      // Detalhe só no log do servidor (nome e código do erro), nunca na resposta.
-      request.log.error({ errName: e.name, errCode: e.code }, "erro interno");
+      // Detalhe só no log do servidor (tipo e código do erro, pela lista fechada), nunca na resposta.
+      request.log.error({ err: error }, "erro_interno");
     }
     // 413 e 415 mantêm o status HTTP: o contrato v1 não tem código próprio para 415 (ADR-007 D7).
     const keepStatus = e.statusCode === 413 || e.statusCode === 415;
