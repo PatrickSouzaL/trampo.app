@@ -36,6 +36,9 @@ catalog:
   # Extensão MV3 (F1-EXT-00). WXT ainda é pré-1.0: versão EXATA (ADR-001 §10.2). Usa o vite 8.3.4 acima.
   wxt: 0.21.4
   '@wxt-dev/module-react': 1.2.2
+  # E2E da extensão (F1-EXT-01). Só o core, sem dependências e sem download de navegador: usa o
+  # Edge/Chrome instalado, com Extensions.loadUnpacked via CDP.
+  playwright-core: 1.64.1
 
 # Scripts de instalação de dependências: proibidos por padrão. Cada exceção é revisada pelo [APPSEC].
 strictDepBuilds: true
