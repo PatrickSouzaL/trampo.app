@@ -1,9 +1,13 @@
 // E1 Normalização (ADR-001 §5.2; ADR-005). Domínio puro: o hash e o corte em code points chegam por
 // injeção; os tetos vêm de @trampo/contracts/limits, a única exceção de valor no domínio (ADR-005 D2).
 import { JOB_TEXT_MAX_CHARS, JOB_TITLE_MAX_CHARS } from "@trampo/contracts/limits";
-import type { truncateCodePoints } from "@trampo/contracts/primitives";
-
 import type { TextHasher } from "../ports/text-hasher.js";
+import {
+  DependencyContractError,
+  countCodePoints,
+  truncateWithinCeiling,
+  type TruncateCodePoints,
+} from "../text/code-points.js";
 import { neutralizeDelimiters } from "./delimiters.js";
 import { iterateToFixedPoint } from "./fixed-point.js";
 import { removeInvisibleCharacters } from "./invisible-characters.js";
@@ -52,12 +56,7 @@ export interface NormalizedJobTitle {
 export interface JobTextNormalizerDeps {
   readonly hasher: TextHasher;
   /** A função do contrato, a mesma da borda e da extensão (ADR-005 D3). */
-  readonly truncateCodePoints: typeof truncateCodePoints;
-}
-
-/** Uma dependência injetada violou o próprio contrato. O normalizador falha fechado. */
-export class NormalizerDependencyError extends Error {
-  override readonly name = "NormalizerDependencyError";
+  readonly truncateCodePoints: TruncateCodePoints;
 }
 
 interface PassStats {
@@ -70,12 +69,6 @@ interface PassStats {
 }
 
 const SHA256_HEX = /^[a-f0-9]{64}$/u;
-const ASTRAL = /[\u{10000}-\u{10FFFF}]/gu;
-
-/** Tamanho em code points de um texto bem formado (a unidade de JOB_TEXT_MAX_CHARS). */
-export function countCodePoints(text: string): number {
-  return text.replace(ASTRAL, "_").length;
-}
 
 export class JobTextNormalizer {
   readonly #deps: JobTextNormalizerDeps;
@@ -88,7 +81,7 @@ export class JobTextNormalizer {
   normalize(raw: string): NormalizedJobText {
     const { text, signals } = this.#run(raw, JOB_TEXT_MAX_CHARS, false);
     const textHash = this.#deps.hasher.sha256Hex(text);
-    if (!SHA256_HEX.test(textHash)) throw new NormalizerDependencyError("TextHasher devolveu um sha256 inválido.");
+    if (!SHA256_HEX.test(textHash)) throw new DependencyContractError("TextHasher devolveu um sha256 inválido.");
     return { text, textHash, normalizerVersion: JOB_TEXT_NORMALIZER_VERSION, signals };
   }
 
@@ -151,10 +144,6 @@ export class JobTextNormalizer {
   }
 
   #truncate(text: string, maxChars: number): string {
-    const cut = this.#deps.truncateCodePoints(text, maxChars);
-    if (countCodePoints(cut) > maxChars) {
-      throw new NormalizerDependencyError("truncateCodePoints devolveu mais code points que o teto.");
-    }
-    return cut;
+    return truncateWithinCeiling(this.#deps.truncateCodePoints, text, maxChars);
   }
 }

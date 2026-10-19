@@ -4,8 +4,8 @@ import { JOB_TEXT_MAX_CHARS, JOB_TITLE_MAX_CHARS } from "@trampo/contracts/limit
 import { VersionTagSchema, truncateCodePoints } from "@trampo/contracts/primitives";
 import { describe, expect, test } from "vitest";
 
-import { JOB_TEXT_NORMALIZER_VERSION, JobTextNormalizer, NormalizerDependencyError } from "../../src/domain/index.js";
-import { countCodePoints } from "../../src/domain/normalization/job-text-normalizer.js";
+import { DependencyContractError, JOB_TEXT_NORMALIZER_VERSION, JobTextNormalizer } from "../../src/domain/index.js";
+import { countCodePoints } from "../../src/domain/text/code-points.js";
 import { nodeTextHasher } from "../../src/infrastructure/crypto/node-text-hasher.js";
 
 const normalizer = new JobTextNormalizer({ hasher: nodeTextHasher, truncateCodePoints });
@@ -246,12 +246,12 @@ describe("titleHint (revisão M1.6, F-05)", () => {
 describe("dependências injetadas: falha fechado (ADR-005 D1 e D3)", () => {
   test("TextHasher com saída inválida", () => {
     const broken = new JobTextNormalizer({ hasher: { sha256Hex: () => "XYZ" }, truncateCodePoints });
-    expect(() => broken.normalize("vaga")).toThrow(NormalizerDependencyError);
+    expect(() => broken.normalize("vaga")).toThrow(DependencyContractError);
   });
 
   test("truncateCodePoints que não corta", () => {
     const broken = new JobTextNormalizer({ hasher: nodeTextHasher, truncateCodePoints: (value) => value });
-    expect(() => broken.normalize("a".repeat(JOB_TEXT_MAX_CHARS + 1))).toThrow(NormalizerDependencyError);
+    expect(() => broken.normalize("a".repeat(JOB_TEXT_MAX_CHARS + 1))).toThrow(DependencyContractError);
   });
 });
 

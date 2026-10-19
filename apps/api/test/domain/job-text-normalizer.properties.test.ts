@@ -6,7 +6,7 @@ import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
 import { JobTextNormalizer } from "../../src/domain/index.js";
-import { countCodePoints } from "../../src/domain/normalization/job-text-normalizer.js";
+import { countCodePoints } from "../../src/domain/text/code-points.js";
 import { nodeTextHasher } from "../../src/infrastructure/crypto/node-text-hasher.js";
 
 const normalizer = new JobTextNormalizer({ hasher: nodeTextHasher, truncateCodePoints });
