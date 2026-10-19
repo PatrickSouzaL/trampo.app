@@ -33,6 +33,9 @@ catalog:
   '@vitest/coverage-v8': 5.0.5
   vite: 8.3.4
   fast-check: 4.10.2
+  # Extensão MV3 (F1-EXT-00). WXT ainda é pré-1.0: versão EXATA (ADR-001 §10.2). Usa o vite 8.3.4 acima.
+  wxt: 0.21.4
+  '@wxt-dev/module-react': 1.2.2
 
 # Scripts de instalação de dependências: proibidos por padrão. Cada exceção é revisada pelo [APPSEC].
 strictDepBuilds: true

@@ -1,0 +1,31 @@
+{
+  "name": "@trampo/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Extensão MV3 (Chrome/Edge): dumb client com Side Panel (AGENTS §1.2; ADR-001 §5.0).",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "typecheck": "wxt prepare && tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
+    "lint": "wxt prepare && eslint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@trampo/contracts": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@trampo/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@wxt-dev/module-react": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wxt": "catalog:"
+  }
+}

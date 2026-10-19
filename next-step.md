@@ -1,52 +1,49 @@
-# Próximo passo: F1-EXT-00 (esqueleto WXT da extensão)
+# Próximo passo: F1-EXT-01 (teste de CSP no navegador real)
 
-## O que acabou de ser entregue (P0-RUN-01, 2026-10-18)
-- Runbook `../base/03-infra-runbook/llm.md`, verificado em 13 fontes oficiais de hoje. Cobre:
-  - 2FA antes de tudo;
-  - Groq com **ZDR global antes da primeira chamada**;
-  - Cloudflare com token personalizado, só Workers AI e com TTL;
-  - Google com projeto dedicado sem faturamento e chave restrita à Gemini API;
-  - revogação e rotação de cada chave;
-  - um teste em PowerShell que só imprime o código HTTP.
-- Guardrail confirmado: nenhum valor de segredo no documento. O teste foi checado pelo parser e executado só com um `.env` falso.
-- **Novo HITL-012:** os termos do Gemini gratuito proíbem enviar "personal information", e isso entra em conflito com o D-H4 (nomes "minimizados, não garantidamente removidos"). Recomendação: Gemini **fora da cadeia** nas Fases 0 e 1.
+## O que acabou de ser entregue (2026-10-18)
+- **Decisões HITL registradas:**
+  - HITL-012, opção 1: Gemini fora da cadeia nas Fases 0 e 1. A cadeia é Groq com ZDR → Cloudflare → fallback determinístico. Emenda registrada no ADR-001.
+  - HITL-002 concluído.
+  - HITL-008 parcial.
+- **Guia do HITL-003** (como coletar as 30 vagas e em quais portais) na HITL-QUEUE.
+- **Regra nova no `.gitignore`** para `evals/golden/raw/`, criada antes da coleta (commit `e57bd4f`). Sem ela, as vagas brutas, com nomes e contatos de terceiros, iriam para um commit.
+- **F1-EXT-00:** `apps/extension` com WXT 0.21.4, Vite 8.3.4 e React. O manifesto gerado tem:
+  - só `activeTab`, `scripting`, `sidePanel` e `storage`;
+  - sem host permissions e sem popup;
+  - `externally_connectable` vazio;
+  - CSP de loja com `connect-src 'none'` até o S-5;
+  - Chrome mínimo 116.
+- **Service Worker** sem handler de `fetch`.
+- **Fronteira F-02** aplicada no ESLint e no depcruise, com testes negativos.
+- **10 testes do manifesto gerado**, provados por mutação. 11/11 tarefas do turbo verdes.
 - Branch `feat/monorepo-workspace`, só local (sem push).
 
 ## Ação manual (HITL) antes do próximo comando
-- **Nenhuma ação obrigatória para a F1-EXT-00.**
-- Quando puder (é pré-requisito do Spike S-1):
-  1. **HITL-002:** siga `../base/03-infra-runbook/llm.md` e responda só "HITL-002 concluído", **sem nenhum valor de chave**.
-  2. **HITL-012:** escolha uma opção: (1) Gemini fora da cadeia nas Fases 0 e 1, que é a recomendada; (2) Gemini só se o S-1 medir zero PII residual; (3) manter o D-H4.
-  3. **HITL-003:** colete as 30 vagas reais. Isso destrava a P0-EVL-01 e os Spikes S-1, S-2 e S-4.
+- Nenhuma ação manual obrigatória.
+- Em background: **HITL-003** (30 vagas). O guia está em `../base/00-orquestracao/HITL-QUEUE.md`, seção HITL-003. Ao terminar, responda só "HITL-003 concluído: N vagas (L LinkedIn, G Gupy, O outros)", sem colar o texto das vagas.
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, vamos executar a F1-EXT-00. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos.
+Equipe, vamos executar a F1-EXT-01. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos.
 
-[Opcional] Respostas HITL: HITL-012: [opção 1, 2 ou 3]. HITL-002: [concluído / ainda não].
+[Opcional] HITL-003: [concluído: N vagas / ainda não].
 
-1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-EXT-00 e F1-EXT-01), HITL-QUEUE.md e o ADR-001 §5.0 e §5.0.1. Registre as respostas HITL, se vieram. Confirme pnpm 11.4.0, Node ≥ 24 e o branch limpo.
-2. [APPSEC]: Antes do `pnpm install`, audite as dependências novas (wxt na versão EXATA da linha 0.21.x, react, react-dom e o que mais o esqueleto exigir): idade, proveniência, scripts e mantenedor. Fixe no `catalog:` com versão exata e reutilize o vite 8.3.4 já fixado, se o WXT aceitar (se não aceitar, PARE e registre). NÃO abra exceção de minimumReleaseAge, trustPolicy ou allowBuilds sem a análise registrada.
-3. [DEV]: Execute somente a F1-EXT-00 do BACKLOG:
-   - crie `apps/extension` (`@trampo/extension`): WXT, MV3, React, entrypoints `background` e `sidepanel`, estendendo o `@trampo/config` (tsconfig strict e preset de segurança);
-   - endureça o manifesto conforme o ADR-001 §5.0.1:
-     - permissões mínimas: `activeTab`, `scripting`, `sidePanel` e `storage`;
-     - sem `host_permissions` e sem `<all_urls>`;
-     - CSP explícita no build de loja;
-     - `externally_connectable` declarado de forma explícita (D-H7);
-     - sem `default_popup`;
-     - `minimum_chrome_version`;
-   - Service Worker sem handler de `fetch`, com `openPanelOnActionClick: false` no `onInstalled`;
-   - `no-restricted-imports` no eslint.config da extensão proibindo `@trampo/contracts` (raiz) e `@trampo/contracts/user-criteria` (F-02);
-   - sem lógica de negócio, extratores ou UI de relatório: isso fica para a F1-EXT-02 em diante.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-EXT-01) e HITL-QUEUE.md. Confirme pnpm 11.4.0, Node ≥ 24 e o branch limpo.
+2. [APPSEC]: Decida e registre COMO carregar a extensão num navegador de teste, verificando na documentação OFICIAL atual (Chrome e Playwright):
+   - se o Chrome e o Edge instalados nesta máquina ainda aceitam `--load-extension` (versões recentes do Chrome de marca deixaram de aceitar);
+   - se for preciso baixar um navegador de teste (Chromium do Playwright ou Chrome for Testing): de onde ele vem, como verificar a integridade e onde fica guardado. Esse download é um comando explícito e NUNCA um postinstall.
+   Audite o `playwright-core` (ou equivalente) como as demais dependências. Se o único caminho exigir algo fora das políticas, PARE e me pergunte.
+3. [DEV]: Execute somente o restante da F1-EXT-01:
+   - teste de integração que carrega o build de PRODUÇÃO da extensão e prova, de dentro de uma página da extensão (o Side Panel) e do Service Worker, que um `fetch` para um host arbitrário é BLOQUEADO pela CSP (`connect-src 'none'` sem `TRAMPO_API_ORIGIN`);
+   - com `TRAMPO_API_ORIGIN` apontando para um servidor local de teste em HTTPS (ou o equivalente que a CSP aceitar), prove que só essa origem passa;
+   - o teste roda numa tarefa separada (ex.: `test:e2e`), fora do `test` padrão, se precisar de navegador.
 4. [QA_EVALS]: Valide:
-   - `pnpm install --frozen-lockfile` limpo, sem scripts não autorizados (`.modules.yaml`);
+   - `pnpm install --frozen-lockfile` limpo;
    - `pnpm turbo run build typecheck lint test` verde;
-   - `pnpm lint:deps` verde;
-   - **inspeção do manifest.json GERADO** no build de produção: permissões exatas, ausência de `host_permissions`, `<all_urls>`, `default_popup` e CSP de dev;
-   - testes negativos: um import de `@trampo/contracts/user-criteria` e um de `@trampo/contracts` na extensão FALHAM no lint e no depcruise, e depois são removidos.
-5. [SCRIBE]: Marque a F1-EXT-00 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG, faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md.
+   - o `test:e2e` verde;
+   - mutação: com a CSP afrouxada à mão (`connect-src *`), o teste de bloqueio FALHA, e depois é restaurado.
+5. [SCRIBE]: Marque a F1-EXT-01 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG, faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md.
 
 Pare a execução e aguarde minha aprovação após o passo 5.
 ```
