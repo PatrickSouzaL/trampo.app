@@ -11,3 +11,42 @@ export {
   type LlmOutputRejection,
   type LlmOutputSanitization,
 } from "./llm/llm-output-guard.js";
+export {
+  BREAKER_POLICY,
+  INITIAL_PROVIDER_STATE,
+  InMemoryProviderStateStore,
+  RATE_LIMIT_COOLDOWN,
+  admit,
+  recordFailure,
+  recordRateLimit,
+  recordSuccess,
+  releaseProbe,
+  type Admission,
+} from "./llm/circuit-breaker.js";
+export {
+  LlmProviderRouter,
+  ROUTER_POLICY,
+  RouterConfigError,
+  type ExtractionFailureReason,
+  type ExtractionOutcome,
+  type LlmProviderRouterDeps,
+  type RouterTrailEntry,
+} from "./llm/llm-provider-router.js";
+export {
+  DEV_ONLY_PROVIDERS,
+  PRODUCTION_PROVIDERS,
+  ProviderChainConfigError,
+  parseLlmProviderChain,
+  type ProviderChainOptions,
+} from "./llm/provider-chain.js";
+export { deadlineAfter, type Clock, type Deadline } from "./ports/clock.js";
+export type {
+  AttemptControl,
+  JobFactsExtractor,
+  LlmJobPayload,
+  ProviderCallOutcome,
+  TokenUsage,
+} from "./ports/job-facts-extractor.js";
+export type { CircuitPhase, ProviderState, ProviderStateStore } from "./ports/provider-state-store.js";
+export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
+export type { Random } from "./ports/random.js";
