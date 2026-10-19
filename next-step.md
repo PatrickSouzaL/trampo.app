@@ -1,58 +1,65 @@
-# Próximo passo: decisão HITL-014 (adiantar a F1-DOM-05 antes do S-4?)
+# Próximo passo: decisão HITL-015 (redigir o ADR-002 como proposta?)
 
-> **Parada por marco de decisão humana** (AGENTS §1.1 e §2, Fase 5), não por contexto. A próxima tarefa sem conta nem chave exige escolher uma interface de arquitetura antes dos dados do S-4.
+> **Parada obrigatória** (AGENTS §2, Fase 5): nenhum item restante roda sem HITL. **Reciclagem de sessão** (§4.4): ADR novo, duas rodadas de mutação e escrita extensa nesta conversa.
+>
+> Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
 
-## O que acabou de ser entregue (F1-SEC-00, 2026-10-19)
+## O que acabou de ser entregue (F1-DOM-05, 2026-10-19)
 
-### Fontes oficiais conferidas (acesso em 2026-10-19)
-- **OWASP GenAI LLM Top 10 2026:**
-  - PDF baixado de `genai.owasp.org`, pelo botão *Download* da página do recurso: `OWASP-GenAI-LLM-Top-10-2026-v1.0.pdf`, com o sha256 registrado no threat model.
-  - **Os 10 IDs e títulos `LLMxx:2026` conferem** com o threat model.
-  - O "v1.0" só aparece no nome do arquivo. Dentro do PDF, o rótulo é "Version 2026".
-  - A página `genai.owasp.org/llm-top-10/` ainda mostra a 2025.
-- **OWASP Top 10:2025** (`top10.owasp.org/2025`) e **API Security Top 10:2023**, conferidos com as CWEs mapeadas de cada categoria usada.
+### Decisão aplicada
+- **HITL-014: opção A.** A porta `DeterministicSignals` foi fixada pelo lado do consumidor no **ADR-011**, e o F1-DOM-04 passa a implementá-la.
 
-### Divergências corrigidas (4, só no cofre)
-1. **T27 (vazamento de segredos):** `A04:2025` virou `A02:2025; A07:2025`. A A04 (Cryptographic Failures) só cobre chave criptográfica embutida. Segredo em configuração ou variável de ambiente é A02, e credencial embutida é A07.
-2. **SESSION-LOG, "OWASP A03" para XSS:** usava a numeração 2021. Agora é `A05:2025`.
-3. **SESSION-LOG, "LLM05" para saída imprópria:** usava a numeração 2025. Agora é `LLM10:2026`.
-4. **IDs sem edição** (`LLM01`, `API4`, `API8`): receberam a edição.
+### ADR-011 (cofre)
+- **Porta** (`apps/api/src/domain/ports/deterministic-signals.ts`, só tipos): modelo de trabalho, contrato e senioridade com força; salário; menções de stack com a grafia do dicionário; nível de injection. É independente do usuário, e o resolver ignora sinal `fraco`.
+- **Lacunas do ADR-001 §5.6 fechadas:**
+  - sobreposição parcial de conjuntos vira união;
+  - estouro do teto do contrato vira conflito;
+  - moeda ou período diferentes no salário são conflito;
+  - o modo só determinístico tem confiança 0;
+  - injection `alta` descarta a saída do LLM;
+  - o título é validado por predicado injetado (o domínio não roda zod).
+- **Limiares** (5%, 0,4 e 0,5) ficam em `FactResolverPolicy`, como hipóteses calibráveis no golden dataset.
 
-### Registro e varredura
-- A tabela completa (referência → título oficial → confere/diverge) está em `threat-model` §0.1.
-- **Varredura:** nenhuma referência antiga ou sem edição restou no cofre. **Nenhum ID OWASP aparece no código**, então nenhum comentário mudou e o build não precisou rodar de novo.
-- ADR-001, `contratos-zod` e ADR-005 a ADR-010 conferem ou não citam IDs.
+### `FactResolver` (`apps/api/src/domain/fusion/fact-resolver.ts`, versão `fr1`)
+- Um termo marcado pelo usuário, com menção explícita no texto e omitido pelo LLM, entra em `stackRequired`. No teto de 30, os termos marcados ficam.
+- Conflito vira "não informado" com o aviso `informacao_contraditoria`.
+- `salario_omitido` é definido só pelo código.
+- Injection média ou saída saneada multiplicam a confiança por 0,5.
 
-### Branch
-- Commit local no **`feat/api-borda`** (só este `next-step.md`), **sem push**.
+### Verificação
+- API com **521 testes**: 60 novos, sendo 7 propriedades com 1.000 execuções cada (evidência preservada, LGPD, conflito, pureza etc.).
+- Cobertura de **100%**: 133/133 ramos no resolver e 457/457 no total.
+- **Mutação 47/48.** O sobrevivente é equivalente: a ordem do `??` na moeda.
+- Turbo 15/15, depcruise verde e e2e 10/10. Nenhuma dependência nova.
+- Correção feita durante os testes: `location` e `salary` saíam por referência à entrada. Agora são copiados.
+
+### Cofre e branch
+- **Cofre:** STATE, BACKLOG, SESSION-LOG, HITL-QUEUE (HITL-014 fechado, HITL-015 aberto) e ADR-011.
+- **Branch:** commit local no **`feat/api-borda`**, **sem push**.
 
 ## Por que parou
-- O **F1-DOM-05 (`FactResolver`, E6)** é o único item sem conta e sem chave. Ele funde a saída do LLM com os **sinais da Camada 1**, e quem produz esses sinais é o F1-DOM-04, ⛔ pelo S-4 (HITL-003).
-- Adiantá-lo exige fixar agora a interface desses sinais. Detalhes e opções estão no **HITL-014**:
-  - **A (recomendada):** ADR curto com a porta `DeterministicSignals` como contrato do consumidor, depois o `FactResolver`.
-  - **B:** esperar o HITL-003 e o S-4.
-- O restante da fila continua com HITL:
-  - F1-OBS-02, F1-API-02 e F1-API-03: HITL-004 e HITL-007;
-  - S-5: contas de hospedagem;
-  - F1-LLM-01 parte 2 e F1-LLM-02: S-1;
-  - F1-DOM-02: ADR-002;
-  - F1-OPS-01: exige push e CI, não autorizados.
+- **F1-DOM-02** (`ScoringEngine`) exige o **ADR-002**, a fórmula da nota. Esse ADR é marco de aprovação humana, e o F1-DOM-03 depende dele.
+- **F1-DOM-04** está ⛔ pelo S-4 (HITL-003).
+- **F1-LLM-01 parte 2 e F1-LLM-02** esperam o S-1.
+- **F1-API-02 e F1-API-03** esperam o HITL-004 e o HITL-007.
+- **F1-OPS-01** exige push e CI, que não estão autorizados.
 
 ## Ação manual (HITL) antes do próximo comando
-- **HITL-014:** responda A ou B no prompt abaixo.
+- **HITL-015:** responda A ou B no prompt abaixo.
+  - **A (recomendada):** a equipe redige o ADR-002 como **proposta**, sem implementar, e para para aprovação.
+  - **B:** a esteira espera os HITL de dados ou de contas.
 - Em background: HITL-003 (30 vagas).
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, HITL-014: [A / B]. HITL-003: [em andamento / concluído: N vagas]. Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
+Equipe, HITL-015: [A / B]. HITL-003: [em andamento / concluído: N vagas]. Atuem de forma estritamente SEQUENCIAL E ATÔMICA, sem instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
 
-Se A (F1-DOM-05, FactResolver):
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md (HITL-014), BACKLOG.md (F1-DOM-04 e F1-DOM-05), ADR-001 §5.5 a §5.7 e os contratos de JobFacts. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda limpo.
-2. [ARCHITECT]: Escreva o ADR-011 com a porta DeterministicSignals (contrato do consumidor, domínio puro, sem zod no domínio), que o F1-DOM-04 vai implementar. Registre os limiares (5%, 0,4, 0,5) como hipóteses calibráveis.
-3. [APPSEC]: Audite. Omissão suspeita do LLM não apaga evidência; conflito leva a "não informado" mais aviso; injection reduz a confiança; nada de perfil além dos termos marcados.
-4. [DEV] + [QA_EVALS]: Implementem o FactResolver em apps/api/src/domain com 100% de linhas e ramos, propriedades no fast-check e mutação. `pnpm turbo run build typecheck lint test`, depcruise e e2e verdes.
-5. [SCRIBE]: Faça o checkpoint no STATE.md, registre no SESSION-LOG, faça o commit local (push NÃO autorizado) e gere o novo ./next-step.md.
+Se A (ADR-002 como proposta):
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md (HITL-015), BACKLOG.md (F1-DOM-02 e F1-DOM-03), ADR-001 §5.7 e §5.8, ADR-011 e os contratos user-criteria e analysis-report. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda.
+2. [ARCHITECT]: Redija o ADR-002 com status "proposto": assinatura score(ResolvedJobFacts, provenance, UserCriteria, ScoringPolicy), regra por dimensão (stack com dealBreakerScope, modelo de trabalho, senioridade, contrato, salário com moeda e período, localização, idiomas, benefícios e red flags), tratamento de "não informado" e de "conflito" (ADR-001 §5.7), pesos e faixas como hipóteses versionadas em engineVersion. Liste as decisões que o humano precisa aprovar, com a recomendação primeiro.
+3. [APPSEC]: Audite. A nota não pode depender de texto livre do LLM; conflito em dimensão eliminatória não elimina sozinho nem aprova em silêncio; a explicação nunca ecoa valor do perfil (SR-11).
+4. [SCRIBE]: Abra o HITL de aprovação do ADR-002, faça o checkpoint no STATE.md, registre no SESSION-LOG e gere o novo ./next-step.md. Sem código nesta sessão.
 
-Se B: o [ORCHESTRATOR] só registra a decisão no HITL-QUEUE e no STATE.md e para até o HITL-003 ser concluído.
+Se B: o [ORCHESTRATOR] só registra a decisão no HITL-QUEUE e no STATE.md e para até um HITL de dados ou de contas ser concluído.
 ```
