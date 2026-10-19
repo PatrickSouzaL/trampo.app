@@ -39,6 +39,21 @@ catalog:
   # E2E da extensão (F1-EXT-01). Só o core, sem dependências e sem download de navegador: usa o
   # Edge/Chrome instalado, com Extensions.loadUnpacked via CDP.
   playwright-core: 1.64.1
+  # API (F1-API-00). fastify sem proveniência em nenhuma versão (publicação manual do mantenedor):
+  # não há regressão. type-provider-zod ganhou proveniência na 1.0.1.
+  fastify: 5.12.7
+  '@fastify/type-provider-zod': 1.0.1
+
+# Peers usados SÓ nos .d.ts do type-provider-zod (o runtime nunca importa swagger nem openapi-types).
+# Marcados como opcionais para o autoInstallPeers não instalar a árvore do Swagger. Revisão [APPSEC]:
+# SESSION-LOG 2026-10-19 (10).
+packageExtensions:
+  '@fastify/type-provider-zod@1.0.1':
+    peerDependenciesMeta:
+      '@fastify/swagger':
+        optional: true
+      openapi-types:
+        optional: true
 
 # Scripts de instalação de dependências: proibidos por padrão. Cada exceção é revisada pelo [APPSEC].
 strictDepBuilds: true
