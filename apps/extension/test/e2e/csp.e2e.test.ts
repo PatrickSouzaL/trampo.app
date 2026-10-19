@@ -2,21 +2,13 @@
 // real, qualquer fetch fora da origem da API, tanto no Side Panel quanto no Service Worker.
 // A prova não é só "o fetch rejeitou": o servidor de destino conta as requisições e precisa
 // receber ZERO nos casos bloqueados (uma rejeição por TLS ou rede não passaria por bloqueio).
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import type { AddressInfo } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { chromium, type BrowserContext, type Page, type Worker } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
 
-const DEFAULT_BROWSERS: Partial<Record<NodeJS.Platform, string>> = {
-  win32: "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-  linux: "/usr/bin/microsoft-edge",
-  darwin: "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-};
-const browserPath = process.env["TRAMPO_E2E_BROWSER"] ?? DEFAULT_BROWSERS[process.platform];
+import { loadExtension, unload, type Loaded } from "./browser";
 
 const cfg = inject("e2e");
 
@@ -48,48 +40,6 @@ const tryFetch = async (url: string): Promise<FetchOutcome> => {
     return { ok: false, error: e instanceof Error ? e.name : String(e) };
   }
 };
-
-interface Loaded {
-  ctx: BrowserContext;
-  worker: Worker;
-  panel: Page;
-  profile: string;
-}
-
-async function loadExtension(extDir: string): Promise<Loaded> {
-  if (browserPath === undefined) throw new Error("Defina TRAMPO_E2E_BROWSER com o caminho do Edge ou do Chrome.");
-  const profile = mkdtempSync(join(tmpdir(), "trampo-e2e-profile-"));
-  // Edge e Chrome de marca não aceitam mais --load-extension (Chrome 137+): a extensão entra por
-  // CDP Extensions.loadUnpacked. As duas flags abaixo valem só neste perfil descartável.
-  const ctx = await chromium.launchPersistentContext(profile, {
-    executablePath: browserPath,
-    headless: true,
-    ignoreDefaultArgs: ["--disable-extensions"],
-    args: [
-      "--enable-unsafe-extension-debugging",
-      "--ignore-certificate-errors",
-      "--no-first-run",
-      "--no-default-browser-check",
-    ],
-  });
-  const browser = ctx.browser();
-  const cdp = browser === null ? await ctx.newCDPSession(ctx.pages()[0] ?? (await ctx.newPage())) : await browser.newBrowserCDPSession();
-  const { id } = (await cdp.send("Extensions.loadUnpacked" as never, { path: extDir } as never)) as { id: string };
-
-  const worker =
-    ctx.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${id}/`)) ??
-    (await ctx.waitForEvent("serviceworker", { predicate: (w) => w.url().startsWith(`chrome-extension://${id}/`) }));
-
-  const panel = await ctx.newPage();
-  await panel.goto(`chrome-extension://${id}/sidepanel.html`);
-  return { ctx, worker, panel, profile };
-}
-
-async function unload(l: Loaded | undefined): Promise<void> {
-  if (l === undefined) return;
-  await l.ctx.close().catch(() => undefined);
-  rmSync(l.profile, { recursive: true, force: true });
-}
 
 const api = { hits: 0 };
 const otherHttps = { hits: 0 };

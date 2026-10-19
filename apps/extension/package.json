@@ -15,7 +15,8 @@
   "dependencies": {
     "@trampo/contracts": "workspace:*",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@trampo/config": "workspace:*",
