@@ -84,9 +84,22 @@ module.exports = {
     {
       name: "domain-contracts-type-only",
       severity: "error",
-      comment: "No domínio, @trampo/contracts só entra como `import type` (zod não roda no domínio).",
+      comment:
+        "No domínio, @trampo/contracts só entra como `import type` (zod não roda no domínio). " +
+        "Única exceção de valor: limits, que só tem constantes (ADR-005 D2).",
       from: { path: "^apps/api/src/domain/" },
-      to: { path: "^packages/contracts/", dependencyTypesNot: ["type-only"] },
+      to: {
+        path: "^packages/contracts/",
+        pathNot: "^packages/contracts/(src|dist)/limits\\.(ts|js|d\\.ts)$",
+        dependencyTypesNot: ["type-only"],
+      },
+    },
+    {
+      name: "contracts-limits-leaf",
+      severity: "error",
+      comment: "limits não importa nada: é o que torna segura a exceção de valor do domínio (ADR-005 D2).",
+      from: { path: "^packages/contracts/src/limits\\.ts$" },
+      to: {},
     },
   ],
   options: {

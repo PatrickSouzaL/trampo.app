@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "start": "node dist/main.js"
   },
   "dependencies": {
@@ -20,7 +20,9 @@
   "devDependencies": {
     "@trampo/config": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "fast-check": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

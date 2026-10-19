@@ -1,44 +1,47 @@
-# Próximo passo: F1-DOM-01, parte 1 (`JobTextNormalizer`)
+# Próximo passo: F1-DOM-01, parte 2 (`RelevantSectionSelector`)
 
-> **Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.**
-> (AGENTS §2, Fase 5, e §4.4. A parada é por reciclagem de sessão, não por HITL: a próxima tarefa não exige nenhuma ação sua.)
-
-## O que acabou de ser entregue (F1-API-00, 2026-10-19)
-- `apps/api` (`@trampo/api`):
-  - Fastify 5.12.7 com `@fastify/type-provider-zod` 1.0.1, que valida a entrada **e a saída**;
-  - camadas da §7, com o preset de pureza em `src/domain`;
-  - todo erro sai como `ApiError` autovalidado, sem stack, sem detalhes do Zod e sem eco do caminho;
-  - `/health`;
-  - `requestId` em UUID do servidor (o header do cliente é ignorado);
-  - log sem IP, query, hostname e pid;
-  - `.env.example` só com nomes.
-- **Cadeia de suprimentos:** a árvore do Swagger foi evitada com `packageExtensions`, porque os peers só existem nos tipos.
-- **Testes:** 7 testes; negativo de pureza no pacote real (6 erros de lint e 3 violações no depcruise); o JS compilado sobe e responde. 15/15 tarefas do turbo, e2e da extensão 10/10.
-- **Decisão provisória:** rota inexistente responde 404 com o código `PROIBIDO`, porque o contrato v1 não tem "não encontrado". Fica para revisar quando uma rota real precisar.
-- **Governança:** a sua edição da Fase 5 do AGENTS.md foi commitada (`92032a9`).
+## O que acabou de ser entregue (F1-DOM-01, parte 1, 2026-10-19)
+- **`JobTextNormalizer`** em `apps/api/src/domain/normalization`, decidido antes do código no **ADR-005**:
+  - **D1:** `sha256` por porta `TextHasher`, com adapter `node:crypto` provado com os vetores do NIST. O sha256 artesanal foi vetado;
+  - **D2:** a única exceção de valor no domínio é `@trampo/contracts/limits`, trancada pela nova regra `contracts-limits-leaf`;
+  - **D3:** `truncateCodePoints` entra por injeção (a exceção para `primitives` foi vetada porque carregaria o zod). O conjunto de invisíveis é copiado, com prova exaustiva de equivalência;
+  - **D4:** `toWellFormed` → [NFKC → fins de linha → invisíveis → re-truncamento → espaços → máscaras de PII e URL → delimitadores → guarda final], repetido até o ponto fixo (no máximo 4 passadas) → sha256;
+  - **D5:** versão `n1`.
+- **Sinais para o F1-DOM-04:**
+  - invisíveis removidos;
+  - expansão do NFKC acima de 1,5×;
+  - `fixedPointReached`;
+  - máscaras por tipo;
+  - delimitadores neutralizados.
+- **Testes:** API com 92 testes (85 novos). Cobrem T2, T15, F-01 (15.000 × U+FDFA dá no máximo 15.000 code points), SR-09 (12 entradas de 64 KiB, cada uma em < 200 ms), PII e controles negativos, além de 5 propriedades no fast-check.
+- **Qualidade:** cobertura de 100% no domínio; 6/6 mutantes mortos; negativo de pureza (ESLint 2 erros e depcruise 3 violações).
+- **Guardrails:** 15/15 tarefas do turbo, depcruise verde e e2e 10/10.
+- **Achado de processo:** o Write do agente gravava `​`/` ` crus, um risco de Trojan Source. Tudo foi saneado, e a varredura do diff ficou em zero.
 - Branch `feat/monorepo-workspace`, só local (sem push).
 
 ## Ação manual (HITL) antes do próximo comando
-- Nenhuma, além de **reciclar a sessão** (veja o aviso no topo).
+- Nenhuma.
 - Em background: HITL-003 (30 vagas), com o guia na HITL-QUEUE.
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, vamos executar a F1-DOM-01, parte 1 (JobTextNormalizer). Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
+Equipe, vamos executar a F1-DOM-01, parte 2 (RelevantSectionSelector). Atuem de forma estritamente SEQUENCIAL E ATÔMICA. Proibido instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
 
 [Opcional] HITL-003: [concluído: N vagas / ainda não].
 
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (F1-DOM-01), o ADR-001 §5.2 (E1 Normalização), o threat-model (T2, T15, SR-09) e a revisão M1.6 (F-01: re-truncar depois do NFKC). Confirme pnpm 11.4.0, Node ≥ 24 e o branch limpo.
-2. [ARCHITECT] + [APPSEC]: Decidam e registrem ANTES de codar:
-   - o domínio é puro e NÃO pode importar node:crypto. Para o sha256, escolham entre uma porta `TextHasher` injetada (implementada em infrastructure) e um sha256 em TypeScript puro com vetores de teste oficiais. Registrem a escolha e o porquê;
-   - a ordem exata do pipeline: toWellFormed → NFKC → remoção de invisíveis até o ponto fixo → re-truncamento com truncateCodePoints(…, JOB_TEXT_MAX_CHARS) → máscara de PII (e-mail, telefone, CPF e CNPJ) e de URL → neutralização de delimitadores → hash. Justifiquem cada passo com a ameaça que ele mitiga;
-   - a versão do normalizador (entra na chave de cache).
-3. [DEV]: Implemente SOMENTE o `JobTextNormalizer` em `apps/api/src/domain/` (o `RelevantSectionSelector` fica para a parte 2), reutilizando `truncateCodePoints` e `JOB_TEXT_MAX_CHARS` de `@trampo/contracts` via `import type`… mas atenção: são VALORES. Se o domínio só pode importar tipos, decidam (passo 2) se essas duas peças entram por injeção ou se o preset de pureza abre uma exceção estreita para `@trampo/contracts/limits` e `@trampo/contracts/primitives`, com justificativa e teste.
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (F1-DOM-01 e F1-DOM-04), o ADR-001 §5.5 (seletor e orçamento de tokens do LLM) e §5.2, item 4 (F-04: descartar blocos de contato), o ADR-005 e o threat-model (T12, T2 e SR-09). Confirme pnpm 11.4.0, Node ≥ 24 e o branch limpo.
+2. [ARCHITECT] + [APPSEC]: Decidam e registrem ANTES de codar (acréscimo ao ADR-005 ou ADR novo):
+   - a entrada é o texto JÁ normalizado (saída do JobTextNormalizer), e o seletor nunca reintroduz conteúdo removido;
+   - como os blocos são segmentados (títulos, linhas em branco, listas) e quais seções são priorizadas (requisitos, responsabilidades, benefícios, modelo de trabalho, salário) e descartadas (contato, "fale com", "envie para", "recrutador(a)", sobre a empresa longo, EEO e boilerplate legal);
+   - o orçamento de saída em code points para o LLM (hipótese do ADR-001 §8) e o que acontece quando nenhuma seção casa (fallback: prefixo do texto);
+   - a versão do seletor (`sel1`, que entra no extractorVersion).
+3. [DEV]: Implemente SOMENTE o RelevantSectionSelector em apps/api/src/domain/ (domínio puro, só regex linear, sem valor de contrato além de @trampo/contracts/limits).
 4. [QA_EVALS]: Valide:
-   - 100% de cobertura no normalizador;
-   - testes de T2 e T15, inclusive a amplificação do NFKC (15.000 × U+FDFA precisa sair com no máximo 15.000 code points), Tag characters, zero-width, bidi, surrogates órfãos e PII mascarada;
-   - testes de propriedade (fast-check): idempotência, saída sem invisíveis e tamanho máximo;
+   - 100% de cobertura no domínio;
+   - testes de F-04 (blocos de contato descartados) e de T2 (o seletor não pode ser induzido a escolher um bloco de injection só por ter um título "Requisitos");
+   - SR-09 (64 KiB patológicos em < 200 ms);
+   - propriedades com fast-check (determinismo, saída ⊆ entrada por blocos e teto do orçamento);
    - `pnpm install --frozen-lockfile` limpo; `pnpm turbo run build typecheck lint test` verde; `pnpm lint:deps` verde; `test:e2e` da extensão verde.
-5. [SCRIBE]: Marque a parte 1 da F1-DOM-01 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG (e em ADR, se o passo 2 decidir algo de arquitetura), faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md. Na Fase 5, avancem sozinhos só se não houver HITL e o contexto estiver seguro.
+5. [SCRIBE]: Marque a F1-DOM-01 como [x] no STATE.md (checkpoint imediato), registre no SESSION-LOG (e no ADR), faça o commit local no feat/monorepo-workspace (push NÃO autorizado) e gere o novo ./next-step.md. Na Fase 5, avancem sozinhos só se não houver HITL e o contexto estiver seguro.
 ```

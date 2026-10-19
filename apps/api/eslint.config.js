@@ -8,4 +8,11 @@ export default defineConfig([
   globalIgnores(["dist/**", "coverage/**"]),
   ...security,
   ...domainPurity({ files: ["src/domain/**/*.ts"] }),
+  {
+    // Os testes do normalizador carregam payloads de ataque de propósito ('javascript:alert(1)'), para
+    // provar que viram [link]. Exceção restrita a esta regra e a test/; src/ continua com ela em error.
+    name: "@trampo/api/test-payloads",
+    files: ["test/**/*.ts"],
+    rules: { "no-script-url": "off" },
+  },
 ]);

@@ -23,8 +23,10 @@ export function domainPurity({ files = ["src/domain/**/*.{ts,mts,cts}"] } = {}) 
           {
             patterns: [
               {
-                // Contratos só como tipo: zod não roda no domínio.
-                group: ["@trampo/contracts", "@trampo/contracts/*"],
+                // Contratos só como tipo: zod não roda no domínio. Única exceção de valor: ./limits,
+                // que só tem constantes e não importa nada (ADR-005 D2; regra contracts-limits-leaf).
+                // Regex, e não `group` com "!": no gitignore a negação não reinclui o filho de um pai excluído.
+                regex: "^@trampo/contracts(?!/limits$)(/|$)",
                 allowTypeImports: true,
                 message: "No domínio, @trampo/contracts só entra como `import type`.",
               },
