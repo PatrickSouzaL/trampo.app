@@ -1,0 +1,45 @@
+# ALTAS NETWORKS & TELECOM LTDA | Engenheiro DevOps Sênior AWS EKS e Kubernetes - Cliente Exterior
+
+- **Empresa:** ALTAS NETWORKS & TELECOM LTDA (Altasnet)
+- **Título da vaga:** Engenheiro DevOps Sênior AWS EKS e Kubernetes - Cliente Exterior
+- **Localidade:** Belo Horizonte, MG, Brasil (Atuação Remota / Cliente Internacional)
+- **Regime de atuação:** Remoto
+- **Tipo de vínculo:** CLT ou PJ (Pessoa Jurídica)
+
+---
+
+### Sobre a vaga
+Atuação sênior e em tempo integral voltada para sustentação, modernização e evolução de ambientes de aplicações conteinerizadas na AWS para cliente internacional. O escopo abrange operação avançada de clusters AWS EKS, gerenciamento de Helm Charts, modernização/conteinerização de stacks legadas em PHP e suporte à migração de bancos de dados Percona MySQL para Amazon Aurora.
+
+### Responsabilidades e atribuições
+- Operar, sustentar e escalar workloads em Kubernetes gerenciado (AWS EKS) em ambiente produtivo.
+- Conduzir troubleshooting complexo e mitigação de incidentes envolvendo aplicações, APIs, bancos de dados e integrações distribuídas.
+- Desenvolver, versionar e manter Helm Charts para empacotamento e deploy automatizado de serviços.
+- Evoluir e manter esteiras de CI/CD para automação de entrega de microsserviços conteinerizados.
+- Conteinerizar stacks legadas, com ênfase em ecossistemas PHP (PHP-FPM e Apache).
+- Apoiar na execução de testes de compatibilidade e na migração de bases Percona MySQL para Amazon Aurora, orientando engenheiros de software em correções de queries e refatorações de código.
+- Automatizar e manter a infraestrutura como código (IaC) integrada à base já existente em Terraform na AWS.
+- Aprimorar rotinas de provisionamento dinâmico e efêmero de ambientes de QA segmentados por estágios.
+- Atuar em conjunto com os times de Desenvolvimento, QA e AppSec no planejamento de releases e gestão de riscos.
+- Elaborar e atualizar documentação técnica, runbooks operacionais, diagramas de arquitetura e registros de mudanças.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Experiência sólida e comprovada com sustentação de workloads em AWS EKS, Kubernetes e containers Docker em produção.
+- Domínio na criação e manipulação de Helm Charts.
+- Vivência prática com Infraestrutura como Código via Terraform na nuvem AWS.
+- Experiência com pipelines de CI/CD para entrega contínua de containers.
+- Idioma inglês em nível avançado ou fluente para reuniões com clientes externos, documentação e alinhamentos técnicos do dia a dia.
+- Formação superior (concluída ou em andamento) em Ciência da Computação, Engenharia de Software ou áreas correlatas da computação.
+
+**Desejáveis / Diferenciais:**
+- Experiência prática na conteinerização e sustentação de aplicações legadas em PHP (PHP-FPM e Apache).
+- Conhecimentos operacionais em migração e replicação de dados entre Percona MySQL e Amazon Aurora.
+
+### Benefícios
+- Não informado no anúncio da vaga.
+
+### Modelo e local de trabalho
+- **Regime:** 100% Remoto (com reporte/alinhamento com times do exterior).
+- **Sede da empresa:** Bairro Lourdes, Belo Horizonte - MG, Brasil.

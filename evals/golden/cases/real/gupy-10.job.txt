@@ -1,0 +1,63 @@
+Leo Madeiras
+
+Analista de Infra Cloud Pleno
+Barueri - SP
+Efetivo
+Híbrido
+
+Descrição da vaga
+Você busca um lugar para aprender e contribuir? Venha fazer parte do time Leo Madeiras.
+
+A Leo Madeiras é uma das maiores distribuidoras de produtos e serviços para marcenaria do Brasil, que valoriza as pessoas e oferece oportunidades de aprendizado, independentemente de sua condição física, mental, social, idade, etnia, identidade de gênero, credo ou orientação sexual. Para nós, o mais importante é que seu perfil esteja alinhado aos nossos princípios e cultura.
+
+O Perfil que Buscamos:
+
+Buscamos uma pessoa Analista Cloud Pleno com forte atuação em GCP, Kubernetes, automação e confiabilidade operacional, para atuar na sustentação e evolução de ambientes cloud críticos e multi-cloud.
+
+Responsabilidades e atribuições
+Sustentar ambientes Azure e GCP, apoiando monitoramento, disponibilidade, performance e gestão de incidentes;
+Operar ambientes Kubernetes, realizando troubleshooting, manutenção de workloads, namespaces, serviços e automação de rotinas;
+Gerenciar e sustentar pipelines CI/CD no Azure DevOps, incluindo deploys automatizados, Service Connections, acessos e permissões;
+Apoiar a administração do Microsoft Fabric e Power BI, incluindo acompanhamento das capacidades Fabric no Azure;
+Prestar suporte aos ambientes Microsoft 365, principalmente Teams, Exchange e SharePoint Online, além do ambiente colaborativo Workspace;
+Apoiar atividades relacionadas à infraestrutura On-Premises, DNS e conectividade;
+Atuar na sustentação e integração de APIs e API Management, apoiando a comunicação entre gateways e serviços de backend;
+Administrar monitoramento e alertas em Azure e GCP, contribuindo para diagnóstico e tratamento de incidentes;
+Realizar troubleshooting de aplicações e serviços em IIS, Windows, Workers e Kubernetes;
+Apoiar a governança de Azure SQL Database e SQL Managed Instance, acompanhando acessos, backups, consumo e performance;
+Criar e manter documentações técnicas, procedimentos operacionais e Wiki corporativa;
+Identificar oportunidades de automação, melhoria de performance, estabilidade e otimização de custos dos ambientes.
+
+Requisitos e qualificações
+Experiência com infraestrutura e sustentação de ambientes Cloud;
+Conhecimento em Microsoft Azure e GCP;
+Experiência com Kubernetes;
+Conhecimento em Azure DevOps e CI/CD;
+Conhecimentos em Microsoft Fabric e Power BI;
+Vivência com Microsoft 365 – Teams, Exchange e SharePoint Online;
+Conhecimentos em redes, DNS, conectividade e troubleshooting;
+Conhecimentos em IIS, Windows e Azure SQL;
+Experiência com monitoramento, observabilidade e gestão de incidentes;
+Perfil analítico, organizado e orientado à resolução de problemas.
+
+Diferenciais
+Experiência com API Management;
+Conhecimentos em automação de infraestrutura;
+Vivência em ambientes híbridos Cloud e On-Premises;
+Experiência com otimização de performance e custos em Cloud.
+
+Informações adicionais
+Participação nos Resultados (PLR)
+Restaurante Corporativo | Vale Refeição
+Vale Alimentação
+Convênio Médico (100% colaborador e filhos até 16 anos)
+Convênio Odontológico
+Seguro de Vida
+Convênio Farmácia
+Wellhub
+Vale Transporte / Estacionamento
+Acesso à plataforma de cursos online
+Kit Material Escolar
+Kit Maternidade
+Kit Natal
+Parcerias & Descontos

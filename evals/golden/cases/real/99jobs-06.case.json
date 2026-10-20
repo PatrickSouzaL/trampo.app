@@ -1,0 +1,71 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "99jobs-06",
+  "source": "99jobs",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "hibrido"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Sistemas Sênior - (.NET / C# ou Java)",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      ".NET",
+      "C#",
+      "Java",
+      "SQL Server",
+      "RabbitMQ",
+      "Kafka",
+      "REST",
+      "SOAP"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_refeicao",
+      "vale_alimentacao",
+      "outro",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "plr_bonus",
+      "bem_estar_academia",
+      "auxilio_educacao",
+      "auxilio_creche"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Stack com \"ou\" (C#/.NET ou Java; RabbitMQ ou Kafka): todas as opções em stackRequired. Microsserviços é conceito. Universidade corporativa = auxilio_educacao; TotalPass = bem_estar_academia; VT, farmácia, pet etc. = outro. Vínculo não informado."
+}

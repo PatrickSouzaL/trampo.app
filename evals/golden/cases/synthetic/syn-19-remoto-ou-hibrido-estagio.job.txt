@@ -1,0 +1,35 @@
+Estágio em Desenvolvimento de Software
+
+Empresa Exemplo | Curitiba, PR | Remoto ou híbrido | Estágio
+
+Sobre a Empresa Exemplo
+Somos uma empresa de tecnologia para cooperativas de crédito. Nosso time de produto fica em Curitiba e trabalha de forma remota ou híbrida: quem mora na região pode vir ao escritório quando quiser, e quem mora longe trabalha de casa.
+
+O programa de estágio
+Durante o estágio você vai fazer parte de um time de desenvolvimento, com uma pessoa mentora que acompanha seu plano de aprendizado. Os estagiários e estagiárias participam de todas as cerimônias do time e recebem tarefas reais desde a primeira semana.
+
+O que você vai fazer
+- Desenvolver pequenas funcionalidades e corrigir bugs com acompanhamento;
+- Escrever consultas simples para relatórios internos;
+- Participar das revisões de código;
+- Apresentar o que aprendeu ao final de cada trimestre.
+
+Requisitos
+- Estar cursando Ciência da Computação, Sistemas de Informação, Engenharia de Software ou curso semelhante, com formatura prevista a partir de dezembro de 2027;
+- Conhecimentos básicos de JavaScript;
+- Conhecimentos básicos de SQL;
+- Disponibilidade para 6 horas diárias.
+
+Diferenciais
+- React;
+- Git.
+
+Bolsa e benefícios
+- Bolsa-auxílio de R$ 1.800 por mês;
+- Vale-refeição de R$ 25 por dia;
+- Auxílio home office de R$ 100 por mês;
+- Seguro de vida;
+- Recesso remunerado.
+
+Etapas
+Inscrição, desafio on-line de lógica de cerca de uma hora, dinâmica em grupo on-line e conversa com a pessoa mentora.

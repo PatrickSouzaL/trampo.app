@@ -1,0 +1,127 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-01",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "so_pj",
+    "dupla_senioridade",
+    "remoto",
+    "ingles"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Tech Lead - Especialista de Infraestrutura & Cloud SAP",
+    "seniorityLevels": [
+      "especialista",
+      "lideranca"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": null,
+    "salary": null,
+    "contractTypes": [
+      "pj"
+    ],
+    "stackRequired": [
+      "SAP",
+      "SAP ECC",
+      "SAP S/4HANA",
+      "SAP BTP",
+      "RISE with SAP",
+      "SAProuter",
+      "SAP Cloud Connector",
+      "Azure",
+      "AWS",
+      "Azure Virtual Network",
+      "Amazon VPC",
+      "Terraform",
+      "Bicep",
+      "CloudFormation",
+      "PowerShell",
+      "Bash",
+      "Python",
+      "Entra ID",
+      "Active Directory",
+      "FortiGate",
+      "Palo Alto",
+      "Check Point"
+    ],
+    "stackNiceToHave": [
+      "GCP",
+      "OCI",
+      "SAP HANA",
+      "Microsoft Sentinel",
+      "GuardDuty",
+      "Microsoft Defender"
+    ],
+    "benefits": [
+      "outro"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "avancado",
+        "required": true
+      },
+      {
+        "language": "espanhol",
+        "level": "avancado",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "languageRequirements": [
+      [
+        {
+          "language": "ingles",
+          "level": "avancado",
+          "required": true
+        }
+      ],
+      [
+        {
+          "language": "ingles",
+          "level": "avancado",
+          "required": true
+        },
+        {
+          "language": "espanhol",
+          "level": "avancado",
+          "required": false
+        }
+      ]
+    ],
+    "seniorityLevels": [
+      [
+        "especialista"
+      ],
+      [
+        "lideranca"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Tech Lead + Especialista no título: dois níveis. \"Inglês e/ou espanhol\": os dois exigidos, alternativas aceitam só inglês. \"Tempo indeterminado\" convive com PJ explícito: pj. Modelo no rodapé é placeholder; vale o \"Remoto\" do topo. Certificações fora. SAP ECC e VNet/VPC (serviços nomeados) entram; TCP/IP, DNS, IPsec, NAT e VLAN são fundamentos de redes."
+}

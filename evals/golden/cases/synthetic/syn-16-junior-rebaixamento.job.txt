@@ -1,0 +1,41 @@
+Desenvolvedor(a) Júnior PHP
+
+Empresa Exemplo – Belo Horizonte, MG – Presencial – CLT
+
+Sobre nós
+A Empresa Exemplo é uma agência de software que desenvolve sistemas sob medida para cooperativas e associações do interior de Minas Gerais. Nosso time de desenvolvimento tem 12 pessoas e fica no escritório da região central de Belo Horizonte.
+
+Por que esta vaga existe
+Estamos formando a próxima geração do time. Esta é uma vaga de nível Júnior, pensada para quem está no começo da carreira e quer aprender com acompanhamento de perto.
+
+O que você vai fazer
+- Corrigir bugs e desenvolver pequenas funcionalidades nos sistemas dos clientes;
+- Escrever consultas e ajustar telas de cadastro e de relatórios;
+- Participar das reuniões com clientes junto com uma pessoa mais experiente;
+- Aprender a revisar código e a escrever testes.
+
+Requisitos
+- Conhecimento de PHP e Laravel;
+- MySQL;
+- JavaScript;
+- Git.
+
+Não exigimos experiência anterior formal: projetos pessoais, de faculdade ou de cursos contam.
+
+Diferenciais
+- Vue.js;
+- Docker.
+
+Remuneração
+Salário de R$ 3.500 por mês.
+
+Benefícios
+- Plano de saúde;
+- Vale-refeição;
+- Vale-transporte.
+
+Horário
+De segunda a sexta, das 8h às 17h, presencialmente no escritório.
+
+Etapas
+Conversa com o RH, exercício prático simples feito no escritório (cerca de duas horas) e conversa com a coordenação do time.

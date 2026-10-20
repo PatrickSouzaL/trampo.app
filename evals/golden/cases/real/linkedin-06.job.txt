@@ -1,0 +1,68 @@
+Supermix Concreto S/A
+
+Analista de TI
+Belo Horizonte, Minas Gerais, Brasil
+Presencial
+Tempo integral
+
+Sobre a vaga
+DESCRIÇÃO
+
+SUPERMIX CONCRETO S.A contrata ANALISTA DE TI (Pleno) para atuar em BELO HORIZONTE/MG.
+
+Atividades
+
+Liderar tecnicamente a implantação, atualização e manutenção dos módulos do ERP Totvs RM;
+Desenvolver, arquitetar e dar manutenção em processos de BPM (Workflows), formulários, datasets e widgets na plataforma Fluig;
+Atuar na sustentação avançada (Nível 3), diagnosticando e corrigindo falhas sistêmicas de alta complexidade nos produtos Totvs;
+Desenvolver e gerenciar integrações entre o ecossistema Totvs (RM/Fluig) e sistemas legados ou de terceiros (via API REST/SOAP);
+Realizar consultas e manutenção em Banco de Dados (SQL Server/Oracle) para extração de relatórios, criação de views e procedures para apoio às áreas de negócio;
+Mapear necessidades junto aos usuários chave, traduzindo requisitos de negócio em soluções técnicas viáveis dentro das plataformas;
+Garantir a performance, segurança e integridade das aplicações geridas.
+
+Requisitos
+
+Experiência consolidada de atuação técnica com Totvs RM (instalação, arquitetura técnica, fórmulas, planilhas, relatórios);
+Forte vivência com a plataforma Fluig (desenvolvimento de formulários web, workflows e integração de datasets);
+Conhecimentos sólidos em Banco de Dados Relacional (SQL) e criação de queries complexas;
+Conhecimentos em lógica de programação e linguagens essenciais para o Fluig (JavaScript, HTML, CSS);
+Formação superior completa em TI, Ciência da Computação, Análise de Sistemas ou áreas correlatas;
+Perfil analítico e capacidade de resolver problemas com autonomia;
+Disponibilidade para atuação 100% presencial na Matriz em BH.
+
+Desejável
+
+Formação superior completa em TI, Ciência da Computação, Análise de Sistemas ou áreas correlatas;
+Experiência na parametrização e regras de negócio de módulos específicos do RM (ex: Labore, Chronus, Vitae);
+Conhecimento em metodologias ágeis (Scrum/Kanban) e uso de ferramentas como Jira ou Azure DevOps;
+Experiência prévia com modelagem de processos (BPMN);
+Conhecimento em ferramentas de BI (Power BI, Tableau) para integração de dados com o ERP.
+
+Informamos que, para os selecionados para a próxima etapa do nosso processo seletivo, todas as comunicações serão realizadas exclusivamente por e-mail ou telefone. Solicitamos que fiquem atentos a esses canais para não perder nenhuma informação importante sobre o andamento da seleção.
+
+- Local de trabalho: Belo Horizonte, MG
+- Regime de contratação de tipo: Efetivo – CLT
+- Jornada: Período Integral
+- Área e especialização profissional: Informática, TI, Telecomunicações - TI
+- Nível hierárquico: Analista
+
+REQUISITOS
+
+Escolaridade Mínima: Ensino Superior
+
+HABILIDADES
+
+- Resiliência
+- Comunicação
+- Visão sistêmica
+- Pensamento analítico
+- Resolução de problemas
+
+BENEFÍCIOS
+
+- Vale-transporte
+- Refeição no local
+- Seguro de Vida
+- Estacionamento
+- Assistência médica
+- Wellhub (Gympass)

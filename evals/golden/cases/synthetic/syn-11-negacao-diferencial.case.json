@@ -1,0 +1,78 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "syn-11-negacao-diferencial",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "armadilha_negacao",
+  "language": "pt",
+  "tags": [
+    "com_salario",
+    "hibrido",
+    "curta"
+  ],
+  "traps": [
+    "diferencial",
+    "negacao"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor(a) Front-end Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": 2,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Recife",
+      "stateUf": "PE",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 7000,
+      "max": 9000,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Vue.js",
+      "Nuxt",
+      "JavaScript",
+      "TypeScript",
+      "HTML",
+      "CSS",
+      "Git"
+    ],
+    "stackNiceToHave": [
+      "Java",
+      "Playwright"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "horario_flexivel",
+      "folga_aniversario"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Java é diferencial explícito (\"não requisito\"): vai só para stackNiceToHave e não pode ser confundido com JavaScript. Angular é negado (\"não é necessário conhecer Angular\") e React é citado como tecnologia que a empresa abandonou: nenhum dos dois entra."
+}

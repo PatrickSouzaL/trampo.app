@@ -1,0 +1,30 @@
+Sabiá Gaming
+
+Analista de Suporte e Infraestrutura de TI (Pleno)
+Belo Horizonte e Região
+Presencial
+Tempo integral
+
+Sobre a vaga
+RESPONSABILIDADES: Requisitos: Diferenciais:
+
+- Governança e Gestão de Identidade (SaaS)
+- Governança de Acessos: Auditoria e provisionamento de contas, garantindo o princípio do privilégio mínimo
+- Google Workspace: Gestão de usuários, grupos, permissões de Drive, configurações de segurança (2FA) e suporte a integrações.
+- MDM (Mobile Device Management): Gestão de dispositivos (laptops/mobiles), aplicação de políticas de segurança e inventário remoto.
+- Gestão de Ativos e Hardware
+- Gerenciamento de Ativos: Manutenção rigorosa do inventário de hardware e software (controle do ciclo de vida dos equipamentos).
+- Manutenção: Formatação (Windows/macOS), reparos básicos, upgrades de componentes e manutenção preventiva.
+- Setup Onboarding/Offboarding: Preparação de máquinas para novos colaboradores e recolhimento no encerramento de ciclos.
+- Suporte Técnico (N1/N2)
+- Helpdesk: Atendimento de chamados focado na resolução de incidentes em estações de trabalho, sistemas operacionais e softwares corporativos.
+- Diagnóstico: Identificação de gargalos em SO ou conectividade, atuando de forma resolutiva na causa raiz.
+- Infraestrutura de Rede e Segurança
+- Redes Conectividade: Manutenção de cabeamento estruturado, organização de racks e configuração/monitoramento de Access Points (Ubiquiti/UniFi) via controladora.
+- Switching Firewall: Configurações básicas em switches gerenciáveis (VLANs, portas) e apoio no monitoramento de logs/regras básicas no MikroTik.
+- Endpoint Security: Gestão da console Bitdefender/GravityZone (instalação, monitoramento de alertas e gestão de exceções).
+- Cursando ou concluído Ensino Superior em TI, Redes de Computadores ou áreas correlatas.
+- Experiência prática consistente com Windows (AD, GPO) e macOS (essencial).
+- Noções sólidas de protocolo TCP/IP, DNS, DHCP e cabeamento estruturado.
+- Certificações técnicas (ex: MTCNA/MikroTik, CCNA, Google Workspace Admin ou similares).
+- Vivência anterior em ambientes corporativos de tecnologia de ritmo acelerado.

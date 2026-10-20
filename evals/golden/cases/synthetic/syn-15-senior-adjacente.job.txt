@@ -1,0 +1,36 @@
+Engenheiro(a) de Software Back-end Sênior
+
+Acme Tecnologia | 100% remoto, para todo o Brasil | CLT
+
+Sobre o time
+O time de logística da Acme Tecnologia cuida do cálculo de frete e do rastreamento de entregas de mais de 600 lojas virtuais. Processamos milhões de eventos por dia e buscamos uma pessoa sênior para ajudar a escalar essa operação.
+
+Responsabilidades
+- Projetar e desenvolver serviços de cotação de frete e de rastreamento;
+- Definir padrões de cache e de filas para os picos de datas comerciais;
+- Conduzir revisões de arquitetura e de código;
+- Acompanhar a saúde dos serviços em produção e liderar a análise de incidentes;
+- Apoiar o crescimento técnico das pessoas plenas e júniores do time.
+
+Requisitos obrigatórios
+- Pelo menos 5 anos de experiência com desenvolvimento back-end;
+- Node.js;
+- TypeScript;
+- PostgreSQL;
+- Redis;
+- Docker;
+- AWS.
+
+Todos os itens acima são usados diariamente pelo time e serão avaliados na entrevista técnica.
+
+Remuneração
+Salário de R$ 15.000 por mês, regime CLT.
+
+Benefícios
+- Plano de saúde e odontológico;
+- Vale-refeição;
+- Auxílio home office;
+- Wellhub.
+
+Como é o processo
+Conversa com recrutamento, entrevista técnica com perguntas sobre projetos reais, desenho de sistema e conversa com a liderança de engenharia. O processo inteiro dura cerca de três semanas.

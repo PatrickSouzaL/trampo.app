@@ -1,0 +1,40 @@
+Engenheiro/a de Software Back-end Sénior
+
+Acme Tecnologia Europa | Lisboa, Portugal | Regime híbrido
+
+Quem somos
+A Acme Tecnologia Europa é o centro de desenvolvimento europeu da Acme Tecnologia. Desenvolvemos a plataforma de faturação eletrónica usada por empresas de distribuição em Portugal e em Espanha. A equipa de engenharia tem 30 pessoas e trabalha a partir do escritório de Lisboa e de casa.
+
+O que vais fazer
+- Desenhar e desenvolver serviços de faturação, cobrança e integração com a autoridade tributária;
+- Garantir a fiabilidade dos serviços em produção e participar na análise de incidentes;
+- Contribuir para as decisões de arquitetura e para a revisão de código;
+- Acompanhar e orientar colegas com menos experiência.
+
+O que procuramos
+- Pelo menos 5 anos de experiência em desenvolvimento back-end;
+- Java e Spring Boot;
+- PostgreSQL;
+- Kafka;
+- AWS;
+- Inglês é desejável, porque parte da documentação técnica está em inglês.
+
+Valorizamos
+- Kubernetes;
+- Terraform;
+- Experiência com faturação eletrónica.
+
+Modelo de trabalho
+Regime híbrido: dois dias por semana no escritório de Lisboa e os restantes em casa.
+
+O que oferecemos
+- Contrato sem termo;
+- Remuneração entre 42.000 EUR e 50.000 EUR brutos por ano, conforme experiência;
+- Seguro de saúde extensível ao agregado familiar;
+- Subsídio de refeição em cartão;
+- Bónus anual por objetivos;
+- Orçamento anual para formação;
+- Horário flexível.
+
+Processo de recrutamento
+Conversa inicial com recursos humanos, entrevista técnica com a equipa e conversa final com a direção de engenharia.

@@ -1,0 +1,52 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-10",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "hibrido",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 1,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Advogado(a) Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Nome do escritório é o nome próprio de uma pessoa: vira [EMPRESA] (§7). Orientar juniores e estagiários não é nível de liderança declarado. Sem salário, contrato, stack ou benefícios."
+}

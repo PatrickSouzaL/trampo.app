@@ -1,0 +1,81 @@
+Leega
+
+Especialista Cloudera Sênior (Big Data e Google Cloud)
+São Paulo - SP
+Efetivo
+Presencial
+
+Descrição da vaga
+A Leega é uma empresa focada no atendimento eficiente e inovador em seus clientes. 
+
+Isso não poderia ser diferente com o nosso principal combustível: as pessoas!  
+
+Nossa cultura é inspiradora e nossos valores estão presentes no dia a dia: ética e transparência, excelência de qualidade, trabalho em equipe, responsabilidade econômica, social e ambiental, relações humanas e credibilidade.
+
+Buscamos profissionais inovadores que sejam movidos por desafios e focados em resultados.
+
+Se você busca uma empresa dinâmica e parceira e que investe em seus colaboradores através de capacitação constante, a Leega é o lugar para você!
+
+>> A LEEGA É PARA TODOS, ficaremos muito felizes em ter você em nosso time. Venha fazer parte da nossa história e da construção do nosso futuro. 
+
+Cadastre-se agora mesmo em nossas vagas!
+
+Responsabilidades e atribuições
+Buscamos um Especialista Cloudera Sênior para atuar de forma presencial em um projeto estratégico de migração de plataforma de dados em uma instituição financeira de grande porte. O projeto é a migração de uma plataforma de dados de grande porte, hoje em Cloudera na AWS, para o Google Cloud, no modo lift and shift: cerca de 13 mil jobs Spark e PySpark, 2,5 PB de dados, streaming com CDC, centenas de modelos de Machine Learning e frameworks proprietários de ingestão e processamento, em 9 meses de migração por ondas mensais, seguidos de 3 meses de pós implantação. 
+
+Você será a referência técnica do ambiente legado: vai ler, explicar e destravar o que roda hoje no Cloudera, garantindo que a migração para o Google Cloud preserve o comportamento de cada componente. 
+
+Principais responsabilidades:
+- Analisar o ambiente Cloudera atual (CDP), seus serviços, configurações, dependências e jobs em produção. 
+- Apoiar o Discovery do inventário e da malha de dependências entre origens, jobs, tabelas e consumidores. 
+- Mapear componentes e recursos específicos do Cloudera e indicar o equivalente ou a adequação necessária no Google Cloud. 
+- Apoiar a migração de Spark, Hive, Impala, Kudu, HBase, Kafka e NiFi, incluindo versões legadas de Spark. 
+- Investigar diferenças encontradas na comparação entre legado e destino e identificar a causa. 
+- Apoiar a migração de políticas de segurança e governança (Ranger, Atlas, Kerberos) para o Google Cloud. 
+- Atuar junto aos especialistas do cliente no entendimento dos frameworks proprietários que rodam sobre o Cloudera. 
+- Documentar o conhecimento do legado para os times de engenharia. 
+
+Requisitos e qualificações
+Requisitos obrigatórios:
+- Mínimo de 6 anos de experiência com ecossistema Hadoop, sendo pelo menos 4 anos com Cloudera (CDH ou CDP). 
+- Domínio de Spark e PySpark, Hive e Impala em ambiente de produção de grande porte. 
+- Experiência com Kudu, HBase, Kafka ou NiFi. 
+- Conhecimento de segurança e governança no Cloudera (Ranger, Atlas, Kerberos). 
+- Experiência com Google Cloud, mínimo de 1 ano, em projetos ou ambientes de dados (Dataproc, BigQuery, Cloud Storage). 
+- Ensino superior completo em Tecnologia, Engenharia ou áreas correlatas. 
+
+Diferenciais:
+- Experiência em projetos de migração de Cloudera ou Hadoop para nuvem. 
+- Certificação Cloudera ou Google Cloud. 
+- Experiência com Cloudera Data Engineering (CDE) e Airflow. 
+- Experiência com Apache Flink e CDC (Debezium). 
+- Experiência em instituições financeiras. 
+
+Competências comportamentais:
+- Didática para explicar o legado a times e especialistas de diferentes níveis. 
+- Investigação estruturada de problemas, com foco em causa raiz. 
+- Colaboração próxima com especialistas do cliente. 
+- Organização na documentação de conhecimento técnico. 
+- Disponibilidade para atuar em janelas de implantação. 
+
+Informações adicionais
+INDISPENSÁVEL Conhecimento/Atuação em: 
+- Cloudera (CDH ou CDP) em produção 
+- Spark, Hive e Impala 
+- Atuação presencial 
+- Modelo de atuação 100% PRESENCIAL, em instituição financeira localizada na Av. Paulista - São Paulo. 
+
+Contratação CLT. 
+
+Benefícios:
+- Convênio Médico Porto Seguro
+- Convênio Odontológico Porto Seguro
+- Participação nos Lucros e Resultados (PLR)
+- Auxílio Creche
+- Vale Alimentação e Refeição Alelo
+- Auxílio Home Office
+- Parcerias com Instituições de Ensino
+- Incentivo para Certificações, inclusive em Cloud
+- Pontos Livelo
+- TotalPass
+- Mindself

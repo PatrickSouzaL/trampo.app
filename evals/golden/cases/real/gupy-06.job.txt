@@ -1,0 +1,53 @@
+Grupo Stefanini
+
+Especialista em Nuvem (CCoE)
+São Paulo - SP
+Efetivo
+Híbrido
+
+Descrição da vaga
+No Grupo Stefanini, acreditamos no poder da colaboração. Co-criamos soluções inovadoras em parceria com nossos clientes, combinando tecnologia de ponta, inteligência artificial e a criatividade humana. Estamos na vanguarda da resolução de problemas de negócios, proporcionando impacto real em escala global.
+
+Ao se juntar à Stefanini, você se torna parte de uma jornada global de transformação. Estamos empenhados em criar impacto positivo não apenas nos negócios, mas também na vida de nossos colaboradores. Se você procura uma oportunidade de crescimento profissional em uma empresa que valoriza inovação, respeito, autonomia e parceria, você encontra aqui!
+
+Junte-se a nós e seja parte da mudança!
+
+Híbrido 2x na semana - Faria Lima/SP.
+
+Responsabilidades e atribuições
+Estamos buscando um Especialista em Nuvem para integrar nosso Cloud Center of Excellence (CCoE). Você será a principal referência técnica na construção e na sustentação das nossas políticas e procedimentos, garantindo que a infraestrutura multicloud seja escalável, segura e operada sob as melhores práticas do mercado. Atuará diretamente no código, nos pipelines e nos consoles, sendo a referência técnica nas decisões de arquitetura. Este papel exige visão estratégica, alto nível de autonomia e proficiência técnica para impulsionar a transformação digital e assegurar a excelência operacional.
+
+Requisitos:
+
+● Políticas como código: Implementar e manter guardrails (SCPs, políticas de IAM, Azure Policy, diretrizes de rede) em Terraform, aplicados de forma consistente em dezenas de contas e assinaturas.
+● Engenharia de plataforma: Construir e evoluir os blocos de infraestrutura consumidos pelos times (redes, contas, acessos, pipelines de provisionamento), com foco em padrão, reuso e redução de trabalho manual.
+● Arquitetura que vai para produção: Desenhar arquiteturas multicloud e acompanhar sua implementação, incluindo conectividade entre provedores, segmentação de rede e resiliência.
+● Troubleshooting avançado (L3/L4): Investigar incidentes que cruzam provedores, como roteamento assimétrico, conflitos de políticas de acesso e gargalos de computação, identificando a causa raiz e implementando as correções necessárias.
+● Automação em larga escala: Escrever scripts e funções serverless para coleta de dados, inventário e aplicação de configurações em toda a organização.
+
+Requisitos e qualificações
+Domínio de Infraestrutura em nível administrador, com conhecimento profundo e uma visão estratégica para atuação em recursos computacionais, Networking (VPCs, VNETs, Transit Gateways, roteamento), Policies e estruturação de Organizations.
+Vivência Multicloud sólida: experiência profunda com AWS e competência comprovada em Azure; conhecimentos em OCI são desejáveis, com possibilidade de aprendizado contínuo.
+Expertise em Infraestrutura como Código: experiência prática em escrever e manter código Terraform em ambientes de produção.
+Habilidade com Scripting: automações complexas utilizando Shell Script, CLIs nativas das nuvens (AWS CLI, Azure CLI, OCI CLI) e funções serverless (como AWS Lambda).
+Excelente comunicação e capacidade de influência: habilidade para orientar áreas clientes, defender padrões técnicos mesmo sem apoio hierárquico e propor alternativas fundamentadas.
+Inglês intermediário/avançado para leitura de documentação técnica.
+
+Diferencial:
+
+● Experiência na construção e publicação de módulos Terraform reutilizáveis desde o início.
+● Vivência com OCI e conhecimento em Google Cloud Platform (GCP).
+● Experiência com práticas de FinOps.
+● Possuir certificação em qualquer uma das principais nuvens do mercado.
+
+Informações adicionais
+🍛 Vale-alimentação ou vale-refeição;
+👨🏼‍🎓 Desconto em cursos, universidades e instituições de idiomas;
+📚 Academia Stefanini — plataforma com cursos on-line, gratuitos, atualizados e com certificado;
+🗣 Mentoring;
+💉 Clube de vantagens para consultas e exames;
+🏥 Assistência médica;
+🦷 Assistência odontológica;
+💰 Clube de vantagens e descontos nos melhores estabelecimentos;
+🛫 Clube de viagens;
+🐶 Convênio para pets.

@@ -1,0 +1,64 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-18",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [
+    "diferencial",
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "ANALISTA DE PROJETOS - ENGENHARIA",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Varginha",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Microsoft Office"
+    ],
+    "stackNiceToHave": [
+      "AutoCAD",
+      "Microsoft Project"
+    ],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "seniorityLevels": [
+      [
+        "junior"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Nível não declarado; \"iniciar sua carreira\" sugere júnior, que fica só em alternatives. \"Project\" desejável é o MS Project (termo_ambiguo). Parágrafo inicial genérico, mas atribuições claras: sem linguagem_vaga."
+}

@@ -1,0 +1,73 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-11",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "hibrido"
+  ],
+  "traps": [
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista Tributário",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Excel",
+      "NetSuite",
+      "SAP",
+      "TOTVS",
+      "Senior",
+      "Sankhya"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "location": [
+      {
+        "city": "Belo Horizonte",
+        "stateUf": null,
+        "countryIso2": "BR"
+      },
+      {
+        "city": "Belo Horizonte",
+        "stateUf": null,
+        "countryIso2": null
+      }
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Pleno declarado no corpo (o título não traz nível). \"Senior\" é o nome de um ERP na lista de ERPs exigidos, não nível (termo_ambiguo). Obrigações fiscais (SPED, EFD, DCTF) não são tecnologia. UF não escrita: MG pela cidade, com alternativa sem UF."
+}

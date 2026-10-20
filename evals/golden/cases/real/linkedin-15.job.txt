@@ -1,0 +1,46 @@
+BTG Pactual
+
+Analista de Dados
+São Paulo, São Paulo, Brasil
+Tempo integral
+
+Sobre a vaga
+Sobre a Área
+
+A área de Analytics do Banco tem papel central na tomada de decisão das áreas de negócio atuadas, transformando dados em insights acionáveis que impactam diretamente os resultados do negócio. Atuamos apoiando decisões do dia a dia e iniciativas estruturais de crescimento, eficiência e gestão de risco.
+
+Nosso time é responsável por analisar dados, identificar padrões, construir diagnósticos e gerar recomendações baseadas em evidências, utilizando técnicas de estatística, modelagem analítica, visualização de dados e experimentação, entendendo profundamente seus desafios para propor soluções analíticas de alto impacto.
+
+No Seu Dia a Dia
+
+Realizar estudos e análises avançadas utilizando técnicas e ferramentas de Big Data;
+Manter e otimizar ETLs garantindo a integridade e disponibilidade dos dados;
+Desenvolver dashboards claros e intuitivos, facilitando a tomada de decisões estratégicas.
+
+Esperamos De Você
+
+Graduação completa em Engenharia, Computação, Matemática ou áreas correlatas;
+Disponibilidade para atuar no modelo presencial (4x por semana) no escritório de São Paulo (Faria Lima);
+Experiência sólida em Python e SQL;
+Conhecimento em soluções e serviços AWS;
+Domínio de ferramentas de visualização de dados, especialmente PowerBI;
+Excelentes habilidades analíticas, capacidade de resolução de problemas e curiosidade intelectual;
+Inglês avançado é um diferencial;
+Conhecimento prévio do mercado financeiro (investimentos, crédito, banking, etc.) ou plataformas digitais é um diferencial;
+Conhecimento e experiência prática em inferência estatística é um diferencial.
+
+Benefícios
+
+Participação nos Lucros e Resultados (PLR);
+Auxílio Alimentação e Refeição;
+Plano Médico;
+Plano Odontológico;
+Auxílio Creche/Babá;
+Vale Transporte;
+WellHub;
+TotalPass;
+Programa de Apoio Pessoal (EAP);
+Planos por adesão como Previdência Privada e Seguro de Vida;
+Desconto em Farmácia;
+Programa de Nutrição;
+Programa de Gestantes;

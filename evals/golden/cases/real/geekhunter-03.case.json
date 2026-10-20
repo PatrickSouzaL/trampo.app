@@ -1,0 +1,80 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "geekhunter-03",
+  "source": "geekhunter",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "com_salario",
+    "moeda_estrangeira",
+    "internacional",
+    "remoto"
+  ],
+  "traps": [
+    "ars_contem_r_cifrao"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor Java Sênior",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": null,
+      "stateUf": null,
+      "countryIso2": "AR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Java",
+      "Spring Boot",
+      "Angular",
+      "REST",
+      "Oracle",
+      "PostgreSQL",
+      "AWS"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "contractTypes": [
+      [
+        "clt"
+      ]
+    ]
+  },
+  "contractGaps": [
+    {
+      "gap": "moeda_fora_do_enum",
+      "field": "salary",
+      "value": {
+        "min": 3800000,
+        "max": 3900000,
+        "currency": "ARS",
+        "period": "mes"
+      }
+    }
+  ],
+  "injection": null,
+  "notes": "Salário em AR$ (ARS, fora do enum v1): salary null e valor em contractGaps; AR$ contém R$. Corpo diz \"Efetivo (CLT - Argentina)\"; o \"por tiempo indeterminado\" só está no cabeçalho. Contrato argentino não é CLT: [] com clt em alternatives. Texto em português; espanhol não é pedido. Residência obrigatória na Argentina: país AR."
+}

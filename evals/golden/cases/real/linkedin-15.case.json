@@ -1,0 +1,81 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-15",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "presencial",
+    "ingles"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Dados",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Python",
+      "SQL",
+      "AWS",
+      "Power BI"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "plr_bonus",
+      "vale_alimentacao",
+      "vale_refeicao",
+      "plano_saude",
+      "plano_odontologico",
+      "auxilio_creche",
+      "outro",
+      "bem_estar_academia",
+      "previdencia_privada",
+      "seguro_vida"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "avancado",
+        "required": false
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "workModels": [
+      [
+        "hibrido"
+      ],
+      [
+        "hibrido",
+        "presencial"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Cabeçalho do anúncio sem modelo; o corpo diz \"modelo presencial (4x por semana)\". Anotado pelo texto como presencial, com híbrido em alternatives (4 dias implica 1 remoto). Big Data e ETL são conceito. Previdência e seguro são por adesão, mantidos."
+}

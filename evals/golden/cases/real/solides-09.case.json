@@ -1,0 +1,60 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "solides-09",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "com_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de TI Sênior",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Fortaleza",
+      "stateUf": "CE",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 4500,
+      "max": 4500,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Zabbix"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Salário aparece na seção Benefícios, mas é salário; demais benefícios declarados como não informados: []. Sem anos exigidos. VPN, Wi-Fi, antivírus e thin clients são conceitos, não produtos: só Zabbix na stack. Sênior que acumula suporte a usuário e infra é comum em TI de empresa média: sem red flag (critério conservador)."
+}

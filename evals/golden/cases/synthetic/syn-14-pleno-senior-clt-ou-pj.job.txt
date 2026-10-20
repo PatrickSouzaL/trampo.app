@@ -1,0 +1,37 @@
+Desenvolvedor(a) .NET Pleno/Sênior
+
+Nimbus Dados | São Paulo, SP | Remoto ou híbrido | CLT ou PJ
+
+Sobre a Nimbus Dados
+Somos uma empresa de software para gestão de frotas. Nossos clientes acompanham consumo de combustível, manutenção e rotas de mais de 20 mil veículos pela nossa plataforma.
+
+A vaga
+Abrimos uma posição para Pleno/Sênior: o nível será definido na entrevista, de acordo com a sua experiência. Você pode trabalhar de forma remota ou híbrida; quem mora na Grande São Paulo e escolher o híbrido vem ao escritório duas vezes por semana.
+
+Responsabilidades
+- Desenvolver e evoluir as APIs de manutenção preventiva e de abastecimento;
+- Trabalhar com filas para processar os dados enviados pelos veículos;
+- Otimizar consultas e procedimentos no banco de dados;
+- Participar das revisões de código e das cerimônias do time.
+
+Requisitos
+- Pelo menos 3 anos de experiência com C# e .NET;
+- SQL Server;
+- Azure (App Service, Functions e Service Bus);
+- Git.
+
+Diferenciais
+- Angular;
+- RabbitMQ.
+
+Contratação e remuneração
+- Você escolhe o regime: CLT ou PJ;
+- Faixa salarial de R$ 9.000 a R$ 14.000 por mês, a mesma para os dois regimes, conforme o nível definido no processo.
+
+Benefícios (para contratação CLT)
+- Plano de saúde e odontológico;
+- Vale-refeição e vale-alimentação;
+- PLR semestral.
+
+Processo
+Conversa com recrutamento, entrevista técnica e conversa com a gestão. Todo o processo é on-line.

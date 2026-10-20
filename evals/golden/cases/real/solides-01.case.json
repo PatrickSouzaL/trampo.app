@@ -1,0 +1,95 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "solides-01",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "remoto"
+  ],
+  "traps": [
+    "beneficio_com_valor"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Especialista de FinOps",
+    "seniorityLevels": [
+      "especialista"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "AWS",
+      "AWS Cost Explorer",
+      "AWS Budgets",
+      "AWS Cost and Usage Report",
+      "AWS Trusted Advisor",
+      "Terraform",
+      "AWS CloudFormation",
+      "Docker",
+      "Kubernetes",
+      "Azure",
+      "GCP",
+      "CloudHealth",
+      "Kubecost",
+      "Power BI",
+      "Grafana",
+      "Python",
+      "Shell Script",
+      "SQL"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_alimentacao",
+      "vale_refeicao",
+      "auxilio_home_office",
+      "outro",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "bem_estar_academia",
+      "folga_aniversario",
+      "auxilio_creche",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "location": [
+      {
+        "city": null,
+        "stateUf": null,
+        "countryIso2": "BR"
+      },
+      null
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Valores em R$ só em benefícios (VA/VR por dia, home office, odonto): salário null. 100% remoto com \"Localidade\" BH: BH no expected, Brasil ou null em alternatives. Diferenciais são certificações (fora da stack). CI/CD é prática, não produto."
+}

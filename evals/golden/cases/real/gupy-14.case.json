@@ -1,0 +1,86 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-14",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "es",
+  "tags": [
+    "sem_salario",
+    "internacional",
+    "hibrido",
+    "ingles"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista Funcional Cloud",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Ciudad de Buenos Aires",
+      "stateUf": null,
+      "countryIso2": "AR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "SQL",
+      "Databricks"
+    ],
+    "stackNiceToHave": [
+      "Power BI"
+    ],
+    "benefits": [],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": null,
+        "required": false
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "contractTypes": [
+      [
+        "clt"
+      ]
+    ],
+    "location": [
+      {
+        "city": "Buenos Aires",
+        "stateUf": null,
+        "countryIso2": "AR"
+      }
+    ],
+    "stackRequired": [
+      [
+        "SQL",
+        "Databricks",
+        "Power BI"
+      ]
+    ],
+    "stackNiceToHave": [
+      []
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Vaga na Argentina, texto em espanhol. \"Efetivo\" é rótulo da Gupy para contrato argentino: [] com clt na alternativa. Power BI aparece como conhecimento principal e depois como \"deseable\": desejável no gabarito, exigido na alternativa. Inglês valorado, não excludente."
+}

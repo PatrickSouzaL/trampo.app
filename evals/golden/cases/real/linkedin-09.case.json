@@ -1,0 +1,59 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-09",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "presencial",
+    "ingles",
+    "curta"
+  ],
+  "traps": [
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Advogado",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "fluente",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "\"Líder\" aparece só no nome da empresa: não implica lideranca; nenhum nível declarado. Sistemas de acompanhamento processual sem nome de produto: stack vazia. Inglês fluente nos requisitos e no bloco Idiomas."
+}

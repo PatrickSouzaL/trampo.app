@@ -1,0 +1,82 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-09",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "presencial",
+    "ingles"
+  ],
+  "traps": [
+    "diferencial",
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Dados | Ciclo de Crédito - Sede",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Petrolina",
+      "stateUf": "PE",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "SQL",
+      "Excel",
+      "Power BI",
+      "Python",
+      "R"
+    ],
+    "stackNiceToHave": [
+      "PHP",
+      "HTML",
+      "JavaScript",
+      "CSS"
+    ],
+    "benefits": [
+      "vale_alimentacao",
+      "vale_refeicao",
+      "outro",
+      "auxilio_creche",
+      "seguro_vida",
+      "plano_saude",
+      "plano_odontologico",
+      "bem_estar_academia",
+      "previdencia_privada",
+      "folga_aniversario"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "basico",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Sem nível declarado. \"Python ou R\": as duas como exigidas; R é termo ambíguo de uma letra. Inglês técnico = basico. PHP/HTML/JavaScript/CSS só em diferenciais. VA/Refeição = os dois vales."
+}

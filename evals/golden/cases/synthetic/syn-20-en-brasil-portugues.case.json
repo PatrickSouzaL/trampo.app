@@ -1,0 +1,85 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "syn-20-en-brasil-portugues",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "normal",
+  "language": "en",
+  "tags": [
+    "ingles",
+    "remoto",
+    "sem_salario",
+    "curta"
+  ],
+  "traps": [
+    "texto_em_ingles"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Senior Site Reliability Engineer",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": 5,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": "Florianópolis",
+      "stateUf": "SC",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Kubernetes",
+      "Terraform",
+      "AWS",
+      "Prometheus",
+      "Grafana",
+      "Python",
+      "Linux"
+    ],
+    "stackNiceToHave": [
+      "Datadog",
+      "Ansible"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "bem_estar_academia",
+      "participacao_societaria",
+      "auxilio_home_office"
+    ],
+    "languageRequirements": [
+      {
+        "language": "portugues",
+        "level": "fluente",
+        "required": true
+      },
+      {
+        "language": "ingles",
+        "level": "avancado",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Vaga escrita em inglês para empresa brasileira: país BR, contrato CLT. Exige português fluente e inglês avançado (os dois required). Como o país é BR e não há salário, não é internacional: o inglês segue a regra geral."
+}

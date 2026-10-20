@@ -1,0 +1,38 @@
+Desenvolvedor(a) Front-end Pleno
+
+Acme Tecnologia – Recife, PE – Híbrido (terças e quintas no escritório) – CLT
+
+Sobre o produto
+A Acme Tecnologia desenvolve um sistema de gestão para clínicas veterinárias. O front-end inteiro é feito em Vue.js com Nuxt. Não é necessário conhecer Angular: a versão antiga do painel foi aposentada e não há código Angular em manutenção. Também deixamos de usar React no ano passado, quando unificamos os produtos.
+
+O que você vai fazer
+- Criar telas de agenda, prontuário e financeiro;
+- Construir componentes reutilizáveis para o nosso design system;
+- Integrar o front-end com as APIs do time de back-end;
+- Escrever testes unitários e cuidar da acessibilidade.
+
+Requisitos
+- Experiência mínima de 2 anos com front-end;
+- Vue.js;
+- Nuxt;
+- JavaScript e TypeScript;
+- HTML e CSS;
+- Git.
+
+Sobre Java
+Nosso back-end é em Java. Java é um diferencial, não requisito: ajuda a conversar com o time de back-end, mas a vaga é de front-end e ninguém vai precisar programar em Java no dia a dia.
+
+Outros diferenciais
+- Testes de ponta a ponta com Playwright.
+
+Remuneração
+Salário de R$ 7.000 a R$ 9.000 por mês.
+
+Benefícios
+- Plano de saúde e odontológico;
+- Vale-refeição;
+- Horário flexível nos dias de trabalho remoto;
+- Folga no dia do aniversário.
+
+Etapas
+Conversa com recrutamento, entrevista técnica em par com uma pessoa do time e conversa com a coordenação de produto.

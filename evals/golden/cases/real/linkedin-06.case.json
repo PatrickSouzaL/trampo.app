@@ -1,0 +1,87 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-06",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de TI",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "TOTVS RM",
+      "Fluig",
+      "SQL",
+      "SQL Server",
+      "Oracle",
+      "JavaScript",
+      "HTML",
+      "CSS",
+      "REST",
+      "SOAP"
+    ],
+    "stackNiceToHave": [
+      "Labore",
+      "Chronus",
+      "Vitae",
+      "Jira",
+      "Azure DevOps",
+      "Power BI",
+      "Tableau"
+    ],
+    "benefits": [
+      "seguro_vida",
+      "plano_saude",
+      "bem_estar_academia",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackNiceToHave": [
+      [
+        "Jira",
+        "Azure DevOps",
+        "Power BI",
+        "Tableau"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Título só \"Analista de TI\", mas o corpo declara Pleno. \"Efetivo - CLT\" vira clt. Scrum/Kanban e BPMN são metodologia/notação, fora. Módulos do RM (Labore, Chronus, Vitae) em desejáveis; alternativa sem eles. Refeição no local, VT e estacionamento em outro."
+}

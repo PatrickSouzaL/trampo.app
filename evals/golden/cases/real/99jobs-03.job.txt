@@ -1,0 +1,48 @@
+# ESIG Software e Tecnologia | Desenvolvedor (Java)
+
+- **Empresa:** ESIG Software e Tecnologia
+- **Título da vaga:** Desenvolvedor (Java)
+- **Localidade:** Natal, RN, Brasil
+- **Regime de atuação:** Presencial
+- **Tipo de vínculo:** Não informado
+
+---
+
+### Sobre a vaga
+Atuação no desenvolvimento de software corporativo na linguagem Java, com foco em manutenção evolutiva, implantação e sustentação de sistemas de gestão voltados a educação, governo eletrônico e ciência e tecnologia.
+
+### Responsabilidades e atribuições
+- Desenvolver e manter sistemas na plataforma Java/JEE.
+- Atuar em demandas de manutenção evolutiva e corretiva de sistemas legados e novos módulos.
+- Realizar rotinas de sustentação técnica e suporte à implantação das aplicações.
+- Aplicar boas práticas de análise e modelagem orientada a objetos.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Graduação completa (ou em andamento) em Ciência da Computação, Engenharia da Computação/Software, Análise e Desenvolvimento de Sistemas ou áreas correlatas.
+- Conhecimentos práticos de programação em Java e arquitetura JEE.
+- Fundamentos de Análise Orientada a Objetos e UML.
+- Experiência com JavaServer Faces (JSF) e framework Hibernate.
+- Conhecimentos em banco de dados relacional PostgreSQL.
+- Vivência com controle de versões (Git).
+- Noções de ambiente operacional Linux.
+- Conhecimento em servidores de aplicação (JBoss).
+- Familiaridade com a IDE Eclipse e metodologias ágeis (Scrum).
+
+**Desejáveis / Diferenciais:**
+- Não informado.
+
+### Benefícios
+- Assistência Médica
+- Assistência Odontológica
+- Vale-Alimentação
+- Vale-Refeição
+- Vale-Transporte
+- Bolsa de Estudo
+- Possibilidade de horário flexível
+- Desconto em produtos/parcerias
+
+### Modelo e local de trabalho
+- **Regime:** 100% presencial.
+- **Base territorial:** Natal, RN, Brasil.

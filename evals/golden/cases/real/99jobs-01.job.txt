@@ -1,0 +1,49 @@
+
+# Peopleware Tecnologia | Analista de Produção
+
+- **Empresa:** Peopleware Tecnologia
+- **Título da vaga:** Analista de Produção
+- **Localidade:** Rio de Janeiro, RJ (ou Niterói / São Paulo)
+- **Regime de atuação:** Híbrido
+- **Tipo de vínculo:** Não informado
+
+---
+
+### Sobre a vaga
+Atuação na sustentação, automação e evolução de ambientes operacionais, com foco na estabilidade e execução de ciclos de processamento em produção e homologação, automação de rotinas via scripts e gestão de incidentes críticos de nível 3.
+
+### Responsabilidades e atribuições
+- Analisar, desenvolver e otimizar rotinas de automação em Shell Script, propondo melhorias contínuas no ambiente operacional.
+- Executar e monitorar ciclos de processamento de produção, homologação e rotinas batch eventuais, garantindo integridade e conformidade com os SLAs.
+- Criar, aplicar e homologar Requisições de Mudanças (RDM) com versionamento via GitLab.
+- Atuar no suporte operacional de Nível 3 para novos produtos e ambiente de sustentação, diagnosticando causas-raiz e executando correções de incidentes.
+- Realizar atendimento técnico a clientes em reuniões online para alinhamento operacional e esclarecimento de dúvidas.
+- Manter, configurar e prestar suporte a ferramentas de monitoramento e observabilidade (APS, Zabbix e Grafana).
+- Atuar em regime de escala de sobreaviso e acionamento pontual (plantão/fins de semana/madrugadas) para contenção de incidentes críticos.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Graduação completa em Análise e Desenvolvimento de Sistemas, Ciência da Computação ou áreas correlatas de Tecnologia da Informação.
+- Experiência prévia em operações de sustentação, processamento batch e gestão de chamados.
+- Domínio prático no desenvolvimento e manutenção de automações em Shell Script.
+- Experiência sólida com versionamento de código via Git.
+- Vivência prática com plataformas de ITSM e atendimento (ex.: Znuny).
+- Experiência em configuração e operação de ferramentas de monitoramento e observabilidade.
+
+**Desejáveis / Diferenciais:**
+- Conhecimentos de programação em Python ou JavaScript.
+- Noções de comandos e manipulação de banco de dados relacional (MySQL).
+- Vivência com recursos avançados de GitLab (esteiras CI/CD e governança de repositórios).
+- Espanhol em nível de conversação avançada.
+
+### Benefícios
+- Vale-Refeição ou Vale-Alimentação
+- Seguro de Vida
+- Seguro Saúde
+- Participação nos Lucros e Resultados (PLR)
+
+### Modelo e local de trabalho
+- **Regime:** Híbrido.
+- **Escala:** Atuação regular com disponibilidade para regime de sobreaviso/acionamento para incidentes críticos.
+- **Base territorial:** Rio de Janeiro, RJ (com atuação e escritórios vinculados no RJ, Niterói e SP).

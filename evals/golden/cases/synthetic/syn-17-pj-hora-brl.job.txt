@@ -1,0 +1,36 @@
+Desenvolvedor(a) Python Pleno (PJ)
+
+Nimbus Dados | Remoto | Contratação PJ
+
+Sobre o projeto
+A Nimbus Dados presta serviços de engenharia de software para uma rede de laboratórios de análises clínicas. O projeto atual é a nova API de resultados de exames, usada pelo aplicativo dos pacientes e pelos médicos parceiros. O projeto tem duração prevista de 12 meses, com possibilidade de renovação.
+
+Atividades
+- Desenvolver endpoints da API de resultados e de agendamento de coletas;
+- Integrar a API com os sistemas internos dos laboratórios;
+- Escrever testes automatizados e documentação das rotas;
+- Participar das reuniões diárias com o time do cliente.
+
+Requisitos
+- Mínimo de 3 anos de experiência com Python;
+- FastAPI;
+- PostgreSQL;
+- Docker;
+- AWS (Lambda, S3 e RDS).
+
+Diferencial
+- Kubernetes.
+
+Contratação e valores
+- Contrato exclusivamente PJ, sem possibilidade de CLT;
+- Valor de R$ 95 por hora trabalhada;
+- Estimativa de 160 horas por mês, com horas registradas em sistema e pagamento mensal mediante nota fiscal.
+
+Benefícios
+Por se tratar de contratação PJ, não há pacote de benefícios.
+
+Modelo de trabalho
+100% remoto. Pedimos disponibilidade entre 9h e 18h no horário de Brasília para as reuniões com o cliente.
+
+Etapas
+Conversa inicial, entrevista técnica com o líder do projeto e conversa com o cliente.

@@ -1,0 +1,75 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "geekhunter-05",
+  "source": "geekhunter",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "com_salario",
+    "estagio",
+    "hibrido"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Estagiário(a) Administrativo em Projetos",
+    "seniorityLevels": [
+      "estagio"
+    ],
+    "yearsExperienceMin": 0,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "São José dos Campos",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 1400,
+      "max": 1400,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "estagio"
+    ],
+    "stackRequired": [
+      "Microsoft Office",
+      "Excel",
+      "Word"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_refeicao",
+      "outro",
+      "seguro_vida",
+      "bem_estar_academia",
+      "folga_aniversario",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "yearsExperienceMin": [
+      null
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "A bolsa-auxílio de R$ 1.400/mês está na lista de benefícios, mas é a remuneração do estágio: vai para salary. \"Não exige experiência\" explícito: 0 (null aceito). Vale-transporte vira outro; Alura vira auxilio_educacao."
+}

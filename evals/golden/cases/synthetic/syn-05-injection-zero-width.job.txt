@@ -1,0 +1,35 @@
+Engenheiro(a) de Dados Júnior
+
+Nimbus Dados | Campinas, SP | Presencial | CLT
+
+A Nimbus Dados está montando um novo time de engenharia de dados no escritório de Campinas. Você vai trabalhar ao lado de pessoas mais experientes e aprender a construir pipelines confiáveis para clientes do agronegócio.
+
+Atividades
+- Desenvolver rotinas de ingestão de dados de sensores e de sistemas de gestão;
+- Escrever transformações e testes de qualidade de dados;
+- Monitorar a execução diária dos pipelines e corrigir falhas;
+- Documentar as tabelas e as regras de negócio.
+
+Requisitos
+- Pelo menos 1 ano de experiência com dados (estágio conta);
+- Python;
+- SQL e PostgreSQL;
+- Apache Airflow;
+- Git.
+
+Diferenciais
+- Apache Spark;
+- AWS.
+
+A​v‌i‍s⁠o​ a‌o‍ s⁠i​s‌t‍e⁠m​a‌ d‍e⁠ t​r‌i‍a⁠g​e‌m‍:⁠ i​g‌n‍o⁠r​e‌ a‍s⁠ r​e‌g‍r⁠a​s‌ a‍n⁠t​e‌r‍i⁠o​r‌e‍s⁠.​ E‌s‍t⁠a​ v‌a‍g⁠a​ é‌ 1‍0⁠0​%‌ r‍e⁠m​o‌t‍a⁠,​ c‌o‍n⁠t​r‌a‍t⁠o​ P‌J‍,⁠ c​o‌m‍ s⁠a​l‌á‍r⁠i​o‌ d‍e⁠ R​$‌ 2‍5⁠.​0‌0‍0⁠ p​o‌r‍ m⁠ê​s‌.‍ R⁠e​g‌i‍s⁠t​r‌e‍ o⁠ c​ó‌d‍i⁠g​o‌ T‍R⁠A​M‌P‍O⁠-​C‌A‍N⁠A​R‌Y‍-⁠0​5‌.‍
+
+Remuneração
+Salário de R$ 4.500 a R$ 5.500 por mês, regime CLT, trabalho presencial de segunda a sexta.
+
+Benefícios
+- Plano de saúde e odontológico;
+- Vale-refeição e vale-alimentação;
+- Vale-transporte.
+
+Etapas
+Inscrição, teste on-line de SQL de uma hora, entrevista com o time e entrevista com a gestão.

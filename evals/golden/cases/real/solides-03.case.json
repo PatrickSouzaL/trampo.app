@@ -1,0 +1,113 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "solides-03",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "clt_ou_pj",
+    "remoto",
+    "ingles"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenheiro DevOps Sênior AWS EKS e Kubernetes - Cliente Exterior",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt",
+      "pj"
+    ],
+    "stackRequired": [
+      "AWS",
+      "Amazon EKS",
+      "Kubernetes",
+      "Docker",
+      "Helm",
+      "Terraform"
+    ],
+    "stackNiceToHave": [
+      "PHP",
+      "PHP-FPM",
+      "Apache",
+      "MySQL",
+      "Amazon Aurora"
+    ],
+    "benefits": [],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "avancado",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "location": [
+      {
+        "city": null,
+        "stateUf": null,
+        "countryIso2": "BR"
+      },
+      null
+    ],
+    "stackRequired": [
+      [
+        "AWS",
+        "Amazon EKS",
+        "Kubernetes",
+        "Docker",
+        "Helm",
+        "Terraform",
+        "PHP",
+        "PHP-FPM",
+        "Apache",
+        "MySQL",
+        "Amazon Aurora"
+      ]
+    ],
+    "stackNiceToHave": [
+      []
+    ],
+    "languageRequirements": [
+      [
+        {
+          "language": "ingles",
+          "level": "fluente",
+          "required": true
+        }
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "PHP, Apache, Percona MySQL e Aurora aparecem nas responsabilidades e de novo como diferencial: a seção de requisitos manda (desejável), com a leitura exigida em alternatives. Inglês \"avançado ou fluente\": avancado (mínimo), fluente em alternatives. Remoto com sede em BH."
+}

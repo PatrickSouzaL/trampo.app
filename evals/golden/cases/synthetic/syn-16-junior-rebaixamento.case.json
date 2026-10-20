@@ -1,0 +1,71 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "syn-16-junior-rebaixamento",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "com_salario",
+    "presencial",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor(a) Júnior PHP",
+    "seniorityLevels": [
+      "junior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 3500,
+      "max": 3500,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "PHP",
+      "Laravel",
+      "MySQL",
+      "JavaScript",
+      "Git"
+    ],
+    "stackNiceToHave": [
+      "Vue.js",
+      "Docker"
+    ],
+    "benefits": [
+      "plano_saude",
+      "vale_refeicao",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Fixture do rebaixamento evidente (D-S5): vaga só júnior, presencial em Belo Horizonte, R$ 3.500. Para usuário que aceita só sênior, senioridade_rebaixamento com -30. Sem anos exigidos: yearsExperienceMin null. Vale-transporte = outro."
+}

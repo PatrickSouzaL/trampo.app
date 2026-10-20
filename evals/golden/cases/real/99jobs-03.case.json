@@ -1,0 +1,82 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "99jobs-03",
+  "source": "99jobs",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor (Java)",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Natal",
+      "stateUf": "RN",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Java",
+      "Java EE",
+      "JSF",
+      "Hibernate",
+      "PostgreSQL",
+      "Git",
+      "Linux",
+      "JBoss",
+      "Eclipse"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_alimentacao",
+      "vale_refeicao",
+      "outro",
+      "auxilio_educacao",
+      "horario_flexivel"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackRequired": [
+      [
+        "Java",
+        "Java EE",
+        "JSF",
+        "Hibernate",
+        "PostgreSQL",
+        "Git",
+        "Linux",
+        "JBoss",
+        "Eclipse",
+        "UML"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Cabeçalho do coletor diz Júnior, mas o corpo não declara nível: []. Vínculo \"Não informado\": []. UML só em alternatives (notação, não produto); Scrum é metodologia. Bolsa de estudo = auxilio_educacao; VT e descontos = outro."
+}

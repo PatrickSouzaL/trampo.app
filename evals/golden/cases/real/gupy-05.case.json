@@ -1,0 +1,83 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-05",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Programador de Manutenção Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Jundiaí",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "TOTVS",
+      "SAP PM",
+      "Engeman",
+      "Tractian",
+      "Excel"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "outro",
+      "plano_saude",
+      "plano_odontologico",
+      "vale_alimentacao",
+      "plr_bonus",
+      "previdencia_privada",
+      "seguro_vida",
+      "bem_estar_academia",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackRequired": [
+      [
+        "TOTVS",
+        "Excel"
+      ],
+      [
+        "SAP",
+        "Engeman",
+        "Tractian",
+        "TOTVS",
+        "Excel"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Sistemas de manutenção citados como exemplos (\"como ...\"), com TOTVS preferido: todos como exigidos. Programador aqui é PCM, não software. Cesta básica ou cartão VA = vale_alimentacao; universidade corporativa e parcerias de ensino = auxilio_educacao."
+}

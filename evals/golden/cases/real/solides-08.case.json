@@ -1,0 +1,78 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "solides-08",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Projetos (CLT)",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": null,
+      "stateUf": "RS",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "outro",
+      "vale_alimentacao",
+      "plr_bonus"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "title": [
+      "Analista de Projetos"
+    ],
+    "location": [
+      {
+        "city": "Santa Cruz do Sul",
+        "stateUf": "RS",
+        "countryIso2": "BR"
+      },
+      {
+        "city": "Porto Alegre",
+        "stateUf": "RS",
+        "countryIso2": "BR"
+      }
+    ],
+    "benefits": [
+      [
+        "outro",
+        "vale_alimentacao"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Duas cidades num campo de cidade única: city null com RS; cada cidade em alternatives. CFTV, controle de acesso, fibra e cabeamento são categorias, não produtos nomeados: stack vazia. Bônus por assiduidade -> plr_bonus (outro em alternatives). Segurança eletrônica: fora_de_ti (fronteiriço). CNH e PCD sem campo no contrato."
+}

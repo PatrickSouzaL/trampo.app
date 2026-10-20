@@ -1,0 +1,70 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-08",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "presencial",
+    "conflito",
+    "ingles",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Advogado(a) Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "fluente",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "languageRequirements": [
+      [
+        {
+          "language": "ingles",
+          "level": "avancado",
+          "required": true
+        }
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Nível de inglês contraditório: requisitos dizem fluente e o bloco Idiomas diz avançado. Gabarito com o nível dos requisitos e a outra leitura em alternatives. Pós-graduação desejável não é fato do contrato."
+}

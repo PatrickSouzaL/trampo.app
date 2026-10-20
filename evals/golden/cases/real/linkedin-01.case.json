@@ -1,0 +1,65 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-01",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "hibrido"
+  ],
+  "traps": [
+    "beneficio_com_valor"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de processos de TI Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "temporario"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_alimentacao",
+      "vale_refeicao",
+      "auxilio_home_office",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "plr_bonus",
+      "bem_estar_academia",
+      "horario_flexivel",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Valores em R$ só em benefícios (VA/VR e home office): salário null. File Server é conceito, não tecnologia nomeada: stack vazia. Temporário declarado no topo. Indicação premiada cai em plr_bonus; VT/combustível e descontos em outro."
+}

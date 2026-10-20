@@ -1,0 +1,44 @@
+Stefanini
+
+Analista Funcional Cloud
+Ciudad de Buenos Aires - Argentina
+Efetivo
+Híbrido
+
+Descrição da vaga
+En Stefanini somos más de 30.000 genios, conectados desde 41 países, haciendo lo que les apasiona y co-creando un futuro mejor.
+
+Responsabilidades e atribuições
+- Relevar y analizar requerimientos funcionales junto con los usuarios.
+- Documentar requerimientos, procesos, reglas de negocio y necesidades.
+- Participar en el planteo y diseño de soluciones.
+- Definir y ejecutar casos y escenarios de testing.
+- Validar información, datos y resultados de las soluciones desarrolladas.
+- Detectar, documentar y realizar el seguimiento de inconsistencias e incidentes.
+- Presentar resultados y avances a usuarios y stakeholders.
+- Trabajar en conjunto con equipos funcionales y técnicos de IT.
+- Participar en pruebas de integración, regresión y aceptación de usuario.
+
+Requisitos e qualificações
+Perfil Funcional BI / Cloud
+
+Principales conocimientos y experiencia:
+- Perfil con orientación funcional y capacidad de interacción con usuarios.
+- Participación en actividades de testing y validación de información.
+- Control y chequeo de datos.
+- Capacidad para analizar modelos y detectar inconsistencias.
+- Conocimientos o experiencia en herramientas cloud, especialmente Databricks.
+- Capacidad para comprender soluciones más complejas que un reporte básico con filtros.
+- Conocimientos de Power BI PREMIUM; se valorará especialmente la combinación entre Power BI y visión funcional.
+- Experiencia en análisis funcional, idealmente en proyectos de BI, Data o Analytics.
+- Experiencia en relevamiento y documentación de requerimientos.
+- Experiencia en testing, validación de información y análisis de resultados.
+- SQL — requisito excluyente.
+- Experiencia o conocimientos en Power BI — deseable.
+- Capacidad para analizar información y detectar inconsistencias.
+- Buenas habilidades de comunicación e interacción con usuarios y equipos de IT.
+- Capacidad para documentar y presentar resultados de manera clara.
+
+Idiomas:
+- El idioma no es excluyente.
+- Para el perfil funcional, será valorado contar con conocimientos de inglés u otros idiomas, debido a la interacción potencial con usuarios del exterior.

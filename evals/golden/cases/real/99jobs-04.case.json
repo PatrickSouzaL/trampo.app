@@ -1,0 +1,62 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "99jobs-04",
+  "source": "99jobs",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 1
+  },
+  "expected": {
+    "title": "Analista Financeiro Júnior",
+    "seniorityLevels": [
+      "junior"
+    ],
+    "yearsExperienceMin": 5,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Excel"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "outro",
+      "vale_refeicao",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Cabeçalho do coletor cita R$ 3.200/mês, mas o corpo não traz salário: null e sem_salario. Júnior com 5 anos exigidos: mantidos os dois (anos não implicam nível); sem red flag pelo critério conservador. Endereço com logradouro anonimizado."
+}

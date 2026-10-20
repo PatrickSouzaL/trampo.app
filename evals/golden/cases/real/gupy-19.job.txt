@@ -1,0 +1,64 @@
+Claro Brasil
+
+Tech Lead Arquiteto de Plataforma Especialista
+São Paulo - SP
+Efetivo
+Presencial
+
+Descrição da vaga
+O desafio desta posição é liderar e executar a evolução da plataforma DevEx, transformando padrões arquiteturais em capacidades self-service, automações e soluções de Inteligência Artificial. Você atuará na construção, integração e operação dessas soluções, apoiando os squads na entrega de software com mais autonomia, qualidade, segurança e eficiência.
+
+Responsabilidades e atribuições
+- Atuar como referência em arquitetura de software para a plataforma DevEx, conectando arquitetura, engenharia, produto, segurança e operação;
+- Orientar a construção e a evolução de produtos e componentes de software, apoiando decisões técnicas, desenho de soluções, padrões de desenvolvimento e avaliação de trade-offs;
+- Participar de forma hands-on da implementação, revisão e evolução de códigos, APIs, integrações, serviços e automações, sempre que necessário;
+- Definir e disseminar boas práticas, frameworks, padrões arquiteturais e critérios de qualidade aplicáveis ao ciclo de desenvolvimento;
+- Apoiar a evolução de pipelines e processos de CI/CD, promovendo automação, rastreabilidade, segurança, observabilidade e confiabilidade nas entregas;
+- Contribuir para a construção e adoção de capacidades de plataforma, templates, golden paths e soluções self-service que ampliem a autonomia dos times;
+- Apoiar os squads na análise e solução de problemas complexos, facilitando discussões técnicas e traduzindo temas técnicos para diferentes públicos;
+- Colaborar com iniciativas de segurança, observabilidade, resiliência, tratamento de incidentes e melhoria contínua dos produtos e serviços;
+- Contribuir para a evolução do Claro ID, incorporando boas práticas e padrões de mercado ao contexto da plataforma;
+- Apoiar a adoção de capacidades de Inteligência Artificial em produtos e fluxos de engenharia, com foco no uso responsável, seguro e integrado à arquitetura existente.
+
+Requisitos e qualificações
+- Residir em São Paulo;
+- Graduação Completa em Ciência da Computação, Engenharia da Computação, Engenharia de Software, Sistemas da Informação e/ou áreas correlatas;
+- Experiência em engenharia e arquitetura de software, com atuação na construção e evolução de produtos ou plataformas;
+- Trajetória hands-on em desenvolvimento de software, com capacidade de explicar soluções implementadas, decisões técnicas e linguagens utilizadas;
+- Experiência com desenvolvimento utilizando TypeScript, Java, Go, C#, Python e Shell Script;
+- Conhecimento no desenvolvimento de APIs REST, integrações com sistemas corporativos, arquitetura orientada a eventos, mensageria e especificações OpenAPI e AsyncAPI;
+- Vivência com FastAPI, Pydantic, Asyncio e demais frameworks voltados à construção de APIs, microsserviços e aplicações distribuídas;
+- Conhecimento em boas práticas de engenharia de software, SOLID, Design Patterns, Domain-Driven Design (DDD), Clean Architecture e Arquitetura Hexagonal;
+- Experiência com bancos de dados relacionais e não relacionais, incluindo PostgreSQL e Redis;
+- Experiência em ambientes AWS, Azure ou Google Cloud Platform (GCP), atuando com infraestrutura em nuvem, automação e escalabilidade;
+- Conhecimento em Infrastructure as Code (IaC), Terraform, GitOps, ArgoCD, Flux e práticas de automação de ambientes;
+- Vivência com Docker, Kubernetes, Helm e tecnologias de orquestração de containers;
+- Conhecimento em pipelines CI/CD, automação de deploy, GitOps, Internal Developer Platform (IDP), Backstage, Software Catalog, TechDocs, Scaffolder, Golden Paths e Platform APIs;
+- Conhecimento em OpenTelemetry, Prometheus, Grafana, Loki, Elasticsearch e Jaeger;
+- Experiência com TDD, testes automatizados, testes unitários, testes de integração, E2E, Contract Testing e Code Review;
+- Inglês avançado para leitura de documentação e interação técnica.
+
+Diferenciais:
+- Pós-graduação ou especialização em Engenharia de Software, Engenharia de Plataforma, Cloud Computing, Arquitetura de Software ou Inteligência Artificial;
+- Experiência no desenvolvimento de soluções de IA Generativa utilizando LLMs, arquiteturas RAG (Retrieval Augmented Generation), embeddings, prompt engineering e context engineering;
+- Conhecimento em LangChain, LangGraph, LiteLLM, LangFuse, DeepEval, Guardrails, RAGAS, MCP (Model Context Protocol), Function Calling, Structured Outputs, Sistemas Multiagentes e práticas de avaliação, observabilidade e governança de aplicações baseadas em IA;
+- Experiência com práticas de DevSecOps, incluindo OWASP Top 10, OWASP API Security e OWASP LLM Top 10;
+- Conhecimento em SAST, DAST, SCA, Secret Scanning, Container Scanning, IaC Scanning, gestão de vulnerabilidades, SBOM, Cosign, SLSA, Policy as Code, OPA Gatekeeper, Kyverno, IAM, RBAC, ABAC e protocolos de segurança como TLS e mTLS;
+- Conhecimentos em LLMOps, MLOps, Fine-Tuning de modelos, FinOps, Segurança para IA Generativa, ambientes multi-cloud, plataformas de engenharia interna (IDP) e telecomunicações;
+- Participação ativa em comunidades técnicas e iniciativas open source;
+- Formação complementar em liderança técnica, gestão ágil, SRE, segurança ou produtos de plataforma;
+- Espanhol avançado.
+
+Informações adicionais
+Benefícios:
+- Jornada Flexível;
+- Vale-Refeição e Alimentação;
+- Assistência Médica e Odontológica;
+- Auxílio para patologias graves e dependente com deficiência;
+- Benefício Farmácia;
+- Auxílio Creche/Babá;
+- Previdência Privada e Seguro de Vida;
+- Combo Colaborador;
+- Wellhub (Gympass);
+- Meu Pet Club;
+- Convênios, parcerias e programas de reconhecimento.

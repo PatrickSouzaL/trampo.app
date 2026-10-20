@@ -1,0 +1,51 @@
+
+# Confidential Company | Especialista em IA (Backend / Vertex AI)
+
+- **Empresa:** Confidential Company
+- **Título da vaga:** Especialista em IA (Backend / Vertex AI)
+- **Localidade:** Curitiba, PR, Brasil
+- **Regime de atuação:** Presencial
+- **Tipo de vínculo:** PJ (Pessoa Jurídica)
+
+---
+
+### Sobre a vaga
+Atuação no desenvolvimento backend com foco em Inteligência Artificial para treinar, avaliar e disponibilizar em produção modelos de linguagem e agentes inteligentes. A solução atende operações de campo em larga escala na rede pública de ensino, realizando triagem automática de chamados, cálculo de indicadores de vistorias e consultas analíticas em linguagem natural.
+
+### Responsabilidades e atribuições
+- Treinar, ajustar e versionar modelos de IA da plataforma (triagem de chamados e índices de vistorias).
+- Desenvolver e evoluir agente conversacional para consultas analíticas em linguagem natural.
+- Construir e manter bases de teste com entradas e saídas esperadas, avaliando saídas, mitigando alucinações e otimizando prompts e modelos.
+- Realizar deploy de modelos em endpoints escaláveis, monitorando qualidade, latência, consumo de tokens e custos operacionais.
+- Desenvolver e integrar APIs RESTful em Node.js e Python conectando os modelos à plataforma.
+- Implementar guardrails de segurança, logs de auditoria e fluxos de validação humana (human-in-the-loop).
+- Iterar continuamente nas soluções de IA a partir de telemetria e feedback das equipes de produto e operação.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Experiência mínima comprovada de 3 anos na carreira técnica.
+- Domínio do ciclo de vida de modelos no Google Cloud Vertex AI (treinamento, Vertex AI Studio, Model Registry e deploy em endpoints escaláveis).
+- Experiência em modelos de linguagem (Gemini ou equivalentes) em produção: engenharia de prompts, function calling e arquiteturas RAG.
+- Vivência prática em avaliação de LLMs (bases de teste, métricas de qualidade e testes de regressão de prompts).
+- Experiência com fine-tuning de modelos.
+- Domínio de Python voltado para pipelines de dados e IA, e experiência com Node.js para criação de APIs RESTful.
+- Domínio de PostgreSQL com foco em otimização de performance.
+- Experiência prática em ecossistema Google Cloud (Cloud Run, Cloud Functions, Cloud Storage, IAM, Cloud Logging e Cloud Monitoring).
+- Conhecimento em conteinerização com Docker, testes automatizados, code review e esteiras CI/CD.
+- Práticas de controle orçamentário e governança de custos de IA (consumo de tokens e alocação de infraestrutura).
+
+**Desejáveis / Diferenciais:**
+- Busca vetorial e gerenciamento de embeddings com Vertex AI Vector Search ou pgvector.
+- Implementação de modelos multimodais (visão computacional/análise de imagens).
+- Práticas de segurança para LLMs (mitigação de prompt injection e conformidade com LGPD/anonimização).
+- Experiência com Kubernetes (GKE), Terraform e mensageria com Google Cloud Pub/Sub.
+- Manipulação e análise de dados com BigQuery.
+- Ensino superior completo em Ciência da Computação, Engenharia de Software, Sistemas de Informação ou áreas correlatas.
+
+### Benefícios
+- Não informado no anúncio da vaga.
+
+### Modelo e local de trabalho
+- **Regime:** Presencial.
+- **Base territorial:** Curitiba, PR, Brasil.

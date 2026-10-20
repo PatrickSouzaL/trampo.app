@@ -1,0 +1,91 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-04",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "hibrido",
+    "ingles"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Infraestrutura Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Workspace ONE",
+      "Microsoft Intune",
+      "Jamf",
+      "Apple Business Manager",
+      "PowerShell",
+      "Shell Script",
+      "Entra ID",
+      "Okta",
+      "Active Directory",
+      "Windows Server",
+      "Windows",
+      "macOS",
+      "Microsoft 365",
+      "Google Workspace"
+    ],
+    "stackNiceToHave": [
+      "REST",
+      "Zscaler",
+      "Grafana",
+      "Zabbix"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "previdencia_privada",
+      "seguro_vida",
+      "bem_estar_academia",
+      "auxilio_creche",
+      "auxilio_educacao",
+      "plr_bonus",
+      "outro"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "avancado",
+        "required": false
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Inglês avançado está em diferenciais: required false. Zscaler, Grafana, Zabbix e APIs REST são diferenciais; certificações fora. Protocolos de rede (DNS, DHCP, TCP/IP) e VPN são fundamentos de redes, não stack (revisão cruzada). Bônus de 30% do salário é benefício (plr_bonus), não salário."
+}

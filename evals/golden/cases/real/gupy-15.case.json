@@ -1,0 +1,89 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-15",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "hibrido"
+  ],
+  "traps": [
+    "termo_ambiguo",
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenharia de Software Pleno (SRE) | Pagar o Que Devo PJ",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "AWS",
+      "ECS",
+      "EKS",
+      "Terraform"
+    ],
+    "stackNiceToHave": [
+      "Java",
+      "Spring Boot",
+      "Kafka",
+      "GitHub Actions",
+      "GitHub Copilot",
+      "StackSpot",
+      "Devin"
+    ],
+    "benefits": [
+      "outro",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "plr_bonus",
+      "previdencia_privada",
+      "auxilio_creche",
+      "auxilio_educacao",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackNiceToHave": [
+      [
+        "Java",
+        "Spring Boot",
+        "Kafka",
+        "GitHub Actions"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "\"PJ\" no título é o nome da comunidade (clientes Pessoa Jurídica), não o contrato: contrato é Efetivo -> clt. Híbrido com 8 dias presenciais por mês. Ferramentas de IA (Copilot, StackSpot, Devin) como desejáveis; alternativa sem elas."
+}

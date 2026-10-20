@@ -1,0 +1,93 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "linkedin-20",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [
+    "diferencial",
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "BI AND DATA QUALITY ANALYST I | CORPORATE RECORDS MG",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "SQL",
+      "Power BI",
+      "Tableau"
+    ],
+    "stackNiceToHave": [
+      "Cursor",
+      "Copilot",
+      "ChatGPT"
+    ],
+    "benefits": [
+      "vale_alimentacao",
+      "vale_refeicao",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "folga_aniversario",
+      "outro",
+      "auxilio_creche",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "title": [
+      "BI AND DATA QUALITY ANALYST I"
+    ],
+    "seniorityLevels": [
+      [
+        "junior"
+      ]
+    ],
+    "benefits": [
+      [
+        "vale_alimentacao",
+        "vale_refeicao",
+        "plano_saude",
+        "plano_odontologico",
+        "seguro_vida",
+        "folga_aniversario",
+        "outro",
+        "auxilio_creche",
+        "bem_estar_academia",
+        "auxilio_educacao"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Título em inglês com \"I\" sem nível escrito: seniority vazia, júnior em alternatives. Corpo em português. Ferramentas de IA (Cursor, Copilot, ChatGPT) como desejável; \"Cursor\" é termo_ambiguo. \"Sangue Laranja\" é lema da empresa, não pressão. Treinamento interno só em alternatives."
+}

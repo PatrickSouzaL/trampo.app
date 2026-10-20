@@ -1,0 +1,77 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "syn-10-negacao-php-go",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "armadilha_negacao",
+  "language": "pt",
+  "tags": [
+    "com_salario",
+    "remoto"
+  ],
+  "traps": [
+    "negacao",
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor(a) Back-end Python Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": 3,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": null,
+      "stateUf": null,
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 9500,
+      "max": 12000,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Python",
+      "Django",
+      "Django REST Framework",
+      "PostgreSQL",
+      "Redis",
+      "Celery",
+      "Docker"
+    ],
+    "stackNiceToHave": [
+      "AWS",
+      "Terraform"
+    ],
+    "benefits": [
+      "plano_saude",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "auxilio_educacao",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "PHP aparece só negado (\"não usamos PHP\", \"não é preciso saber PHP\") e Go só como verbo ou expressão (\"let's go\", \"go-live\"). Nenhum dos dois entra na stack. A stack verdadeira é Python, Django, PostgreSQL, Redis, Celery e Docker."
+}

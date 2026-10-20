@@ -1,0 +1,86 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "syn-13-eur-anual-portugal",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "com_salario",
+    "moeda_estrangeira",
+    "internacional",
+    "salario_ano",
+    "hibrido",
+    "ingles"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenheiro/a de Software Back-end Sénior",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": 5,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Lisboa",
+      "stateUf": null,
+      "countryIso2": "PT"
+    },
+    "salary": {
+      "min": 42000,
+      "max": 50000,
+      "currency": "EUR",
+      "period": "ano"
+    },
+    "contractTypes": [],
+    "stackRequired": [
+      "Java",
+      "Spring Boot",
+      "PostgreSQL",
+      "Kafka",
+      "AWS"
+    ],
+    "stackNiceToHave": [
+      "Kubernetes",
+      "Terraform"
+    ],
+    "benefits": [
+      "plano_saude",
+      "vale_refeicao",
+      "plr_bonus",
+      "auxilio_educacao",
+      "horario_flexivel"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": null,
+        "required": false
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "contractTypes": [
+      [
+        "clt"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Lisboa, EUR 42.000 a 50.000 por ano (câmbio EUR 6,0 e ano / 12). Inglês desejável sem nível: required false, level null; pelo D-S7 conta como exigido e nível avançado em vaga internacional. \"Contrato sem termo\" equivale a CLT: [] com clt em alternatives."
+}

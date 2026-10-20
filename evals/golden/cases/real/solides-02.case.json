@@ -1,0 +1,74 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "solides-02",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 1
+  },
+  "expected": {
+    "title": "Sr. Software Developer",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [],
+    "location": {
+      "city": "Campinas",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      ".NET Core",
+      "ASP.NET Core",
+      "PostgreSQL",
+      "MongoDB",
+      "AWS",
+      "Docker",
+      "Kubernetes",
+      "xUnit",
+      "REST"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "auxilio_home_office",
+      "outro",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "bem_estar_academia",
+      "auxilio_educacao",
+      "folga_aniversario"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "workModels": [
+      [
+        "remoto",
+        "hibrido"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Modelo de trabalho não declarado; o texto só infere \"híbrido ou remoto\" pelo auxílio home office: [] no expected, a união em alternatives. \"Sr.\" = senior. Microsserviços (diferencial) é conceito. Parceria com escolas de idiomas = auxilio_educacao. Endereço anonimizado."
+}

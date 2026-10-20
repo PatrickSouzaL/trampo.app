@@ -1,0 +1,100 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-12",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "dupla_senioridade",
+    "presencial"
+  ],
+  "traps": [
+    "conflito_senioridade",
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Especialista Cloudera Sênior (Big Data e Google Cloud)",
+    "seniorityLevels": [
+      "especialista",
+      "senior"
+    ],
+    "yearsExperienceMin": 6,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Cloudera",
+      "Hadoop",
+      "Spark",
+      "PySpark",
+      "Hive",
+      "Impala",
+      "Kudu",
+      "HBase",
+      "Kafka",
+      "NiFi",
+      "Apache Ranger",
+      "Apache Atlas",
+      "Kerberos",
+      "GCP",
+      "Dataproc",
+      "BigQuery",
+      "Cloud Storage"
+    ],
+    "stackNiceToHave": [
+      "Cloudera Data Engineering",
+      "Airflow",
+      "Apache Flink",
+      "Debezium"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "plr_bonus",
+      "auxilio_creche",
+      "vale_alimentacao",
+      "vale_refeicao",
+      "auxilio_home_office",
+      "auxilio_educacao",
+      "outro",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "seniorityLevels": [
+      [
+        "senior"
+      ],
+      [
+        "especialista"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Título traz Especialista e Sênior: pela regra mecânica os dois níveis; leitura de só um deles nas alternativas. 6 anos é o mínimo exigido (Hadoop). AWS aparece só como ambiente atual do projeto, não como requisito. Kudu/HBase/Kafka/NiFi com \"ou\", mas também nas responsabilidades."
+}

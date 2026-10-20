@@ -1,0 +1,86 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-10",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "hibrido"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Infra Cloud Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Barueri",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Azure",
+      "GCP",
+      "Kubernetes",
+      "Azure DevOps",
+      "Microsoft Fabric",
+      "Power BI",
+      "Microsoft 365",
+      "Microsoft Teams",
+      "Exchange Online",
+      "SharePoint Online",
+      "IIS",
+      "Windows",
+      "Azure SQL Database",
+      "Azure SQL Managed Instance",
+      "Azure API Management"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "plr_bonus",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "outro",
+      "bem_estar_academia",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "redFlagSignals": [
+      [
+        "multiplas_funcoes"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Cloud/Kubernetes + suporte Microsoft 365 + administração de Fabric/Power BI: acúmulo de papéis aceito como alternativa, mas fora do expected (critério conservador). API Management está nas responsabilidades: exigido. \"Workspace\" sem fabricante fica fora."
+}

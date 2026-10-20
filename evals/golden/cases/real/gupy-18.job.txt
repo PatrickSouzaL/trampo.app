@@ -1,0 +1,55 @@
+Porto
+
+Arquiteto(a) de TI Sênior
+São Paulo - SP
+Efetivo
+Híbrido
+
+Descrição da vaga
+Buscamos um(a) Arquiteto(a) de TI Sênior com forte perfil operacional para atuar na sustentação (ongoing) do nosso ecossistema DevSecOps e da nossa Plataforma Interna de Desenvolvimento (IDP). Seu foco principal será garantir a estabilidade, disponibilidade e rápida resolução de incidentes das ferramentas da plataforma, além de atuar como referência técnica e mentor para os desenvolvedores Júnior e Pleno do time.
+É o papel ideal para quem tem perfil analítico, gosta de investigar a causa raiz de problemas em produção (do nível de código até a camada de SO Linux) e tem satisfação em destravar outros desenvolvedores.
+Local: Campos Elíseos - SP
+Modelo de trabalho: Híbrido - (4x a 8x por mês no escritório)
+
+Responsabilidades e atribuições
+- Sustentação da Plataforma DevSecOps: Garantir a saúde, monitoramento e disponibilidade operacional das ferramentas do ecossistema (IDP interno, Jenkins, GitLab, GitHub, Harbor, Nexus, ECR, EC2, Rancher, EKS).
+- Mentoria e Suporte Interno: Orientar, capacitar e apoiar os devs Júnior e Pleno do time no atendimento e na solução de chamados e chamadas técnicas diárias.
+- Troubleshooting Avançado e Resposta a Incidentes: Atuar em indisponibilidades e gargalos de performance, analisando logs e recursos na camada do Sistema Operacional Linux (consumo de memória, CPU, I/O, rede, logs etc).
+- Suporte ao IDP: Manter a disponibilidade da plataforma interna escrita em Node.js (Frontend e Backend), integrando banco PostgreSQL (AWS) e mensageria AWS entre Jenkins e a aplicação.
+- Atendimento aos Times de Sistemas: Apoiar as equipes usuárias que consomem o IDP e utilizam pipelines legadas em diversas linguagens e plataformas (Java, Node, Python, .NET, Salesforce, EKS, OpenShift, WebSphere, JBoss, etc.).
+- Manutenção de Ferramentas e Scripts: Prestar suporte contínuo e pequenos ajustes em pipelines e infraestrutura existente (Playwright, Terraform, Helm, Docker, RHSSO).
+
+Requisitos e qualificações
+1. Troubleshooting & Sistema Operacional (Linux)
+- Domínio em Linux para diagnósticos no SO onde as ferramentas estão instaladas.
+- Capacidade de utilizar comandos do Linux em situações de incidente para investigar consumo de memória, CPU, disco e concorrência de processos.
+2. Sustentação de IDP e Linguagens
+- Conhecimento prático em Node.js (backend e frontend) 
+- Experiência com PostgreSQL (AWS) e rotas de mensageria na AWS (integração entre Jenkins e aplicação).
+- Leitura básica e entendimento de aplicações heterogêneas para suporte a pipelines (Java / Spring Boot, SpringBatch, React, Angular, .NET, Python, Salesforce e etc).
+3. Ferramentas DevSecOps e CI/CD
+- Experiência na operação e suporte contínuo de Jenkins, GitLab, GitHub, Harbor, Nexus, ECR.
+4. Infraestrutura e Containers (Operação)
+- Experiência na sustentação de ambientes AWS (EC2, redes, armazenamento e mensageria).
+- Experiência operacional com Kubernetes (EKS, Rancher), Docker e Helm.
+- Conhecimento em Terraform para manutenção de código de infraestrutura existente.
+
+Informações adicionais
+BENEFÍCIOS:
+- Vale Alimentação e Refeição Flexíveis;
+- Plano de Saúde e Odontológico;
+- Wellhub e TotalPass;
+- Academia Bio Ritmo exclusiva para Colaboradores (Complexo Matriz);
+- Participação nos Lucros - PLR;
+- Programa de Ações (Porto em Ação complementar à PLR até 2030);
+- Vale-Transporte e Serviços de Transporte de Vans (estações Luz, Barra Funda, Santa Cecília e Júlio Prestes);
+- Licença Parental e Maternidade Estendida;
+- Ambulatório Médico com Especialidades;
+- Auxílio creche ou babá;
+- Seguro de Vida e Previdência Privada (PortoPrev);
+- Bolsa de estudos para graduação, pós ou MBA;
+- Reembolso para idiomas (inglês ou espanhol);
+- Parcerias, cultura e lazer corporativo (Teatro Porto, biblioteca, salão de jogos).
+
+Local de trabalho: Campos Elíseos - SP
+Modelo de trabalho: Híbrido - (4x a 8x por mês no escritório)

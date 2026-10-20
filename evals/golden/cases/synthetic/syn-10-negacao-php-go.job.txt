@@ -1,0 +1,41 @@
+Desenvolvedor(a) Back-end Python Pleno
+
+Empresa Exemplo | Remoto – Brasil | CLT
+
+Quem somos
+A Empresa Exemplo tem uma plataforma de matrículas e cobranças para escolas de idiomas. Até 2024 o sistema era um monólito antigo; hoje não usamos PHP em nenhuma parte do produto, e todo o back-end foi reescrito em Python.
+
+Nosso jeito de trabalhar
+Cada entrega passa por revisão de código e por um checklist antes do go-live. Na semana de go-live de um módulo novo, o time inteiro acompanha os indicadores junto com o suporte. O lema interno, herdado do primeiro time, é "let's go": quando uma decisão está tomada, a gente vai em frente e mede o resultado.
+
+Responsabilidades
+- Desenvolver e manter as APIs de matrícula, cobrança e emissão de boletos;
+- Criar tarefas assíncronas para envio de cobranças e conciliação de pagamentos;
+- Escrever testes automatizados e cuidar da qualidade do código;
+- Participar das decisões de arquitetura com o time.
+
+Requisitos
+- Mínimo de 3 anos de experiência com Python;
+- Django e Django REST Framework;
+- PostgreSQL;
+- Redis;
+- Celery;
+- Docker.
+
+Importante: não é preciso saber PHP. O legado foi desligado e não há manutenção pendente nele.
+
+Diferenciais
+- AWS;
+- Terraform.
+
+Remuneração
+Salário de R$ 9.500 a R$ 12.000 por mês, regime CLT.
+
+Benefícios
+- Plano de saúde;
+- Vale-refeição e vale-alimentação;
+- Auxílio para cursos de idiomas e pós-graduação;
+- TotalPass.
+
+Etapas
+Conversa com o RH, entrevista técnica com duas pessoas do time e conversa com a liderança. Respondemos todas as candidaturas.

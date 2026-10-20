@@ -1,0 +1,39 @@
+Especialista em Red Team de IA (Avaliação de Modelos)
+
+Nimbus Dados | Remoto | CLT
+
+Contexto
+A Nimbus Dados treina e adapta modelos de linguagem para bancos e seguradoras. Antes de cada versão ir para produção, um time independente tenta quebrá-la. Estamos contratando a primeira pessoa especialista desse time.
+
+Responsabilidades
+- Planejar e executar campanhas de red team contra os modelos e os agentes da empresa;
+- Criar e manter conjuntos de ataques: jailbreak, injection indireta escondida em documentos e páginas, extração do prompt de sistema e vazamento de dados de treino;
+- Testar técnicas de ocultação, como instruções escritas com caracteres invisíveis ou com inversão de direção do texto, e verificar se os filtros as removem;
+- Medir a taxa de sucesso dos ataques a cada versão e escrever relatórios para as áreas de risco dos clientes;
+- Propor e validar mitigações junto com o time de engenharia de modelos.
+
+Requisitos
+- Pelo menos 4 anos com segurança ofensiva, aprendizado de máquina ou avaliação de modelos;
+- Python;
+- PyTorch;
+- Hugging Face Transformers;
+- Docker e Git;
+- Inglês fluente, pois os relatórios e parte das reuniões são em inglês.
+
+Diferenciais
+- Kubernetes;
+- GCP;
+- Publicações ou palestras sobre segurança de IA.
+
+O que oferecemos
+- Plano de saúde;
+- Auxílio home office;
+- Horário flexível;
+- Stock options após o período de experiência;
+- Orçamento anual para conferências e cursos.
+
+Sobre a remuneração
+A faixa salarial é apresentada na primeira conversa com o recrutamento.
+
+Processo
+Conversa inicial, estudo de caso de red team para fazer em casa com prazo de 3 horas, apresentação do estudo de caso e conversa com a diretoria técnica.

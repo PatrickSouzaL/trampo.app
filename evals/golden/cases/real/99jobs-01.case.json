@@ -1,0 +1,98 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "99jobs-01",
+  "source": "99jobs",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "hibrido",
+    "red_flag"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Produção",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Rio de Janeiro",
+      "stateUf": "RJ",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Shell Script",
+      "GitLab",
+      "Git",
+      "Zabbix",
+      "Grafana",
+      "Znuny"
+    ],
+    "stackNiceToHave": [
+      "Python",
+      "JavaScript",
+      "MySQL",
+      "GitLab CI"
+    ],
+    "benefits": [
+      "vale_refeicao",
+      "vale_alimentacao",
+      "seguro_vida",
+      "plano_saude",
+      "plr_bonus"
+    ],
+    "languageRequirements": [
+      {
+        "language": "espanhol",
+        "level": "avancado",
+        "required": false
+      }
+    ],
+    "redFlagSignals": [
+      "sobreaviso_nao_remunerado"
+    ]
+  },
+  "alternatives": {
+    "location": [
+      {
+        "city": "Niterói",
+        "stateUf": "RJ",
+        "countryIso2": "BR"
+      },
+      {
+        "city": "São Paulo",
+        "stateUf": "SP",
+        "countryIso2": "BR"
+      }
+    ],
+    "languageRequirements": [
+      [
+        {
+          "language": "espanhol",
+          "level": "intermediario",
+          "required": false
+        }
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Local principal RJ, com Niterói ou São Paulo como opção (alternatives). Sobreaviso e plantão em fins de semana e madrugadas sem menção a pagamento. \"Conversação avançada\": avancado (intermediario aceito). Nível Pleno só no cabeçalho: []. \"APS\" sem identificação clara ficou fora da stack."
+}

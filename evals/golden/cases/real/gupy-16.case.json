@@ -1,0 +1,61 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-16",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "presencial",
+    "curta"
+  ],
+  "traps": [
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Professor (a) de Matemática - Ensino Fundamental II",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Londrina",
+      "stateUf": "PR",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "auxilio_educacao",
+      "outro",
+      "plano_saude",
+      "plano_odontologico",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Fora de TI. \"Ensino Fundamental II\" não é numeração de nível (II não é pleno): senioridade vazia. Experiência exigida sem anos. Pós-graduação é diferencial de formação, não stack."
+}

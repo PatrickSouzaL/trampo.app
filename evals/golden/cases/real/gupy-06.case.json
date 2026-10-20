@@ -1,0 +1,113 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-06",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "hibrido",
+    "ingles"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Especialista em Nuvem (CCoE)",
+    "seniorityLevels": [
+      "especialista"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "AWS",
+      "Azure",
+      "Terraform",
+      "Azure Policy",
+      "Shell Script",
+      "AWS CLI",
+      "Azure CLI",
+      "AWS Lambda"
+    ],
+    "stackNiceToHave": [
+      "OCI",
+      "GCP"
+    ],
+    "benefits": [
+      "vale_alimentacao",
+      "vale_refeicao",
+      "auxilio_educacao",
+      "plano_saude",
+      "plano_odontologico",
+      "outro"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "intermediario",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "languageRequirements": [
+      [
+        {
+          "language": "ingles",
+          "level": "avancado",
+          "required": true
+        }
+      ],
+      [
+        {
+          "language": "ingles",
+          "level": "basico",
+          "required": true
+        }
+      ]
+    ],
+    "benefits": [
+      [
+        "vale_alimentacao",
+        "auxilio_educacao",
+        "plano_saude",
+        "plano_odontologico",
+        "outro"
+      ],
+      [
+        "vale_refeicao",
+        "auxilio_educacao",
+        "plano_saude",
+        "plano_odontologico",
+        "outro"
+      ]
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "OCI é desejável explícito; o \"OCI CLI\" listado nos requisitos de script fica fora para não contradizer. Inglês \"intermediário/avançado para leitura\": menor nível, alternativas avançado e básico. VA ou VR: os dois. \"Faria Lima\" é referência de bairro sem número, não anonimizada."
+}

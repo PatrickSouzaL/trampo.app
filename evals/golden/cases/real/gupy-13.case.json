@@ -1,0 +1,87 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "gupy-13",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "dupla_senioridade",
+    "presencial"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Tech Lead de Engenharia de Dados Sênior (Google Cloud e Aceleradores)",
+    "seniorityLevels": [
+      "senior",
+      "lideranca"
+    ],
+    "yearsExperienceMin": 8,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Spark",
+      "PySpark",
+      "SQL",
+      "Hive",
+      "Impala",
+      "HDFS",
+      "Hadoop",
+      "GCP",
+      "Dataproc",
+      "BigQuery",
+      "Cloud Storage",
+      "Cloud Composer",
+      "Git",
+      "GitLab CI"
+    ],
+    "stackNiceToHave": [
+      "Cloudera",
+      "Kafka",
+      "Apache Flink",
+      "Apache Iceberg"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "plr_bonus",
+      "auxilio_creche",
+      "vale_alimentacao",
+      "vale_refeicao",
+      "auxilio_home_office",
+      "auxilio_educacao",
+      "outro",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Tech Lead + Sênior no título: liderança e sênior. 8 anos é o mínimo exigido. Cloudera \"preferencialmente\" vai para desejável. Cloudera na AWS é só contexto do projeto. \"Situações de pressão\" citado como competência, sem horas extras: não vira red_flag_pressao."
+}

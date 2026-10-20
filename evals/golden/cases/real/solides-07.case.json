@@ -1,0 +1,68 @@
+{
+  "caseSchemaVersion": 1,
+  "id": "solides-07",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "presencial",
+    "red_flag"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Desenvolvimento de Sistemas",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Registro",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "REST"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_alimentacao",
+      "plano_saude",
+      "plano_odontologico",
+      "plr_bonus",
+      "bem_estar_academia",
+      "folga_aniversario",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": [
+      "multiplas_funcoes"
+    ]
+  },
+  "alternatives": {
+    "redFlagSignals": [
+      []
+    ]
+  },
+  "contractGaps": [],
+  "injection": null,
+  "notes": "Vaga de dev sem nenhuma linguagem nomeada: só REST (APIs RESTful). Desejável cita bancos relacionais e queries sem nomear SQL: fora. Dev + analista de negócio + suporte a usuários + apoio a infra (redes, estações, periféricos) = multiplas_funcoes, mas \"pontualmente\" sustenta [] em alternatives. Senioridade só no cabeçalho (Júnior): []."
+}
