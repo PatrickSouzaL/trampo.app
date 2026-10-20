@@ -1,80 +1,51 @@
-# Próximo passo: S-4 (protótipo da Camada 1 medido no golden dataset)
+# Próximo passo: F1-DOM-02 (`ScoringEngine`, com clearance)
 
-> **Reciclagem de sessão** (AGENTS §4.4): nesta conversa, o ADR-002 foi reescrito, a spec do golden dataset foi criada, um pacote novo foi criado e 83 casos foram anotados e auditados por 9 agentes. O S-4 começa numa janela nova.
+> **Reciclagem de sessão** (AGENTS §4.4): nesta conversa, duas decisões humanas foram registradas, três runbooks foram escritos e o S-4 foi medido em duas rodadas. O F1-DOM-02 começa numa janela nova.
 >
 > Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
 
 ## O que acabou de ser entregue (2026-10-20)
 
-### HITL-016: ADR-002 aceito com variações
-- **D-S1, D-S2, D-S4 e D-S6:** conforme a recomendação.
-- **D-S3, câmbio por tabela fixa:** USD 5,5, EUR 6,0 e ARS 0,0034, com conversão para BRL/mês antes do `r`. Moeda nula em vaga estrangeira **não** vira BRL.
-- **D-S5, adjacência ascendente validada:** um nível acima vale parcial com r = 0,5, e a stack > 80% dispensa a penalidade. Rebaixamento leva −30.
-- **D-S7:** inglês avaliado com rigor em vaga internacional.
-- **D-S8:** atenuação de 50% nos sinais de cultura quando os benefícios têm r > 0,8.
-- **D-S9:** 5 faixas: 90, 75, 50, 21 e 0–20.
-- **14 invariantes** e **3 mudanças de contrato** (ADR-002 §8.1): `ARS`, `pressao_excessiva` e `verdict` de 5 valores. Entram no 1º commit do F1-DOM-02.
-- **Achado `[APPSEC]`:** `AR$` contém `R$`. A regra antiga leria salário argentino como real, ~294 vezes maior.
+### Decisões registradas
+- **HITL-018 fechado.** A interpretação 1 foi trocada: com stack > 80% numa vaga um nível acima, o `r` da senioridade **sobe para 0,8** e a penalidade sai. As interpretações 2, 3 e 4 foram mantidas. O ADR-002 está atualizado, e o F1-DOM-02 tem **clearance**.
+- **HITL-019 dispensado:** os chips do topo da página ficam com o S-2.
+- **HITL-006 fechado.**
+- **Divergência anotada:** você chamou o ARS 0,0034 de "*fallback* do serviço de Redis aprovado na D-S3", mas a D-S3 aprovou só a tabela fixa. Ficou assim:
+  - o motor continua puro e recebe a taxa pela política;
+  - uma fonte de câmbio ao vivo virou o item **F1-FX-01**, opcional e fora do F1-DOM-02.
 
-### HITL-017: Dataset de Estresse Consolidado
-- **33 vagas novas** (total de 63), de LinkedIn, Gupy, GeekHunter, 99jobs e Sólides.
-- **Conferido no corpo:** só 7 vagas têm salário no texto (1 em ARS). **Nenhuma** é em USD, EUR, por hora ou anual. Em 13 vagas, o dado está só no cabeçalho que você preencheu.
+### Runbooks de infra de custo zero (`../base/03-infra-runbook/`)
+- **`regiao-custo-zero.md`:** tudo em **AWS `us-east-1`**, que no Supabase aparece como "East US (North Virginia)".
+  - No plano Free, nem o Supabase nem o Upstash cobram diferente por região.
+  - O ganho de sair de São Paulo é ficar junto da hospedagem grátis da API (Render Virginia ou Koyeb Washington, D.C.) e fugir de SP no plano pago.
+  - **A região do Supabase não muda depois de criada.**
+- **`supabase-setup.md` (HITL-004):** passo a passo do projeto, da chave ES256, do JWT de 900 s, do login anônimo desligado, das chaves novas e do OAuth do Google e do GitHub, mais pausa e restauração.
+- **`upstash-redis.md` (HITL-007):** crie o banco **só quando o F1-API-03 começar**, porque o Free é arquivado se ficar parado.
 
-### P0-EVL-01: golden dataset (`gd1`)
-- **Spec:** `../base/04-qualidade-evals/golden-dataset-spec.md`.
-- **83 casos** em `evals/golden/cases/`:
-  - **63 reais anonimizados**, fiéis ao raw (provado por script);
-  - **20 sintéticos:** injection visível e oculta com canário, controles negativos, negação, USD/hora, EUR/ano, dupla senioridade, adjacência, rebaixamento, cultura tóxica e vaga em inglês.
-- **Pacote `@trampo/evals`:** valida todo caso no `pnpm test` (schema, PII, invisíveis, tags derivadas, cobertura). Tem 28 testes e 100% de cobertura, sem dependência nova.
-- **Revisão cruzada:** 97,2% de concordância. Os padrões de erro foram varridos em todos os casos.
-- **`[APPSEC]`:** nenhuma PII nos casos versionados; injection só sintética e separada do real; `raw/` fora do git.
+### S-4: Camada 1 medida (`evals/spikes/s4-layer1/`)
+- **Falso "foge":** 0,1% (4 de 3.188) na varredura exaustiva e **0** nas 8 personas. A versão às cegas tinha 1,4%.
+- **Precisão dos sinais explícitos:** 100% em modelo de trabalho, contrato, senioridade e salário; 99,4% em stack. Nenhum salário inventado, e o `AR$` nunca é lido como `R$`.
+- **Injection:** 7 de 7 casos em `alta` e 0 controle negativo em `alta`.
+- **D-H3:** o aceite sem IA continua desligado. Ele quase nunca dispara (2 de 581 pares), e sem critério obrigatório aceita qualquer vaga. Essa guarda entra no F1-DOM-04.
+- **Provas:** SR-09 com entradas de 64 KiB; nenhum texto de vaga nem canário na saída; lint, tipagem e os 28 testes do pacote verdes.
 - **Commit local** no `feat/api-borda`, sem push.
 
 ## Ações manuais (HITL)
-- **HITL-018 (bloqueia só o F1-DOM-02):** confirme as 4 interpretações do `[ARCHITECT]` (tabela no HITL-QUEUE e marcas ⚖️ no ADR-002):
-  1. stack > 80% dispensa a penalidade, em vez de elevar o r;
-  2. rebaixamento = a vaga inteira abaixo do que você aceita;
-  3. inglês com nível nulo em vaga internacional = avançado;
-  4. taxa do ARS 0,0034 e a lista de sinais de cultura.
-
-  Pode responder no prompt abaixo.
-- **HITL-019 (opcional):** recoletar 13 vagas incluindo os "chips" do topo da página (salário, nível, modelo). A lista está no HITL-QUEUE.
-- Em aberto, para depois: HITL-004 (Supabase), HITL-007 (Upstash) e HITL-006.
+- **HITL-004 (agora, se quiser destravar o S-3, o F1-API-02 e o F1-DB-01):** siga o `supabase-setup.md` e responda "HITL-004 concluído: região East US (North Virginia)". **Nunca cole chave no chat.**
+- **HITL-007:** só quando o F1-API-03 começar.
+- **Para conferir quando puder** (não bloqueia):
+  - o gabarito de `gupy-12` e `gupy-13` não lista AWS, mas a regra "migração X para Y" da spec diz que entraria;
+  - os itens "não confirmado" dos runbooks, como a taxa da Chrome Web Store e a regra de inatividade do Upstash (30 dias ou 1 semana).
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe,
-Equipe, avaliei as pendências HITL-018 e HITL-019 com base em arquitetura de interface e regras de negócio. Seguem as diretrizes:
+Equipe, sigam com o F1-DOM-02 (clearance do HITL-018).
 
-1. [ORCHESTRATOR]: HITL-019: DISPENSADO.
-   - Decisão de Arquitetura: A coleta visual reflete o princípio Zero Trust Client-Side. A extensão lerá o que está renderizado no DOM (innerText). O Spike S-2 ficará responsável por refinar os seletores CSS para garantir a captura dos 'chips' do topo da página. O Golden Dataset atual está validado para prosseguirmos.
-
-2. [ARCHITECT]: HITL-018: Aprovado com UMA alteração na interpretação 1.
-   - Interpretação 1 (Senioridade): ALTERNATIVA ESCOLHIDA. Se a stack atingir > 80% de match em uma vaga de nível superior (adjacência ascendente), o motor NÃO DEVE apenas dispensar a penalidade. Ele DEVE elevar o 'r' (razão de atendimento) da senioridade para 0.8 (ou superior). Isso efetiva o reconhecimento técnico como alavanca de nota.
-   - Interpretação 2 (Rebaixamento Evidente): MANTIDA. A vaga inteira deve estar abaixo do menor nível aceito.
-   - Interpretação 3 (Inglês em Vaga Internacional): MANTIDA. Nível nulo será tratado como 'avancado' (Fail-Safe para vagas gringas).
-   - Interpretação 4 (Taxa ARS e Red Flags): MANTIDA. Taxa 0.0034 servirá estritamente como Fallback do serviço de Redis aprovado na D-S3. Lista de sinais de cultura confirmada.
-
-3. [SCRIBE]: Registre as resoluções do HITL-018 e HITL-019 no STATE.md e atualize o ADR-002 com a mudança do 'r' na senioridade.
-   - Clearance concedido: Podem iniciar imediatamente o F1-DOM-02 (implementação do ScoringEngine). Respeitem 100% de cobertura de branches, mutantes e testes de propriedade das invariantes matemáticas.
-
-0. [SCRIBE]: Registre as respostas do HITL-018 e do HITL-019 no HITL-QUEUE. Se o HITL-018 mudar alguma interpretação, aplique-a no ADR-002 (marcas ⚖️). Se o HITL-019 foi concluído, revise os casos afetados em evals/golden/cases/real/ (o validador tem de continuar verde). Faça o checkpoint no STATE.md.
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (S-4, F1-DOM-04), ADR-001 §5.3, ADR-005 D4, ADR-011 D1 (porta DeterministicSignals), threat-model (T3, T4, T15, SR-09) e golden-dataset-spec §4 e §8. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda.
-2. [ARCHITECT]: Desenhe o protótipo descartável do DeterministicPreFilter em evals/spikes/s4-layer1/:
-   - dicionário de tecnologias com aliases;
-   - janela de negação e contexto de diferencial;
-   - termos ambíguos (Go, R, "Senior" como ERP, "PJ" como produto);
-   - detector de salário com fronteira à esquerda (AR$ ≠ R$);
-   - heurística de injection.
-   Ele consome os 83 casos via @trampo/evals e produz a forma da porta DeterministicSignals (ADR-011 D1).
-3. [APPSEC]: Audite o design: regex lineares (SR-09), nenhum texto de vaga em log, canários dos sintéticos nunca impressos.
-4. [DEV] + [QA_EVALS]: Implemente e meça no golden dataset:
-   - % resolvida sem LLM;
-   - falso positivo de deal-breaker (armadilhas de negação = 0);
-   - falso positivo de injection nos controles negativos (gupy-19, geekhunter-07, syn-08 e syn-09 = 0 em alta);
-   - detecção dos 7 casos de injection;
-   - precisão que um curto-circuito de aceite teria.
-   Preencha a seção S-4 de spike-metrics e recomende a revisão da D-H3.
-5. [SCRIBE]: Atualize STATE, BACKLOG e SESSION-LOG, faça commit local sem push e gere o novo ./next-step.md.
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md (HITL-016 e HITL-018), BACKLOG.md (F1-DOM-02 e F1-DOM-03), ADR-002 inteiro (§3, §4.2, §4.4 com as 14 invariantes, §5, §8.1 e §8.2), ADR-011 (ResolvedJobFacts, FactProvenance) e contratos-zod. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda.
+2. [DEV] (1º commit, contrato primeiro, AGENTS §1.4): as 3 mudanças do ADR-002 §8.1 em packages/contracts (ARS no CurrencySchema, pressao_excessiva no RedFlagSignalSchema e VerdictSchema de 5 valores), com testes; revise na mesma tarefa os casos do golden com contractGaps (o validador do @trampo/evals tem de continuar verde) e ajuste o protótipo do S-4 para ARS virar currency 'ARS'.
+3. [ARCHITECT]: Desenhe ScoringPolicy (se1, validada no construtor com RangeError: adjacentUpRatio 0,5 < adjacentValidatedRatio 0,8 < 1, fxToBrl completo, eliminatoryConflictPenalty > 100 − recommendedMin, dealBreakerCap < bandMins.baixo_alinhamento) e a ordem de cálculo (stack antes de senioridade).
+4. [APPSEC]: Audite antes do código: regra de lint do ADR-002 §5.1 (sem includes/startsWith/indexOf/regex sobre string dos fatos em domain/scoring, com fixture negativa), SR-11 (nenhum valor do perfil no ScoreResult) e motor sem logger.
+5. [DEV] + [QA_EVALS]: Implemente o ScoringEngine puro em apps/api/src/domain/scoring com 100% de linhas e ramos, as 14 invariantes como propriedade (fast-check), mutação e as fixtures de estresse do §8.2 (casos estresse e sintéticos de câmbio e senioridade).
+6. [SCRIBE]: Atualize STATE, BACKLOG e SESSION-LOG, faça commit local sem push e gere o novo ./next-step.md.
 ```
