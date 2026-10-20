@@ -65,7 +65,7 @@ Sempre que o usuário iniciar uma sessão (ou pedir para executar o `./next-step
    - `[QA_EVALS]` cria/executa os testes correspondentes e valida a build/tipagem.
 4. **[FASE 4 - PERSISTÊNCIA NO OBSIDIAN (SSOT)]:**
    - `[SCRIBE]` atualiza `../base/00-orquestracao/STATE.md` (progresso atual), registra o que foi feito em `../base/00-orquestracao/SESSION-LOG.md` e documenta decisões em `../base/02-arquitetura/ADRs/`.
-   - Se uma etapa futura exigir ação humana (ex: criar conta no Supabase, rodar migration SQL, gerar API Key da Groq), o `[SCRIBE]` cria o guia passo a passo em `../base/03-infra-runbooks/` e adiciona o item pendente em `../base/00-orquestracao/HITL-QUEUE.md`.
+   - Se uma etapa futura exigir ação humana (ex: criar conta no Supabase, rodar migration SQL, gerar API Key da Groq), o `[SCRIBE]` cria o guia passo a passo em `../base/03-infra-runbook/` e adiciona o item pendente em `../base/00-orquestracao/HITL-QUEUE.md`.
 5. **[FASE 5 - GERAÇÃO DO PRÓXIMO PASSO E LOOP AUTÔNOMO]:**
    - O `[SCRIBE]` DEVE sobrescrever o arquivo `./next-step.md` na raiz de `trampo.app` contendo: (1) O resumo do que acabou de ser entregue e (2) O próximo prompt lógico da esteira.
    - **Avaliação de Continuidade (Continuous Loop):** O `[ORCHESTRATOR]` avalia as dependências operacionais para decidir se paralisa ou auto-alimenta a esteira.

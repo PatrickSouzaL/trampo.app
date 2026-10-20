@@ -45,8 +45,19 @@
 
 ```text
 Equipe,
-HITL-018: conforme interpretação.   <- ou ajuste (ex.: "HITL-018: 1 alternativa; 3 intermediario")
-HITL-019: dispensado.               <- ou "HITL-019 concluído"
+Equipe, avaliei as pendências HITL-018 e HITL-019 com base em arquitetura de interface e regras de negócio. Seguem as diretrizes:
+
+1. [ORCHESTRATOR]: HITL-019: DISPENSADO.
+   - Decisão de Arquitetura: A coleta visual reflete o princípio Zero Trust Client-Side. A extensão lerá o que está renderizado no DOM (innerText). O Spike S-2 ficará responsável por refinar os seletores CSS para garantir a captura dos 'chips' do topo da página. O Golden Dataset atual está validado para prosseguirmos.
+
+2. [ARCHITECT]: HITL-018: Aprovado com UMA alteração na interpretação 1.
+   - Interpretação 1 (Senioridade): ALTERNATIVA ESCOLHIDA. Se a stack atingir > 80% de match em uma vaga de nível superior (adjacência ascendente), o motor NÃO DEVE apenas dispensar a penalidade. Ele DEVE elevar o 'r' (razão de atendimento) da senioridade para 0.8 (ou superior). Isso efetiva o reconhecimento técnico como alavanca de nota.
+   - Interpretação 2 (Rebaixamento Evidente): MANTIDA. A vaga inteira deve estar abaixo do menor nível aceito.
+   - Interpretação 3 (Inglês em Vaga Internacional): MANTIDA. Nível nulo será tratado como 'avancado' (Fail-Safe para vagas gringas).
+   - Interpretação 4 (Taxa ARS e Red Flags): MANTIDA. Taxa 0.0034 servirá estritamente como Fallback do serviço de Redis aprovado na D-S3. Lista de sinais de cultura confirmada.
+
+3. [SCRIBE]: Registre as resoluções do HITL-018 e HITL-019 no STATE.md e atualize o ADR-002 com a mudança do 'r' na senioridade.
+   - Clearance concedido: Podem iniciar imediatamente o F1-DOM-02 (implementação do ScoringEngine). Respeitem 100% de cobertura de branches, mutantes e testes de propriedade das invariantes matemáticas.
 
 0. [SCRIBE]: Registre as respostas do HITL-018 e do HITL-019 no HITL-QUEUE. Se o HITL-018 mudar alguma interpretação, aplique-a no ADR-002 (marcas ⚖️). Se o HITL-019 foi concluído, revise os casos afetados em evals/golden/cases/real/ (o validador tem de continuar verde). Faça o checkpoint no STATE.md.
 1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (S-4, F1-DOM-04), ADR-001 §5.3, ADR-005 D4, ADR-011 D1 (porta DeterministicSignals), threat-model (T3, T4, T15, SR-09) e golden-dataset-spec §4 e §8. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda.
