@@ -74,8 +74,9 @@ const validReport: AnalysisReport = {
   platform: 'linkedin',
   score: 78,
   verdict: 'recomendado',
+  summary: 'Recomendado: a vaga atende à maior parte do que você procura. Nota 78. A favor: Modelo de trabalho.',
   dealBreakerHit: false,
-  strengths: [{ dimension: 'modelo_trabalho', text: 'Vaga 100% remota, como você exige.' }],
+  strengths: [{ dimension: 'modelo_trabalho', text: 'Modelo de trabalho: dentro do que você procura.' }],
   redFlags: [{ dimension: 'red_flags', text: 'Acumula funções de dev e suporte.' }],
   missingInfo: [],
   breakdown: [
@@ -85,7 +86,7 @@ const validReport: AnalysisReport = {
       importance: 'eliminatorio',
       points: 0,
       dealBreakerHit: false,
-      explanation: 'Remoto: atende ao critério eliminatório.',
+      explanation: 'Modelo de trabalho: dentro do que você procura. Na vaga: remoto.',
     },
   ],
   warnings: [],
@@ -106,7 +107,7 @@ const validReport: AnalysisReport = {
     redFlagSignals: 'llm',
   },
   effectiveConfidence: 0.8,
-  meta: { engineVersion: 'engine-1.0.0', extractorVersion: 'jf-p1-s1', provider: 'groq', durationMs: 2300 },
+  meta: { engineVersion: 'engine-1.0.0', reportCatalogVersion: 'rc1', extractorVersion: 'jf-p1-s1', provider: 'groq', durationMs: 2300 },
 };
 
 const lorem = 'Requisitos: experiência com TypeScript e Node.js em produção. '.repeat(10);
@@ -265,6 +266,20 @@ test('AnalysisReport: limites e anti-XSS', () => {
     false,
   );
   assert.equal(AnalysisReportSchema.safeParse({ ...validReport, html: '<p>x</p>' }).success, false);
+});
+
+test('AnalysisReport: summary da faixa e versão do catálogo (ADR-012 D2)', () => {
+  const { summary: _summary, ...withoutSummary } = validReport;
+  assert.equal(AnalysisReportSchema.safeParse(withoutSummary).success, false);
+  assert.equal(AnalysisReportSchema.safeParse({ ...validReport, summary: 'x'.repeat(200) }).success, true);
+  for (const summary of ['x'.repeat(201), '', '   ', 'Veja www.exemplo.com', 'Nota <b>9</b>', `Nota​9`]) {
+    assert.equal(AnalysisReportSchema.safeParse({ ...validReport, summary }).success, false, summary);
+  }
+  const { reportCatalogVersion: _version, ...metaWithoutVersion } = validReport.meta;
+  assert.equal(AnalysisReportSchema.safeParse({ ...validReport, meta: metaWithoutVersion }).success, false);
+  for (const reportCatalogVersion of ['RC1', '-rc1', '', 'r'.repeat(33)]) {
+    assert.equal(AnalysisReportSchema.safeParse({ ...validReport, meta: { ...validReport.meta, reportCatalogVersion } }).success, false);
+  }
 });
 
 // ---------- AnalyzeJobRequest ----------
