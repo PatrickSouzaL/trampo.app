@@ -4,7 +4,10 @@ import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { buildApp } from "../src/presentation/build-app.js";
+import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
 
+/** Token aceito pelo verificador falso: estes testes tratam de erro, não de autenticação. */
+const AUTH_HEADERS = { authorization: TEST_AUTHORIZATION };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 let app: ReturnType<typeof buildApp> | undefined;
@@ -15,7 +18,7 @@ afterEach(async () => {
 
 /** App de teste com rotas extras que forçam cada tipo de falha. */
 function appWithProbes() {
-  app = buildApp({ logger: false });
+  app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
   app.get("/probe/explode", async () => {
     throw new Error("segredo interno: postgres://user:senha@db/trampo");
   });
@@ -36,7 +39,7 @@ function expectApiError(body: string, code: string): z.infer<typeof ApiErrorSche
 
 describe("GET /health", () => {
   test("responde 200 { status: 'ok' } em JSON", async () => {
-    app = buildApp({ logger: false });
+    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
     const res = await app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toMatch(/^application\/json/);
@@ -46,28 +49,28 @@ describe("GET /health", () => {
 
 describe("erros sempre no formato ApiError", () => {
   test("rota inexistente: 404 com código genérico, sem dizer o que existe", async () => {
-    const res = await appWithProbes().inject({ method: "GET", url: "/v1/admin/usuarios" });
+    const res = await appWithProbes().inject({ method: "GET", url: "/v1/admin/usuarios", headers: AUTH_HEADERS });
     expect(res.statusCode).toBe(404);
     expectApiError(res.body, "PROIBIDO");
     expect(res.body).not.toContain("/v1/admin");
   });
 
   test("exceção interna: 500 ERRO_INTERNO sem stack, mensagem ou detalhe do erro", async () => {
-    const res = await appWithProbes().inject({ method: "GET", url: "/probe/explode" });
+    const res = await appWithProbes().inject({ method: "GET", url: "/probe/explode", headers: AUTH_HEADERS });
     expect(res.statusCode).toBe(500);
     expectApiError(res.body, "ERRO_INTERNO");
     for (const leak of ["segredo", "postgres", "senha", "stack", "Error", "at "]) expect(res.body).not.toContain(leak);
   });
 
   test("serializer valida a SAÍDA: chave fora do schema não vaza e vira ERRO_INTERNO", async () => {
-    const res = await appWithProbes().inject({ method: "GET", url: "/probe/vaza" });
+    const res = await appWithProbes().inject({ method: "GET", url: "/probe/vaza", headers: AUTH_HEADERS });
     expect(res.statusCode).toBe(500);
     expectApiError(res.body, "ERRO_INTERNO");
     expect(res.body).not.toContain("pretensão");
   });
 
   test("corpo inválido: 400 PAYLOAD_INVALIDO sem os detalhes do Zod", async () => {
-    const res = await appWithProbes().inject({ method: "POST", url: "/probe/body", payload: { n: 1.5, extra: "x" } });
+    const res = await appWithProbes().inject({ method: "POST", url: "/probe/body", headers: AUTH_HEADERS, payload: { n: 1.5, extra: "x" } });
     expect(res.statusCode).toBe(400);
     expectApiError(res.body, "PAYLOAD_INVALIDO");
     for (const leak of ["issues", "expected", "invalid_type", "unrecognized", "extra", "path"]) expect(res.body).not.toContain(leak);
@@ -77,7 +80,7 @@ describe("erros sempre no formato ApiError", () => {
     const res = await appWithProbes().inject({
       method: "POST",
       url: "/probe/body",
-      headers: { "content-type": "application/json" },
+      headers: { ...AUTH_HEADERS, "content-type": "application/json" },
       payload: '{"n":',
     });
     expect(res.statusCode).toBe(400);
@@ -90,7 +93,7 @@ describe("id de correlação", () => {
     const res = await appWithProbes().inject({
       method: "GET",
       url: "/nao-existe",
-      headers: { "x-request-id": "injetado-pelo-cliente" },
+      headers: { ...AUTH_HEADERS, "x-request-id": "injetado-pelo-cliente" },
     });
     const body = expectApiError(res.body, "PROIBIDO");
     expect(body.requestId).not.toBe("injetado-pelo-cliente");

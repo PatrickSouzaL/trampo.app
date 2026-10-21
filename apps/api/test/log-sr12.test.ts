@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { buildApp } from "../src/presentation/build-app.js";
 import { LOG_ALLOWLIST } from "../src/presentation/logging/log-policy.js";
+import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
 
 const CANARY = {
   jobText: "canario-vaga-Desenvolvedora-Senior-Remota-a1",
@@ -31,7 +32,7 @@ afterEach(async () => {
 
 function captureApp() {
   const lines: string[] = [];
-  app = buildApp({ logger: { level: "trace", stream: { write: (line) => void lines.push(line) } } });
+  app = buildApp({ accessTokenVerifier: acceptAll, logger: { level: "trace", stream: { write: (line) => void lines.push(line) } } });
   const body = z.strictObject({ jobText: z.string(), criteria: z.strictObject({ salaryFloor: z.string() }) });
 
   app.post("/probe/analise", { schema: { body } }, async () => ({ ok: true }));
@@ -131,7 +132,7 @@ describe("SR-12: o log nunca contém vaga, critérios, token, cookie, query, cab
 
   test("500 grava erro_interno com o tipo do erro e sem a mensagem", async () => {
     const { app, lines } = captureApp();
-    await app.inject({ method: "GET", url: "/probe/explode" });
+    await app.inject({ method: "GET", url: "/probe/explode", headers: { authorization: TEST_AUTHORIZATION } });
     const internal = parseLines(lines).find((r) => r["msg"] === "erro_interno");
     expect(internal).toMatchObject({ level: 50, err: { type: "Error" } });
     expect(Object.keys(internal?.["err"] as object)).toEqual(["type"]);
@@ -146,7 +147,7 @@ describe("SR-12: o log nunca contém vaga, critérios, token, cookie, query, cab
   });
 
   test("logger: false desliga o log", async () => {
-    app = buildApp({ logger: false });
+    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
     // Sem pino: o Fastify usa o logger nulo (abstract-logging), que não tem nível nem destino.
     expect(app.log.level).toBeUndefined();
   });

@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { buildApp, type BuildAppOptions } from "../src/presentation/build-app.js";
 import { EDGE_TIMEOUTS } from "../src/presentation/edge/timeouts.js";
+import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
 
 const EXTENSION = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
 const PORTAL = "https://portal.trampo.example";
@@ -23,9 +24,9 @@ afterEach(async () => {
  * App com rota de eco e contadores. O parser JSON padrão é envolvido por um contador (mesmo parser,
  * mesmo bodyLimit da instância), para provar que o 413 e o 415 acontecem SEM parse.
  */
-function probeApp(options: BuildAppOptions = {}) {
+function probeApp(options: Partial<BuildAppOptions> = {}) {
   const counts = { parser: 0, handler: 0 };
-  const instance = buildApp({ logger: false, corsAllowedOrigins: [EXTENSION, PORTAL], ...options });
+  const instance = buildApp({ logger: false, accessTokenVerifier: acceptAll, corsAllowedOrigins: [EXTENSION, PORTAL], ...options });
   const defaultJson = instance.getDefaultJsonParser("error", "error");
   instance.removeContentTypeParser("application/json");
   instance.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
@@ -54,7 +55,8 @@ function jsonOfBytes(bytes: number, filler = "a"): string {
   return `{"texto":"${filler.repeat(Math.floor((bytes - envelope) / fillerBytes))}"}`;
 }
 
-const JSON_HEADERS = { "content-type": "application/json" };
+// Token aceito pelo verificador falso: os testes de borda não tratam de autenticação (ver auth.test.ts).
+const JSON_HEADERS = { "content-type": "application/json", authorization: TEST_AUTHORIZATION };
 
 describe("SR-07: corpo acima de 64 KiB dá 413 sem parse", () => {
   test("no limite exato (65.536 bytes) passa e chega ao handler", async () => {
@@ -112,7 +114,7 @@ describe("SR-07: tipo de mídia e Content-Encoding dão 415 antes de ler o corpo
     ["charset sem valor", "application/json; charset"],
   ])("Content-Type %s: 415 PAYLOAD_INVALIDO", async (_label, contentType) => {
     const { app, counts } = probeApp();
-    const res = await app.inject({ method: "POST", url: "/probe/eco", headers: { "content-type": contentType }, payload: VALID });
+    const res = await app.inject({ method: "POST", url: "/probe/eco", headers: { "content-type": contentType, authorization: TEST_AUTHORIZATION }, payload: VALID });
     expect(res.statusCode).toBe(415);
     expectApiError(res.body, "PAYLOAD_INVALIDO");
     expect(counts).toEqual({ parser: 0, handler: 0 });
@@ -158,7 +160,7 @@ describe("SR-07: tipo de mídia e Content-Encoding dão 415 antes de ler o corpo
     const res = await app.inject({
       method: "POST",
       url: "/probe/eco",
-      headers: { "content-type": contentType, "content-encoding": "identity" },
+      headers: { "content-type": contentType, "content-encoding": "identity", authorization: TEST_AUTHORIZATION },
       payload: VALID,
     });
     expect(res.statusCode).toBe(200);
@@ -177,7 +179,7 @@ describe("SR-07: tipo de mídia e Content-Encoding dão 415 antes de ler o corpo
     app.get("/probe/415", async () => {
       throw Object.assign(new Error("FST_ERR_CTP_INVALID_MEDIA_TYPE"), { statusCode: 415 });
     });
-    const res = await app.inject({ method: "GET", url: "/probe/415" });
+    const res = await app.inject({ method: "GET", url: "/probe/415", headers: { authorization: TEST_AUTHORIZATION } });
     expect(res.statusCode).toBe(415);
     expectApiError(res.body, "PAYLOAD_INVALIDO");
   });
@@ -190,7 +192,7 @@ describe("SR-07: tipo de mídia e Content-Encoding dão 415 antes de ler o corpo
 
   test("só o parser JSON está registrado", () => {
     const { app } = probeApp();
-    expect(buildApp({ logger: false }).hasContentTypeParser("text/plain")).toBe(false);
+    expect(buildApp({ logger: false, accessTokenVerifier: acceptAll }).hasContentTypeParser("text/plain")).toBe(false);
     expect(app.hasContentTypeParser("application/json")).toBe(true);
   });
 });
@@ -225,7 +227,7 @@ describe("CORS com origens exatas", () => {
   });
 
   test("lista vazia (padrão) nega toda origem de navegador", async () => {
-    app = buildApp({ logger: false });
+    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
     const res = await app.inject({ method: "GET", url: "/health", headers: { origin: EXTENSION } });
     expect(res.statusCode).toBe(403);
   });
@@ -293,7 +295,7 @@ describe("CORS com origens exatas", () => {
     const badType = await app.inject({
       method: "POST",
       url: "/probe/eco",
-      headers: { "content-type": "text/plain", origin: EXTENSION },
+      headers: { "content-type": "text/plain", origin: EXTENSION, authorization: TEST_AUTHORIZATION },
       payload: "x",
     });
     for (const res of [tooBig, badType]) expect(res.headers["access-control-allow-origin"]).toBe(EXTENSION);
@@ -307,7 +309,7 @@ describe("proto poisoning recusado no parse", () => {
     ["constructor.prototype", '{"constructor":{"prototype":{"admin":true}},"n":1}'],
   ])("%s: 400 PAYLOAD_INVALIDO e o handler não roda", async (_label, payload) => {
     let handled = 0;
-    app = buildApp({ logger: false });
+    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
     app.post("/probe/poison", async () => {
       handled += 1;
       return { ok: true };
@@ -326,13 +328,13 @@ describe("trustProxy", () => {
 
   test("padrão false: X-Forwarded-For é ignorado", async () => {
     const { app } = probeApp();
-    const res = await app.inject({ method: "GET", url: "/probe/ip", remoteAddress: PROXY, headers: { "x-forwarded-for": CLIENT } });
+    const res = await app.inject({ method: "GET", url: "/probe/ip", remoteAddress: PROXY, headers: { "x-forwarded-for": CLIENT, authorization: TEST_AUTHORIZATION } });
     expect(res.json()).toEqual({ ip: PROXY });
   });
 
   test("salto de proxy configurado: usa o cliente do X-Forwarded-For", async () => {
     const { app } = probeApp({ trustProxy: ["10.0.0.0/8"] });
-    const res = await app.inject({ method: "GET", url: "/probe/ip", remoteAddress: PROXY, headers: { "x-forwarded-for": CLIENT } });
+    const res = await app.inject({ method: "GET", url: "/probe/ip", remoteAddress: PROXY, headers: { "x-forwarded-for": CLIENT, authorization: TEST_AUTHORIZATION } });
     expect(res.json()).toEqual({ ip: CLIENT });
   });
 
@@ -342,7 +344,7 @@ describe("trustProxy", () => {
       method: "GET",
       url: "/probe/ip",
       remoteAddress: "192.168.1.50",
-      headers: { "x-forwarded-for": CLIENT },
+      headers: { "x-forwarded-for": CLIENT, authorization: TEST_AUTHORIZATION },
     });
     expect(res.json()).toEqual({ ip: "192.168.1.50" });
   });
@@ -350,7 +352,7 @@ describe("trustProxy", () => {
 
 describe("padrões de produção travados", () => {
   test("bodyLimit, poisoning e prazos do servidor (trustProxy: ver o describe acima)", async () => {
-    app = buildApp({ logger: false });
+    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
     await app.ready();
     expect(app.initialConfig.bodyLimit).toBe(HTTP_BODY_MAX_BYTES);
     expect(app.initialConfig.onProtoPoisoning).toBe("error");

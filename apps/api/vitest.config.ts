@@ -15,7 +15,9 @@ export default defineConfig({
           include: ["test/domain/**/*.test.ts", "test/application/**/*.test.ts", "test/infrastructure/**/*.test.ts"],
           // O motor da nota e o ReportComposer (propriedades pesadas e o ESLint das fixtures) rodam no grupo seguinte, sem disputar
           // CPU com o SR-09 do seletor, que mede 200 ms de relógio de parede.
-          exclude: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts"],
+          // O adapter do JWT (F1-API-02) gera chaves ECDSA e sobe um JWKS em socket real: vai para o grupo da
+          // presentation, longe do SR-09.
+          exclude: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts", "test/infrastructure/jose-*.test.ts"],
           sequence: { groupOrder: 0 },
           testTimeout: 30_000,
         },
@@ -26,7 +28,7 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "presentation", include: ["test/*.test.ts"], sequence: { groupOrder: 2 } },
+        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts"], sequence: { groupOrder: 2 } },
       },
     ],
     coverage: {
@@ -39,6 +41,9 @@ export default defineConfig({
         "src/infrastructure/crypto/**/*.ts",
         "src/infrastructure/telemetry/**/*.ts",
         "src/presentation/logging/**/*.ts",
+        // Autenticação (F1-API-02, ADR-013): o adapter jose, o hook e a validação do ambiente.
+        "src/infrastructure/auth/**/*.ts",
+        "src/presentation/edge/auth*.ts",
       ],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

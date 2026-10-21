@@ -39,6 +39,12 @@ export {
   parseLlmProviderChain,
   type ProviderChainOptions,
 } from "./llm/provider-chain.js";
+export type {
+  AccessTokenRejection,
+  AccessTokenVerification,
+  AccessTokenVerifier,
+  Principal,
+} from "./ports/access-token-verifier.js";
 export { deadlineAfter, type Clock, type Deadline } from "./ports/clock.js";
 export type {
   AttemptControl,

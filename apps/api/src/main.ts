@@ -1,7 +1,9 @@
 // Ponto de entrada: valida o ambiente, sobe o servidor e encerra limpo em SIGINT/SIGTERM.
 import { z } from "zod";
 
+import { createJoseAccessTokenVerifier } from "./infrastructure/auth/jose-access-token-verifier.js";
 import { buildApp } from "./presentation/build-app.js";
+import { AuthEnvSchema } from "./presentation/edge/auth-env.js";
 import { EdgeEnvSchema } from "./presentation/edge/edge-env.js";
 
 const EnvSchema = z.object({
@@ -12,7 +14,12 @@ const EnvSchema = z.object({
 
 // Ambiente inválido derruba o processo na subida (falha fechado), antes de abrir a porta.
 const env = EnvSchema.parse(process.env);
-const app = buildApp({ corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS, trustProxy: env.TRUST_PROXY });
+const auth = AuthEnvSchema.parse(process.env);
+const app = buildApp({
+  accessTokenVerifier: createJoseAccessTokenVerifier(auth),
+  corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
+  trustProxy: env.TRUST_PROXY,
+});
 
 const shutdown = (signal: string): void => {
   app.log.info({ signal }, "encerrando");

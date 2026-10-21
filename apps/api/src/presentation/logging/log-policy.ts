@@ -27,6 +27,7 @@ export const LOG_MESSAGES = [
   "fluxo_encerrado_antes",
   "servidor_ouvindo",
   "erro_interno",
+  "autenticacao_indisponivel",
   "encerrando",
   "mensagem_fora_do_catalogo",
   "linha_de_log_descartada",

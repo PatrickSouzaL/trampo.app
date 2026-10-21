@@ -1,13 +1,16 @@
 // Monta a instância Fastify (camada presentation; ADR-001 §7) com a borda E0 da F1-API-01
 // (ADR-007): só o parser JSON, bodyLimit antes do parse, timeouts explícitos, trustProxy fechado e
-// CORS com origens exatas. JWT (F1-API-02) e rate limit (F1-API-03) entram no onRequest, depois do CORS.
+// CORS com origens exatas, e a autenticação por JWT da F1-API-02 (ADR-013). O rate limit (F1-API-03) entra no
+// onRequest, depois do JWT.
 import { randomUUID } from "node:crypto";
 
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "@fastify/type-provider-zod";
 import { HTTP_BODY_MAX_BYTES } from "@trampo/contracts/limits";
 import Fastify from "fastify";
 
+import type { AccessTokenVerifier } from "../application/ports/access-token-verifier.js";
 import { apiError } from "./api-error.js";
+import { createAuthHook } from "./edge/auth.js";
 import { edgeClientErrorHandler } from "./edge/client-error.js";
 import { createCorsHook } from "./edge/cors.js";
 import { mediaTypeHook } from "./edge/media-type.js";
@@ -16,6 +19,8 @@ import { createLoggerOptions, type LoggerConfig } from "./logging/log-policy.js"
 import { healthRoutes } from "./routes/health.js";
 
 export interface BuildAppOptions {
+  /** Verificação do access token (ADR-013 D1). Obrigatório: não há padrão que aceite tudo. */
+  readonly accessTokenVerifier: AccessTokenVerifier;
   /**
    * `false` desliga o log. Senão, vale a lista fechada do ADR-010, que não é configurável: só o nível e o
    * destino mudam (os testes do SR-12 capturam as linhas pelo `stream`).
@@ -39,7 +44,7 @@ function inspectThrown(thrown: unknown): { statusCode: number; isValidation: boo
   };
 }
 
-export function buildApp(options: BuildAppOptions = {}) {
+export function buildApp(options: BuildAppOptions) {
   const timeouts: EdgeTimeouts = { ...EDGE_TIMEOUTS, ...options.timeouts };
   // Conjunto fechado das rotas registradas: só elas aparecem no campo `route` do log (ADR-010 D1).
   const knownRoutes = new Set<string>();
@@ -73,6 +78,9 @@ export function buildApp(options: BuildAppOptions = {}) {
   // Ordem do ADR-001 §5.1, da rejeição mais barata à mais cara, sem ler o corpo.
   app.addHook("onRequest", createCorsHook(options.corsAllowedOrigins ?? []));
   app.addHook("onRequest", mediaTypeHook);
+  // JWT antes de ler o corpo: sem token, 401 sem parse (ADR-013 D2).
+  app.decorateRequest("principal", null);
+  app.addHook("onRequest", createAuthHook(options.accessTokenVerifier));
 
   // Validação de entrada E de saída com Zod: a resposta também é conferida contra o schema.
   app.setValidatorCompiler(validatorCompiler);
