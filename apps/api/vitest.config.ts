@@ -13,16 +13,16 @@ export default defineConfig({
         test: {
           name: "dominio",
           include: ["test/domain/**/*.test.ts", "test/application/**/*.test.ts", "test/infrastructure/**/*.test.ts"],
-          // O motor da nota (propriedades pesadas e o ESLint da fixture) roda no grupo seguinte, sem disputar
+          // O motor da nota e o ReportComposer (propriedades pesadas e o ESLint das fixtures) rodam no grupo seguinte, sem disputar
           // CPU com o SR-09 do seletor, que mede 200 ms de relógio de parede.
-          exclude: ["test/domain/scoring-*.test.ts"],
+          exclude: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts"],
           sequence: { groupOrder: 0 },
           testTimeout: 30_000,
         },
       },
       {
         extends: true,
-        test: { name: "motor", include: ["test/domain/scoring-*.test.ts"], sequence: { groupOrder: 1 }, testTimeout: 30_000 },
+        test: { name: "motor", include: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts"], sequence: { groupOrder: 1 }, testTimeout: 30_000 },
       },
       {
         extends: true,

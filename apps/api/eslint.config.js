@@ -15,6 +15,19 @@ export const scoringEqualityOnlySyntax = [
   { selector: "NewExpression[callee.name='RegExp'], CallExpression[callee.name='RegExp']", message: "Sem RegExp em domain/scoring (ADR-002 §5.1)." },
 ];
 
+// ADR-012 D7: o ReportComposer não lê texto livre dos fatos (título, cidade, país, tags de stack) nem campo do
+// perfil, e não importa UserCriteria. Ele repassa `facts` inteiro, mas nenhum texto do relatório sai desses campos.
+// Fixture: test/domain/report-lint.test.ts.
+const FREE_TEXT_FIELDS =
+  "title|city|countryIso2|stackRequired|stackNiceToHave|notes|minimum|acceptedCities|acceptedUfs|mustHave|niceToHave|dealBreakers";
+const REPORT_FREE_TEXT_MESSAGE = "Em domain/report, nenhum texto sai de campo livre dos fatos nem do perfil (ADR-012 D7, SR-11).";
+export const reportNoFreeTextSyntax = [
+  { selector: `MemberExpression[property.name=/^(${FREE_TEXT_FIELDS})$/]`, message: REPORT_FREE_TEXT_MESSAGE },
+  { selector: `MemberExpression[computed=true][property.value=/^(${FREE_TEXT_FIELDS})$/]`, message: REPORT_FREE_TEXT_MESSAGE },
+  { selector: `Property[key.name=/^(${FREE_TEXT_FIELDS})$/], Property[key.value=/^(${FREE_TEXT_FIELDS})$/]`, message: REPORT_FREE_TEXT_MESSAGE },
+  { selector: "ImportSpecifier[imported.name=/^UserCriteria/]", message: "O ReportComposer não recebe os critérios do usuário (ADR-012 D1, SR-11)." },
+];
+
 // O preset de pureza vem depois do de segurança: em src/domain ele acrescenta as proibições de rede,
 // relógio, aleatoriedade e imports de runtime (ADR-001 §7 e §10.3; SR-13).
 export default defineConfig([
@@ -28,6 +41,14 @@ export default defineConfig([
       // O motor não tem logger (ADR-002 §5.4): os critérios do usuário nunca vão para log.
       "no-console": "error",
       "no-restricted-syntax": ["error", ...domainPuritySyntax, ...scoringEqualityOnlySyntax],
+    },
+  },
+  {
+    name: "@trampo/api/report-no-free-text",
+    files: ["src/domain/report/**/*.ts"],
+    rules: {
+      "no-console": "error",
+      "no-restricted-syntax": ["error", ...domainPuritySyntax, ...scoringEqualityOnlySyntax, ...reportNoFreeTextSyntax],
     },
   },
   {
