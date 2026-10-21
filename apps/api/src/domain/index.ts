@@ -42,3 +42,28 @@ export {
   type SelectionSignals,
 } from "./selection/relevant-section-selector.js";
 export { DependencyContractError, countCodePoints, type TruncateCodePoints } from "./text/code-points.js";
+export {
+  ScoringEngine,
+  foldCity,
+  type DimensionEvaluation,
+  type RedFlagEffect,
+  type RedFlagHit,
+  type ScoreReasonCode,
+  type ScoreResult,
+  type ScoringInput,
+} from "./scoring/scoring-engine.js";
+export {
+  CURRENCIES,
+  DEFAULT_SCORING_POLICY,
+  LANGUAGE_LEVELS,
+  MAX_DIMENSION_PENALTY,
+  NEVER_ATTENUATED_RED_FLAGS,
+  RED_FLAG_SIGNALS,
+  SALARY_PERIODS,
+  SCORE_DIMENSIONS,
+  SCORING_ENGINE_VERSION,
+  SENIORITY_LEVELS,
+  scoringPolicyIssues,
+  type BandedVerdict,
+  type ScoringPolicy,
+} from "./scoring/scoring-policy.js";

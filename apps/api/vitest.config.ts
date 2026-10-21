@@ -8,11 +8,25 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: "dominio", include: ["test/domain/**/*.test.ts", "test/application/**/*.test.ts", "test/infrastructure/**/*.test.ts"], sequence: { groupOrder: 0 } },
+        // Propriedades com 1.000 execuções passam de 5 s quando o turbo roda todos os pacotes juntos: o prazo
+        // sobe, o número de execuções não cai. O SR-09 mede o próprio relógio e não depende deste prazo.
+        test: {
+          name: "dominio",
+          include: ["test/domain/**/*.test.ts", "test/application/**/*.test.ts", "test/infrastructure/**/*.test.ts"],
+          // O motor da nota (propriedades pesadas e o ESLint da fixture) roda no grupo seguinte, sem disputar
+          // CPU com o SR-09 do seletor, que mede 200 ms de relógio de parede.
+          exclude: ["test/domain/scoring-*.test.ts"],
+          sequence: { groupOrder: 0 },
+          testTimeout: 30_000,
+        },
       },
       {
         extends: true,
-        test: { name: "presentation", include: ["test/*.test.ts"], sequence: { groupOrder: 1 } },
+        test: { name: "motor", include: ["test/domain/scoring-*.test.ts"], sequence: { groupOrder: 1 }, testTimeout: 30_000 },
+      },
+      {
+        extends: true,
+        test: { name: "presentation", include: ["test/*.test.ts"], sequence: { groupOrder: 2 } },
       },
     ],
     coverage: {

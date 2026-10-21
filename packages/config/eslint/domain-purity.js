@@ -7,6 +7,16 @@ import tseslint from "typescript-eslint";
 import { htmlSinkSelectors } from "./security.js";
 
 /**
+ * Seletores de `no-restricted-syntax` do preset. A regra não se acumula entre blocos: um bloco mais
+ * restrito (ex.: `src/domain/scoring` na API) precisa repeti-los antes de acrescentar os seus.
+ */
+export const domainPuritySyntax = [
+  ...htmlSinkSelectors,
+  { selector: "ImportExpression", message: "Sem import() dinâmico no domínio." },
+  { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "new Date() sem argumento lê o relógio: injete um Clock." },
+];
+
+/**
  * @param {{ files?: string[] }} [options] globs relativos ao eslint.config do consumidor.
  * @returns {import("eslint").Linter.Config[]}
  */
@@ -61,12 +71,7 @@ export function domainPurity({ files = ["src/domain/**/*.{ts,mts,cts}"] } = {}) 
           { object: "globalThis", property: "crypto", message: "Sem aleatoriedade no domínio." },
         ],
         // A regra não se acumula: os seletores de HTML do preset de segurança são repetidos aqui.
-        "no-restricted-syntax": [
-          "error",
-          ...htmlSinkSelectors,
-          { selector: "ImportExpression", message: "Sem import() dinâmico no domínio." },
-          { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "new Date() sem argumento lê o relógio: injete um Clock." },
-        ],
+        "no-restricted-syntax": ["error", ...domainPuritySyntax],
       },
     },
   ];

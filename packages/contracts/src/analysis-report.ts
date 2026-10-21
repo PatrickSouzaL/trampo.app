@@ -39,8 +39,10 @@ export const DimensionOutcomeSchema = z.enum([
   'conflito',
   'ignorado',
 ]);
+export type DimensionOutcome = z.infer<typeof DimensionOutcomeSchema>;
 
 export const AppliedImportanceSchema = z.enum(['eliminatorio', 'obrigatorio', 'ponderado', 'ignorar']);
+export type AppliedImportance = z.infer<typeof AppliedImportanceSchema>;
 
 /** Uma linha da composição da nota: auditabilidade ("−30: modelo híbrido, você exige remoto"). */
 export const ScoreBreakdownEntrySchema = z.strictObject({
