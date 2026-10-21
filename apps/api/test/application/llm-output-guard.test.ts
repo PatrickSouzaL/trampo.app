@@ -65,8 +65,8 @@ describe("LlmOutputGuard: caminho feliz", () => {
     expect(result.sanitization).toStrictEqual(CLEAN);
   });
 
-  test("versão g1 (entra no extractorVersion do cache)", () => {
-    expect(LLM_OUTPUT_GUARD_VERSION).toBe("g1");
+  test("versão g2 (entra no extractorVersion do cache)", () => {
+    expect(LLM_OUTPUT_GUARD_VERSION).toBe("g2");
   });
 
   test("os fatos devolvidos são objetos com protótipo padrão, construídos pelo Zod", () => {

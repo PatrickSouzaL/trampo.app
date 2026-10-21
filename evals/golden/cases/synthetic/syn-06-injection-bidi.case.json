@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-06-injection-bidi",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -65,7 +65,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": {
     "technique": "bidi",
     "goal": "nota",

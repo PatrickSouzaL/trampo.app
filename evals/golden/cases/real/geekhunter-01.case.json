@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "geekhunter-01",
   "source": "geekhunter",
   "platform": "generico",
@@ -87,7 +87,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Remoto \"qualquer lugar\" sem cidade: location null. Jira e Notion aparecem nas responsabilidades (exigida) e nos diferenciais; a leitura só desejável fica em alternatives. VR/VA de R$ 40/dia e auxílios em R$ são benefício, não salário. Medicamentos e uso livre viram outro; psicoterapia, bem-estar."
 }

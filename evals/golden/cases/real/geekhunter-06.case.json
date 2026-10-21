@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "geekhunter-06",
   "source": "geekhunter",
   "platform": "generico",
@@ -84,7 +84,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "O cabeçalho do coletor cita faixa salarial, mas o corpo não traz valor: salary null pelo corpo. Benefícios \"não informado\": []. Conceitos de rede (TCP/IP, DNS, VPN) e IaC ficaram fora da stack; serviços AWS nomeados entram."
 }

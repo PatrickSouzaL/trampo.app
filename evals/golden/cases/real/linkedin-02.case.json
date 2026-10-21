@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-02",
   "source": "linkedin",
   "platform": "linkedin",
@@ -83,7 +83,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Sem nível nem contrato declarados. Stack vem da lista de tecnologias nas atividades; o \"Mongo-like\" da descrição da empresa não é MongoDB. Cartão de benefícios flexíveis lido como multibenefício (VR+VA); alternativa sem VA."
 }

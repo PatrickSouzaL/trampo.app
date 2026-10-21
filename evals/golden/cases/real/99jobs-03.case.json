@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "99jobs-03",
   "source": "99jobs",
   "platform": "generico",
@@ -76,7 +76,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Cabeçalho do coletor diz Júnior, mas o corpo não declara nível: []. Vínculo \"Não informado\": []. UML só em alternatives (notação, não produto); Scrum é metodologia. Bolsa de estudo = auxilio_educacao; VT e descontos = outro."
 }

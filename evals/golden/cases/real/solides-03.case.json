@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-03",
   "source": "solides",
   "platform": "generico",
@@ -107,7 +107,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "PHP, Apache, Percona MySQL e Aurora aparecem nas responsabilidades e de novo como diferencial: a seção de requisitos manda (desejável), com a leitura exigida em alternatives. Inglês \"avançado ou fluente\": avancado (mínimo), fluente em alternatives. Remoto com sede em BH."
 }

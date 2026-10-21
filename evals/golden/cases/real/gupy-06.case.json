@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-06",
   "source": "gupy",
   "platform": "gupy",
@@ -107,7 +107,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "OCI é desejável explícito; o \"OCI CLI\" listado nos requisitos de script fica fora para não contradizer. Inglês \"intermediário/avançado para leitura\": menor nível, alternativas avançado e básico. VA ou VR: os dois. \"Faria Lima\" é referência de bairro sem número, não anonimizada."
 }

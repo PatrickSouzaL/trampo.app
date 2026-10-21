@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-07-injection-variation-selectors",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -61,7 +61,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": {
     "technique": "variation_selectors",
     "goal": "exfiltracao",

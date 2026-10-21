@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-09",
   "source": "linkedin",
   "platform": "linkedin",
@@ -53,7 +53,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "\"Líder\" aparece só no nome da empresa: não implica lideranca; nenhum nível declarado. Sistemas de acompanhamento processual sem nome de produto: stack vazia. Inglês fluente nos requisitos e no bloco Idiomas."
 }

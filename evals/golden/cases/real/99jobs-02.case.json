@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "99jobs-02",
   "source": "99jobs",
   "platform": "generico",
@@ -52,7 +52,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Texto coletado truncado nas responsabilidades. \"GLPI\" é o nome da empresa, também nome de ferramenta ITSM: não é stack. Sem nível, contrato ou salário no corpo."
 }

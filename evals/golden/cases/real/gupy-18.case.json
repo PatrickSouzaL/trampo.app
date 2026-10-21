@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-18",
   "source": "gupy",
   "platform": "gupy",
@@ -97,7 +97,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Sênior; Júnior e Pleno citados só como o time mentorado. Campos Elíseos é bairro de São Paulo. Stack com exatamente 30 termos, todos em requisitos ou responsabilidades (leitura básica conta como exigida). Escopo excessivo como alternativa, não no gabarito (critério conservador)."
 }

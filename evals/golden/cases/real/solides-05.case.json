@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-05",
   "source": "solides",
   "platform": "generico",
@@ -73,7 +73,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "N1 é nível de suporte, não senioridade escrita: [] com junior em alternatives (cabeçalho diz Júnior, corpo não). \"Até 2 anos\" é teto, não mínimo: null. Salário aparece dentro de Benefícios, mas é salário. Cartão multibenefício = VR+VA. \"Day Off\" sem \"aniversário\": folga_aniversario só em alternatives. ITIL (metodologia) e VPN (conceito) fora da stack."
 }

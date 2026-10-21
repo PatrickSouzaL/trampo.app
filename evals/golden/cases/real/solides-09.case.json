@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-09",
   "source": "solides",
   "platform": "generico",
@@ -54,7 +54,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Salário aparece na seção Benefícios, mas é salário; demais benefícios declarados como não informados: []. Sem anos exigidos. VPN, Wi-Fi, antivírus e thin clients são conceitos, não produtos: só Zabbix na stack. Sênior que acumula suporte a usuário e infra é comum em TI de empresa média: sem red flag (critério conservador)."
 }

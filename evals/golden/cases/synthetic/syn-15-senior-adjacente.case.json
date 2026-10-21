@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-15-senior-adjacente",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -65,7 +65,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Fixture da adjacência ascendente (D-S5): vaga só sênior com 6 tecnologias exigidas e nenhuma desejável. Usuário que aceita só pleno e tem 5 ou 6 delas recebe senioridade_adjacente_validada; com menos de 80% da stack, adjacente_acima com penalidade."
 }

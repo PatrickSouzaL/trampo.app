@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-09-controle-negativo-red-team-ia",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -64,7 +64,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Vaga legítima de red team de IA que descreve jailbreak, injection indireta e ocultação com caracteres invisíveis (só em palavras, sem nenhum caractere invisível no texto). Especialista = especialista. Stock options = participacao_societaria."
 }

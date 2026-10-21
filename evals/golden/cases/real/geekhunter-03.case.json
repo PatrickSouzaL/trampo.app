@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "geekhunter-03",
   "source": "geekhunter",
   "platform": "generico",
@@ -40,7 +40,12 @@
       "stateUf": null,
       "countryIso2": "AR"
     },
-    "salary": null,
+    "salary": {
+      "min": 3800000,
+      "max": 3900000,
+      "currency": "ARS",
+      "period": "mes"
+    },
     "contractTypes": [],
     "stackRequired": [
       "Java",
@@ -63,18 +68,6 @@
       ]
     ]
   },
-  "contractGaps": [
-    {
-      "gap": "moeda_fora_do_enum",
-      "field": "salary",
-      "value": {
-        "min": 3800000,
-        "max": 3900000,
-        "currency": "ARS",
-        "period": "mes"
-      }
-    }
-  ],
   "injection": null,
-  "notes": "Salário em AR$ (ARS, fora do enum v1): salary null e valor em contractGaps; AR$ contém R$. Corpo diz \"Efetivo (CLT - Argentina)\"; o \"por tiempo indeterminado\" só está no cabeçalho. Contrato argentino não é CLT: [] com clt em alternatives. Texto em português; espanhol não é pedido. Residência obrigatória na Argentina: país AR."
+  "notes": "Salário em AR$ (ARS, no enum desde o ADR-002 §8.1); AR$ contém R$. Corpo diz \"Efetivo (CLT - Argentina)\"; o \"por tiempo indeterminado\" só está no cabeçalho. Contrato argentino não é CLT: [] com clt em alternatives. Texto em português; espanhol não é pedido. Residência obrigatória na Argentina: país AR."
 }

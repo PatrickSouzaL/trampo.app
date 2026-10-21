@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import {
-  CurrencySchema,
-  PlatformSchema,
-  ResolvedJobFactsSchema,
-  SalaryPeriodSchema,
-  jobFactsShape,
-} from '@trampo/contracts';
+import { PlatformSchema, ResolvedJobFactsSchema, jobFactsShape } from '@trampo/contracts';
 
 /*
  * Schema de um caso do golden dataset (golden-dataset-spec gd1, §3).
@@ -13,7 +7,8 @@ import {
  * `extractionConfidence` e sem `salario_omitido` (que o código acrescenta depois da fusão, ADR-011).
  */
 
-export const CASE_SCHEMA_VERSION = 1 as const;
+/** v2 (2026-10-21): `contractGaps` saiu, porque o ADR-002 §8.1 pôs ARS e `pressao_excessiva` no contrato. */
+export const CASE_SCHEMA_VERSION = 2 as const;
 
 export const CaseSourceSchema = z.enum(['linkedin', 'gupy', 'geekhunter', '99jobs', 'solides', 'sintetico']);
 export const CaseBatchSchema = z.enum(['hitl-003', 'hitl-017', 'sintetico']);
@@ -101,23 +96,6 @@ export const AlternativesSchema = z
     }
   });
 
-/** Valor que o contrato v1 não representa (ADR-002 §8.1). Validado pela forma do contrato v2. */
-const ContractV2SalarySchema = z.strictObject({
-  min: z.number().nonnegative().nullable(),
-  max: z.number().nonnegative().nullable(),
-  currency: z.union([CurrencySchema, z.literal('ARS')]),
-  period: SalaryPeriodSchema,
-});
-
-export const ContractGapSchema = z.discriminatedUnion('gap', [
-  z.strictObject({ gap: z.literal('moeda_fora_do_enum'), field: z.literal('salary'), value: ContractV2SalarySchema }),
-  z.strictObject({
-    gap: z.literal('red_flag_pressao'),
-    field: z.literal('redFlagSignals'),
-    value: z.literal('pressao_excessiva'),
-  }),
-]);
-
 export const InjectionMetaSchema = z.strictObject({
   technique: z.enum(['texto_visivel', 'unicode_tags', 'zero_width', 'bidi', 'variation_selectors']),
   goal: z.enum(['nota', 'fato', 'url', 'exfiltracao']),
@@ -141,7 +119,6 @@ export const GoldenCaseSchema = z
     anonymization: AnonymizationCountsSchema,
     expected: ResolvedJobFactsSchema,
     alternatives: AlternativesSchema,
-    contractGaps: z.array(ContractGapSchema).max(4),
     injection: InjectionMetaSchema.nullable(),
     notes: z.string().max(400),
   })
@@ -166,12 +143,14 @@ export const GoldenCaseSchema = z
     // §3: o código acrescenta `salario_omitido`; o LLM nunca deve.
     if (c.expected.redFlagSignals.includes('salario_omitido')) issue('salario_omitido_no_gabarito', ['expected']);
 
-    // §5.1: moeda fora do v1 nunca vira `currency: null` com valor (o motor leria como BRL).
-    const moneyGap = c.contractGaps.some((g) => g.gap === 'moeda_fora_do_enum');
-    if (moneyGap && c.expected.salary !== null) issue('moeda_fora_do_enum_com_salario_no_gabarito', ['expected', 'salary']);
+    // §5.1: vaga estrangeira nunca tem salário com `currency: null` (o motor não assume BRL, ADR-002 §4.2.3).
+    const country = c.expected.location?.countryIso2 ?? null;
+    if (c.expected.salary !== null && c.expected.salary.currency === null && country !== null && country !== 'BR') {
+      issue('moeda_nula_em_vaga_internacional', ['expected', 'salary']);
+    }
 
     const hasSalaryTag = c.tags.includes('com_salario');
-    const salaryKnown = c.expected.salary !== null || moneyGap;
+    const salaryKnown = c.expected.salary !== null;
     if (hasSalaryTag !== salaryKnown || c.tags.includes('sem_salario') === salaryKnown) {
       issue('tag_de_salario_incoerente', ['tags']);
     }
@@ -188,7 +167,7 @@ export const GoldenCaseSchema = z
 export type GoldenCase = z.infer<typeof GoldenCaseSchema>;
 
 type CaseTag = z.infer<typeof CaseTagSchema>;
-type CaseShape = Pick<GoldenCase, 'batch' | 'expected' | 'contractGaps'>;
+type CaseShape = Pick<GoldenCase, 'batch' | 'expected'>;
 
 /**
  * Tags calculadas do gabarito (golden-dataset-spec §3). As outras (`fora_de_ti`, `conflito`,
@@ -214,9 +193,8 @@ export const DERIVED_TAGS = [
 
 export function derivedTags(c: CaseShape): Set<CaseTag> {
   const f = c.expected;
-  const gapSalary = c.contractGaps.find((g) => g.gap === 'moeda_fora_do_enum')?.value ?? null;
-  const currency = f.salary?.currency ?? gapSalary?.currency ?? null;
-  const period = f.salary?.period ?? gapSalary?.period ?? null;
+  const currency = f.salary?.currency ?? null;
+  const period = f.salary?.period ?? null;
   const country = f.location?.countryIso2 ?? null;
   const contracts = new Set(f.contractTypes);
   const tags = new Set<CaseTag>();
@@ -234,7 +212,7 @@ export function derivedTags(c: CaseShape): Set<CaseTag> {
   when(f.seniorityLevels.length >= 2, 'dupla_senioridade');
   for (const m of f.workModels) tags.add(m);
   when(f.languageRequirements.some((l) => l.language === 'ingles'), 'ingles');
-  when(f.redFlagSignals.length > 0 || c.contractGaps.some((g) => g.gap === 'red_flag_pressao'), 'red_flag');
+  when(f.redFlagSignals.length > 0, 'red_flag');
   return tags;
 }
 

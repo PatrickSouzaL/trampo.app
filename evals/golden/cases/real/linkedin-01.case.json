@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-01",
   "source": "linkedin",
   "platform": "linkedin",
@@ -59,7 +59,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Valores em R$ só em benefícios (VA/VR e home office): salário null. File Server é conceito, não tecnologia nomeada: stack vazia. Temporário declarado no topo. Indicação premiada cai em plr_bonus; VT/combustível e descontos em outro."
 }

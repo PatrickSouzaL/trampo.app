@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-12-usd-hora-internacional-en",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -83,7 +83,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Vaga em inglês, empresa nos EUA, USD 35 a 45 por hora: testa a tabela de câmbio (USD 5,5) e hora x 220. \"Independent contractor\" não é CLT nem PJ no enum: [] com pj como alternativa. Inglês fluente exigido. Serviços AWS nomeados (ECS, RDS, SQS) entram na stack."
 }

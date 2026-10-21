@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-02",
   "source": "solides",
   "platform": "generico",
@@ -68,7 +68,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Modelo de trabalho não declarado; o texto só infere \"híbrido ou remoto\" pelo auxílio home office: [] no expected, a união em alternatives. \"Sr.\" = senior. Microsserviços (diferencial) é conceito. Parceria com escolas de idiomas = auxilio_educacao. Endereço anonimizado."
 }

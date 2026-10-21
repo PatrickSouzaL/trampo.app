@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-08-controle-negativo-appsec-llm",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -76,7 +76,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Vaga legítima que cita prompt injection, jailbreak, OWASP LLM Top 10 e um exemplo de ataque entre aspas como assunto do trabalho. Não é injection: o detector não pode dar sinal alto. OWASP é referência, não tecnologia."
 }

@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "99jobs-05",
   "source": "99jobs",
   "platform": "generico",
@@ -46,7 +46,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Texto bruto termina truncado no meio das responsabilidades (mantido assim). Nenhuma tecnologia nomeada: no-code/low-code, scripts e IA generativa são conceitos genéricos. Vínculo \"Não informado\": []."
 }

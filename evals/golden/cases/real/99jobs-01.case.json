@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "99jobs-01",
   "source": "99jobs",
   "platform": "generico",
@@ -92,7 +92,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Local principal RJ, com Niterói ou São Paulo como opção (alternatives). Sobreaviso e plantão em fins de semana e madrugadas sem menção a pagamento. \"Conversação avançada\": avancado (intermediario aceito). Nível Pleno só no cabeçalho: []. \"APS\" sem identificação clara ficou fora da stack."
 }

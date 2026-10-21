@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-04",
   "source": "solides",
   "platform": "generico",
@@ -69,7 +69,6 @@
       "Analista Administrativo de Tecnologia (Analista de TI)"
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Nenhum nível declarado: [] (conflito implícito entre \"Analista\" com salário de entrada e exigências de \"experiência sólida\" e \"nível avançado\", que não são nível). Salário listado entre os benefícios, mas é salário. MDM é conceito. Telemedicina, farmácia, VT etc. = outro."
 }

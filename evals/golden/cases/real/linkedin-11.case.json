@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-11",
   "source": "linkedin",
   "platform": "linkedin",
@@ -67,7 +67,6 @@
       }
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Pleno declarado no corpo (o título não traz nível). \"Senior\" é o nome de um ERP na lista de ERPs exigidos, não nível (termo_ambiguo). Obrigações fiscais (SPED, EFD, DCTF) não são tecnologia. UF não escrita: MG pela cidade, com alternativa sem UF."
 }

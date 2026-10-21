@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "99jobs-04",
   "source": "99jobs",
   "platform": "generico",
@@ -56,7 +56,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Cabeçalho do coletor cita R$ 3.200/mês, mas o corpo não traz salário: null e sem_salario. Júnior com 5 anos exigidos: mantidos os dois (anos não implicam nível); sem red flag pelo critério conservador. Endereço com logradouro anonimizado."
 }

@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-13",
   "source": "gupy",
   "platform": "gupy",
@@ -51,6 +51,7 @@
       "Impala",
       "HDFS",
       "Hadoop",
+      "AWS",
       "GCP",
       "Dataproc",
       "BigQuery",
@@ -81,7 +82,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
-  "notes": "Tech Lead + Sênior no título: liderança e sênior. 8 anos é o mínimo exigido. Cloudera \"preferencialmente\" vai para desejável. Cloudera na AWS é só contexto do projeto. \"Situações de pressão\" citado como competência, sem horas extras: não vira red_flag_pressao."
+  "notes": "Tech Lead + Sênior no título: liderança e sênior. 8 anos é o mínimo exigido. Cloudera \"preferencialmente\" vai para desejável. Migração \"Cloudera na AWS para o Google Cloud\": AWS e GCP (grafia canônica de Google Cloud) exigidas, pela regra \"X para Y\" (decisão do humano, 2026-10-21). \"Situações de pressão\" citado como competência, sem horas extras: não vira red_flag_pressao."
 }

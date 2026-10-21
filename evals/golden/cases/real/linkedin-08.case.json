@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-08",
   "source": "linkedin",
   "platform": "linkedin",
@@ -64,7 +64,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Nível de inglês contraditório: requisitos dizem fluente e o bloco Idiomas diz avançado. Gabarito com o nível dos requisitos e a outra leitura em alternatives. Pós-graduação desejável não é fato do contrato."
 }

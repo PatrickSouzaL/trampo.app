@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-09",
   "source": "gupy",
   "platform": "gupy",
@@ -76,7 +76,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Sem nível declarado. \"Python ou R\": as duas como exigidas; R é termo ambíguo de uma letra. Inglês técnico = basico. PHP/HTML/JavaScript/CSS só em diferenciais. VA/Refeição = os dois vales."
 }

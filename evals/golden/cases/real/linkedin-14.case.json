@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-14",
   "source": "linkedin",
   "platform": "linkedin",
@@ -77,7 +77,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Muitas tecnologias só como diferencial (AWS, Airflow, CDPs): mede falso positivo de deal-breaker. Insider aparece nas atividades e nos diferenciais; ficou como desejável. Scrum/Kanban são metodologia. Parcerias educacionais = auxilio_educacao; Vale Cultura e descontos em outro."
 }

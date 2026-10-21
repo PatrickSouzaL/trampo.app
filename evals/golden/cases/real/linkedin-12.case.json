@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-12",
   "source": "linkedin",
   "platform": "linkedin",
@@ -71,7 +71,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "\"I\" sem nível escrito no corpo: seniority vazia, júnior em alternatives (o cabeçalho do coletor diz Júnior, o corpo não). SPED Contábil e Lucro Real são obrigação/regime, não tecnologia. Treinamentos internos: auxilio_educacao só em alternatives. VT e Happy Day em outro."
 }

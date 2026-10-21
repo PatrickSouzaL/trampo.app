@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-01",
   "source": "solides",
   "platform": "generico",
@@ -89,7 +89,6 @@
       null
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Valores em R$ só em benefícios (VA/VR por dia, home office, odonto): salário null. 100% remoto com \"Localidade\" BH: BH no expected, Brasil ou null em alternatives. Diferenciais são certificações (fora da stack). CI/CD é prática, não produto."
 }

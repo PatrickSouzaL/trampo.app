@@ -1,6 +1,6 @@
 // S-4: tabela de roteamento R1–R4 (ADR-001 §5.3) sobre os sinais, e o mesmo julgamento sobre o
 // GABARITO (oráculo), para medir falso positivo de rejeição e precisão do aceite.
-import type { ContractType, ResolvedJobFacts, SalaryPeriod, SeniorityLevel, WorkModel } from "@trampo/contracts";
+import type { ContractType, Currency, ResolvedJobFacts, SalaryPeriod, SeniorityLevel, WorkModel } from "@trampo/contracts";
 import type { DeterministicSignals, SalarySignal, SetSignal } from "../../../apps/api/src/domain/index.js";
 import { dictionaryAliases } from "./tech-dictionary.js";
 import { fold } from "./text-tools.js";
@@ -28,7 +28,7 @@ const SENIORITY_RANK: Readonly<Record<SeniorityLevel, number>> = {
 };
 
 /** ADR-002 §4.2.3 (`se1`, HITL-016 e HITL-018). */
-export const FX_TO_BRL: Readonly<Record<"BRL" | "USD" | "EUR" | "ARS", number>> = { BRL: 1, USD: 5.5, EUR: 6.0, ARS: 0.0034 };
+export const FX_TO_BRL: Readonly<Record<Currency, number>> = { BRL: 1, USD: 5.5, EUR: 6.0, ARS: 0.0034 };
 const PERIOD_TO_MONTH: Readonly<Record<SalaryPeriod, number>> = { mes: 1, hora: 220, ano: 1 / 12 };
 
 const ALIAS_TO_CANONICAL = new Map(dictionaryAliases().map((a) => [a.alias, a.canonical.toLowerCase()]));
@@ -41,7 +41,7 @@ export function termKey(term: string): string {
 export interface GoldSalary {
   readonly min: number | null;
   readonly max: number | null;
-  readonly currency: "BRL" | "USD" | "EUR" | "ARS" | null;
+  readonly currency: Currency | null;
   readonly period: SalaryPeriod | null;
 }
 
@@ -96,12 +96,11 @@ export function r1Dimensions(p: Persona, s: DeterministicSignals): Dimension[] {
 export interface GoldView {
   readonly expected: ResolvedJobFacts;
   readonly alternatives: Readonly<Record<string, readonly unknown[]>>;
-  readonly arsSalary: GoldSalary | null;
 }
 
-function international(f: ResolvedJobFacts, ars: boolean): boolean {
+function international(f: ResolvedJobFacts): boolean {
   const country = f.location?.countryIso2 ?? null;
-  return ars || (country !== null && country !== "BR") || (f.salary?.currency !== null && f.salary?.currency !== undefined && f.salary.currency !== "BRL");
+  return (country !== null && country !== "BR") || (f.salary?.currency !== null && f.salary?.currency !== undefined && f.salary.currency !== "BRL");
 }
 
 /** Variantes do gabarito: o `expected` e cada alternativa de campo (golden-dataset-spec §5.2). */
@@ -113,10 +112,6 @@ function variants(g: GoldView): ResolvedJobFacts[] {
   return out;
 }
 
-function goldSalary(f: ResolvedJobFacts, g: GoldView): GoldSalary | null {
-  return f.salary ?? g.arsSalary;
-}
-
 function goldViolates(p: Persona, f: ResolvedJobFacts, g: GoldView, d: Dimension): boolean {
   switch (d) {
     case "workModel":
@@ -126,9 +121,9 @@ function goldViolates(p: Persona, f: ResolvedJobFacts, g: GoldView, d: Dimension
     case "contract":
       return setViolates(f.contractTypes, p.contract.accepted);
     case "salary": {
-      const s = goldSalary(f, g);
+      const s = f.salary;
       if (s === null || p.salary === null) return false;
-      const range = salaryRangeBrl(s, international(f, g.arsSalary !== null));
+      const range = salaryRangeBrl(s, international(f));
       return range !== null && range[1] < p.salary.minimumBrlMonth;
     }
     case "stack": {
@@ -183,8 +178,8 @@ export function acceptCorrect(p: Persona, g: GoldView, strict: boolean): boolean
     if (isMust(p.seniority.level) && !sub(f.seniorityLevels, p.seniority.accepted)) return false;
     if (isMust(p.contract.level) && !sub(f.contractTypes, p.contract.accepted)) return false;
     if (p.salary !== null && isMust(p.salary.level)) {
-      const s = goldSalary(f, g);
-      const range = s === null ? null : salaryRangeBrl(s, international(f, g.arsSalary !== null));
+      const s = f.salary;
+      const range = s === null ? null : salaryRangeBrl(s, international(f));
       if (range === null || range[0] < p.salary.minimumBrlMonth) return false;
     }
     const union = new Set([...f.stackRequired, ...f.stackNiceToHave].map(termKey));

@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-05",
   "source": "gupy",
   "platform": "gupy",
@@ -77,7 +77,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Sistemas de manutenção citados como exemplos (\"como ...\"), com TOTVS preferido: todos como exigidos. Programador aqui é PCM, não software. Cesta básica ou cartão VA = vale_alimentacao; universidade corporativa e parcerias de ensino = auxilio_educacao."
 }

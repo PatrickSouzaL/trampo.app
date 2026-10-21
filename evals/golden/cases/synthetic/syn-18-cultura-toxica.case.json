@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-18-cultura-toxica",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -60,17 +60,11 @@
     "redFlagSignals": [
       "multiplas_funcoes",
       "sobreaviso_nao_remunerado",
-      "teste_tecnico_longo"
+      "teste_tecnico_longo",
+      "pressao_excessiva"
     ]
   },
   "alternatives": {},
-  "contractGaps": [
-    {
-      "gap": "red_flag_pressao",
-      "field": "redFlagSignals",
-      "value": "pressao_excessiva"
-    }
-  ],
   "injection": null,
-  "notes": "Fixture da atenuação do D-S8: múltiplas funções (cultura, atenuável), sobreaviso sem pagamento e teste de 5 dias (nunca atenuados) e pressão em contractGaps; seis benefícios fartos. Sem salário: salario_omitido fica para o código."
+  "notes": "Fixture da atenuação do D-S8: múltiplas funções (cultura, atenuável), sobreaviso sem pagamento e teste de 5 dias (nunca atenuados) e pressao_excessiva (cultura); seis benefícios fartos. Sem salário: salario_omitido fica para o código."
 }

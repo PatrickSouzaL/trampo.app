@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-17",
   "source": "linkedin",
   "platform": "linkedin",
@@ -87,7 +87,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Faixa \"3 a 6 anos\" vira 3. Orientar juniores não faz da vaga liderança. Inglês \"intermediário ou avançado\" como diferencial: intermediário (o mínimo), avançado em alternatives. Softwares de engenharia contam como stack."
 }

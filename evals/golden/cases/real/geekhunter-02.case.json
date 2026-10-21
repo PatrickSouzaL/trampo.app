@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "geekhunter-02",
   "source": "geekhunter",
   "platform": "generico",
@@ -47,7 +47,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Texto coletado truncado no meio dos requisitos (sem benefícios). Nenhuma ferramenta nomeada: \"Design System\" e \"IA\" são conceitos, não stack. Experiência \"sólida\" sem número de anos: null."
 }

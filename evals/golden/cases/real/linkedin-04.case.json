@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-04",
   "source": "linkedin",
   "platform": "linkedin",
@@ -85,7 +85,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Inglês avançado está em diferenciais: required false. Zscaler, Grafana, Zabbix e APIs REST são diferenciais; certificações fora. Protocolos de rede (DNS, DHCP, TCP/IP) e VPN são fundamentos de redes, não stack (revisão cruzada). Bônus de 30% do salário é benefício (plr_bonus), não salário."
 }

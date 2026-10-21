@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-03",
   "source": "gupy",
   "platform": "gupy",
@@ -55,7 +55,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Refeição no local com desconto sobre o salário não é salário nem VR: vira outro. Título de pedreiro com atividades de pintura, sem red flag (critério conservador). Bolsa para cursos = auxilio_educacao."
 }

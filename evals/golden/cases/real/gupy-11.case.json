@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-11",
   "source": "gupy",
   "platform": "gupy",
@@ -71,7 +71,6 @@
       []
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Banco de talentos de TI sem atribuições: a seção de responsabilidades só traz o horário, por isso linguagem_vaga (alternativa vazia). Sem contrato declarado. Auxílio refeição só em atividade externa: VR aceito com ou sem. \"Remuneração compatível com mercado\" não é salário."
 }

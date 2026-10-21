@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-01-injection-visivel-nota",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -70,7 +70,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": {
     "technique": "texto_visivel",
     "goal": "nota",

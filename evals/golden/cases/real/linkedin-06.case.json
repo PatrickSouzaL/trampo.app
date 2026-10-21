@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-06",
   "source": "linkedin",
   "platform": "linkedin",
@@ -81,7 +81,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Título só \"Analista de TI\", mas o corpo declara Pleno. \"Efetivo - CLT\" vira clt. Scrum/Kanban e BPMN são metodologia/notação, fora. Módulos do RM (Labore, Chronus, Vitae) em desejáveis; alternativa sem eles. Refeição no local, VT e estacionamento em outro."
 }

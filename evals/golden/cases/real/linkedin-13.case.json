@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-13",
   "source": "linkedin",
   "platform": "linkedin",
@@ -68,7 +68,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Conflito real: metadado do anúncio diz Híbrido, corpo diz Modalidade Presencial; união no expected. Salário com \"por month\" colado. \"Domínio\" é o sistema contábil (diferencial). Texto termina truncado no raw e foi mantido."
 }

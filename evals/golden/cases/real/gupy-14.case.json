@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-14",
   "source": "gupy",
   "platform": "gupy",
@@ -80,7 +80,6 @@
       []
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Vaga na Argentina, texto em espanhol. \"Efetivo\" é rótulo da Gupy para contrato argentino: [] com clt na alternativa. Power BI aparece como conhecimento principal e depois como \"deseable\": desejável no gabarito, exigido na alternativa. Inglês valorado, não excludente."
 }

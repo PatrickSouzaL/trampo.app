@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-11-negacao-diferencial",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -72,7 +72,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Java é diferencial explícito (\"não requisito\"): vai só para stackNiceToHave e não pode ser confundido com JavaScript. Angular é negado (\"não é necessário conhecer Angular\") e React é citado como tecnologia que a empresa abandonou: nenhum dos dois entra."
 }

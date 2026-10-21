@@ -12,7 +12,7 @@ const TEXT = 'Vaga de Pessoa Desenvolvedora Backend na Empresa Exemplo. '.repeat
 
 function baseCase(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    caseSchemaVersion: 1,
+    caseSchemaVersion: 2,
     id: 'linkedin-01',
     source: 'linkedin',
     platform: 'linkedin',
@@ -38,7 +38,6 @@ function baseCase(overrides: Record<string, unknown> = {}): Record<string, unkno
       redFlagSignals: [],
     },
     alternatives: {},
-    contractGaps: [],
     injection: null,
     notes: '',
     ...overrides,
@@ -199,15 +198,28 @@ describe('GoldenCaseSchema (regras cruzadas)', () => {
     expect(issues(c)).toEqual(['salario_omitido_no_gabarito', 'tag_derivada_incoerente:red_flag']);
   });
 
-  it('recusa salário no gabarito quando a moeda está fora do enum, e exige tags coerentes', () => {
-    const gap = { gap: 'moeda_fora_do_enum', field: 'salary', value: { min: 3_800_000, max: 3_900_000, currency: 'ARS', period: 'mes' } };
-    const ok = baseCase({ tags: ['com_salario', 'remoto', 'curta', 'moeda_estrangeira', 'internacional'], contractGaps: [gap] });
-    expect(issues(ok)).toEqual([]);
-    const c = baseCase({ tags: ['com_salario', 'remoto', 'curta', 'moeda_estrangeira', 'internacional'], contractGaps: [gap] });
-    c['expected'] = { ...(c['expected'] as object), salary: { min: 1, max: 2, currency: 'BRL', period: 'mes' } };
-    expect(issues(c)).toContain('moeda_fora_do_enum_com_salario_no_gabarito');
+  it('aceita ARS no gabarito, recusa moeda nula em vaga estrangeira e exige tags coerentes', () => {
+    const ars = { min: 3_800_000, max: 3_900_000, currency: 'ARS', period: 'mes' };
+    const argentina = { city: null, stateUf: null, countryIso2: 'AR' };
+    const withSalary = (salary: unknown): Record<string, unknown> => {
+      const c = baseCase({ tags: ['com_salario', 'remoto', 'curta', 'moeda_estrangeira', 'internacional'] });
+      c['expected'] = { ...(c['expected'] as object), salary, location: argentina };
+      return c;
+    };
+    expect(issues(withSalary(ars))).toEqual([]);
+    expect(issues(withSalary({ ...ars, currency: null }))).toContain('moeda_nula_em_vaga_internacional');
+    const brazil = baseCase({ tags: ['com_salario', 'remoto', 'curta'] });
+    brazil['expected'] = { ...(brazil['expected'] as object), salary: { ...ars, currency: null } };
+    expect(issues(brazil)).toEqual([]);
     expect(issues(baseCase({ tags: ['com_salario', 'remoto', 'curta'] }))).toEqual(['tag_de_salario_incoerente']);
-    expect(issues(baseCase({ tags: ['com_salario', 'sem_salario', 'remoto', 'curta', 'moeda_estrangeira', 'internacional'], contractGaps: [gap] }))).toEqual(['tag_de_salario_incoerente']);
+    const both = withSalary(ars);
+    both['tags'] = ['com_salario', 'sem_salario', 'remoto', 'curta', 'moeda_estrangeira', 'internacional'];
+    expect(issues(both)).toEqual(['tag_de_salario_incoerente']);
+  });
+
+  it('recusa a chave contractGaps do schema v1 e a versão 1', () => {
+    expect(GoldenCaseSchema.safeParse(baseCase({ contractGaps: [] })).success).toBe(false);
+    expect(GoldenCaseSchema.safeParse(baseCase({ caseSchemaVersion: 1 })).success).toBe(false);
   });
 
   it('valida cada alternativa pelo schema do campo e recusa campo desconhecido', () => {
@@ -216,10 +228,10 @@ describe('GoldenCaseSchema (regras cruzadas)', () => {
     expect(issues(baseCase({ alternatives: { nota: [100] } }))).toEqual(['alternativa_de_campo_desconhecido']);
   });
 
-  it('aceita a lacuna de red flag de pressão só com o valor pressao_excessiva', () => {
-    const gap = { gap: 'red_flag_pressao', field: 'redFlagSignals', value: 'pressao_excessiva' };
-    expect(issues(baseCase({ contractGaps: [gap], tags: ['sem_salario', 'remoto', 'curta', 'red_flag'] }))).toEqual([]);
-    expect(GoldenCaseSchema.safeParse(baseCase({ contractGaps: [{ ...gap, value: 'outra' }] })).success).toBe(false);
+  it('aceita pressao_excessiva no gabarito (ADR-002 §8.1), com a tag red_flag', () => {
+    const c = baseCase({ tags: ['sem_salario', 'remoto', 'curta', 'red_flag'] });
+    c['expected'] = { ...(c['expected'] as object), redFlagSignals: ['pressao_excessiva'] };
+    expect(issues(c)).toEqual([]);
   });
 });
 
@@ -283,13 +295,16 @@ describe('tags derivadas do gabarito', () => {
     );
   });
 
-  it('usa a moeda e o período da lacuna de contrato, e o país da localização', () => {
-    const gap = { gap: 'moeda_fora_do_enum', field: 'salary', value: { min: 1, max: 2, currency: 'ARS', period: 'ano' } };
+  it('usa a moeda e o período do salário, e o país da localização', () => {
     const c = GoldenCaseSchema.parse(
       baseCase({
         tags: ['com_salario', 'presencial', 'curta', 'moeda_estrangeira', 'internacional', 'salario_ano', 'so_pj'],
-        contractGaps: [gap],
-        expected: facts({ workModels: ['presencial'], contractTypes: ['pj'], location: { city: null, stateUf: null, countryIso2: 'AR' } }),
+        expected: facts({
+          workModels: ['presencial'],
+          contractTypes: ['pj'],
+          salary: { min: 1, max: 2, currency: 'ARS', period: 'ano' },
+          location: { city: null, stateUf: null, countryIso2: 'AR' },
+        }),
       }),
     );
     expect([...derivedTags(c)].sort()).toEqual(['internacional', 'moeda_estrangeira', 'presencial', 'salario_ano', 'so_pj']);

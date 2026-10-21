@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-01",
   "source": "gupy",
   "platform": "gupy",
@@ -121,7 +121,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Tech Lead + Especialista no título: dois níveis. \"Inglês e/ou espanhol\": os dois exigidos, alternativas aceitam só inglês. \"Tempo indeterminado\" convive com PJ explícito: pj. Modelo no rodapé é placeholder; vale o \"Remoto\" do topo. Certificações fora. SAP ECC e VNet/VPC (serviços nomeados) entram; TCP/IP, DNS, IPsec, NAT e VLAN são fundamentos de redes."
 }

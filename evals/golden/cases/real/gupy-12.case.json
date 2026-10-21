@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-12",
   "source": "gupy",
   "platform": "gupy",
@@ -58,6 +58,7 @@
       "Apache Ranger",
       "Apache Atlas",
       "Kerberos",
+      "AWS",
       "GCP",
       "Dataproc",
       "BigQuery",
@@ -94,7 +95,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
-  "notes": "Título traz Especialista e Sênior: pela regra mecânica os dois níveis; leitura de só um deles nas alternativas. 6 anos é o mínimo exigido (Hadoop). AWS aparece só como ambiente atual do projeto, não como requisito. Kudu/HBase/Kafka/NiFi com \"ou\", mas também nas responsabilidades."
+  "notes": "Título traz Especialista e Sênior: pela regra mecânica os dois níveis; leitura de só um deles nas alternativas. 6 anos é o mínimo exigido (Hadoop). Migração \"Cloudera na AWS para o Google Cloud\": AWS e GCP (grafia canônica de Google Cloud) exigidas, pela regra \"X para Y\" (decisão do humano, 2026-10-21). Kudu/HBase/Kafka/NiFi com \"ou\", mas também nas responsabilidades."
 }

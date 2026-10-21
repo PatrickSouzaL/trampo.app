@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "geekhunter-05",
   "source": "geekhunter",
   "platform": "generico",
@@ -69,7 +69,6 @@
       null
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "A bolsa-auxílio de R$ 1.400/mês está na lista de benefícios, mas é a remuneração do estágio: vai para salary. \"Não exige experiência\" explícito: 0 (null aceito). Vale-transporte vira outro; Alura vira auxilio_educacao."
 }

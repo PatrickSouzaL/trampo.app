@@ -12,8 +12,11 @@ import {
   truncateCodePoints,
 } from "@trampo/contracts/primitives";
 
-/** Entra no `extractorVersion` da chave de cache: mudar o saneamento muda os fatos (ADR-008 D2). */
-export const LLM_OUTPUT_GUARD_VERSION = "g1";
+/**
+ * Entra no `extractorVersion` da chave de cache: mudar o saneamento muda os fatos (ADR-008 D2).
+ * g2 (ADR-002 §8.1): ARS e `pressao_excessiva` no contrato; teto de `redFlagSignals` de 6 para 7.
+ */
+export const LLM_OUTPUT_GUARD_VERSION = "g2";
 
 /** Teto da resposta bruta em bytes UTF-8, checado antes do parse (ADR-008 D3; calibrar no S-1). */
 export const LLM_OUTPUT_MAX_BYTES = 8_192;
@@ -30,7 +33,7 @@ export const ARRAY_MAX_ITEMS = {
   stackNiceToHave: 30,
   benefits: 15,
   languageRequirements: 5,
-  redFlagSignals: 6,
+  redFlagSignals: 7,
 } as const;
 
 export type LlmOutputRejection =

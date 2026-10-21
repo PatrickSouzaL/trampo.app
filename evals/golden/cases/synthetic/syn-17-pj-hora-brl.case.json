@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-17-pj-hora-brl",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -61,7 +61,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Só PJ, R$ 95 por hora (BRL, período hora): testa hora x 220 do motor. A estimativa de 160 horas no mês é informação do texto, não muda o gabarito. Sem pacote de benefícios: benefits vazio."
 }

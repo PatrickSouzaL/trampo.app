@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-19-remoto-ou-hibrido-estagio",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -69,7 +69,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Estágio (nível e contrato), remoto ou híbrido explícito, bolsa de R$ 1.800 por mês como salário. VR de R$ 25 por dia e auxílio home office de R$ 100 são benefícios com valor, não salário. Recesso remunerado = outro."
 }

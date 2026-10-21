@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-08",
   "source": "solides",
   "platform": "generico",
@@ -72,7 +72,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Duas cidades num campo de cidade única: city null com RS; cada cidade em alternatives. CFTV, controle de acesso, fibra e cabeamento são categorias, não produtos nomeados: stack vazia. Bônus por assiduidade -> plr_bonus (outro em alternatives). Segurança eletrônica: fora_de_ti (fronteiriço). CNH e PCD sem campo no contrato."
 }

@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-10",
   "source": "gupy",
   "platform": "gupy",
@@ -80,7 +80,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Cloud/Kubernetes + suporte Microsoft 365 + administração de Fabric/Power BI: acúmulo de papéis aceito como alternativa, mas fora do expected (critério conservador). API Management está nas responsabilidades: exigido. \"Workspace\" sem fabricante fica fora."
 }

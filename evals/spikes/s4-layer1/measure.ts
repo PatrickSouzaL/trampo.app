@@ -15,7 +15,6 @@ import {
 
   termKey,
   type Dimension,
-  type GoldSalary,
   type GoldView,
   type Persona,
 } from "./routing.js";
@@ -34,9 +33,7 @@ export function loadAndRun(casesRoot: string): EvalCase[] {
   return cases.map((c) => {
     const gold = validCase(c);
     if (gold === null) throw new RangeError(`caso inválido: ${c.fileId}`);
-    const ars = gold.contractGaps.find((g) => g.gap === "moeda_fora_do_enum");
-    const arsSalary: GoldSalary | null = ars?.gap === "moeda_fora_do_enum" ? ars.value : null;
-    const view: GoldView = { expected: gold.expected, alternatives: gold.alternatives as GoldView["alternatives"], arsSalary };
+    const view: GoldView = { expected: gold.expected, alternatives: gold.alternatives as GoldView["alternatives"] };
     // titleHint: o título como escrito (gabarito `title`), no papel do título que o extrator do DOM entrega.
     const out = runPreFilter(c.text, gold.expected.title, { useInvisibleClasses: true });
     const outCountOnly = runPreFilter(c.text, gold.expected.title, { useInvisibleClasses: false });
@@ -93,8 +90,8 @@ function salaryMetrics(cases: readonly EvalCase[]) {
   for (const c of cases) {
     const sig = c.out.signals.salary;
     const goldList = variantsOf<ResolvedJobFacts["salary"]>(c, "salary").filter((s) => s !== null);
-    if (c.view.arsSalary !== null) {
-      if (c.out.extended.salary.outOfEnum !== null) arsDetected += 1;
+    if (c.gold.expected.salary?.currency === "ARS") {
+      if (sig?.value.currency === "ARS") arsDetected += 1;
       if (sig !== null && (sig.value.currency === "BRL" || sig.value.currency === null)) arsReadAsBrl += 1;
       continue;
     }

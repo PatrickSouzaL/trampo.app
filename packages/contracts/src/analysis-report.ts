@@ -5,7 +5,8 @@ import { VersionTagSchema, safeText, uniqueArray } from './primitives.js';
 
 export const ANALYSIS_REPORT_SCHEMA_VERSION = 1 as const;
 
-export const VerdictSchema = z.enum(['recomendado', 'neutro', 'foge']);
+/** 5 faixas (ADR-002 §3.4, D-S9). Os mínimos de cada faixa são regra de domínio (`ScoringPolicy`). */
+export const VerdictSchema = z.enum(['altamente_recomendado', 'recomendado', 'neutro', 'baixo_alinhamento', 'foge']);
 export type Verdict = z.infer<typeof VerdictSchema>;
 
 /** Por onde a decisão passou no funil híbrido (ADR-001). */

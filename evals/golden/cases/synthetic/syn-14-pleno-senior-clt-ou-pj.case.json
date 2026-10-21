@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-14-pleno-senior-clt-ou-pj",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -77,7 +77,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Dupla senioridade (pleno e senior), dois contratos e dois modelos, todos explícitos. A faixa de R$ 9.000 a 14.000 vale para os dois regimes, então não há salario_por_contrato. Para quem aceita só pleno, senioridade é atende_parcialmente."
 }

@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-16",
   "source": "gupy",
   "platform": "gupy",
@@ -55,7 +55,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Fora de TI. \"Ensino Fundamental II\" não é numeração de nível (II não é pleno): senioridade vazia. Experiência exigida sem anos. Pós-graduação é diferencial de formação, não stack."
 }

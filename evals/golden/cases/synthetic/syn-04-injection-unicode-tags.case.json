@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-04-injection-unicode-tags",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -60,7 +60,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": {
     "technique": "unicode_tags",
     "goal": "nota",

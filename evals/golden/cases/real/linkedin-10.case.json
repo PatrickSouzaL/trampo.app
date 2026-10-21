@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-10",
   "source": "linkedin",
   "platform": "linkedin",
@@ -46,7 +46,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Nome do escritório é o nome próprio de uma pessoa: vira [EMPRESA] (§7). Orientar juniores e estagiários não é nível de liderança declarado. Sem salário, contrato, stack ou benefícios."
 }

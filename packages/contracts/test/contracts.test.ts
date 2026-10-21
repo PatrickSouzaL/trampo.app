@@ -61,6 +61,7 @@ const validCriteria: UserCriteria = {
     teste_tecnico_longo: 'alertar',
     multiplas_funcoes: 'penalizar',
     linguagem_vaga: 'ignorar',
+    pressao_excessiva: 'alertar',
   },
   notes: 'Prefiro empresas de produto.\nEvitar consultoria.',
 };

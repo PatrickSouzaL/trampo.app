@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-05",
   "source": "linkedin",
   "platform": "linkedin",
@@ -60,7 +60,6 @@
       }
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Os títulos Responsabilidades/Requisitos/Diferenciais vêm colados numa linha e a lista é única: tecnologias das atividades e dos requisitos entram como exigidas. Linha de certificações (MTCNA, CCNA) fica fora. Local só \"Belo Horizonte e Região\": UF inferida, alternativa sem UF."
 }

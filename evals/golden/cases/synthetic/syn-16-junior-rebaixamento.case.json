@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "syn-16-junior-rebaixamento",
   "source": "sintetico",
   "platform": "texto_colado",
@@ -65,7 +65,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Fixture do rebaixamento evidente (D-S5): vaga só júnior, presencial em Belo Horizonte, R$ 3.500. Para usuário que aceita só sênior, senioridade_rebaixamento com -30. Sem anos exigidos: yearsExperienceMin null. Vale-transporte = outro."
 }

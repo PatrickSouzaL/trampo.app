@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "solides-06",
   "source": "solides",
   "platform": "generico",
@@ -106,7 +106,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Nível não escrito no corpo (cabeçalho diz Pleno): []. VA com valor é benefício, não salário; cartão de uso livre = VR+VA (só VA em alternatives). Sophos e Wazuh em responsabilidades e diferenciais: desejável, exigida em alternatives. TCP/IP é fundamento de redes, fora da stack. Inglês só como auxílio. Plano de carreira: outro em alternatives. \"IA\" é conceito."
 }

@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-17",
   "source": "gupy",
   "platform": "gupy",
@@ -57,16 +57,11 @@
       "auxilio_educacao"
     ],
     "languageRequirements": [],
-    "redFlagSignals": []
+    "redFlagSignals": [
+      "pressao_excessiva"
+    ]
   },
   "alternatives": {},
-  "contractGaps": [
-    {
-      "gap": "red_flag_pressao",
-      "field": "redFlagSignals",
-      "value": "pressao_excessiva"
-    }
-  ],
   "injection": null,
-  "notes": "Fora de TI (vendas). Metas arrojadas, garra, acompanhamento diário de metas e flexibilidade de horário: pressão registrada como lacuna red_flag_pressao (limítrofe). Reembolso de idiomas é benefício, não requisito de idioma. Programa de Ações -> participacao_societaria."
+  "notes": "Fora de TI (vendas). Metas arrojadas, garra, acompanhamento diário de metas e flexibilidade de horário: pressao_excessiva (limítrofe; era lacuna até o ADR-002 §8.1). Reembolso de idiomas é benefício, não requisito de idioma. Programa de Ações -> participacao_societaria."
 }

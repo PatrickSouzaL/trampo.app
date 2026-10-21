@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-07",
   "source": "linkedin",
   "platform": "linkedin",
@@ -54,7 +54,6 @@
       }
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Mesmo modelo de anúncio do linkedin-03: 100% remoto preso a BH e vizinhas. \"Contrato: Home Office\" não é tipo de contrato. \"Necessário experiência\" sem número: anos null. Pede pretensão salarial; benefícios a combinar."
 }

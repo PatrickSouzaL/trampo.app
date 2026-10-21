@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-16",
   "source": "linkedin",
   "platform": "linkedin",
@@ -83,7 +83,6 @@
       }
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Conflito: título diz Home Office, metadado diz Híbrido; união no expected. \"API-2SK\" é norma de ancoragem, não tecnologia nem API de software (termo_ambiguo). Sem anos mínimos (só \"sólida experiência\"). UF RJ pela cidade."
 }

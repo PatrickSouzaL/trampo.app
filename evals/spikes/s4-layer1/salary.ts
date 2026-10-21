@@ -4,10 +4,8 @@ import type { Currency, SalaryFacts, SalaryPeriod } from "@trampo/contracts";
 import type { SalarySignal } from "../../../apps/api/src/domain/index.js";
 import { containsAny, findAll, isWordChar, type Line } from "./text-tools.js";
 
-type DetectedCurrency = Currency | "ARS";
-
 /** Marcadores já dobrados. A ordem importa: os mais longos primeiro. */
-const CURRENCY_MARKERS: readonly (readonly [DetectedCurrency, string])[] = [
+const CURRENCY_MARKERS: readonly (readonly [Currency, string])[] = [
   ["ARS", "ar$"], ["USD", "us$"], ["USD", "usd"], ["BRL", "r$"], ["BRL", "brl"], ["BRL", "reais"],
   ["EUR", "eur"], ["EUR", "euros"], ["EUR", "€"], ["ARS", "ars"], ["ARS", "pesos"],
 ];
@@ -36,7 +34,7 @@ interface Amount {
   readonly value: number;
   readonly start: number;
   readonly end: number;
-  currency: DetectedCurrency | null;
+  currency: Currency | null;
 }
 
 function isDigit(ch: string | undefined): boolean {
@@ -91,7 +89,7 @@ function readAmounts(line: string): Amount[] {
   return out;
 }
 
-function markerAt(line: string, from: number, to: number): DetectedCurrency | null {
+function markerAt(line: string, from: number, to: number): Currency | null {
   const window = line.slice(Math.max(0, from), Math.max(0, to));
   for (const [currency, marker] of CURRENCY_MARKERS) {
     for (const pos of findAll(window, marker)) {
@@ -128,7 +126,7 @@ function attachCurrencies(line: string, amounts: Amount[]): void {
 interface Candidate {
   readonly min: number;
   readonly max: number;
-  readonly currency: DetectedCurrency | null;
+  readonly currency: Currency | null;
   readonly period: SalaryPeriod | null;
 }
 
@@ -165,8 +163,6 @@ function candidateFromLine(raw: string): Candidate | null {
 
 export interface SalaryResult {
   readonly signal: SalarySignal | null;
-  /** Moeda fora do enum v1 (ARS): nunca vira BRL (ADR-002 §5.9). */
-  readonly outOfEnum: { readonly currency: "ARS"; readonly min: number; readonly max: number; readonly period: SalaryPeriod | null } | null;
   readonly candidates: number;
 }
 
@@ -180,11 +176,9 @@ export function detectSalary(lines: readonly Line[]): SalaryResult {
   }
   const distinct = [...new Map(candidates.map((c) => [keyOf(c), c])).values()];
   const first = distinct[0];
-  if (first === undefined) return { signal: null, outOfEnum: null, candidates: 0 };
-  if (first.currency === "ARS") {
-    return { signal: null, outOfEnum: { currency: "ARS", min: first.min, max: first.max, period: first.period }, candidates: distinct.length };
-  }
+  if (first === undefined) return { signal: null, candidates: 0 };
+  // ARS está no enum desde o ADR-002 §8.1: o sinal sai com a moeda própria e nunca vira BRL.
   const value: SalaryFacts = { min: first.min, max: first.max, currency: first.currency, period: first.period };
   const explicit = distinct.length === 1 && first.currency !== null && first.period !== null;
-  return { signal: { value, strength: explicit ? "explicita" : "fraca" }, outOfEnum: null, candidates: distinct.length };
+  return { signal: { value, strength: explicit ? "explicita" : "fraca" }, candidates: distinct.length };
 }

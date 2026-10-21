@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "99jobs-06",
   "source": "99jobs",
   "platform": "generico",
@@ -65,7 +65,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "Stack com \"ou\" (C#/.NET ou Java; RabbitMQ ou Kafka): todas as opções em stackRequired. Microsserviços é conceito. Universidade corporativa = auxilio_educacao; TotalPass = bem_estar_academia; VT, farmácia, pet etc. = outro. Vínculo não informado."
 }

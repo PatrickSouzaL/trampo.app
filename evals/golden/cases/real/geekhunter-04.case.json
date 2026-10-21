@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "geekhunter-04",
   "source": "geekhunter",
   "platform": "generico",
@@ -54,7 +54,6 @@
       "Business Analyst (Agile Coach)"
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "\"PJ\" aparece só como produto de crédito (Crédito PJ, Cheque Especial PJ), não como contrato; o contrato é CLT. Scrum, Kanban e Lean são metodologias: stack vazia. Remoto \"qualquer lugar\": location null."
 }

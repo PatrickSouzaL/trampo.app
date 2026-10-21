@@ -15,7 +15,8 @@ export type WorkModel = z.infer<typeof WorkModelSchema>;
 export const ContractTypeSchema = z.enum(['clt', 'pj', 'cooperado', 'estagio', 'temporario']);
 export type ContractType = z.infer<typeof ContractTypeSchema>;
 
-export const CurrencySchema = z.enum(['BRL', 'USD', 'EUR']);
+/** ARS entrou no ADR-002 §8.1 (D-S3): sem ele, "AR$" viraria moeda nula e seria lido como BRL. */
+export const CurrencySchema = z.enum(['BRL', 'USD', 'EUR', 'ARS']);
 export type Currency = z.infer<typeof CurrencySchema>;
 
 export const SalaryPeriodSchema = z.enum(['hora', 'mes', 'ano']);
@@ -29,6 +30,8 @@ export const RedFlagSignalSchema = z.enum([
   'teste_tecnico_longo',
   'multiplas_funcoes',
   'linguagem_vaga',
+  /** "Alta pressão", "sangue no olho", horas extras habituais (ADR-002 §8.1, D-S8: sinal de cultura). */
+  'pressao_excessiva',
 ]);
 export type RedFlagSignal = z.infer<typeof RedFlagSignalSchema>;
 

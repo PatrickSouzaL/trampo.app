@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "linkedin-15",
   "source": "linkedin",
   "platform": "linkedin",
@@ -75,7 +75,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Cabeçalho do anúncio sem modelo; o corpo diz \"modelo presencial (4x por semana)\". Anotado pelo texto como presencial, com híbrido em alternatives (4 dias implica 1 remoto). Big Data e ETL são conceito. Previdência e seguro são por adesão, mantidos."
 }

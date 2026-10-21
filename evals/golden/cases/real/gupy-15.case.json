@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-15",
   "source": "gupy",
   "platform": "gupy",
@@ -83,7 +83,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "\"PJ\" no título é o nome da comunidade (clientes Pessoa Jurídica), não o contrato: contrato é Efetivo -> clt. Híbrido com 8 dias presenciais por mês. Ferramentas de IA (Copilot, StackSpot, Devin) como desejáveis; alternativa sem elas."
 }

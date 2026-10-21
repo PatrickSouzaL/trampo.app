@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "99jobs-07",
   "source": "99jobs",
   "platform": "generico",
@@ -76,7 +76,6 @@
       ]
     ]
   },
-  "contractGaps": [],
   "injection": null,
   "notes": "Plataformas de core bancário nomeadas (Sinqia, Autbank, CRK, Change) entram como software; alternativa sem elas por serem opções e \"Change\" ser palavra comum. Núclea/SLC são participantes do arranjo, não tecnologia. Vínculo não informado."
 }

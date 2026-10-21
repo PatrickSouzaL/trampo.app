@@ -1,5 +1,5 @@
 {
-  "caseSchemaVersion": 1,
+  "caseSchemaVersion": 2,
   "id": "gupy-07",
   "source": "gupy",
   "platform": "gupy",
@@ -58,7 +58,6 @@
     "redFlagSignals": []
   },
   "alternatives": {},
-  "contractGaps": [],
   "injection": null,
   "notes": "\"GO\" em maiúsculas é a linguagem Go (uma de três linguagens aceitas, todas como exigidas). CI/CD e observabilidade são conceitos, não tecnologias nomeadas. Sem benefícios no texto."
 }
