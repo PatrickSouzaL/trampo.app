@@ -1,48 +1,49 @@
-# Próximo passo: decidir o push e o PR da fatia Ingress + Auth + Rate Limit
+# Próximo passo: F1-DOM-04 (sinais determinísticos da Camada 1)
 
-> **PARADA OBRIGATÓRIA** (AGENTS §2, fase 5): a fatia Ingress + Auth + Rate Limit está completa, e a regra do humano é parar aqui para decidir o push e o PR. Nada saiu do repositório local.
+> **Reciclagem de sessão** (AGENTS §4.4): esta janela fez o F1-API-03, o push com o PR #3 e o F1-CACHE-01.
+>
+> Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
 
 ## O que acabou de ser entregue (2026-10-21)
 
-### F1-API-03 concluída (commit `f1e09dc` no `feat/api-borda`, sem push)
-Decisões em [[ADR-014-rate-limit-and-quota]]:
-- **Sem dependência nova.** O `@upstash/ratelimit` 2.2.0 e o `@upstash/redis` 1.39.0 foram conferidos no npm e recusados:
-  - o `@upstash/ratelimit` libera no timeout (T39) e põe a regra em Lua, que nenhum Redis simulado executa;
-  - o `@upstash/redis` faz retry por padrão.
+### Push e PR da fatia Ingress + Auth + Rate Limit
+- **PR #3** aberto para o `master`: https://github.com/PatrickSouzaL/trampo.app/pull/3. Push `001536c..043d488`.
+- O PR leva P0-EVL-01, S-4, F1-DOM-02, F1-DOM-03, F1-API-02 e F1-API-03.
+- Gate final antes do push: turbo 18/18 em série, API com 1.316 testes e 100% de linhas e ramos, depcruise sem violações e varredura de segredo limpa.
+- **Decisões registradas:** HITL-021 fechado (o pepper e as credenciais do Upstash estão no `.env`). Resíduo do S-5 aprovado: requisição anônima é barrada antes do Redis, e o limite de inundação fica na Cloudflare.
 
-  No lugar deles, um cliente REST próprio (`fetch` em `/multi-exec`) devolve 503 em qualquer desvio: prazo de 200 ms, status ≠ 200, redirecionamento, corpo acima de 16 KiB, JSON ou UTF-8 inválido, `{ error }` em qualquer comando, tamanho ou tipo errado.
-- **Rate limit** por usuário e por IP (IPv6 pelo /64), logo depois do JWT e antes de ler o corpo. Por minuto: `padrao` com 60 por usuário e 120 por IP; `analise` com 5 e 20.
-- **Cota diária:** 50 análises por dia de Brasília, idempotente por `requestId`. Fica num `preHandler` pronto para o `/v1/analyze`.
-- **`QuotaLedger`** em Redis: 15% de folga por provedor e breaker global de 400 chamadas por dia UTC. Provado com o router real, que dá `cota_esgotada` quando o Redis falha.
-- **Chaves:** HMAC-SHA256 com `RATE_KEY_PEPPER` obrigatório (SR-17). Nenhum IP, `sub`, chave ou `requestId` vai para o log (SR-12).
-- **Verificação:**
-  - 351 testes novos; a API tem 1.316 testes, com 100% de linhas e ramos;
-  - Upstash simulado em socket real: lento, travado, 401, 500, lixo e gigante;
-  - mutação 98/98;
-  - turbo 18/18 em série; depcruise verde.
+### F1-CACHE-01 concluída (commit `c928716`, **local, sem push**)
+Decisões em [[ADR-015-job-facts-cache]]:
+- **Chave:** `jobfacts:v1:{extractorVersion}:{textHash}`, com TTL de 10 dias. A versão junta prompt, schema, normalizador, seletor, guarda e orçamento.
+- **Escrita (SR-08):** só a saída da guarda, e só se valerem todas as condições:
+  - a análise não foi degradada;
+  - a injection é `baixa` no texto e na saída;
+  - a confiança efetiva é ≥ 0,5;
+  - o provedor é de produção e está na cadeia (o Ollama de dev nunca grava);
+  - os fatos são ponto fixo da guarda.
 
-### A fatia completa, local e sem push
-11 commits à frente de `origin/feat/api-borda`, de `855382b` (S-4) até o commit deste `next-step.md`. Inclui F1-DOM-02, F1-DOM-03, F1-API-02 e F1-API-03, além dos `next-step.md`.
+  Depois vem `SET NX EX`, que não sobrescreve.
+- **Leitura:** revalida tudo. Adulteração ou modelo obsoleto viram *miss* com `DEL`. Redis lento ou com erro é *miss*, nunca *hit*.
+- **Verificação:** 111 testes novos (API com 1.427, 100% de linhas e ramos); 3 propriedades; mutação 47/47, com o único equivalente removido do código; turbo 18/18 em série; depcruise verde.
 
 ### Pendências
-- **HITL-021** (novo, 🟡): gerar o `RATE_KEY_PEPPER` e colocar no `apps/api/.env` ([[upstash-redis]] §8). Ele **não bloqueia** testes, push nem PR. Sem ele, só não dá para subir a API fora dos testes.
-- **QA-01:** sem afrouxar os 200 ms. Resolve-se com *jobs* isolados no CI (F1-OPS-01); até lá, o turbo local roda em série.
-- **DOC-01:** no backlog, sem prioridade.
-- **Resíduo novo (S-5):** a inundação **sem token** não passa pelo limitador do Redis, para não gastar o orçamento de comandos. Fica para a borda da hospedagem.
+- **`c928716` fora do PR #3:** escolha abaixo se ele entra no PR ou espera o merge.
+- **Achado para o F1-LLM-02:** os ids de modelo da Workers AI começam com `@cf/`, e o padrão do `model` no contrato recusa `@`. É preciso uma decisão de contrato antes desse adapter.
+- **QA-01:** fica para os *jobs* isolados no CI (F1-OPS-01). Até lá, o turbo local roda em série.
+- **DOC-01:** no backlog.
 
 ## Prompt para enviar ao agente
 
-Escolha uma opção de push e PR e, se quiser, troque a tarefa seguinte:
-
 ```text
-Equipe, sobre a fatia Ingress + Auth + Rate Limit:
+Equipe, sigam com o F1-DOM-04 (sinais determinísticos da Camada 1).
 
-PUSH E PR (escolha uma):
-  A) Autorizo push do feat/api-borda e abertura do PR para o master (recomendado: a fatia está verde e o CI do F1-OPS-01 depende do push).
-  B) Autorizo só o push, sem PR.
-  C) Ainda não: mantenham tudo local.
+COMMIT c928716 (F1-CACHE-01), escolha uma:
+  A) Autorizo o push para o feat/api-borda: ele entra no PR #3 (recomendado se o PR ainda não foi revisado).
+  B) Não façam push: o c928716 espera o merge do PR #3 e vai num PR próprio.
 
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md e o ADR-014. Confirme pnpm 11.4.0, Node >= 24 e o branch feat/api-borda.
-2. [SCRIBE] (A ou B): antes do push, rode de novo `pnpm exec turbo run build lint typecheck test --concurrency=1 --force` e `pnpm lint:deps`. Faça o push. Na opção A, abra o PR para o master com o resumo da fatia (F1-DOM-02, F1-DOM-03, F1-API-02 e F1-API-03, os ADRs 002 e 012 a 014, e as pendências HITL-021, QA-01 e o resíduo do S-5). Registre no STATE e no SESSION-LOG.
-3. [ORCHESTRATOR]: depois, sigam com o F1-CACHE-01 (JobFactsCache em Redis: chave versionada, SET NX EX, revalidação na leitura, política de escrita do SR-08). Reaproveitem o cliente REST do ADR-014, e o cache falha como miss, nunca como hit. Ciclo estrito: ADR-015, auditoria do [APPSEC] antes do código, Redis simulado, 100% de linhas e ramos, mutação e turbo em série.
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (F1-DOM-04, S-4 e F1-API-04), ADR-011 (porta DeterministicSignals), ADR-005 e ADR-006, spike-metrics §5 (S-4) e o protótipo em evals/spikes/s4-layer1/. Confirme pnpm 11.4.0, Node >= 24 e o branch feat/api-borda. Na opção A, rode antes o gate (turbo em série e lint:deps) e faça o push.
+2. [ARCHITECT]: Desenhe o DeterministicSignals real no domínio puro (sinais explícitos de modelo, contrato, senioridade, salário e stack, mais o nível de injection), levando as regras validadas do S-4 para produção, incluindo a guarda de vacuidade do R3 e o aceite desligado (D-H3). Registre num ADR-016.
+3. [APPSEC]: Audite antes do código: regex linear (SR-09, 200 ms para 64 KiB, sem afrouxar), controles negativos de injection (SR-04) e nenhum texto de vaga na saída.
+4. [DEV] + [QA_EVALS]: Implementem com 100% de linhas e ramos, propriedades, mutação e o golden dataset gd1 como aceite (falso "foge" e precisão por campo, comparados com o S-4). Turbo em série.
+5. [SCRIBE]: Atualize STATE.md, BACKLOG.md e SESSION-LOG.md, faça o commit local e gere o novo ./next-step.md.
 ```
