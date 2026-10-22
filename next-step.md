@@ -1,32 +1,48 @@
-# Próximo passo: F1-API-03 (rate limit, cota e breaker de LLM)
+# Próximo passo: decidir o push e o PR da fatia Ingress + Auth + Rate Limit
 
-> **Reciclagem de sessão** (AGENTS §4.4): o F1-API-02 rodou em duas janelas, porque a primeira caiu antes do registro. O F1-API-03 tem ADR novo, dependência nova e Redis, e começa numa janela nova.
->
-> Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
+> **PARADA OBRIGATÓRIA** (AGENTS §2, fase 5): a fatia Ingress + Auth + Rate Limit está completa, e a regra do humano é parar aqui para decidir o push e o PR. Nada saiu do repositório local.
 
 ## O que acabou de ser entregue (2026-10-21)
 
-### F1-API-02 concluída (1 commit local no `feat/api-borda`, sem push)
-- **`fbb6895`**, verificação do JWT ([[ADR-013-jwt-verification]]):
-  - porta `AccessTokenVerifier` na aplicação; adapter `jose` 6.2.12 na infraestrutura; hook `onRequest` depois do CORS e antes do corpo;
-  - ES256 fixo, `kid`, `exp` e `is_anonymous: false` obrigatórios, tolerância de 10 s e idade máxima de 900 s;
-  - o JWKS falha fechado: se estiver fora do ar, vazio ou sem chave P-256, a resposta é 503 `SERVICO_INDISPONIVEL`. Token inválido dá 401;
-  - só `GET /health` é público, e nenhum token ou claim vai para o log;
-  - API com 965 testes e 100% de linhas e ramos; mutação 55/55; turbo em série e depcruise verdes (reconferidos nesta sessão).
-- **Registro feito nesta sessão:** STATE, BACKLOG e SESSION-LOG. A janela anterior caiu depois do commit e do ADR-013, antes de registrar.
+### F1-API-03 concluída (commit `f1e09dc` no `feat/api-borda`, sem push)
+Decisões em [[ADR-014-rate-limit-and-quota]]:
+- **Sem dependência nova.** O `@upstash/ratelimit` 2.2.0 e o `@upstash/redis` 1.39.0 foram conferidos no npm e recusados:
+  - o `@upstash/ratelimit` libera no timeout (T39) e põe a regra em Lua, que nenhum Redis simulado executa;
+  - o `@upstash/redis` faz retry por padrão.
 
-### Pendências novas
-- **QA-01:** no turbo em paralelo, o SR-09 do seletor (200 ms de relógio de parede) falha quando o `api:test` roda junto com o `next build`. Em série, passa. Precisa de decisão antes do F1-OPS-01 (CI), sem afrouxar o orçamento.
-- **DOC-01** (sem prioridade): o `contratos-zod.md` do cofre continua desatualizado.
+  No lugar deles, um cliente REST próprio (`fetch` em `/multi-exec`) devolve 503 em qualquer desvio: prazo de 200 ms, status ≠ 200, redirecionamento, corpo acima de 16 KiB, JSON ou UTF-8 inválido, `{ error }` em qualquer comando, tamanho ou tipo errado.
+- **Rate limit** por usuário e por IP (IPv6 pelo /64), logo depois do JWT e antes de ler o corpo. Por minuto: `padrao` com 60 por usuário e 120 por IP; `analise` com 5 e 20.
+- **Cota diária:** 50 análises por dia de Brasília, idempotente por `requestId`. Fica num `preHandler` pronto para o `/v1/analyze`.
+- **`QuotaLedger`** em Redis: 15% de folga por provedor e breaker global de 400 chamadas por dia UTC. Provado com o router real, que dá `cota_esgotada` quando o Redis falha.
+- **Chaves:** HMAC-SHA256 com `RATE_KEY_PEPPER` obrigatório (SR-17). Nenhum IP, `sub`, chave ou `requestId` vai para o log (SR-12).
+- **Verificação:**
+  - 351 testes novos; a API tem 1.316 testes, com 100% de linhas e ramos;
+  - Upstash simulado em socket real: lento, travado, 401, 500, lixo e gigante;
+  - mutação 98/98;
+  - turbo 18/18 em série; depcruise verde.
+
+### A fatia completa, local e sem push
+11 commits à frente de `origin/feat/api-borda`, de `855382b` (S-4) até o commit deste `next-step.md`. Inclui F1-DOM-02, F1-DOM-03, F1-API-02 e F1-API-03, além dos `next-step.md`.
+
+### Pendências
+- **HITL-021** (novo, 🟡): gerar o `RATE_KEY_PEPPER` e colocar no `apps/api/.env` ([[upstash-redis]] §8). Ele **não bloqueia** testes, push nem PR. Sem ele, só não dá para subir a API fora dos testes.
+- **QA-01:** sem afrouxar os 200 ms. Resolve-se com *jobs* isolados no CI (F1-OPS-01); até lá, o turbo local roda em série.
+- **DOC-01:** no backlog, sem prioridade.
+- **Resíduo novo (S-5):** a inundação **sem token** não passa pelo limitador do Redis, para não gastar o orçamento de comandos. Fica para a borda da hospedagem.
 
 ## Prompt para enviar ao agente
 
-```text
-Equipe, sigam com o F1-API-03 (rate limit, cota diária e breaker de LLM).
+Escolha uma opção de push e PR e, se quiser, troque a tarefa seguinte:
 
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md (HITL-007), BACKLOG.md (F1-API-03 e F1-LLM-03), threat-model (SR-06, T7, T23 item 6, T39), ADR-009 (D6, QuotaLedger), ADR-013 (§5) e o runbook upstash-redis. Confirme pnpm 11.4.0, Node >= 24 e o branch feat/api-borda.
-2. [ARCHITECT]: Desenhe o rate limit por usuário (sub já verificado) e por IP, a cota diária idempotente por requestId e o breaker diário global de LLM. Defina as portas na aplicação, o adapter Upstash na infraestrutura e o hook na apresentação, logo depois do JWT. Implemente o QuotaLedger real do ADR-009. Registre num ADR-014.
-3. [APPSEC]: Audite antes do código. Tudo falha fechado: timeout, erro ou resposta inesperada do Redis dão 429/503, nunca liberação (T39: o @upstash/ratelimit libera no timeout por padrão). As instâncias são criadas uma vez no boot. IP e sub nunca aparecem em claro nas chaves: use HMAC-SHA256 com pepper do ambiente (T23). Nenhuma chave, IP ou sub vai para o log (SR-12). Só os nomes entram no .env.example. Confira a dependência nova (versão, proveniência e quarentena de 3 dias do T26).
-4. [DEV] + [QA_EVALS]: Implemente com Redis simulado (lento, com erro, que trava), sem chamadas ao Upstash real, com 100% de linhas e ramos e mutação. Rode o turbo em série (--concurrency=1) até o QA-01 ser decidido.
-5. [SCRIBE]: Atualize STATE.md, BACKLOG.md e SESSION-LOG.md. Faça o commit local sem push e gere o novo ./next-step.md. Com a fatia Ingress + Auth + Rate Limit completa, pergunte ao humano sobre o push e o PR.
+```text
+Equipe, sobre a fatia Ingress + Auth + Rate Limit:
+
+PUSH E PR (escolha uma):
+  A) Autorizo push do feat/api-borda e abertura do PR para o master (recomendado: a fatia está verde e o CI do F1-OPS-01 depende do push).
+  B) Autorizo só o push, sem PR.
+  C) Ainda não: mantenham tudo local.
+
+1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md e o ADR-014. Confirme pnpm 11.4.0, Node >= 24 e o branch feat/api-borda.
+2. [SCRIBE] (A ou B): antes do push, rode de novo `pnpm exec turbo run build lint typecheck test --concurrency=1 --force` e `pnpm lint:deps`. Faça o push. Na opção A, abra o PR para o master com o resumo da fatia (F1-DOM-02, F1-DOM-03, F1-API-02 e F1-API-03, os ADRs 002 e 012 a 014, e as pendências HITL-021, QA-01 e o resíduo do S-5). Registre no STATE e no SESSION-LOG.
+3. [ORCHESTRATOR]: depois, sigam com o F1-CACHE-01 (JobFactsCache em Redis: chave versionada, SET NX EX, revalidação na leitura, política de escrita do SR-08). Reaproveitem o cliente REST do ADR-014, e o cache falha como miss, nunca como hit. Ciclo estrito: ADR-015, auditoria do [APPSEC] antes do código, Redis simulado, 100% de linhas e ramos, mutação e turbo em série.
 ```
