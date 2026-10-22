@@ -14,6 +14,7 @@ import {
   ScoringEngine,
   hasMustCriterion,
   type DeterministicSignals,
+  type FactResolverInput,
   type PreFilterRoutingInput,
 } from "../../src/domain/index.js";
 import { ELIMINATORY, IGNORE, REQUIRED, criteria, stack, tolerance, weighted } from "./fakes/scoring-fixtures.js";
@@ -179,6 +180,26 @@ describe("R3: curto-circuito de aceite (D-H3) e guarda de vacuidade", () => {
     expect(route({ criteria: onlyWeighted, signals: remoteSignal() }, accepting)).toMatchObject({ rule: "R4", acceptEligible: false });
   });
 
+  test("a guarda de vacuidade não depende do motor: perfil só ponderado nunca aceita, mesmo com dimensão estrita atendida", () => {
+    // Motor que promove o modelo ponderado a obrigatório: com o motor real, `strict.length === 0` já barraria.
+    class PromotingEngine extends ScoringEngine {
+      override score(...args: Parameters<ScoringEngine["score"]>): ReturnType<ScoringEngine["score"]> {
+        const result = super.score(...args);
+        return { ...result, breakdown: result.breakdown.map((d) => (d.dimension === "modelo_trabalho" ? { ...d, importance: "obrigatorio" as const } : d)) };
+      }
+    }
+    const promoting = new PromotingEngine();
+    const onlyWeighted = criteria({ ...remoteOnly(weighted(5)), redFlagTolerance: tolerance("alertar") });
+    const decision = new PreFilterRouter({ resolver, engine: promoting, policy: { shortCircuitAccept: true } }).route({
+      mode: "auto",
+      signals: remoteSignal(),
+      titleHint: null,
+      criteria: onlyWeighted,
+    });
+    expect(decision.deterministic.score.breakdown.find((d) => d.dimension === "modelo_trabalho")).toMatchObject({ importance: "obrigatorio", outcome: "atende" });
+    expect(decision).toMatchObject({ rule: "R4", acceptEligible: false });
+  });
+
   test("must-have de stack conta como critério e precisa de menção explícita", () => {
     const c = acceptable({ ...remoteOnly(IGNORE), stack: stack({ mustHave: ["Java"] }) });
     expect(route({ criteria: c, signals: signals({ stackMentions: [{ term: "Java", strength: "explicita" }] }) }, accepting).rule).toBe("R3");
@@ -248,6 +269,30 @@ describe("fatos só determinísticos (ADR-011 D7)", () => {
     expect(facts.title).toBe("Desenvolvedor Java");
     expect(facts.stackRequired).toEqual(["Java"]);
     expect(decision.deterministic.resolution.effectiveConfidence).toBe(0);
+  });
+
+  test("o resolver recebe só a Camada 1: sem LLM, sem injection de saída e sem nenhum termo do perfil (minimização)", () => {
+    const seen: FactResolverInput[] = [];
+    class SpyResolver extends FactResolver {
+      override resolve(input: FactResolverInput): ReturnType<FactResolver["resolve"]> {
+        seen.push(input);
+        return super.resolve(input);
+      }
+    }
+    const spy = new SpyResolver({ isSafeTitle: (value) => titleSchema.safeParse(value).success });
+    const s = signals({ stackMentions: [{ term: "Java", strength: "explicita" }] });
+    new PreFilterRouter({ resolver: spy, engine }).route({
+      mode: "auto",
+      signals: s,
+      titleHint: "Dev",
+      criteria: criteria({ stack: stack({ mustHave: ["Java", "Go"], dealBreakers: ["PHP"] }) }),
+    });
+    expect(seen).toEqual([{ llmFacts: null, llmOutputInjection: false, signals: s, titleHint: "Dev", markedStackTerms: [] }]);
+  });
+
+  test("vaga limpa: a resolução não traz aviso, e o aviso de injection só vem do sinal", () => {
+    expect(route({ signals: remoteSignal() }).deterministic.resolution.warnings).toEqual([]);
+    expect(route({ signals: remoteSignal({ injectionLevel: "media" }) }).deterministic.resolution.warnings).toEqual(["possivel_prompt_injection"]);
   });
 
   test("o roteamento não muta a entrada", () => {
