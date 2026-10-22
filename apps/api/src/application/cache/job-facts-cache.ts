@@ -104,6 +104,11 @@ export class JobFactsCache {
     this.#guard = deps.guard ?? new LlmOutputGuard();
   }
 
+  /** A tag da chave (ADR-015 D2). O AnalyzeJob confere no boot que é a mesma que ele põe no relatório. */
+  get extractorVersion(): string {
+    return this.#extractorVersion;
+  }
+
   /** `jobfacts:v1:{extractorVersion}:{textHash}`: só versão e hash, nada do usuário. */
   keyFor(textHash: string): string {
     return `${CACHE_KEY_PREFIX}:${this.#extractorVersion}:${textHash}`;

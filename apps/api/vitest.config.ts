@@ -21,12 +21,14 @@ export default defineConfig({
           // Camada 1 (F1-DOM-04): o roteador roda o motor da nota e as propriedades fazem 1.000 execuções, então vão
           // para o grupo do motor. O SR-09 do pré-filtro (48 entradas de 64 KiB) roda sozinho no grupo seguinte, sem
           // disputar CPU com o SR-09 do normalizador e do seletor.
+          // AnalyzeJob (F1-API-04): o funil inteiro com o motor real e propriedades de 1.000 execuções, no grupo do motor.
           exclude: [
             "test/domain/scoring-*.test.ts",
             "test/domain/report-*.test.ts",
             "test/domain/prefilter-router.test.ts",
             "test/domain/prefilter.properties.test.ts",
             "test/domain/prefilter-sr09.test.ts",
+            "test/application/analyze-job*.test.ts",
             "test/infrastructure/jose-*.test.ts",
             "test/infrastructure/upstash-*.test.ts",
           ],
@@ -40,7 +42,7 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "motor", include: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts", "test/domain/prefilter-router.test.ts", "test/domain/prefilter.properties.test.ts"], sequence: { groupOrder: 2 }, testTimeout: 30_000 },
+        test: { name: "motor", include: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts", "test/domain/prefilter-router.test.ts", "test/domain/prefilter.properties.test.ts", "test/application/analyze-job*.test.ts"], sequence: { groupOrder: 2 }, testTimeout: 30_000 },
       },
       {
         extends: true,
@@ -56,6 +58,8 @@ export default defineConfig({
         "src/application/**/*.ts",
         "src/infrastructure/crypto/**/*.ts",
         "src/infrastructure/telemetry/**/*.ts",
+        // IdGenerator (F1-API-04, ADR-017 D1).
+        "src/infrastructure/ids/**/*.ts",
         "src/presentation/logging/**/*.ts",
         // Autenticação (F1-API-02, ADR-013): o adapter jose, o hook e a validação do ambiente.
         "src/infrastructure/auth/**/*.ts",

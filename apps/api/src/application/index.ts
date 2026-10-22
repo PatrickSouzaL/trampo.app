@@ -2,6 +2,16 @@
 // portas JobFactsExtractor, JobFactsCache, CriteriaRepository, RateLimiter, DailyQuota, QuotaLedger, Clock,
 // IdGenerator, Telemetry. Importa só domain, zod e @trampo/contracts (ADR-008 D1).
 export {
+  ANALYZE_JOB_VERSION,
+  AnalyzeJob,
+  AnalyzeJobConfigError,
+  type AnalysisAlert,
+  type AnalysisStage,
+  type AnalyzeJobDeps,
+  type AnalyzeJobInput,
+  type FactsExtraction,
+} from "./analysis/analyze-job.js";
+export {
   CACHE_KEY_PREFIX,
   CACHE_POLICY,
   CacheConfigError,
@@ -99,12 +109,18 @@ export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
 export type { DailyQuota, DailyQuotaDecision } from "./ports/daily-quota.js";
 export type { CacheStoreRead, CacheStoreWrite, JobFactsCacheStore } from "./ports/job-facts-cache-store.js";
 export type { Random } from "./ports/random.js";
+export type { CriteriaLookup, CriteriaRepository } from "./ports/criteria-repository.js";
+export type { IdGenerator } from "./ports/id-generator.js";
 export type { RateLimitClass, RateLimitDecision, RateLimiter, RateLimitSubject } from "./ports/rate-limiter.js";
 export {
+  AnalysisCacheStatusSchema,
+  AnalysisEventSchema,
   LlmExtractionEventSchema,
   TELEMETRY_LATENCY_MAX_MS,
   TELEMETRY_STEPS_MAX,
   TelemetryEventSchema,
+  type AnalysisCacheStatus,
+  type AnalysisEvent,
   type LlmExtractionEvent,
   type Telemetry,
   type TelemetryEvent,
@@ -113,6 +129,7 @@ export {
   METRIC_CATALOG,
   llmExtractionEvent,
   telemetryMetricSamples,
+  telemetryMs,
   type ExtractionTelemetryContext,
   type MetricName,
   type MetricSample,

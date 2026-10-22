@@ -92,4 +92,30 @@ describe("InMemoryTelemetry", () => {
       ].sort(),
     );
   });
+
+  test("evento analysis (ADR-017 D5): contadores e histograma da análise; nota no evento é descartada", () => {
+    const telemetry = new InMemoryTelemetry();
+    const analysis: TelemetryEvent = {
+      kind: "analysis",
+      platform: "gupy",
+      mode: "auto",
+      rule: "R2",
+      decisionPath: "fallback_deterministico",
+      acceptEligible: false,
+      cache: "nao_consultado",
+      injectionLevel: "alta",
+      warnings: ["possivel_prompt_injection", "analise_degradada"],
+      durationMs: 40,
+    };
+    telemetry.record(analysis);
+    telemetry.record({ ...analysis, score: 90 } as unknown as TelemetryEvent);
+    expect(telemetry.droppedEvents).toBe(1);
+    expect(telemetry.counter("analysis_total", { platform: "gupy", mode: "auto", rule: "R2", decision_path: "fallback_deterministico" })).toBe(1);
+    expect(telemetry.counter("analysis_warning_total", { warning: "analise_degradada" })).toBe(1);
+    expect(telemetry.histogram("analysis_duration_ms", { decision_path: "fallback_deterministico" })).toEqual({
+      count: 1,
+      sum: 40,
+      cumulative: [1, 1, 1, 1, 1, 1, 1, 1],
+    });
+  });
 });

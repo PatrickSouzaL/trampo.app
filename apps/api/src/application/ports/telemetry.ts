@@ -1,9 +1,12 @@
 // Porta de telemetria (ADR-001 §5.9; ADR-010 D5 e D6). Eventos só com enums e números: nenhum texto livre,
 // nenhum dado de perfil, nenhum id de usuário e nenhum reqId (métrica é agregado, não rastro). O schema
 // estrito é a definição; o adapter valida cada evento com ele e descarta o que não casar.
-import { LlmProviderIdSchema, PlatformSchema } from "@trampo/contracts";
+import { AnalysisWarningSchema, DecisionPathSchema, LlmProviderIdSchema, PlatformSchema } from "@trampo/contracts";
+import { uniqueArray } from "@trampo/contracts/primitives";
 import { z } from "zod";
 
+import type { AnalysisMode, InjectionLevel, PreFilterRule } from "../../domain/index.js";
+import type { CacheMissReason } from "../cache/job-facts-cache.js";
 import type { ExtractionFailureReason, RouterTrailEntry } from "../llm/llm-provider-router.js";
 import type { LlmOutputRejection } from "../llm/llm-output-guard.js";
 
@@ -48,19 +51,52 @@ export const LlmExtractionEventSchema = z.strictObject({
 });
 export type LlmExtractionEvent = z.infer<typeof LlmExtractionEventSchema>;
 
-/** União fechada: um tipo novo de evento entra por ADR. */
-export const TelemetryEventSchema = LlmExtractionEventSchema;
-export type TelemetryEvent = LlmExtractionEvent;
+const AnalysisModeSchema = z.enum(["auto", "aprofundada"]);
+const PreFilterRuleSchema = z.enum(["R1", "R2", "R3", "R4"]);
+const CacheMissReasonSchema = z.enum(["ausente", "corrompido", "obsoleto", "indisponivel"]);
+const InjectionLevelSchema = z.enum(["baixa", "media", "alta"]);
+
+/** `nao_consultado` (R1–R3 ou sem cache), `hit` ou o motivo do miss (ADR-015). */
+export const AnalysisCacheStatusSchema = z.union([z.enum(["nao_consultado", "hit"]), CacheMissReasonSchema]);
+export type AnalysisCacheStatus = z.infer<typeof AnalysisCacheStatusSchema>;
+
+/**
+ * Uma análise do funil (ADR-017 D5). Sem nota, veredito nem dimensão: derivam dos critérios do usuário, e a
+ * telemetria não carrega nada derivado do perfil (minimização).
+ */
+export const AnalysisEventSchema = z.strictObject({
+  kind: z.literal("analysis"),
+  platform: PlatformSchema,
+  mode: AnalysisModeSchema,
+  rule: PreFilterRuleSchema,
+  decisionPath: DecisionPathSchema,
+  /** Condições do R3 sem a flag (ADR-016 D9): mede a D-H3 com dado real. */
+  acceptEligible: z.boolean(),
+  cache: AnalysisCacheStatusSchema,
+  injectionLevel: InjectionLevelSchema,
+  warnings: uniqueArray(AnalysisWarningSchema, AnalysisWarningSchema.options.length),
+  durationMs: z.int().min(0).max(TELEMETRY_LATENCY_MAX_MS),
+});
+export type AnalysisEvent = z.infer<typeof AnalysisEventSchema>;
+
+/** União fechada: um tipo novo de evento entra por ADR (ADR-010 D5; `analysis` pelo ADR-017 D5). */
+export const TelemetryEventSchema = z.discriminatedUnion("kind", [LlmExtractionEventSchema, AnalysisEventSchema]);
+export type TelemetryEvent = LlmExtractionEvent | AnalysisEvent;
 
 export interface Telemetry {
   /** Nunca lança: a contabilidade não pode derrubar uma análise. */
   record(event: TelemetryEvent): void;
 }
 
-// Os enums acima são cópias dos tipos do router e da guarda: a compilação quebra se divergirem.
+// Os enums acima são cópias dos tipos do router, da guarda, do cache e da Camada 1: a compilação quebra se divergirem.
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 const sameReason: Same<z.infer<typeof ExtractionFailureReasonSchema>, ExtractionFailureReason> = true;
 const sameRejection: Same<z.infer<typeof LlmOutputRejectionSchema>, LlmOutputRejection> = true;
 const sameStepKeys: Same<keyof LlmExtractionEvent["steps"][number], keyof RouterTrailEntry> = true;
 const sameStepOutcome: Same<z.infer<typeof ExtractionOutcomeSchema>, RouterTrailEntry["outcome"]> = true;
-void [sameReason, sameRejection, sameStepKeys, sameStepOutcome];
+const sameMode: Same<z.infer<typeof AnalysisModeSchema>, AnalysisMode> = true;
+const sameRule: Same<z.infer<typeof PreFilterRuleSchema>, PreFilterRule> = true;
+const sameMiss: Same<z.infer<typeof CacheMissReasonSchema>, CacheMissReason> = true;
+const sameInjection: Same<z.infer<typeof InjectionLevelSchema>, InjectionLevel> = true;
+const sameEvent: Same<z.infer<typeof TelemetryEventSchema>, TelemetryEvent> = true;
+void [sameReason, sameRejection, sameStepKeys, sameStepOutcome, sameMode, sameRule, sameMiss, sameInjection, sameEvent];
