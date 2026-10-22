@@ -20,3 +20,17 @@ export {
   type SalaryOpenResult,
   type SalaryValue,
 } from "./crypto/salary-cipher.js";
+export {
+  USER_CRITERIA_SELECT,
+  createSupabaseCriteriaRepository,
+  type SupabaseCriteriaRepositoryDeps,
+} from "./persistence/supabase-criteria-repository.js";
+export {
+  POSTGREST_CLIENT_POLICY,
+  PostgrestClientConfigError,
+  createPostgrestUserClient,
+  type PostgrestRead,
+  type PostgrestTable,
+  type PostgrestUserClient,
+  type PostgrestUserClientConfig,
+} from "./supabase/postgrest-user-client.js";
