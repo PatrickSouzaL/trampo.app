@@ -100,3 +100,28 @@ describe("id de correlação", () => {
     expect(body.requestId).not.toBe("injetado-pelo-cliente");
   });
 });
+
+describe("mapeador de erro: valores lançados fora do formato (F1-API-04 parte 2)", () => {
+  test.each<[string, unknown, number, string]>([
+    ["valor que não é objeto", "texto-lancado", 500, "ERRO_INTERNO"],
+    ["validação com issue que não é objeto", { statusCode: 400, validation: ["x"] }, 400, "PAYLOAD_INVALIDO"],
+    ["validação vazia", { statusCode: 400, validation: [] }, 400, "PAYLOAD_INVALIDO"],
+    ["too_small fora do texto da vaga", { statusCode: 400, validation: [{ keyword: "too_small", instancePath: "/job/titleHint" }] }, 400, "PAYLOAD_INVALIDO"],
+    ["too_small no texto da vaga", { statusCode: 400, validation: [{ keyword: "too_small", instancePath: "/job/text" }] }, 422, "TEXTO_CURTO_DEMAIS"],
+  ])("%s", async (_name, thrown, status, code) => {
+    const instance = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
+    instance.get("/probe/lanca", async () => {
+      throw thrown;
+    });
+    app = instance;
+    const res = await instance.inject({ method: "GET", url: "/probe/lanca", headers: AUTH_HEADERS });
+    expect(res.statusCode).toBe(status);
+    expectApiError(res.body, code);
+  });
+
+  test("sem a opção `logger`, vale a política padrão (lista fechada no stdout)", async () => {
+    app = buildApp({ limits: openLimits, accessTokenVerifier: acceptAll });
+    await app.ready();
+    expect(app.log.level).toBe("info");
+  });
+});

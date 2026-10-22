@@ -1,7 +1,8 @@
 // Monta a instância Fastify (camada presentation; ADR-001 §7) com a borda E0 da F1-API-01
 // (ADR-007): só o parser JSON, bodyLimit antes do parse, timeouts explícitos, trustProxy fechado e
 // CORS com origens exatas, a autenticação por JWT da F1-API-02 (ADR-013) e o rate limit da F1-API-03 (ADR-014),
-// no onRequest depois do JWT. A cota diária é um preHandler que a rota de análise (F1-API-04) usa.
+// no onRequest depois do JWT. A cota diária é um preHandler que a rota de análise usa. A rota POST /v1/analyze
+// (F1-API-04, ADR-017 D7) só é registrada com a opção `analysis`.
 import { randomUUID } from "node:crypto";
 
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "@fastify/type-provider-zod";
@@ -19,6 +20,7 @@ import { mediaTypeHook } from "./edge/media-type.js";
 import { createRateLimitHook } from "./edge/rate-limit.js";
 import { EDGE_TIMEOUTS, type EdgeTimeouts } from "./edge/timeouts.js";
 import { createLoggerOptions, type LoggerConfig } from "./logging/log-policy.js";
+import { type AnalysisRouteOptions, analyzeRoutes } from "./routes/analyze.js";
 import { healthRoutes } from "./routes/health.js";
 
 declare module "fastify" {
@@ -50,15 +52,37 @@ export interface BuildAppOptions {
   readonly trustProxy?: false | readonly string[];
   /** Só para os testes encurtarem os prazos. Produção usa EDGE_TIMEOUTS. */
   readonly timeouts?: Partial<EdgeTimeouts>;
+  /**
+   * O AnalyzeJob e os critérios (ADR-017 D7). Sem a opção, POST /v1/analyze é rota inexistente. O main.ts só a
+   * passa no F1-API-04b, depois do CriteriaRepository do Supabase (F1-DB-01).
+   */
+  readonly analysis?: AnalysisRouteOptions;
+}
+
+/** Caminho do texto da vaga no AnalyzeJobRequestSchema: curto demais é 422, não 400 (ADR-017 D6). */
+const JOB_TEXT_PATH = "/job/text";
+
+function fieldsOf(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? { ...value } : {};
+}
+
+/** Todas as issues da validação são `too_small` no texto da vaga? */
+function onlyShortJobText(validation: unknown): boolean {
+  if (!Array.isArray(validation) || validation.length === 0) return false;
+  return validation.every((issue: unknown) => {
+    const fields = fieldsOf(issue);
+    return fields["keyword"] === "too_small" && fields["instancePath"] === JOB_TEXT_PATH;
+  });
 }
 
 /** Qualquer valor pode ser lançado: lê só os campos que importam, sem confiar no tipo. */
-function inspectThrown(thrown: unknown): { statusCode: number; isValidation: boolean } {
-  const fields: Record<string, unknown> = typeof thrown === "object" && thrown !== null ? { ...thrown } : {};
+function inspectThrown(thrown: unknown): { statusCode: number; isValidation: boolean; isShortText: boolean } {
+  const fields = fieldsOf(thrown);
   const status = fields["statusCode"];
   return {
     statusCode: typeof status === "number" && Number.isInteger(status) ? status : 500,
     isValidation: fields["validation"] !== undefined,
+    isShortText: onlyShortJobText(fields["validation"]),
   };
 }
 
@@ -117,7 +141,9 @@ export function buildApp(options: BuildAppOptions) {
   app.setErrorHandler((error, request, reply) => {
     const e = inspectThrown(error);
     const code =
-      e.isValidation
+      e.isShortText
+        ? "TEXTO_CURTO_DEMAIS"
+        : e.isValidation
         ? "PAYLOAD_INVALIDO"
         : e.statusCode === 413
           ? "PAYLOAD_GRANDE_DEMAIS"
@@ -135,5 +161,6 @@ export function buildApp(options: BuildAppOptions) {
   });
 
   void app.register(healthRoutes);
+  if (options.analysis !== undefined) void app.register(analyzeRoutes, options.analysis);
   return app;
 }

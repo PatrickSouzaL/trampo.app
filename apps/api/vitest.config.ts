@@ -74,6 +74,10 @@ export default defineConfig({
         "src/presentation/edge/daily-quota.ts",
         "src/presentation/edge/client-address.ts",
         "src/presentation/api-error.ts",
+        // POST /v1/analyze e o escritor SSE (F1-API-04 parte 2, ADR-017 D6 e D7), com o buildApp que a registra.
+        "src/presentation/routes/analyze.ts",
+        "src/presentation/streaming/**/*.ts",
+        "src/presentation/build-app.ts",
       ],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

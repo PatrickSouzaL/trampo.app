@@ -30,6 +30,9 @@ export const LOG_MESSAGES = [
   "autenticacao_indisponivel",
   "limite_indisponivel",
   "cota_indisponivel",
+  // POST /v1/analyze (ADR-017 D5 e D6): leitura corrompida do JobFactsCache e banco de critérios fora do ar.
+  "cache_corrompido",
+  "criterios_indisponiveis",
   "encerrando",
   "mensagem_fora_do_catalogo",
   "linha_de_log_descartada",
@@ -58,6 +61,7 @@ export const LOG_ERROR_TYPES = [
   "RouterConfigError",
   "ProviderChainConfigError",
   "DependencyContractError",
+  "SseEventContractError",
 ] as const;
 
 export const UNKNOWN_ROUTE = "rota_desconhecida";
