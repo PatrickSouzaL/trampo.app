@@ -22,6 +22,27 @@ export type {
   SignalStrength,
   StackMentionSignal,
 } from "./ports/deterministic-signals.js";
+export type { InvisibleClassCounts } from "./normalization/invisible-characters.js";
+export {
+  DeterministicPreFilter,
+  PRE_FILTER_VERSION,
+  type PreFilterInput,
+} from "./prefilter/deterministic-pre-filter.js";
+export {
+  DEFAULT_PRE_FILTER_ROUTER_POLICY,
+  PRE_FILTER_ROUTER_VERSION,
+  PreFilterRouter,
+  hasMustCriterion,
+  type AnalysisMode,
+  type DeterministicAssessment,
+  type PreFilterDecision,
+  type PreFilterRoute,
+  type PreFilterRouterDeps,
+  type PreFilterRouterPolicy,
+  type PreFilterRoutingInput,
+  type PreFilterRule,
+} from "./prefilter/pre-filter-router.js";
+export { DICTIONARY_TERMS, TECH_DICTIONARY_VERSION } from "./prefilter/tech-dictionary.js";
 export {
   JOB_TEXT_NORMALIZER_VERSION,
   JobTextNormalizer,

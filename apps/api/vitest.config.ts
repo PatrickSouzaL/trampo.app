@@ -18,9 +18,15 @@ export default defineConfig({
           // O adapter do JWT (F1-API-02) gera chaves ECDSA e sobe um JWKS em socket real: vai para o grupo da
           // presentation, longe do SR-09.
           // O cliente REST do Upstash (F1-API-03) também usa socket real (servidor simulado lento e travado).
+          // Camada 1 (F1-DOM-04): o roteador roda o motor da nota e as propriedades fazem 1.000 execuções, então vão
+          // para o grupo do motor. O SR-09 do pré-filtro (48 entradas de 64 KiB) roda sozinho no grupo seguinte, sem
+          // disputar CPU com o SR-09 do normalizador e do seletor.
           exclude: [
             "test/domain/scoring-*.test.ts",
             "test/domain/report-*.test.ts",
+            "test/domain/prefilter-router.test.ts",
+            "test/domain/prefilter.properties.test.ts",
+            "test/domain/prefilter-sr09.test.ts",
             "test/infrastructure/jose-*.test.ts",
             "test/infrastructure/upstash-*.test.ts",
           ],
@@ -30,11 +36,15 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "motor", include: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts"], sequence: { groupOrder: 1 }, testTimeout: 30_000 },
+        test: { name: "sr09-camada1", include: ["test/domain/prefilter-sr09.test.ts"], sequence: { groupOrder: 1 } },
       },
       {
         extends: true,
-        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts"], sequence: { groupOrder: 2 } },
+        test: { name: "motor", include: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts", "test/domain/prefilter-router.test.ts", "test/domain/prefilter.properties.test.ts"], sequence: { groupOrder: 2 }, testTimeout: 30_000 },
+      },
+      {
+        extends: true,
+        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts"], sequence: { groupOrder: 3 } },
       },
     ],
     coverage: {
