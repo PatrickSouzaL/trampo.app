@@ -28,15 +28,19 @@ export interface UpstashRestClientConfig {
   readonly token: string;
   /** Só para os testes encurtarem o prazo. */
   readonly timeoutMs?: number;
+  /**
+   * Tetos por instância (ADR-015 D1). O padrão serve aos contadores do rate limit; o JobFactsCache usa uma
+   * instância própria, com strings e respostas maiores.
+   */
+  readonly maxStringReplyChars?: number;
+  readonly maxResponseBytes?: number;
 }
 
-const ResponseSchema = z
-  .array(
-    z.strictObject({
-      result: z.union([z.int(), z.string().max(UPSTASH_CLIENT_POLICY.maxStringReplyChars), z.null()]),
-    }),
-  )
-  .max(UPSTASH_CLIENT_POLICY.maxCommands);
+function responseSchema(maxStringReplyChars: number) {
+  return z
+    .array(z.strictObject({ result: z.union([z.int(), z.string().max(maxStringReplyChars), z.null()]) }))
+    .max(UPSTASH_CLIENT_POLICY.maxCommands);
+}
 
 /** Lê o corpo contando bytes; `null` acima do teto. Sair do for-await cancela o resto do stream. */
 async function readCapped(body: ReadableStream<Uint8Array>, maxBytes: number): Promise<string | null> {
@@ -54,6 +58,8 @@ export function createUpstashRestClient(config: UpstashRestClientConfig): RedisT
   const endpoint = new URL("/multi-exec", config.url);
   const headers = { authorization: `Bearer ${config.token}`, "content-type": "application/json" };
   const timeoutMs = config.timeoutMs ?? UPSTASH_CLIENT_POLICY.timeoutMs;
+  const maxResponseBytes = config.maxResponseBytes ?? UPSTASH_CLIENT_POLICY.maxResponseBytes;
+  const ResponseSchema = responseSchema(config.maxStringReplyChars ?? UPSTASH_CLIENT_POLICY.maxStringReplyChars);
 
   return {
     async exec(commands, signal) {
@@ -71,7 +77,7 @@ export function createUpstashRestClient(config: UpstashRestClientConfig): RedisT
           await response.body?.cancel();
           return null;
         }
-        const text = await readCapped(response.body, UPSTASH_CLIENT_POLICY.maxResponseBytes);
+        const text = await readCapped(response.body, maxResponseBytes);
         if (text === null) return null;
         const parsed = ResponseSchema.safeParse(JSON.parse(text));
         if (!parsed.success || parsed.data.length !== commands.length) return null;

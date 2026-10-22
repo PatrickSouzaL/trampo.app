@@ -56,6 +56,21 @@ export class RedisStore {
         else this.values.delete(key);
         return { result: name === "SADD" ? (had ? 0 : 1) : had ? 1 : 0 };
       }
+      case "SET": {
+        // Só a forma que o cache usa: SET key value NX EX ttl.
+        const [, , value, nx, ex, ttl] = command.map(String);
+        if (nx !== "NX" || ex !== "EX" || value === undefined || !/^[1-9]\d*$/.test(String(ttl))) return { error: "ERR syntax error" };
+        if (current !== undefined) return { result: null };
+        this.values.set(key, value);
+        this.ttlMs.set(key, Number(ttl) * 1_000);
+        return { result: "OK" };
+      }
+      case "DEL": {
+        const existed = current !== undefined;
+        this.values.delete(key);
+        this.ttlMs.delete(key);
+        return { result: existed ? 1 : 0 };
+      }
       case "SCARD": {
         const set = asSet();
         return set === null ? wrongType : { result: set.size };

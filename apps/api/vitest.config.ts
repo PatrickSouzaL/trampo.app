@@ -51,6 +51,8 @@ export default defineConfig({
         "src/infrastructure/auth/**/*.ts",
         "src/presentation/edge/auth*.ts",
         // Rate limit, cota e QuotaLedger (F1-API-03, ADR-014): cliente REST, adapters, relógio e hooks.
+        // JobFactsCache (F1-CACHE-01, ADR-015): o adapter em Redis.
+        "src/infrastructure/cache/**/*.ts",
         "src/infrastructure/redis/**/*.ts",
         "src/infrastructure/limits/**/*.ts",
         "src/infrastructure/time/**/*.ts",

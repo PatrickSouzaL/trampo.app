@@ -1,5 +1,5 @@
 // Guardas em volta das portas de rate limit e de cota (ADR-014 D1). O hook da presentation só fala com eles.
-// Cada guarda confere a entrada, dá um prazo à porta (corrida com o Clock, como o router do ADR-009 D4) e
+// Cada guarda confere a entrada, dá um prazo à porta (withDeadline, como o router do ADR-009 D4) e
 // confere a forma da resposta. Exceção, rejeição, demora ou resposta fora do contrato viram `indisponivel`:
 // nunca liberam (SR-06, T39). Nunca rejeitam.
 import { z } from "zod";
@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Clock } from "../ports/clock.js";
 import type { DailyQuota, DailyQuotaDecision } from "../ports/daily-quota.js";
 import type { RateLimitClass, RateLimitDecision, RateLimiter, RateLimitSubject } from "../ports/rate-limiter.js";
+import { withDeadline } from "../shared/with-deadline.js";
 import { LIMIT_GUARD_POLICY } from "./limit-policy.js";
 
 const RETRY_AFTER_SECONDS = z.int().min(1).max(86_400);
@@ -32,30 +33,24 @@ const DailyQuotaInputSchema = z.strictObject({ userId: z.uuid(), requestId: z.uu
 
 const UNAVAILABLE = { ok: false, reason: "indisponivel" } as const;
 
-/** Corre a operação contra o prazo. O vencedor decide; o perdedor é abortado e a rejeição tardia, absorvida. */
-async function guarded<T>(
+/** Prazo na porta e forma conferida na resposta: o que sair do contrato vira `fallback`. */
+function guarded<T>(
   clock: Clock,
   timeoutMs: number,
   operation: (signal: AbortSignal) => Promise<unknown>,
   schema: z.ZodType<T>,
   fallback: T,
 ): Promise<T> {
-  const controller = new AbortController();
-  const result = Promise.resolve()
-    .then(() => operation(controller.signal))
-    .then(
-      (value) => {
+  return withDeadline(
+    clock,
+    timeoutMs,
+    (signal) =>
+      operation(signal).then((value) => {
         const parsed = schema.safeParse(value);
         return parsed.success ? parsed.data : fallback;
-      },
-      () => fallback,
-    );
-  const timer = clock.sleep(timeoutMs, controller.signal).then(() => fallback);
-  try {
-    return await Promise.race([result, timer]);
-  } finally {
-    controller.abort();
-  }
+      }),
+    fallback,
+  );
 }
 
 export class RateLimitGuard {

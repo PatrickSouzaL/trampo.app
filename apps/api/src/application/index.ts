@@ -1,6 +1,23 @@
 // Casos de uso e portas (ADR-001 §7): AnalyzeJob, UpdateCriteria, DeleteAccount, RecordFeedback;
 // portas JobFactsExtractor, JobFactsCache, CriteriaRepository, RateLimiter, DailyQuota, QuotaLedger, Clock,
 // IdGenerator, Telemetry. Importa só domain, zod e @trampo/contracts (ADR-008 D1).
+export {
+  CACHE_KEY_PREFIX,
+  CACHE_POLICY,
+  CacheConfigError,
+  extractorVersionTag,
+  type ExtractorVersionParts,
+} from "./cache/cache-policy.js";
+export {
+  JobFactsCache,
+  type AcceptedModel,
+  type CacheLookup,
+  type CacheMissReason,
+  type CacheStoreOutcome,
+  type CacheWriteCandidate,
+  type CacheWriteRefusal,
+  type JobFactsCacheDeps,
+} from "./cache/job-facts-cache.js";
 export { DailyQuotaGuard, RateLimitGuard } from "./limits/limit-guards.js";
 export {
   DAILY_QUOTA_POLICY,
@@ -13,6 +30,7 @@ export {
   resolveRateLimitClass,
   type ProviderLimits,
 } from "./limits/limit-policy.js";
+export { withDeadline } from "./shared/with-deadline.js";
 export {
   isEpochMs,
   quotaDay,
@@ -29,6 +47,7 @@ export {
   LLM_OUTPUT_GUARD_VERSION,
   LLM_OUTPUT_MAX_BYTES,
   LlmOutputGuard,
+  parseJsonWithoutPrototypeKeys,
   type LlmOutputGuardResult,
   type LlmOutputRejection,
   type LlmOutputSanitization,
@@ -78,6 +97,7 @@ export type {
 export type { CircuitPhase, ProviderState, ProviderStateStore } from "./ports/provider-state-store.js";
 export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
 export type { DailyQuota, DailyQuotaDecision } from "./ports/daily-quota.js";
+export type { CacheStoreRead, CacheStoreWrite, JobFactsCacheStore } from "./ports/job-facts-cache-store.js";
 export type { Random } from "./ports/random.js";
 export type { RateLimitClass, RateLimitDecision, RateLimiter, RateLimitSubject } from "./ports/rate-limiter.js";
 export {
