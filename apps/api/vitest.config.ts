@@ -17,7 +17,13 @@ export default defineConfig({
           // CPU com o SR-09 do seletor, que mede 200 ms de relógio de parede.
           // O adapter do JWT (F1-API-02) gera chaves ECDSA e sobe um JWKS em socket real: vai para o grupo da
           // presentation, longe do SR-09.
-          exclude: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts", "test/infrastructure/jose-*.test.ts"],
+          // O cliente REST do Upstash (F1-API-03) também usa socket real (servidor simulado lento e travado).
+          exclude: [
+            "test/domain/scoring-*.test.ts",
+            "test/domain/report-*.test.ts",
+            "test/infrastructure/jose-*.test.ts",
+            "test/infrastructure/upstash-*.test.ts",
+          ],
           sequence: { groupOrder: 0 },
           testTimeout: 30_000,
         },
@@ -28,7 +34,7 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts"], sequence: { groupOrder: 2 } },
+        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts"], sequence: { groupOrder: 2 } },
       },
     ],
     coverage: {
@@ -44,6 +50,14 @@ export default defineConfig({
         // Autenticação (F1-API-02, ADR-013): o adapter jose, o hook e a validação do ambiente.
         "src/infrastructure/auth/**/*.ts",
         "src/presentation/edge/auth*.ts",
+        // Rate limit, cota e QuotaLedger (F1-API-03, ADR-014): cliente REST, adapters, relógio e hooks.
+        "src/infrastructure/redis/**/*.ts",
+        "src/infrastructure/limits/**/*.ts",
+        "src/infrastructure/time/**/*.ts",
+        "src/presentation/edge/rate-limit.ts",
+        "src/presentation/edge/daily-quota.ts",
+        "src/presentation/edge/client-address.ts",
+        "src/presentation/api-error.ts",
       ],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

@@ -1,6 +1,28 @@
 // Casos de uso e portas (ADR-001 §7): AnalyzeJob, UpdateCriteria, DeleteAccount, RecordFeedback;
-// portas JobFactsExtractor, JobFactsCache, CriteriaRepository, RateLimiter, QuotaGuard, Clock,
+// portas JobFactsExtractor, JobFactsCache, CriteriaRepository, RateLimiter, DailyQuota, QuotaLedger, Clock,
 // IdGenerator, Telemetry. Importa só domain, zod e @trampo/contracts (ADR-008 D1).
+export { DailyQuotaGuard, RateLimitGuard } from "./limits/limit-guards.js";
+export {
+  DAILY_QUOTA_POLICY,
+  LEDGER_POLICY,
+  LIMIT_GUARD_POLICY,
+  RATE_LIMIT_POLICY,
+  STRICTEST_RATE_LIMIT_CLASS,
+  effectiveLimit,
+  providerLimits,
+  resolveRateLimitClass,
+  type ProviderLimits,
+} from "./limits/limit-policy.js";
+export {
+  isEpochMs,
+  quotaDay,
+  slidingWindowCount,
+  utcDayAndMinute,
+  windowPosition,
+  windowRetryAfterSeconds,
+  type QuotaDay,
+  type WindowPosition,
+} from "./limits/windows.js";
 export {
   ARRAY_MAX_ITEMS,
   FREE_TEXT_MAX_CHARS,
@@ -55,7 +77,9 @@ export type {
 } from "./ports/job-facts-extractor.js";
 export type { CircuitPhase, ProviderState, ProviderStateStore } from "./ports/provider-state-store.js";
 export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
+export type { DailyQuota, DailyQuotaDecision } from "./ports/daily-quota.js";
 export type { Random } from "./ports/random.js";
+export type { RateLimitClass, RateLimitDecision, RateLimiter, RateLimitSubject } from "./ports/rate-limiter.js";
 export {
   LlmExtractionEventSchema,
   TELEMETRY_LATENCY_MAX_MS,

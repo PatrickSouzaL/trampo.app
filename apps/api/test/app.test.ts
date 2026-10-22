@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { buildApp } from "../src/presentation/build-app.js";
 import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
+import { openLimits } from "./limit-fakes.js";
 
 /** Token aceito pelo verificador falso: estes testes tratam de erro, não de autenticação. */
 const AUTH_HEADERS = { authorization: TEST_AUTHORIZATION };
@@ -18,7 +19,7 @@ afterEach(async () => {
 
 /** App de teste com rotas extras que forçam cada tipo de falha. */
 function appWithProbes() {
-  app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
+  app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
   app.get("/probe/explode", async () => {
     throw new Error("segredo interno: postgres://user:senha@db/trampo");
   });
@@ -39,7 +40,7 @@ function expectApiError(body: string, code: string): z.infer<typeof ApiErrorSche
 
 describe("GET /health", () => {
   test("responde 200 { status: 'ok' } em JSON", async () => {
-    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
+    app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
     const res = await app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toMatch(/^application\/json/);

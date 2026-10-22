@@ -1,26 +1,44 @@
 // Monta a instância Fastify (camada presentation; ADR-001 §7) com a borda E0 da F1-API-01
 // (ADR-007): só o parser JSON, bodyLimit antes do parse, timeouts explícitos, trustProxy fechado e
-// CORS com origens exatas, e a autenticação por JWT da F1-API-02 (ADR-013). O rate limit (F1-API-03) entra no
-// onRequest, depois do JWT.
+// CORS com origens exatas, a autenticação por JWT da F1-API-02 (ADR-013) e o rate limit da F1-API-03 (ADR-014),
+// no onRequest depois do JWT. A cota diária é um preHandler que a rota de análise (F1-API-04) usa.
 import { randomUUID } from "node:crypto";
 
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "@fastify/type-provider-zod";
 import { HTTP_BODY_MAX_BYTES } from "@trampo/contracts/limits";
 import Fastify from "fastify";
 
+import type { DailyQuotaGuard, RateLimitGuard } from "../application/limits/limit-guards.js";
 import type { AccessTokenVerifier } from "../application/ports/access-token-verifier.js";
 import { apiError } from "./api-error.js";
 import { createAuthHook } from "./edge/auth.js";
 import { edgeClientErrorHandler } from "./edge/client-error.js";
 import { createCorsHook } from "./edge/cors.js";
+import { createDailyQuotaPreHandler } from "./edge/daily-quota.js";
 import { mediaTypeHook } from "./edge/media-type.js";
+import { createRateLimitHook } from "./edge/rate-limit.js";
 import { EDGE_TIMEOUTS, type EdgeTimeouts } from "./edge/timeouts.js";
 import { createLoggerOptions, type LoggerConfig } from "./logging/log-policy.js";
 import { healthRoutes } from "./routes/health.js";
 
+declare module "fastify" {
+  interface FastifyInstance {
+    /** Cota diária idempotente por requestId (ADR-014 D5): o preHandler da rota de análise. */
+    dailyQuotaPreHandler: ReturnType<typeof createDailyQuotaPreHandler>;
+  }
+}
+
+/** Guardas de limite criados uma vez no boot (ADR-014 D8). Obrigatórios: não há padrão que libere tudo. */
+export interface EdgeLimits {
+  readonly rateLimit: RateLimitGuard;
+  readonly dailyQuota: DailyQuotaGuard;
+}
+
 export interface BuildAppOptions {
   /** Verificação do access token (ADR-013 D1). Obrigatório: não há padrão que aceite tudo. */
   readonly accessTokenVerifier: AccessTokenVerifier;
+  /** Rate limit e cota diária (ADR-014 D1). */
+  readonly limits: EdgeLimits;
   /**
    * `false` desliga o log. Senão, vale a lista fechada do ADR-010, que não é configurável: só o nível e o
    * destino mudam (os testes do SR-12 capturam as linhas pelo `stream`).
@@ -81,6 +99,9 @@ export function buildApp(options: BuildAppOptions) {
   // JWT antes de ler o corpo: sem token, 401 sem parse (ADR-013 D2).
   app.decorateRequest("principal", null);
   app.addHook("onRequest", createAuthHook(options.accessTokenVerifier));
+  // Rate limit só depois de um JWT válido: sem token, nenhum comando do Redis é gasto (ADR-014 D4).
+  app.addHook("onRequest", createRateLimitHook(options.limits.rateLimit));
+  app.decorate("dailyQuotaPreHandler", createDailyQuotaPreHandler(options.limits.dailyQuota));
 
   // Validação de entrada E de saída com Zod: a resposta também é conferida contra o schema.
   app.setValidatorCompiler(validatorCompiler);

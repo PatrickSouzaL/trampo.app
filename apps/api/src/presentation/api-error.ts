@@ -41,13 +41,17 @@ export function apiError(
   };
 }
 
-/** Responde um ApiError a partir de um hook. Devolve o reply para o hook async encerrar o ciclo. */
+/**
+ * Responde um ApiError a partir de um hook. Devolve o reply para o hook async encerrar o ciclo. Com
+ * `retryAfterSeconds`, o mesmo valor vai no corpo e no cabeçalho `Retry-After` (429 do ADR-014 D9).
+ */
 export function sendApiError(
   reply: FastifyReply,
   requestId: string,
   code: ApiErrorCode,
-  options: { status?: number } = {},
+  options: { status?: number; retryAfterSeconds?: number } = {},
 ): FastifyReply {
   const { status, body } = apiError(code, requestId, options);
+  if (body.retryAfterSeconds !== null) void reply.header("retry-after", String(body.retryAfterSeconds));
   return reply.code(status).send(body);
 }

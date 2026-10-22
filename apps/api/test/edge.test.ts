@@ -10,6 +10,7 @@ import { z } from "zod";
 import { buildApp, type BuildAppOptions } from "../src/presentation/build-app.js";
 import { EDGE_TIMEOUTS } from "../src/presentation/edge/timeouts.js";
 import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
+import { openLimits } from "./limit-fakes.js";
 
 const EXTENSION = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
 const PORTAL = "https://portal.trampo.example";
@@ -26,7 +27,7 @@ afterEach(async () => {
  */
 function probeApp(options: Partial<BuildAppOptions> = {}) {
   const counts = { parser: 0, handler: 0 };
-  const instance = buildApp({ logger: false, accessTokenVerifier: acceptAll, corsAllowedOrigins: [EXTENSION, PORTAL], ...options });
+  const instance = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll, corsAllowedOrigins: [EXTENSION, PORTAL], ...options });
   const defaultJson = instance.getDefaultJsonParser("error", "error");
   instance.removeContentTypeParser("application/json");
   instance.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
@@ -192,7 +193,7 @@ describe("SR-07: tipo de mídia e Content-Encoding dão 415 antes de ler o corpo
 
   test("só o parser JSON está registrado", () => {
     const { app } = probeApp();
-    expect(buildApp({ logger: false, accessTokenVerifier: acceptAll }).hasContentTypeParser("text/plain")).toBe(false);
+    expect(buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll }).hasContentTypeParser("text/plain")).toBe(false);
     expect(app.hasContentTypeParser("application/json")).toBe(true);
   });
 });
@@ -227,7 +228,7 @@ describe("CORS com origens exatas", () => {
   });
 
   test("lista vazia (padrão) nega toda origem de navegador", async () => {
-    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
+    app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
     const res = await app.inject({ method: "GET", url: "/health", headers: { origin: EXTENSION } });
     expect(res.statusCode).toBe(403);
   });
@@ -309,7 +310,7 @@ describe("proto poisoning recusado no parse", () => {
     ["constructor.prototype", '{"constructor":{"prototype":{"admin":true}},"n":1}'],
   ])("%s: 400 PAYLOAD_INVALIDO e o handler não roda", async (_label, payload) => {
     let handled = 0;
-    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
+    app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
     app.post("/probe/poison", async () => {
       handled += 1;
       return { ok: true };
@@ -352,7 +353,7 @@ describe("trustProxy", () => {
 
 describe("padrões de produção travados", () => {
   test("bodyLimit, poisoning e prazos do servidor (trustProxy: ver o describe acima)", async () => {
-    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
+    app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
     await app.ready();
     expect(app.initialConfig.bodyLimit).toBe(HTTP_BODY_MAX_BYTES);
     expect(app.initialConfig.onProtoPoisoning).toBe("error");

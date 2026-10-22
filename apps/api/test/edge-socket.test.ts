@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { buildApp } from "../src/presentation/build-app.js";
 import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
+import { openLimits } from "./limit-fakes.js";
 import type { EdgeTimeouts } from "../src/presentation/edge/timeouts.js";
 
 let app: ReturnType<typeof buildApp> | undefined;
@@ -27,7 +28,7 @@ const FAST: Partial<EdgeTimeouts> = {
 
 async function listen(timeouts: Partial<EdgeTimeouts> = FAST) {
   const counts = { handler: 0 };
-  const instance = buildApp({ logger: false, accessTokenVerifier: acceptAll, timeouts });
+  const instance = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll, timeouts });
   instance.post("/probe/eco", { schema: { body: z.strictObject({ texto: z.string() }) } }, async () => {
     counts.handler += 1;
     return { ok: true };

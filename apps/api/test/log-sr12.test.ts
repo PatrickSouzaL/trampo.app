@@ -8,6 +8,7 @@ import { z } from "zod";
 import { buildApp } from "../src/presentation/build-app.js";
 import { LOG_ALLOWLIST } from "../src/presentation/logging/log-policy.js";
 import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
+import { openLimits } from "./limit-fakes.js";
 
 const CANARY = {
   jobText: "canario-vaga-Desenvolvedora-Senior-Remota-a1",
@@ -32,7 +33,7 @@ afterEach(async () => {
 
 function captureApp() {
   const lines: string[] = [];
-  app = buildApp({ accessTokenVerifier: acceptAll, logger: { level: "trace", stream: { write: (line) => void lines.push(line) } } });
+  app = buildApp({ limits: openLimits, accessTokenVerifier: acceptAll, logger: { level: "trace", stream: { write: (line) => void lines.push(line) } } });
   const body = z.strictObject({ jobText: z.string(), criteria: z.strictObject({ salaryFloor: z.string() }) });
 
   app.post("/probe/analise", { schema: { body } }, async () => ({ ok: true }));
@@ -147,7 +148,7 @@ describe("SR-12: o log nunca contém vaga, critérios, token, cookie, query, cab
   });
 
   test("logger: false desliga o log", async () => {
-    app = buildApp({ logger: false, accessTokenVerifier: acceptAll });
+    app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
     // Sem pino: o Fastify usa o logger nulo (abstract-logging), que não tem nível nem destino.
     expect(app.log.level).toBeUndefined();
   });

@@ -12,6 +12,7 @@ import { createJoseAccessTokenVerifier } from "../src/infrastructure/auth/jose-a
 import { buildApp, type BuildAppOptions } from "../src/presentation/build-app.js";
 import { ACCESS_TOKEN_MAX_CHARS, PUBLIC_ROUTES, bearerToken } from "../src/presentation/edge/auth.js";
 import { TEST_PRINCIPAL, TEST_TOKEN, fakeVerifier } from "./auth-fakes.js";
+import { openLimits } from "./limit-fakes.js";
 import { signToken, signingKey, startJwksServer, supabaseClaims, type JwksServer, type SigningKey } from "./infrastructure/jwks-fixture.js";
 
 const EXTENSION = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
@@ -25,7 +26,7 @@ afterEach(async () => {
 /** App com uma rota protegida que devolve o principal e contadores de parser e handler. */
 function authApp(verifier: AccessTokenVerifier, options: Partial<BuildAppOptions> = {}) {
   const counts = { parser: 0, handler: 0 };
-  const instance = buildApp({ logger: false, accessTokenVerifier: verifier, corsAllowedOrigins: [EXTENSION], ...options });
+  const instance = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: verifier, corsAllowedOrigins: [EXTENSION], ...options });
   const defaultJson = instance.getDefaultJsonParser("error", "error");
   instance.removeContentTypeParser("application/json");
   instance.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
@@ -230,7 +231,7 @@ describe("SR-12: nenhum token, claim ou motivo no log", () => {
       { ok: false, reason: "token_invalido" },
       { ok: false, reason: "chaves_indisponiveis" },
     ] as const) {
-      app = buildApp({ accessTokenVerifier: fakeVerifier(result).verifier, logger: { level: "trace", stream: { write: (l) => void lines.push(l) } } });
+      app = buildApp({ limits: openLimits, accessTokenVerifier: fakeVerifier(result).verifier, logger: { level: "trace", stream: { write: (l) => void lines.push(l) } } });
       app.get("/probe/eu", async () => ({ ok: true }));
       await app.inject({ method: "GET", url: "/probe/eu", headers: { authorization: `Bearer ${token}` } });
       await app.close();

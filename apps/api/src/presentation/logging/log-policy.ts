@@ -28,6 +28,8 @@ export const LOG_MESSAGES = [
   "servidor_ouvindo",
   "erro_interno",
   "autenticacao_indisponivel",
+  "limite_indisponivel",
+  "cota_indisponivel",
   "encerrando",
   "mensagem_fora_do_catalogo",
   "linha_de_log_descartada",

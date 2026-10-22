@@ -28,16 +28,21 @@ export function bearerToken(header: string | undefined): string | null {
   return BEARER.exec(header)?.[1] ?? null;
 }
 
-function unauthenticated(request: FastifyRequest, reply: FastifyReply): FastifyReply {
+/** 401 com `WWW-Authenticate: Bearer` (ADR-013 D5). */
+export function unauthenticated(request: FastifyRequest, reply: FastifyReply): FastifyReply {
   void reply.header("www-authenticate", "Bearer");
   return sendApiError(reply, request.id, "NAO_AUTENTICADO");
+}
+
+/** Rota da lista pública? routeOptions.url é o padrão registrado; rota inexistente não tem e exige token. */
+export function isPublicRoute(request: FastifyRequest): boolean {
+  return PUBLIC_ROUTES.has(`${request.method} ${request.routeOptions.url ?? ""}`);
 }
 
 export function createAuthHook(verifier: AccessTokenVerifier) {
   return async function authHook(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | undefined> {
     request.principal = null;
-    // routeOptions.url é o padrão da rota registrada; rota inexistente não tem e cai na exigência de token.
-    if (PUBLIC_ROUTES.has(`${request.method} ${request.routeOptions.url ?? ""}`)) return undefined;
+    if (isPublicRoute(request)) return undefined;
 
     const token = bearerToken(request.headers.authorization);
     if (token === null) return unauthenticated(request, reply);
