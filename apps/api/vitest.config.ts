@@ -21,6 +21,7 @@ export default defineConfig({
           // Camada 1 (F1-DOM-04): o roteador roda o motor da nota e as propriedades fazem 1.000 execuções, então vão
           // para o grupo do motor. O SR-09 do pré-filtro (48 entradas de 64 KiB) roda sozinho no grupo seguinte, sem
           // disputar CPU com o SR-09 do normalizador e do seletor.
+          // PostgREST simulado em socket real (F1-DB-01 parte 2), como o Upstash: grupo da presentation.
           // AnalyzeJob (F1-API-04): o funil inteiro com o motor real e propriedades de 1.000 execuções, no grupo do motor.
           exclude: [
             "test/domain/scoring-*.test.ts",
@@ -31,6 +32,7 @@ export default defineConfig({
             "test/application/analyze-job*.test.ts",
             "test/infrastructure/jose-*.test.ts",
             "test/infrastructure/upstash-*.test.ts",
+            "test/infrastructure/postgrest-*.test.ts",
           ],
           sequence: { groupOrder: 0 },
           testTimeout: 30_000,
@@ -46,7 +48,7 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts"], sequence: { groupOrder: 3 } },
+        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts", "test/infrastructure/postgrest-*.test.ts"], sequence: { groupOrder: 3 } },
       },
     ],
     coverage: {
@@ -70,6 +72,12 @@ export default defineConfig({
         "src/infrastructure/redis/**/*.ts",
         "src/infrastructure/limits/**/*.ts",
         "src/infrastructure/time/**/*.ts",
+        // Cliente REST de usuário do PostgREST e o CriteriaRepository do Supabase (F1-DB-01 parte 2, ADR-018 D5).
+        "src/infrastructure/supabase/**/*.ts",
+        "src/infrastructure/persistence/**/*.ts",
+        // Raiz de composição do main.ts e o Random do router (F1-API-04b).
+        "src/composition/**/*.ts",
+        "src/infrastructure/random/**/*.ts",
         "src/presentation/edge/rate-limit.ts",
         "src/presentation/edge/daily-quota.ts",
         "src/presentation/edge/client-address.ts",
