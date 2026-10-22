@@ -1,0 +1,55 @@
+Memed
+
+Product Manager Pleno
+Remoto (Qualquer lugar)
+Efetivo (CLT)
+
+Sobre a empresa
+A Memed é uma healthtech que conecta médicos, parceiros e pacientes por meio de soluções de prescrição digital. Sua plataforma é embarcada nos produtos dos parceiros, levando uma experiência de prescrição eficiente para o médico e integrações simples, confiáveis e escaláveis.
+
+Sobre a vaga
+Como Product Manager Pleno, você terá a missão de garantir a evolução e a escala do B2B da Memed, conectando uma experiência de prescrição eficiente para o médico a integrações simples, confiáveis e escaláveis para os parceiros. Você atuará na interface entre produto, engenharia e parceiros, com forte componente técnico.
+
+Responsabilidades
+- Experiência do médico no B2B: conduzir discovery com médicos e equipes clínicas dos parceiros, mapear fricções do fluxo de prescrição embarcado e priorizar melhorias que aumentem adoção e eficiência.
+- Produto de integração: evoluir a camada técnica que conecta a Memed aos parceiros (APIs, SDK, arquitetura embed, autenticação, webhooks, multi-tenant) e, eventualmente, aos parceiros dos parceiros (terceirizados). Escrever PRDs e especificações técnicas junto com a Tech Lead e decidir trade-offs de arquitetura com base em impacto de produto.
+- Implantação de parceiros: padronizar o onboarding técnico (checklist, ambientes, documentação pública, critérios de aceite), reduzindo tempo de implantação e retrabalho entre Comercial, CS e Engenharia.
+- Qualidade e observabilidade: definir métricas de saúde da integração (erros, latência, adoção por parceiro) e garantir monitoramento que detecte problemas de forma ativa e preventiva.
+- Interface técnica com parceiros: participar de reuniões com times de TI e produto dos parceiros para dar suporte aos times Comercial e de Implantação no convencimento e adoção da plataforma, traduzir necessidades em requisitos e defender decisões técnicas da Memed com clareza.
+- Gestão do backlog e rituais: priorizar, refinar e acompanhar a entrega do squad, mantendo documentação viva no Notion e Jira.
+- Coordenação cross-times: alinhar dependências com Comercial, CS/Pós-Vendas, Jurídico/Regulatório e Dados, e comunicar lançamentos de forma que o CS consiga orientar o parceiro.
+
+Requisitos
+- Experiência de 4 anos ou mais como Product Manager, com passagem relevante por produtos técnicos: plataforma, API, integrações ou infraestrutura de produto.
+- Fluência técnica mínima: ler documentação de API, entender lógicas de APIs, endpoints e webhooks, autenticação (OAuth, JWT, tokens), iframe/embed, ambientes de homologação e produção, e analisar logs/Inspect. Não é preciso programar, mas é necessário ter interlocução com os engenheiros.
+- Experiência em B2B ou B2B2C com múltiplos stakeholders externos, incluindo times de TI de clientes.
+- Escrita clara de PRDs, specs e documentação técnica para públicos interno e externo.
+- Uso de dados no dia a dia: leitura e navegação em dashboards e definição de métricas de produto.
+- Discovery com usuário final e com cliente técnico, e capacidade de conciliar os dois quando divergem.
+- Comunicação segura com interlocutores técnicos e executivos de parceiros.
+- Colaboração com stakeholders internos para alto alinhamento sobre as mudanças no produto.
+
+Diferenciais
+- Experiência em healthtech ou com interoperabilidade em saúde (HL7 FHIR, TISS/TUSS, prontuários eletrônicos, HIS, telemedicina).
+- Já ter conduzido implantação de integrações com clientes enterprise, do kick-off técnico ao go-live.
+- Formação ou experiência prévia em engenharia, análise de sistemas ou integração.
+- Familiaridade com Jira, Notion, Postman, Datadog ou Grafana, Metabase e Databricks.
+- Noções do contexto regulatório de saúde no Brasil (CFM, ANVISA, LGPD).
+
+Competências comportamentais
+- Visão sistêmica.
+- Priorização.
+- Comunicação.
+
+Benefícios
+- Plano de saúde e odontológico Amil;
+- VR/VA de R$ 40,00 por dia útil no cartão Flash;
+- Memed Cuida: R$ 110/mês de uso livre;
+- Auxílio creche;
+- Day off no aniversário;
+- Seguro de vida;
+- Wellhub e TotalPass;
+- Acesso a cursos, graduação, pós-graduações e mentorias pela Único Skill;
+- Duas sessões cobertas de psicoterapia via Zenklub;
+- Plano de Carreira e Performance Contínuo;
+- Omni Medicamentos: saldo mensal de R$ 200,00 para compra de medicamentos com receituário.

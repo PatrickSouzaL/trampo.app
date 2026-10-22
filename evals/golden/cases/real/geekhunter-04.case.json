@@ -1,0 +1,59 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "geekhunter-04",
+  "source": "geekhunter",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "com_salario",
+    "remoto"
+  ],
+  "traps": [
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Business Analyst (Agile Coach) | Especialista",
+    "seniorityLevels": [
+      "especialista"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": null,
+    "salary": {
+      "min": 11000,
+      "max": 15000,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "title": [
+      "Business Analyst (Agile Coach)"
+    ]
+  },
+  "injection": null,
+  "notes": "\"PJ\" aparece só como produto de crédito (Crédito PJ, Cheque Especial PJ), não como contrato; o contrato é CLT. Scrum, Kanban e Lean são metodologias: stack vazia. Remoto \"qualquer lugar\": location null."
+}

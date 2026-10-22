@@ -1,0 +1,56 @@
+# Banco Rendimento | Analista de Sistemas Sênior - (Core Bancário e Cartões)
+
+- **Empresa:** Banco Rendimento
+- **Título da vaga:** Analista de Sistemas Sênior - (Core Bancário e Cartões)
+- **Localidade:** São Paulo, SP, Brasil
+- **Regime de atuação:** Híbrido
+- **Tipo de vínculo:** Não informado
+
+---
+
+### Sobre a vaga
+Atuação na sustentação técnica, evolução funcional e integração de plataformas críticas de Cartões e Core Bancário, assegurando alta disponibilidade, conformidade com órgãos reguladores do Sistema Financeiro Nacional e comunicação técnica com processadoras, bandeiras e câmaras de liquidação.
+
+### Responsabilidades e atribuições
+- Garantir a alta disponibilidade, estabilidade e resiliência dos sistemas de Cartões e Core Bancário em produção.
+- Analisar, diagnosticar e mitigar incidentes de alta complexidade em módulos operacionais críticos.
+- Mapear fluxos operacionais e desenhar soluções técnicas para customizações e novos produtos exigidos pelas áreas de negócio.
+- Acompanhar e homologar integrações técnicas com processadoras, redes de bandeiras, Núclea/SLC e demais participantes do arranjo de pagamentos.
+- Executar planos de teste, homologação de releases e validação de pacotes de correção antes da implantação produtiva.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Graduação completa em Análise e Desenvolvimento de Sistemas, Ciência da Computação, Sistemas de Informação ou áreas afins.
+- Experiência sólida no segmento financeiro/bancário em ecossistemas de meios de pagamento, processamento de cartões e Core Bancário.
+- Domínio de banco de dados relacional Microsoft SQL Server.
+- Experiência com arquitetura orientada a eventos/mensageria e padrões de integração via microsserviços e APIs (REST e SOAP).
+- Conhecimento em plataformas de Core Bancário do mercado (Sinqia, Autbank, CRK ou Change).
+- Perfil analítico, boa comunicação interpessoal e desenvoltura no trabalho com equipes multidisciplinares.
+
+**Desejáveis / Diferenciais:**
+- Experiência com ferramentas de monitorabilidade e APM (Dynatrace).
+- Vivência prática em API Management / gateways de API (Sensedia).
+- Conhecimento da solução R2C3 voltada ao ecossistema de registradoras de recebíveis.
+
+### Benefícios
+- Vale-Refeição
+- Vale-Alimentação
+- Vale-Transporte
+- Assistência Médica
+- Assistência Odontológica
+- Apoio Psicológico / Programa Mental Health
+- Seguro de Vida
+- Participação nos Lucros e Resultados (PLR)
+- TotalPass
+- Universidade Rendimento (educação corporativa)
+- Auxílio Creche / Babá
+- Programa Mommy Care
+- Desconto em Medicamentos
+- Petlove
+- Programa de Benefícios e Fidelidade
+- Programa de Recrutamento Interno
+
+### Modelo e local de trabalho
+- **Regime:** Híbrido.
+- **Base territorial:** São Paulo, SP, Brasil.

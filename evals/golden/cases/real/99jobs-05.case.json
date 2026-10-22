@@ -1,0 +1,51 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "99jobs-05",
+  "source": "99jobs",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "presencial",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista Júnior de Inteligência Artificial e Automação",
+    "seniorityLevels": [
+      "junior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Rio de Janeiro",
+      "stateUf": "RJ",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Texto bruto termina truncado no meio das responsabilidades (mantido assim). Nenhuma tecnologia nomeada: no-code/low-code, scripts e IA generativa são conceitos genéricos. Vínculo \"Não informado\": []."
+}

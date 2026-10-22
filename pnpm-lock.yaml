@@ -51,6 +51,9 @@ catalogs:
     fastify:
       specifier: 5.12.7
       version: 5.12.7
+    jose:
+      specifier: 6.2.12
+      version: 6.2.12
     next:
       specifier: 16.4.2
       version: 16.4.2
@@ -115,6 +118,9 @@ importers:
       fastify:
         specifier: 'catalog:'
         version: 5.12.7
+      jose:
+        specifier: 'catalog:'
+        version: 6.2.12
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -232,6 +238,37 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+
+  evals:
+    dependencies:
+      '@trampo/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@trampo/config':
+        specifier: workspace:*
+        version: link:../packages/config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.4(@types/node@24.19.2)(jiti@2.7.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(vite@8.3.4(@types/node@24.19.2)(jiti@2.7.0))
 
   packages/config:
     dependencies:
@@ -2230,6 +2267,9 @@ packages:
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
+
+  jose@6.2.12:
+    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
@@ -5324,6 +5364,8 @@ snapshots:
       set-function-name: 2.0.2
 
   jiti@2.7.0: {}
+
+  jose@6.2.12: {}
 
   js-tokens@10.0.0: {}
 

@@ -1,0 +1,67 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "gupy-17",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "presencial",
+    "red_flag"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Consultor(a) de Vendas Hunter - São Paulo",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_alimentacao",
+      "vale_refeicao",
+      "plano_saude",
+      "plano_odontologico",
+      "bem_estar_academia",
+      "plr_bonus",
+      "participacao_societaria",
+      "outro",
+      "auxilio_creche",
+      "seguro_vida",
+      "previdencia_privada",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": [
+      "pressao_excessiva"
+    ]
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Fora de TI (vendas). Metas arrojadas, garra, acompanhamento diário de metas e flexibilidade de horário: pressao_excessiva (limítrofe; era lacuna até o ADR-002 §8.1). Reembolso de idiomas é benefício, não requisito de idioma. Programa de Ações -> participacao_societaria."
+}

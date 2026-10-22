@@ -1,0 +1,61 @@
+MIGNOW
+
+Tech Lead - Especialista de Infraestrutura & Cloud SAP
+Remoto
+Pessoa jurídica
+
+Descrição da vaga
+Somos os #únicos do mundo com maior número de conversões realizadas e com um produto diferenciado capaz de facilitar a conversão do ECC para o S/4 HANA! 🚀
+
+Nosso time está crescendo, vem ser MigStar e crescer junto com a gente!
+
+Estamos procuramos uma pessoa para o nosso time deInfraestructure & Cloud
+
+Gostamos de pessoas autênticas e que tenham visões diferentes das nossas, pois é assim que conseguimos pensar maior, fazer mais e com isso ajudar, inspirar e transformar nossos clientes.
+
+Responsabilidades e atribuições
+💜 Aqui você vai:
+
+Participação de projetos de conversão SAP ECC para SAP S/4HANA; 
+Gerenciar as VPNs com clientes no Brasil e no exterior (site-to-site IPsec e acesso remoto), com segmentação e isolamento entre clientes.
+Definir, aplicar e auditar regras de firewall, políticas de acesso e hardening de servidores.
+Provisionar e administrar máquinas e redes na Azure, na AWS e em outras hyperscalers, como VNet/VPC, NSG/Security Groups, balanceadores e DNS.
+Dar suporte de infraestrutura aos ambientes SAP: sizing, SAProuter, SAP Cloud Connector, conectividade com BTP/RISE e integração com o time Basis.
+Automatizar a infraestrutura com IaC (Terraform, Bicep ou CloudFormation) e scripts (PowerShell, Bash, Python).
+Manter backup, disaster recovery, monitoramento e resposta a incidentes.
+Gerenciar identidade e acessos: Entra ID/AD, IAM, MFA e o princípio do menor privilégio.
+Apoiar a manutenção da certificação ISO 27001: controles, evidências, gestão de riscos e auditorias. Garantir a aderência à LGPD e à GDPR.
+Otimizar custos de nuvem (FinOps) e documentar a arquitetura e os procedimentos.
+
+Requisitos e qualificações
+✅ Requisitos Obrigatórios:
+
+Conhecimento em infra...
+Inglês e/ou espanhol avançado a fluente.
+Conhecimento sólida em infraestrutura, nuvem pública (Azure e AWS).
+Experiência sólida com VPN, firewalls (FortiGate, Palo Alto, Check Point ou similares) e redes (TCP/IP, roteamento, NAT, VLAN).
+Vivência com ambientes SAP em nuvem.
+Experiência com controles de segurança e auditorias de ISO 27001.
+
+📚 Requisitos que gostaríamos que você tivesse:
+
+Experiência com projetos de conversão SAP S/4HANA;
+Obrigatória: AWS Certified Solutions Architect (Associate ou Professional).
+Obrigatória: Microsoft Azure Administrator (AZ-104).
+Desejável: AWS Security Specialty, Azure Security Engineer (AZ-500) e Azure Solutions Architect (AZ-305).
+Desejável: ISO/IEC 27001 Lead Implementer ou Lead Auditor.
+Desejável: certificações de fabricantes de firewall (NSE, PCNSE) e CCNA/CCNP.
+Conhecimento de GCP ou OCI.
+Experiência com SAP HANA, RISE with SAP ou migrações para S/4HANA.
+Experiência com SIEM/XDR (Sentinel, GuardDuty, Defender) e PAM.
+
+Informações adicionais
+📌 Sobre a vaga:
+
+Contratação por tempo indeterminado
+Modelo {preencher com a informação de Remoto, Presencial ou Híbrido}
+12 dias de descanso remunerado a cada 12 meses.
+
+Curtiu o desafio? Inscreva-se agora!!! 🚀
+
+#WeAreMignow #WeRock

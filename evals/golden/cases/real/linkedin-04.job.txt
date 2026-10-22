@@ -1,0 +1,50 @@
+Hotmart
+
+Analista de Infraestrutura Pleno 
+Belo Horizonte, Minas Gerais, Brasil
+Híbrido
+Tempo integral
+
+Sobre a vaga
+
+COMO SEU TRABALHO PODE TRANSFORMAR O MUNDO! 
+
+Missão da área: 
+Somos responsáveis por garantir que o ambiente de tecnologia corporativa seja seguro, estável e eficiente, proporcionando uma experiência fluida para os Troopers. Atuamos na gestão de dispositivos, identidades, acessos, produtividade e infraestrutura, buscando cada vez mais automação, segurança e escalabilidade.
+Aqui suas responsabilidades serão:
+Atuar na gestão, automação e sustentação do nosso ecossistema de Endpoints, Identidades e Produtividade Corporativa. Essa pessoa terá um papel bastante hands-on, atuando diretamente na gestão de dispositivos Windows e macOS, identidades e acessos, automação de rotinas e sustentação dos ambientes corporativos.
+Qualificações que você precisa ter:
+- Experiência com plataformas de gerenciamento de dispositivos UEM/MDM/MAM, como Workspace ONE, Microsoft Intune ou Jamf;
+- Experiência com gerenciamento do ecossistema Apple por meio do Apple Business Manager / DEP;
+- Experiência com automação e scripting utilizando PowerShell e Shell Script;
+- Vivência com Entra ID, Okta (SSO, MFA e Acesso Condicional) e conhecimentos em Active Directory On-Premises;
+- Conhecimento em administração de ambientes Windows Server;
+- Conhecimento em redes e protocolos como DNS, DHCP, TCP/IP e VPN, para atuação em troubleshooting;
+- Experiência com administração e suporte de Microsoft 365 e Google Workspace.
+Habilidades que são diferenciais:
+- Conhecimento em consumo e automação por meio de APIs REST; 
+- Experiência com ambientes Zero Trust e soluções de segurança/proxy, como Zscaler;
+- Conhecimento em ferramentas de observabilidade, como Grafana e Zabbix;
+- Certificações relacionadas à área, como Microsoft MD-102, SC-300, Okta Admin ou Workspace ONE;
+- Inglês avançado para leitura técnica, documentação e comunicação.
+ 
+POR QUE TRANSFORMAR AO NOSSO LADO?
+- Plano de saúde e odontológico com cobertura nacional, sem custo para o colaborador e com coparticipação para cônjuge e dependentes; 
+- Vale refeição/alimentação (Flash - bandeira Visa); 
+- Benefício flexível (Flash Multibenefícios - bandeira Visa), podendo ser destinado à alimentação, refeição, mobilidade (aplicativos de transporte, combustível, transporte público em SP), cultura, saúde e educação;
+- Previdência privada; 
+- Vale transporte;
+- Seguro de vida;
+- Wellhub;
+- Auxílio creche para filhos de até cinco anos;
+- Budget de educação: valor destinado aos investimentos relacionados à sua educação, de forma a contribuir para desenvolver e potencializar suas competências;
+- Incentivo ao aprendizado de idiomas por meio de plataforma online;
+- Baby On Board: benefício oferecido para as pessoas que estão se preparando para a maternidade e paternidade; 
+- Licença maternidade estendida (180 dias);
+- Licença Paternidade estendida (30 dias);
+- Conexa Saúde: acesso online gratuito a profissionais da área da saúde - Nutricionista e Psicólogo;
+- Participação anual nos lucros e resultados da companhia (PLR);
+- Hotmart Recharge: bônus de 30% do salário bruto mensal, pago após cumprir o período aquisitivo de férias de 30 dias.
+ 
+VEM PRA HOTMART
+Fazer parte do nosso time é ter a certeza de que seu trabalho transforma vidas em escala global. Vem para a Hotmart e faça parte dessa transformação!

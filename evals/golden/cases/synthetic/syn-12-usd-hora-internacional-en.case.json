@@ -1,0 +1,88 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "syn-12-usd-hora-internacional-en",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "ambigua",
+  "language": "en",
+  "tags": [
+    "com_salario",
+    "moeda_estrangeira",
+    "internacional",
+    "salario_hora",
+    "ingles",
+    "remoto"
+  ],
+  "traps": [
+    "texto_em_ingles"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Senior Backend Engineer (Node.js)",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": 5,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": null,
+      "stateUf": null,
+      "countryIso2": "US"
+    },
+    "salary": {
+      "min": 35,
+      "max": 45,
+      "currency": "USD",
+      "period": "hora"
+    },
+    "contractTypes": [],
+    "stackRequired": [
+      "Node.js",
+      "TypeScript",
+      "PostgreSQL",
+      "AWS",
+      "Amazon ECS",
+      "Amazon RDS",
+      "Amazon SQS",
+      "Docker"
+    ],
+    "stackNiceToHave": [
+      "Kubernetes",
+      "GraphQL"
+    ],
+    "benefits": [
+      "horario_flexivel",
+      "auxilio_educacao",
+      "auxilio_home_office"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "fluente",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "contractTypes": [
+      [
+        "pj"
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "Vaga em inglês, empresa nos EUA, USD 35 a 45 por hora: testa a tabela de câmbio (USD 5,5) e hora x 220. \"Independent contractor\" não é CLT nem PJ no enum: [] com pj como alternativa. Inglês fluente exigido. Serviços AWS nomeados (ECS, RDS, SQS) entram na stack."
+}

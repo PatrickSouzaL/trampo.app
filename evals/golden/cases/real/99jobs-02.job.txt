@@ -1,0 +1,24 @@
+
+# GLPI | Desenvolvedor .NET Angular
+
+- **Empresa:** GLPI
+- **Título da vaga:** Desenvolvedor .NET Angular
+- **Localidade:** São Paulo, SP, Brasil
+- **Regime de atuação:** Híbrido
+- **Tipo de vínculo:** Não informado
+
+---
+
+### Sobre a vaga
+Atuação no desenvolvimento Full Stack com foco em integração de soluções corporativas e Inteligência Artificial Generativa, trabalhando próximo às áreas de negócio para mapear processos jurídicos/corporativos e convertê-los em automações com arquitetura em nuvem e modelos de linguagem.
+
+### Responsabilidades e atribuições
+- Atuar junto às áreas de negócio na identificação de oportunidades de automação com Inteligência Artificial.
+- Conduzir e participar de levantamentos de requisitos com advogados, gestores e usuários finais.
+- Traduzir regras de negócio complexas em soluções técnicas escaláveis.
+- Desenvolver e manter aplicações Full Stack utilizando ecossistema .NET e Angular.
+- Projetar e implementar APIs RESTful.
+- Desenvolver integrações entre sistemas legados/internos e serviços em nuvem.
+- Desenvolver soluções baseadas em IA Generativa utilizando Amazon Bedrock e modelos LLM na AWS.
+- Participar da definição arquitetural, sustentação de sistemas críticos e evolução contínua da base de código.
+- Produ

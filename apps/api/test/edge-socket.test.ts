@@ -7,6 +7,8 @@ import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { buildApp } from "../src/presentation/build-app.js";
+import { TEST_AUTHORIZATION, acceptAll } from "./auth-fakes.js";
+import { openLimits } from "./limit-fakes.js";
 import type { EdgeTimeouts } from "../src/presentation/edge/timeouts.js";
 
 let app: ReturnType<typeof buildApp> | undefined;
@@ -26,7 +28,7 @@ const FAST: Partial<EdgeTimeouts> = {
 
 async function listen(timeouts: Partial<EdgeTimeouts> = FAST) {
   const counts = { handler: 0 };
-  const instance = buildApp({ logger: false, timeouts });
+  const instance = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll, timeouts });
   instance.post("/probe/eco", { schema: { body: z.strictObject({ texto: z.string() }) } }, async () => {
     counts.handler += 1;
     return { ok: true };
@@ -90,7 +92,7 @@ function expectApiError(body: string, code: string) {
   return parsed;
 }
 
-const head = (lines: readonly string[]) => `${["POST /probe/eco HTTP/1.1", "Host: 127.0.0.1", ...lines].join("\r\n")}\r\n\r\n`;
+const head = (lines: readonly string[]) => `${["POST /probe/eco HTTP/1.1", "Host: 127.0.0.1", `Authorization: ${TEST_AUTHORIZATION}`, ...lines].join("\r\n")}\r\n\r\n`;
 
 describe("413 antes de ler o corpo (socket real)", () => {
   test("Content-Length acima do limite: 413 só com os headers, sem enviar um byte do corpo", async () => {

@@ -1,0 +1,62 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-03",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "remoto"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Tecnologia da Informação Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Insider"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackRequired": [
+      []
+    ],
+    "location": [
+      {
+        "city": null,
+        "stateUf": null,
+        "countryIso2": "BR"
+      }
+    ]
+  },
+  "injection": null,
+  "notes": "100% remoto, mas o texto prende a vaga a BH e cidades vizinhas: localização BH. \"Contrato: Home Office\" não é tipo de contrato: []. Insider é a plataforma nomeada nas atividades; CDP e canais (SMS, Push) são conceitos. Salário só na entrevista."
+}

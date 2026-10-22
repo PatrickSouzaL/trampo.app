@@ -1,0 +1,53 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-19",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenheiro Civil Pleno - Industrial",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": null,
+      "stateUf": null,
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Microsoft Office"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Banco de talentos, presencial com localização só \"Brasil\". Sem anos mínimos. CNH e CREA não são tecnologia. Nenhum red flag declarado."
+}

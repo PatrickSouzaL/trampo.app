@@ -1,0 +1,57 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "99jobs-02",
+  "source": "99jobs",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "hibrido",
+    "curta"
+  ],
+  "traps": [
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor .NET Angular",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      ".NET",
+      "Angular",
+      "REST",
+      "Amazon Bedrock",
+      "AWS"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Texto coletado truncado nas responsabilidades. \"GLPI\" é o nome da empresa, também nome de ferramenta ITSM: não é stack. Sem nível, contrato ou salário no corpo."
+}

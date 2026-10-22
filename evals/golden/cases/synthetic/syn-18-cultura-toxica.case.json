@@ -1,0 +1,70 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "syn-18-cultura-toxica",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "red_flag",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Suporte, Atendimento e Vendas Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": 2,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Goiânia",
+      "stateUf": "GO",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Excel",
+      "Zendesk",
+      "Salesforce"
+    ],
+    "stackNiceToHave": [
+      "SQL"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "bem_estar_academia",
+      "plr_bonus"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": [
+      "multiplas_funcoes",
+      "sobreaviso_nao_remunerado",
+      "teste_tecnico_longo",
+      "pressao_excessiva"
+    ]
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Fixture da atenuação do D-S8: múltiplas funções (cultura, atenuável), sobreaviso sem pagamento e teste de 5 dias (nunca atenuados) e pressao_excessiva (cultura); seis benefícios fartos. Sem salário: salario_omitido fica para o código."
+}

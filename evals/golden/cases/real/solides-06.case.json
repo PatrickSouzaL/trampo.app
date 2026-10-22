@@ -1,0 +1,111 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "solides-06",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [
+    "beneficio_com_valor",
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Infraestrutura",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Curitiba",
+      "stateUf": "PR",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Linux",
+      "Windows Server",
+      "Zabbix",
+      "VMware",
+      "AWS"
+    ],
+    "stackNiceToHave": [
+      "Sophos",
+      "Wazuh"
+    ],
+    "benefits": [
+      "vale_alimentacao",
+      "vale_refeicao",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "bem_estar_academia",
+      "folga_aniversario",
+      "auxilio_educacao",
+      "participacao_societaria"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackRequired": [
+      [
+        "Linux",
+        "Windows Server",
+        "Zabbix",
+        "VMware",
+        "AWS",
+        "Sophos",
+        "Wazuh"
+      ]
+    ],
+    "stackNiceToHave": [
+      []
+    ],
+    "benefits": [
+      [
+        "vale_alimentacao",
+        "vale_refeicao",
+        "plano_saude",
+        "plano_odontologico",
+        "seguro_vida",
+        "bem_estar_academia",
+        "folga_aniversario",
+        "auxilio_educacao",
+        "participacao_societaria",
+        "outro"
+      ],
+      [
+        "vale_alimentacao",
+        "plano_saude",
+        "plano_odontologico",
+        "seguro_vida",
+        "bem_estar_academia",
+        "folga_aniversario",
+        "auxilio_educacao",
+        "participacao_societaria"
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "Nível não escrito no corpo (cabeçalho diz Pleno): []. VA com valor é benefício, não salário; cartão de uso livre = VR+VA (só VA em alternatives). Sophos e Wazuh em responsabilidades e diferenciais: desejável, exigida em alternatives. TCP/IP é fundamento de redes, fora da stack. Inglês só como auxílio. Plano de carreira: outro em alternatives. \"IA\" é conceito."
+}

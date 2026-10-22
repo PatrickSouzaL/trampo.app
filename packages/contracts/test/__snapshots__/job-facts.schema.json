@@ -171,7 +171,8 @@
                   "enum": [
                     "BRL",
                     "USD",
-                    "EUR"
+                    "EUR",
+                    "ARS"
                   ]
                 },
                 {
@@ -315,7 +316,7 @@
     },
     "redFlagSignals": {
       "minItems": 0,
-      "maxItems": 6,
+      "maxItems": 7,
       "type": "array",
       "items": {
         "type": "string",
@@ -325,7 +326,8 @@
           "sobreaviso_nao_remunerado",
           "teste_tecnico_longo",
           "multiplas_funcoes",
-          "linguagem_vaga"
+          "linguagem_vaga",
+          "pressao_excessiva"
         ]
       }
     },

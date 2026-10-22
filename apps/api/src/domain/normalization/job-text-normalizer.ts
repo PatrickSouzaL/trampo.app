@@ -10,7 +10,7 @@ import {
 } from "../text/code-points.js";
 import { neutralizeDelimiters } from "./delimiters.js";
 import { iterateToFixedPoint } from "./fixed-point.js";
-import { removeInvisibleCharacters } from "./invisible-characters.js";
+import { removeInvisibleCharacters, type InvisibleClassCounts } from "./invisible-characters.js";
 import { maskSensitiveData, type MaskCounts } from "./sensitive-data-masks.js";
 import { canonicalizeLineBreaks, collapseWhitespace } from "./whitespace.js";
 
@@ -29,6 +29,8 @@ export const SUSPICIOUS_NFKC_EXPANSION_RATIO = 1.5;
 /** Sinais para a Camada 1 (InjectionHeuristics, F1-DOM-04). Nunca vão para o LLM. */
 export interface JobTextSignals {
   readonly removedInvisibleCount: number;
+  /** Os mesmos removidos, por classe e sem os legítimos de emoji (ADR-016 D8). */
+  readonly removedInvisibleByClass: InvisibleClassCounts;
   /** Code points depois do NFKC sobre code points antes, na primeira passada (0 para texto vazio). */
   readonly nfkcExpansionRatio: number;
   readonly suspiciousNfkcExpansion: boolean;
@@ -63,6 +65,7 @@ interface PassStats {
   readonly inputCodePoints: number;
   readonly nfkcCodePoints: number;
   readonly removedInvisible: number;
+  readonly invisibleClasses: InvisibleClassCounts;
   readonly truncated: boolean;
   readonly masked: MaskCounts;
   readonly neutralized: number;
@@ -104,6 +107,12 @@ export class JobTextNormalizer {
       text: result.value,
       signals: {
         removedInvisibleCount: sum((s) => s.removedInvisible),
+        removedInvisibleByClass: {
+          tags: sum((s) => s.invisibleClasses.tags),
+          zeroWidth: sum((s) => s.invisibleClasses.zeroWidth),
+          bidi: sum((s) => s.invisibleClasses.bidi),
+          variationSelectors: sum((s) => s.invisibleClasses.variationSelectors),
+        },
         nfkcExpansionRatio,
         suspiciousNfkcExpansion: nfkcExpansionRatio > SUSPICIOUS_NFKC_EXPANSION_RATIO,
         truncatedAfterNfkc: history.some((s) => s.truncated),
@@ -136,6 +145,7 @@ export class JobTextNormalizer {
         inputCodePoints: countCodePoints(value),
         nfkcCodePoints: countCodePoints(nfkc),
         removedInvisible: visible.removed,
+        invisibleClasses: visible.classes,
         truncated: cut !== visible.text,
         masked: masked.counts,
         neutralized: neutralized.count,

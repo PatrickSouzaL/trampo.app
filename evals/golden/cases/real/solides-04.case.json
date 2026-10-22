@@ -1,0 +1,74 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "solides-04",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "com_salario",
+    "presencial",
+    "conflito"
+  ],
+  "traps": [
+    "conflito_senioridade"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista Administrativo de Tecnologia",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Manaus",
+      "stateUf": "AM",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 3500,
+      "max": 3500,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Microsoft 365",
+      "Active Directory",
+      "Microsoft Office",
+      "Excel"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "outro",
+      "vale_alimentacao",
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "title": [
+      "Analista Administrativo de Tecnologia (Analista de TI)"
+    ]
+  },
+  "injection": null,
+  "notes": "Nenhum nível declarado: [] (conflito implícito entre \"Analista\" com salário de entrada e exigências de \"experiência sólida\" e \"nível avançado\", que não são nível). Salário listado entre os benefícios, mas é salário. MDM é conceito. Telemedicina, farmácia, VT etc. = outro."
+}

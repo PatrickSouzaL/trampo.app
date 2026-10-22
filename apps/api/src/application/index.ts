@@ -1,12 +1,63 @@
 // Casos de uso e portas (ADR-001 §7): AnalyzeJob, UpdateCriteria, DeleteAccount, RecordFeedback;
-// portas JobFactsExtractor, JobFactsCache, CriteriaRepository, RateLimiter, QuotaGuard, Clock,
+// portas JobFactsExtractor, JobFactsCache, CriteriaRepository, RateLimiter, DailyQuota, QuotaLedger, Clock,
 // IdGenerator, Telemetry. Importa só domain, zod e @trampo/contracts (ADR-008 D1).
+export {
+  ANALYZE_JOB_VERSION,
+  AnalyzeJob,
+  AnalyzeJobConfigError,
+  type AnalysisAlert,
+  type AnalysisStage,
+  type AnalyzeJobDeps,
+  type AnalyzeJobInput,
+  type FactsExtraction,
+} from "./analysis/analyze-job.js";
+export {
+  CACHE_KEY_PREFIX,
+  CACHE_POLICY,
+  CacheConfigError,
+  extractorVersionTag,
+  type ExtractorVersionParts,
+} from "./cache/cache-policy.js";
+export {
+  JobFactsCache,
+  type AcceptedModel,
+  type CacheLookup,
+  type CacheMissReason,
+  type CacheStoreOutcome,
+  type CacheWriteCandidate,
+  type CacheWriteRefusal,
+  type JobFactsCacheDeps,
+} from "./cache/job-facts-cache.js";
+export { DailyQuotaGuard, RateLimitGuard } from "./limits/limit-guards.js";
+export {
+  DAILY_QUOTA_POLICY,
+  LEDGER_POLICY,
+  LIMIT_GUARD_POLICY,
+  RATE_LIMIT_POLICY,
+  STRICTEST_RATE_LIMIT_CLASS,
+  effectiveLimit,
+  providerLimits,
+  resolveRateLimitClass,
+  type ProviderLimits,
+} from "./limits/limit-policy.js";
+export { withDeadline } from "./shared/with-deadline.js";
+export {
+  isEpochMs,
+  quotaDay,
+  slidingWindowCount,
+  utcDayAndMinute,
+  windowPosition,
+  windowRetryAfterSeconds,
+  type QuotaDay,
+  type WindowPosition,
+} from "./limits/windows.js";
 export {
   ARRAY_MAX_ITEMS,
   FREE_TEXT_MAX_CHARS,
   LLM_OUTPUT_GUARD_VERSION,
   LLM_OUTPUT_MAX_BYTES,
   LlmOutputGuard,
+  parseJsonWithoutPrototypeKeys,
   type LlmOutputGuardResult,
   type LlmOutputRejection,
   type LlmOutputSanitization,
@@ -39,6 +90,12 @@ export {
   parseLlmProviderChain,
   type ProviderChainOptions,
 } from "./llm/provider-chain.js";
+export type {
+  AccessTokenRejection,
+  AccessTokenVerification,
+  AccessTokenVerifier,
+  Principal,
+} from "./ports/access-token-verifier.js";
 export { deadlineAfter, type Clock, type Deadline } from "./ports/clock.js";
 export type {
   AttemptControl,
@@ -49,12 +106,22 @@ export type {
 } from "./ports/job-facts-extractor.js";
 export type { CircuitPhase, ProviderState, ProviderStateStore } from "./ports/provider-state-store.js";
 export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
+export type { DailyQuota, DailyQuotaDecision } from "./ports/daily-quota.js";
+export type { CacheStoreRead, CacheStoreWrite, JobFactsCacheStore } from "./ports/job-facts-cache-store.js";
 export type { Random } from "./ports/random.js";
+export { CRITERIA_GUARD_POLICY, CriteriaGuard } from "./criteria/criteria-guard.js";
+export type { CriteriaLookup, CriteriaRepository, CriteriaSubject } from "./ports/criteria-repository.js";
+export type { IdGenerator } from "./ports/id-generator.js";
+export type { RateLimitClass, RateLimitDecision, RateLimiter, RateLimitSubject } from "./ports/rate-limiter.js";
 export {
+  AnalysisCacheStatusSchema,
+  AnalysisEventSchema,
   LlmExtractionEventSchema,
   TELEMETRY_LATENCY_MAX_MS,
   TELEMETRY_STEPS_MAX,
   TelemetryEventSchema,
+  type AnalysisCacheStatus,
+  type AnalysisEvent,
   type LlmExtractionEvent,
   type Telemetry,
   type TelemetryEvent,
@@ -63,6 +130,7 @@ export {
   METRIC_CATALOG,
   llmExtractionEvent,
   telemetryMetricSamples,
+  telemetryMs,
   type ExtractionTelemetryContext,
   type MetricName,
   type MetricSample,

@@ -1,0 +1,29 @@
+{
+  "name": "@trampo/evals",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Golden dataset (golden-dataset-spec gd1): schema do caso e validação de todos os casos versionados. Nunca lê evals/golden/raw.",
+  "type": "module",
+  "exports": {
+    "./case-schema": { "types": "./src/case-schema.ts", "default": "./src/case-schema.ts" }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint",
+    "test": "vitest run --coverage",
+    "spike:s4": "vitest run --config spikes/s4-layer1/vitest.config.ts"
+  },
+  "dependencies": {
+    "@trampo/contracts": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@trampo/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

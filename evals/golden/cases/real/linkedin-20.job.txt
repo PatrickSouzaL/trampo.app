@@ -1,0 +1,50 @@
+Inter
+
+BI AND DATA QUALITY ANALYST I | CORPORATE RECORDS MG
+Belo Horizonte, Minas Gerais, Brasil
+Presencial
+Tempo integral
+
+Sobre a vaga
+Conheça o Inter
+Pioneiros, mudamos o mercado ao lançar o primeiro banco digital do Brasil e seguimos criando tendências com tecnologia de ponta. Evoluímos para um Super App Financeiro Global, com soluções completas e inovação de primeira. Aqui, o trabalho tem propósito: construir oportunidades reais, transformar a vida das pessoas e o mercado financeiro. Esse é o nosso Jeito Inter de Fazer. Se você quer fazer parte dessa mudança e deixar um legado, seu lugar é aqui. Vem ser Sangue Laranja.
+
+Sobre a vaga e missão do cargo:
+Você fará parte do time de Know Your Customer e atuará na construção de processos de conciliação de dados e no desenvolvimento de painéis de controle para monitorar a qualidade dos processos de manutenção cadastral de clientes do Banco Inter, Inter DTVM e Inter Pag. É uma oportunidade para crescer em ambiente regulado, com impacto direto na redução de inconsistências, na melhoria de SLAs e na experiência do cliente.
+
+No seu dia a dia, você vai:
+- Estruturar e executar rotinas de conciliação entre sistemas e bases cadastrais do grupo.
+- Identificar, documentar e apoiar o tratamento de divergências e inconsistências de cadastro.
+- Desenvolver e manter painéis de monitoramento da qualidade dos processos de manutenção cadastral e indicadores táticos.
+- Consultar e analisar dados com SQL para sustentar controles e reportes.
+- Documentar processos e critérios de conciliação.
+- Colaborar com TI, operações, CX, PLD e produtos na correção de causas raiz de problemas cadastrais.
+- Apoiar a evolução de automações e o uso de ferramentas de IA para ganho de produtividade em análises e rotinas.
+
+O que buscamos
+Obrigatórios:
+- Formação concluída em Administração, Engenharia, Ciência da Computação, ou áreas correlatas.
+- Noções sólidas de SQL para consultas e cruzamentos de dados.
+- Conhecimento em Power BI, Tableau ou outra ferramenta de BI.
+- Perfil analítico, organizado e com atenção a detalhes.
+- Boa comunicação escrita e verbal para reportar achados e trabalhar com áreas parceiras.
+
+Desejáveis:
+- Experiência em conciliação, desenvolvimento de dashboards e qualidade de dados.
+- Noções de mercado financeiro, investimentos ou regulação (BACEN/CVM).
+- Uso de ferramentas de IA (Cursor, Copilot, ChatGPT) para acelerar análises e documentação.
+- Portfólio com projetos acadêmicos/profissionais de análise de dados.
+
+Benefícios:
+- Vale-alimentação e Vale-refeição
+- Plano de saúde e odontológico
+- Seguro de vida
+- DayOff de Aniversário
+- Baby On Board e Sala de Amamentação
+- Licença parental estendida
+- Auxílio-creche/babá e/ou auxílio para filhos com deficiência
+- Wellhub e Grupo de Corrida Inter
+- Espaço CARE4U (Belo Horizonte): serviços de autocuidado com valores exclusivos, área de descompressão, jogos e minicampo de golfe
+- Vantagens no nosso SuperApp, como Duo Gourmet
+- Cartão Prime Inter
+- Programas de treinamento e capacitação internos

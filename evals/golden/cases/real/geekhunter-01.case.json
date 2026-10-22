@@ -1,0 +1,92 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "geekhunter-01",
+  "source": "geekhunter",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "remoto"
+  ],
+  "traps": [
+    "beneficio_com_valor"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Product Manager Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": 4,
+    "workModels": [
+      "remoto"
+    ],
+    "location": null,
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "OAuth",
+      "JWT",
+      "Notion",
+      "Jira"
+    ],
+    "stackNiceToHave": [
+      "HL7 FHIR",
+      "Postman",
+      "Datadog",
+      "Grafana",
+      "Metabase",
+      "Databricks"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "auxilio_creche",
+      "folga_aniversario",
+      "seguro_vida",
+      "bem_estar_academia",
+      "auxilio_educacao",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackRequired": [
+      [
+        "OAuth",
+        "JWT"
+      ]
+    ],
+    "stackNiceToHave": [
+      [
+        "HL7 FHIR",
+        "Jira",
+        "Notion",
+        "Postman",
+        "Datadog",
+        "Grafana",
+        "Metabase",
+        "Databricks"
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "Remoto \"qualquer lugar\" sem cidade: location null. Jira e Notion aparecem nas responsabilidades (exigida) e nos diferenciais; a leitura só desejável fica em alternatives. VR/VA de R$ 40/dia e auxílios em R$ são benefício, não salário. Medicamentos e uso livre viram outro; psicoterapia, bem-estar."
+}

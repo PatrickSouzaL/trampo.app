@@ -1,0 +1,92 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-17",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "hibrido",
+    "ingles"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenheiro(a) Hidrólogo(a) Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": 3,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "HEC-HMS",
+      "HEC-RAS",
+      "ArcGIS",
+      "QGIS"
+    ],
+    "stackNiceToHave": [
+      "Riverflow 2D",
+      "HY-8",
+      "FLOW-3D",
+      "GoldSim"
+    ],
+    "benefits": [],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "intermediario",
+        "required": false
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "location": [
+      {
+        "city": "Belo Horizonte",
+        "stateUf": null,
+        "countryIso2": "BR"
+      },
+      {
+        "city": "Belo Horizonte",
+        "stateUf": null,
+        "countryIso2": null
+      }
+    ],
+    "languageRequirements": [
+      [
+        {
+          "language": "ingles",
+          "level": "avancado",
+          "required": false
+        }
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "Faixa \"3 a 6 anos\" vira 3. Orientar juniores não faz da vaga liderança. Inglês \"intermediário ou avançado\" como diferencial: intermediário (o mínimo), avançado em alternatives. Softwares de engenharia contam como stack."
+}

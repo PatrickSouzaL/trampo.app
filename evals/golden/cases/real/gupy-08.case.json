@@ -1,0 +1,71 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "gupy-08",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "hibrido"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "ANALISTA DE TRANSFORMAÇÃO E DADOS PLENO",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Power BI",
+      "Excel",
+      "Microsoft Office"
+    ],
+    "stackNiceToHave": [
+      "SQL"
+    ],
+    "benefits": [
+      "outro",
+      "bem_estar_academia",
+      "plr_bonus",
+      "plano_saude",
+      "plano_odontologico",
+      "previdencia_privada",
+      "auxilio_home_office",
+      "seguro_vida",
+      "vale_alimentacao",
+      "vale_refeicao",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Título mantido em maiúsculas como escrito. SQL só como diferencial. Pacote Office nas responsabilidades = Microsoft Office exigido. Universidade corporativa = auxilio_educacao."
+}

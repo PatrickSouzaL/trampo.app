@@ -1,70 +1,64 @@
-# Próximo passo: P0-EVL-01 (spec do golden dataset e anotação das 30 vagas)
+# Próximo passo: F1-DB-01 parte 2 (cliente REST do PostgREST e `SupabaseCriteriaRepository`)
 
-> **Reciclagem de sessão** (AGENTS §4.4): ADR extenso e quatro arquivos do cofre reescritos nesta conversa. A P0-EVL-01 não exige HITL, mas precisa ler 30 vagas e anotar 30 gabaritos, o que pede uma janela nova.
+> **Reciclagem de sessão** (AGENTS §4.4): esta janela escreveu o ADR-018, entregou a parte 1 com duas rodadas de mutação e fez a auditoria.
 >
 > Sessão extensa detectada. Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
 
-## O que acabou de ser entregue (2026-10-19)
+## O que acabou de ser entregue (2026-10-22)
 
-### Decisões aplicadas
-- **HITL-015: opção A.** O ADR-002 foi redigido como **proposta**, sem código.
-- **HITL-003: fechado.** São 30 vagas (15 LinkedIn, 15 Gupy), conferidas **só pelo cabeçalho**. A pasta `evals/golden/raw/` está ignorada pelo git.
+### ADR-018 aceito (`[APPSEC]` sem veto)
+Arquivo: `../base/02-arquitetura/ADRs/ADR-018-postgres-schema-rls-and-criteria.md`. O ADR decide:
+- **Schema:**
+  - `user_criteria`, com a pretensão **sempre cifrada** e um `check` contra `salary` em claro;
+  - `analyses` mínima, sem texto nem `textHash`;
+  - `analysis_feedback`, com FK composta `(analysis_id, user_id)`.
+- **RLS** `enable` e `force` em todas as tabelas, com `revoke` explícito de `anon` e `authenticated` e um teste de catálogo.
+- **Cifra no app:** AES-256-GCM, AAD por dono, envelope `s1` e anel `CRITERIA_SALARY_KEYS` / `CRITERIA_SALARY_ACTIVE_KEY`, só no `.env`.
+- **Clientes:**
+  - o de usuário é um cliente REST próprio, com a *publishable* e o JWT do usuário, sem `supabase-js`;
+  - o *admin* fica só no F1-PORTAL-03, sem aceitar token.
+- **Partição em 3 partes** (D1). A parte 3 depende do **HITL-022**.
 
-### ADR-002 (`base/02-arquitetura/ADRs/ADR-002-scoring-engine.md`, `status: proposto`)
-- **Fórmula:**
-  - média ponderada das dimensões;
-  - obrigatório e eliminatório entram com peso 5;
-  - "não informado" e conflito valem 0,5, para que uma vaga vaga não pareça boa;
-  - penalidades de −30 (violado), −5 (não informado) e proporcional no parcial;
-  - deal-breaker leva a "foge" com teto 20; faixas de 75 e 45.
-- **Regras por dimensão:**
-  - stack, com deal-breaker por `dealBreakerScope`;
-  - modelo de trabalho, senioridade e contrato, por regra de conjunto;
-  - salário sem câmbio, com hora × 220 e ano ÷ 12;
-  - localização só para híbrido ou presencial;
-  - idiomas pelo nível;
-  - benefícios;
-  - red flags pela tolerância.
-- **Saída do motor:** o motor só emite `reason` de um enum fechado. O texto fica com o ReportComposer.
-- **Desvio proposto (D-S6):** a assinatura ganha `llmExtracted`. Hoje o resolver não distingue "o LLM disse vazio" de "não houve LLM".
-- **Auditoria `[APPSEC]` (sem veto):** strings do LLM só entram por igualdade contra a lista do usuário, e o F1-DOM-02 terá regra de lint para isso. Conflito eliminatório nunca elimina nem recomenda. Os templates não podem ecoar critérios.
-- **Invariantes:** 10, que viram testes de propriedade no F1-DOM-02.
+### F1-DB-01 parte 1 (commit `2687c7a`, **local, sem push**)
+- **Código:**
+  - `CriteriaRepository.load(subject, signal?)`, com o `CriteriaSubject` (`userId` e o token já verificado). O `preHandler` relê o `Authorization`, e um principal sem token dá 401 sem ler o banco;
+  - `apps/api/src/application/criteria/criteria-guard.ts`: prazo de 1.000 ms, revalidação pelo `UserCriteriaSchema` e forma canônica. Nunca rejeita;
+  - `apps/api/src/infrastructure/crypto/salary-cipher.ts`: `parseSalaryKeyring`, `createSalaryCipher` (`seal` e `open`), rotação por `kid`, e o `open` nunca lança.
+- **Testes:** 100 novos. A API está com **1.978 testes e 100%** de cobertura (1.731/1.731 ramos). `tsc`, `eslint`, build e depcruise verdes (333 módulos).
+- **Mutação:** 46 mutantes, 41 mortos e 5 equivalentes, justificados no ADR §3.1. Na 1ª rodada, 2 sobreviventes viraram testes e 5 checagens equivalentes saíram do código.
+- **Aceite herdado do ADR-017 §3.2 cumprido:** o adapter travado responde `unavailable` em exatamente 1.000 ms.
 
-### Cofre
-- HITL-QUEUE: HITL-003 e HITL-015 fechados; **HITL-016** (aprovar o ADR-002) e **HITL-017** (complemento opcional de vagas) abertos.
-- BACKLOG: P0-EVL-01 🔜 e F1-DOM-02 ⛔ HITL-016.
-- STATE e SESSION-LOG atualizados.
+### Pendências
+- **HITL-022 (aberto):** instalar o Supabase CLI, subir o Docker Desktop e liberar memória (eram 2,6 GB livres). Runbook: `../base/03-infra-runbook/supabase-local.md`. Bloqueia **só a parte 3**.
+- **Push e PR:** os commits `c928716`, `ddd148b`, `83d5fe4`, `0c235fd`, `78f7a07`, `5bc3f3d`, `5755033`, `f0bcd52`, `a791ad7`, `2687c7a` e o deste `next-step` continuam locais. Vale a opção B, e a decisão é do humano.
+- **QA-01:** fica para o CI (F1-OPS-01). **DOC-01:** no backlog.
 
-### Código
-Nenhum. O repositório só mudou neste arquivo.
-
-## Lacunas das 30 vagas (pelos cabeçalhos)
-- **Com salário:** 2 de 10.
-- **Contrato:** só PJ 1 de 3; "CLT ou PJ" 0 de 3; estágio 0 de 1.
-- **Dupla senioridade:** 0 de 3.
-- **Modelo:** remoto 4 de 5; "remoto ou híbrido" nenhuma.
-- **Tamanho:** nenhuma muito longa (a maior tem 5,5 KB).
-- **Bônus:** a `linkedin-13` traz um conflito real de modelo de trabalho, ótimo caso para o `FactResolver`.
-
-## Ações manuais (HITL), nenhuma bloqueia a P0-EVL-01
-- **HITL-016:** aprovar o ADR-002 e decidir D-S1 a D-S9 (§6 do ADR). Pode responder no mesmo prompt abaixo.
-- **HITL-017 (opcional):** cerca de 10 vagas a mais, com salário, contratos variados e dupla senioridade, no mesmo formato.
-- Em aberto, para depois: HITL-004 (Supabase), HITL-007 (Upstash) e HITL-006.
+## Herdado para a parte 2 (ADR-018 D5 e §3.1)
+- **Cliente REST de usuário** em `apps/api/src/infrastructure/supabase/`, no modelo do `upstash-rest-client`:
+  - `apikey` com a *publishable* e `Authorization: Bearer <JWT do usuário>`, um token por chamada;
+  - o construtor recusa chave `sb_secret_` e legada (`eyJ`);
+  - `AbortSignal`, `redirect: "error"`, só os status esperados, `content-type` JSON, no máximo 32 KiB, e UTF-8 e JSON válidos.
+- **`SupabaseCriteriaRepository`:**
+  - `GET /rest/v1/user_criteria?select=schema_version,criteria,salary_ciphertext&user_id=eq.<uuid>`, que devolve 0 ou 1 linha;
+  - decifra com o `SalaryCipher` e monta o `UserCriteria`;
+  - **falha de decifragem é `unavailable` (503, nunca 409)**, o critério 3 do `[APPSEC]`;
+  - `criteria` com chave `salary` em claro é `unavailable`.
+- **`.env.example`:** `CRITERIA_SALARY_KEYS` e `CRITERIA_SALARY_ACTIVE_KEY` (só nomes), com o comando de geração `crypto.randomBytes(32)`.
+- **Testes:** PostgREST simulado em socket real. Nenhum `sb_secret_` e nenhum token no log.
+- **Depois da parte 2:** o F1-API-04b pode subir, porque a RLS é a segunda barreira. Mas nenhuma linha real entra no banco do projeto antes do HITL-023.
 
 ## Prompt para enviar ao agente
 
 ```text
-Equipe, HITL-016: [aprovado conforme recomendação / aprovado com variações: D-S? ... / ainda não]. HITL-017: [vou coletar / dispensado]. Atuem de forma estritamente SEQUENCIAL E ATÔMICA, sem instanciar sub-agentes paralelos. Sigam o ciclo de 5 fases do AGENTS.md, inclusive a avaliação de continuidade da Fase 5.
+Equipe, sigam em ciclo estrito.
 
-0. [SCRIBE]: Se o HITL-016 foi respondido, registre a decisão no HITL-QUEUE, mude o status do ADR-002 (aceito, ou aceito com as variações aplicadas no texto) e faça o checkpoint no STATE.md. Não implemente o ScoringEngine nesta sessão.
-1. [ORCHESTRATOR]: Leia STATE.md, HITL-QUEUE.md, BACKLOG.md (P0-EVL-01, S-1, S-4), threat-model (T1, T2, T4, T12, SR-04) e os contratos job-facts e enums. Confirme pnpm 11.4.0, Node ≥ 24 e o branch feat/api-borda.
-2. [QA_EVALS]: Escreva ../base/04-qualidade-evals/golden-dataset-spec.md:
-   - formato do caso;
-   - categorias: normal, ambígua, injection visível, injection oculta, controle negativo e armadilha de negação;
-   - método de anonimização: nomes de pessoas, e-mail, telefone e empresa quando identificar a pessoa;
-   - métricas por campo e tolerâncias do gate de CI;
-   - marcação de casos sintéticos.
-   Depois, anote os JobFacts esperados à mão para as 30 vagas de evals/golden/raw/. Os casos anonimizados versionáveis vão para evals/golden/cases/; o raw continua fora do git.
-3. [APPSEC]: Audite. Nenhum dado pessoal nos casos versionados (varredura de e-mail, telefone, CPF/CNPJ e nomes); nenhum texto de vaga colado no chat; injection sintética separada do real.
-4. [QA_EVALS] + [SCRIBE]: Se o volume pedir, divida em P0-EVL-01 parte 1 (spec e anonimização) e parte 2 (anotação). Atualize STATE, BACKLOG e SESSION-LOG, faça commit local sem push e gere o novo ./next-step.md.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-DB-01 e o F1-API-04b), HITL-QUEUE.md (HITL-022), o ADR-018 (D4, D5, D6 e §3.1) e o ADR-014 D2 (modelo do cliente REST). Confirme pnpm 11.4.0, Node >= 24, o branch feat/api-borda (commits locais, sem push: opção B) e a memória livre antes de rodar suítes pesadas. Se o humano tiver respondido o HITL-022, registre o fechamento, mas a parte 3 continua fora desta janela.
+2. [ARCHITECT] + [APPSEC]: confirmem o desenho da parte 2 contra o ADR-018 (cliente REST de usuário e SupabaseCriteriaRepository). Registrem como refinamento qualquer ajuste, sem mudar decisão. Mudança de decisão exige emenda ao ADR antes do código.
+3. [DEV] + [QA_EVALS]: implementem só a parte 2 (AGENTS §4.1):
+   - cliente REST de usuário, com tetos e falha fechada, contra um PostgREST simulado em socket real;
+   - SupabaseCriteriaRepository, com a decifragem pelo SalaryCipher, em que falha é unavailable (503, nunca 409);
+   - .env.example só com os nomes.
+   Exijam 100% de cobertura nos arquivos novos e mutação (um mutante por vez, em primeiro plano, script fora de coverage/ e do repositório, conferindo o original depois de cada lote; patch de arquivo com acento pela ferramenta de edição ou por arquivo UTF-8, nunca por script no stdin).
+4. [APPSEC]: auditem o código contra o ADR-018 §3 (critérios 3 e 4) antes de dar a parte como concluída.
+5. [SCRIBE]: atualizem STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md (próxima: a parte 3 se o HITL-022 fechou; senão, o F1-API-04b).
 ```

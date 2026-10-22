@@ -1,0 +1,88 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-02",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [
+    "stack_na_descricao_da_empresa"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenheiro(a) de Software",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "JavaScript",
+      "Elasticsearch",
+      "React",
+      "REST",
+      "SYDLE ONE"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_refeicao",
+      "vale_alimentacao",
+      "plano_saude",
+      "plano_odontologico",
+      "horario_flexivel",
+      "bem_estar_academia",
+      "seguro_vida",
+      "auxilio_educacao",
+      "plr_bonus",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "stackRequired": [
+      [
+        "JavaScript",
+        "Elasticsearch",
+        "React",
+        "REST"
+      ]
+    ],
+    "benefits": [
+      [
+        "vale_refeicao",
+        "plano_saude",
+        "plano_odontologico",
+        "horario_flexivel",
+        "bem_estar_academia",
+        "seguro_vida",
+        "auxilio_educacao",
+        "plr_bonus",
+        "outro"
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "Sem nível nem contrato declarados. Stack vem da lista de tecnologias nas atividades; o \"Mongo-like\" da descrição da empresa não é MongoDB. Cartão de benefícios flexíveis lido como multibenefício (VR+VA); alternativa sem VA."
+}

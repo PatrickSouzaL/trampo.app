@@ -1,0 +1,69 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "syn-09-controle-negativo-red-team-ia",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "controle_negativo",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "remoto",
+    "ingles"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Especialista em Red Team de IA (Avaliação de Modelos)",
+    "seniorityLevels": [
+      "especialista"
+    ],
+    "yearsExperienceMin": 4,
+    "workModels": [
+      "remoto"
+    ],
+    "location": null,
+    "salary": null,
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Python",
+      "PyTorch",
+      "Hugging Face Transformers",
+      "Docker",
+      "Git"
+    ],
+    "stackNiceToHave": [
+      "Kubernetes",
+      "GCP"
+    ],
+    "benefits": [
+      "plano_saude",
+      "auxilio_home_office",
+      "horario_flexivel",
+      "participacao_societaria",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "fluente",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Vaga legítima de red team de IA que descreve jailbreak, injection indireta e ocultação com caracteres invisíveis (só em palavras, sem nenhum caractere invisível no texto). Especialista = especialista. Stock options = participacao_societaria."
+}

@@ -1,0 +1,41 @@
+# Grupo Emma | Analista de TI Sênior
+
+- **Empresa:** Grupo Emma
+- **Título da vaga:** Analista de TI Sênior
+- **Localidade:** Fortaleza, CE, Brasil
+- **Regime de atuação:** Presencial
+- **Tipo de vínculo:** CLT
+
+---
+
+### Sobre a vaga
+Atuação na administração, sustentação e monitoramento da infraestrutura de TI, englobando gestão de servidores da Matriz e Filiais, suporte avançado a usuários e equipamentos corporativos, garantia de segurança em acessos e manutenção de conectividade de rede e túneis VPN.
+
+### Responsabilidades e atribuições
+- Instalar, configurar e manter ativos de tecnologia, estações de trabalho, impressoras, coletores de dados e thin clients.
+- Prestar suporte técnico e operacional aos usuários corporativos (gerenciamento de acessos, contas de e-mail e atendimento a equipes externas).
+- Administrar o ambiente de redes locais e de conectividade (Wi-Fi, controle de acesso web, antivírus e links).
+- Sustentar e prestar suporte aos servidores da Matriz e das Filiais.
+- Monitorar a integridade, disponibilidade e desempenho de servidores e conexões VPN utilizando a ferramenta Zabbix.
+- Realizar simulação de falhas em ambiente de testes, diagnóstico de incidentes e interface técnica com fornecedores terceiros.
+- Elaborar e atualizar documentações técnicas, manuais operacionais e diagramas da topologia de rede.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Experiência na área de infraestrutura de TI, administração de redes e suporte corporativo.
+- Domínio prático de diagnóstico de hardware, software e periféricos (desktops, coletores de dados, impressoras fiscais/térmicas e thin clients).
+- Conhecimentos consolidados na sustentação de servidores em topologia distribuída (Matriz e Filiais).
+- Experiência em configuração e suporte a redes locais, políticas de segurança, antivírus e VPN.
+- Vivência operacional com monitoramento de ativos e servidores via Zabbix.
+
+**Desejáveis / Diferenciais:**
+- Não informado separadamente no anúncio.
+
+### Benefícios
+- Salário: R$ 4.500,00 / mês.
+- Demais benefícios não informados no anúncio da vaga.
+
+### Modelo e local de trabalho
+- **Regime:** 100% Presencial.
+- **Base territorial:** Fortaleza, CE, Brasil (Bairro Jardim das Oliveiras).

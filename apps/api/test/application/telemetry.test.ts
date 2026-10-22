@@ -1,11 +1,12 @@
-// F1-OBS-01 (ADR-010 D5 e D6): o evento da Camada 3 só carrega enums e números, o schema estrito é a
-// definição e o catálogo de métricas é fixado contra o ADR.
+// F1-OBS-01 (ADR-010 D5 e D6) e F1-API-04 (ADR-017 D5): os eventos da Camada 3 e da análise só carregam
+// enums e números, o schema estrito é a definição e o catálogo de métricas é fixado contra os ADRs.
 import type { LlmProviderId } from "@trampo/contracts";
 import type { JobFacts } from "@trampo/contracts/job-facts";
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
 import {
+  AnalysisEventSchema,
   LlmExtractionEventSchema,
   METRIC_CATALOG,
   TELEMETRY_LATENCY_MAX_MS,
@@ -13,6 +14,8 @@ import {
   TelemetryEventSchema,
   llmExtractionEvent,
   telemetryMetricSamples,
+  telemetryMs,
+  type AnalysisEvent,
   type ExtractionFailureReason,
   type ExtractionOutcome,
   type LlmExtractionEvent,
@@ -91,7 +94,7 @@ describe("TelemetryEventSchema (estrito)", () => {
   test("constantes do ADR-010 D5", () => {
     expect(TELEMETRY_LATENCY_MAX_MS).toBe(120_000);
     expect(TELEMETRY_STEPS_MAX).toBe(6);
-    expect(TelemetryEventSchema).toBe(LlmExtractionEventSchema);
+    expect(TelemetryEventSchema.options).toEqual([LlmExtractionEventSchema, AnalysisEventSchema]);
   });
 
   test.each([
@@ -164,6 +167,12 @@ describe("catálogo de métricas (ADR-010 D6)", () => {
       llm_provider_step_total: { type: "counter", labels: ["provider", "outcome", "called"] },
       llm_guard_rejection_total: { type: "counter", labels: ["provider", "rejection"] },
       llm_tokens_total: { type: "counter", labels: ["provider", "direction"] },
+      analysis_total: { type: "counter", labels: ["platform", "mode", "rule", "decision_path"] },
+      analysis_duration_ms: { type: "histogram", labels: ["decision_path"], buckets: [50, 250, 1_000, 2_000, 4_000, 8_000, 12_000] },
+      analysis_cache_total: { type: "counter", labels: ["cache"] },
+      analysis_injection_level_total: { type: "counter", labels: ["level"] },
+      analysis_accept_eligible_total: { type: "counter", labels: ["eligible"] },
+      analysis_warning_total: { type: "counter", labels: ["warning"] },
     });
   });
 
@@ -201,5 +210,124 @@ describe("catálogo de métricas (ADR-010 D6)", () => {
       { name: "llm_calls_per_analysis", labels: {}, value: 0 },
       { name: "llm_provider_step_total", labels: { provider: "groq", outcome: "circuito_aberto", called: "nao" }, value: 1 },
     ]);
+  });
+});
+
+const ANALYSIS: AnalysisEvent = {
+  kind: "analysis",
+  platform: "linkedin",
+  mode: "auto",
+  rule: "R4",
+  decisionPath: "extracao_llm",
+  acceptEligible: true,
+  cache: "ausente",
+  injectionLevel: "media",
+  warnings: ["possivel_prompt_injection", "texto_truncado"],
+  durationMs: 1_800,
+};
+
+describe("evento analysis (ADR-017 D5)", () => {
+  test("válido na união e no schema próprio", () => {
+    expect(TelemetryEventSchema.safeParse(ANALYSIS).success).toBe(true);
+    expect(AnalysisEventSchema.safeParse({ ...ANALYSIS, durationMs: TELEMETRY_LATENCY_MAX_MS, warnings: [] }).success).toBe(true);
+  });
+
+  test.each([
+    ["nota", { ...ANALYSIS, score: 80 }],
+    ["veredito", { ...ANALYSIS, verdict: "recomendado" }],
+    ["userId", { ...ANALYSIS, userId: "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b" }],
+    ["requestId", { ...ANALYSIS, requestId: "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b" }],
+    ["título", { ...ANALYSIS, title: CANARY }],
+    ["regra fora do enum", { ...ANALYSIS, rule: "R5" }],
+    ["modo fora do enum", { ...ANALYSIS, mode: CANARY }],
+    ["caminho fora do enum", { ...ANALYSIS, decisionPath: CANARY }],
+    ["cache fora do enum", { ...ANALYSIS, cache: "quente" }],
+    ["injection fora do enum", { ...ANALYSIS, injectionLevel: "altissima" }],
+    ["aviso fora do enum", { ...ANALYSIS, warnings: [CANARY] }],
+    ["aviso repetido", { ...ANALYSIS, warnings: ["texto_truncado", "texto_truncado"] }],
+    ["duração negativa", { ...ANALYSIS, durationMs: -1 }],
+    ["duração acima do teto", { ...ANALYSIS, durationMs: TELEMETRY_LATENCY_MAX_MS + 1 }],
+    ["duração fracionária", { ...ANALYSIS, durationMs: 1.5 }],
+    ["acceptEligible não booleano", { ...ANALYSIS, acceptEligible: "sim" }],
+    ["kind desconhecido", { ...ANALYSIS, kind: "analise" }],
+  ])("recusa: %s", (_name, event) => {
+    expect(TelemetryEventSchema.safeParse(event).success).toBe(false);
+  });
+
+  test("métricas: análise, duração, cache, injection, aceite e um contador por aviso", () => {
+    expect(telemetryMetricSamples(ANALYSIS)).toEqual([
+      { name: "analysis_total", labels: { platform: "linkedin", mode: "auto", rule: "R4", decision_path: "extracao_llm" }, value: 1 },
+      { name: "analysis_duration_ms", labels: { decision_path: "extracao_llm" }, value: 1_800 },
+      { name: "analysis_cache_total", labels: { cache: "ausente" }, value: 1 },
+      { name: "analysis_injection_level_total", labels: { level: "media" }, value: 1 },
+      { name: "analysis_accept_eligible_total", labels: { eligible: "sim" }, value: 1 },
+      { name: "analysis_warning_total", labels: { warning: "possivel_prompt_injection" }, value: 1 },
+      { name: "analysis_warning_total", labels: { warning: "texto_truncado" }, value: 1 },
+    ]);
+    expect(telemetryMetricSamples({ ...ANALYSIS, acceptEligible: false, warnings: [] }).map((s) => s.labels)).toContainEqual({ eligible: "nao" });
+    expect(telemetryMetricSamples({ ...ANALYSIS, mode: "aprofundada" })[0]?.labels).toEqual({
+      platform: "linkedin",
+      mode: "aprofundada",
+      rule: "R4",
+      decision_path: "extracao_llm",
+    });
+  });
+
+  test("propriedade: todo evento válido gera só rótulos do catálogo", () => {
+    const event = fc.record({
+      kind: fc.constant("analysis" as const),
+      platform: fc.constantFrom("linkedin" as const, "gupy" as const, "generico" as const, "texto_colado" as const),
+      mode: fc.constantFrom("auto" as const, "aprofundada" as const),
+      rule: fc.constantFrom("R1" as const, "R2" as const, "R3" as const, "R4" as const),
+      decisionPath: fc.constantFrom(
+        "triagem_deterministica" as const,
+        "cache_jobfacts" as const,
+        "extracao_llm" as const,
+        "fallback_deterministico" as const,
+      ),
+      acceptEligible: fc.boolean(),
+      cache: fc.constantFrom(
+        "nao_consultado" as const,
+        "hit" as const,
+        "ausente" as const,
+        "corrompido" as const,
+        "obsoleto" as const,
+        "indisponivel" as const,
+      ),
+      injectionLevel: fc.constantFrom("baixa" as const, "media" as const, "alta" as const),
+      warnings: fc.uniqueArray(
+        fc.constantFrom(
+          "possivel_prompt_injection" as const,
+          "informacao_contraditoria" as const,
+          "baixa_confianca_extracao" as const,
+          "texto_truncado" as const,
+          "analise_degradada" as const,
+          "decisao_sem_ia" as const,
+        ),
+      ),
+      durationMs: fc.integer({ min: 0, max: TELEMETRY_LATENCY_MAX_MS }),
+    });
+    fc.assert(
+      fc.property(event, (e) => {
+        TelemetryEventSchema.parse(e);
+        for (const sample of telemetryMetricSamples(e)) {
+          expect(Object.keys(sample.labels)).toEqual(METRIC_CATALOG[sample.name].labels);
+        }
+      }),
+      { numRuns: 1_000 },
+    );
+  });
+});
+
+describe("telemetryMs", () => {
+  test.each([
+    [1.4, 1],
+    [1.5, 2],
+    [-3, 0],
+    [Number.NaN, 0],
+    [0, 0],
+    [TELEMETRY_LATENCY_MAX_MS + 10, TELEMETRY_LATENCY_MAX_MS],
+  ])("%d → %d", (input, expected) => {
+    expect(telemetryMs(input)).toBe(expected);
   });
 });

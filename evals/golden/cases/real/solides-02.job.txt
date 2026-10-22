@@ -1,0 +1,56 @@
+# Smart Online | Sr. Software Developer
+
+- **Empresa:** Smart Online
+- **Título da vaga:** Sr. Software Developer
+- **Localidade:** Campinas, SP, Brasil
+- **Regime de atuação:** Não informado explicitamente (anúncio contempla Auxílio Home Office)
+- **Tipo de vínculo:** Não informado
+
+---
+
+### Sobre a vaga
+Atuação no desenvolvimento e evolução de ecossistemas backend de alta escalabilidade voltados à simplificação tributária, logística e liquidação de guias no segmento de e-commerce, projetando microsserviços, APIs resilientes e integrações em nuvem.
+
+### Responsabilidades e atribuições
+- Projetar, desenvolver e sustentar APIs RESTful de alta performance utilizando .NET Core e ASP.NET Core.
+- Implementar, manter e otimizar esquemas de bancos de dados relacionais e não-relacionais (PostgreSQL e MongoDB).
+- Utilizar serviços em nuvem AWS garantindo escalabilidade, resiliência e alta disponibilidade operacional.
+- Colaborar com equipes multidisciplinares (Frontend, DevOps e Segurança da Informação) em fluxos de integração e entrega contínua.
+- Monitorar a telemetria das aplicações e conduzir troubleshooting de incidentes em ambiente produtivo.
+- Apoiar na definição e consolidação de diretrizes de governança técnica, boas práticas e arquitetura de software.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Experiência sólida e comprovada com .NET Core e ASP.NET Core.
+- Experiência prática na orquestração e conteinerização de aplicações com Docker e Kubernetes.
+- Domínio na construção de testes automatizados unitários/integrados (xUnit ou frameworks equivalentes).
+- Domínio prático de bancos de dados relacionais e NoSQL (PostgreSQL e MongoDB).
+- Vivência prática com serviços de computação em nuvem (AWS) e cultura DevOps.
+- Experiência de trabalho orientada a metodologias ágeis e esteiras automatizadas de CI/CD.
+- Capacidade crítica de resolução de problemas e comunicação técnica assertiva.
+
+**Desejáveis / Diferenciais:**
+- Experiência prévia na concepção e sustentação de arquiteturas de microsserviços.
+
+### Benefícios
+- Auxílio Home Office
+- Kit de Boas-Vindas com equipamentos de trabalho
+- Convênio Médico e Odontológico Amil (opcional)
+- Seguro de Vida
+- Wellhub (Gympass)
+- Starbem (4 consultas gratuitas por mês)
+- Programa de Saúde Mental
+- Clube de Descontos Shinclube e Clube iFood gratuito
+- Desconto em farmácias (RD Saúde: Droga Raia e Drogasil)
+- Parcerias com Escolas de Idiomas
+- Parceria com o Cubo Itaú (acesso a eventos, conteúdos e networking)
+- Day Off no mês de aniversário
+- Licença e presente de casamento
+- Presente para novos papais e mamães
+
+### Modelo e local de trabalho
+- **Regime:** Não discriminado textualmente (indício de trabalho híbrido ou remoto pelo pacote com auxílio home office).
+- **Vaga afirmativa:** Elegível para Pessoas com Deficiência (PCD).
+- **Carga horária:** Horário comercial, de segunda a sexta-feira, das 09h às 18h.
+- **Base territorial:** Campinas, SP, Brasil ([ENDERECO]).

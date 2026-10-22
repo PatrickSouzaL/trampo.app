@@ -1,4 +1,4 @@
-// Domínio puro (ADR-001 §7): JobTextNormalizer, DeterministicPreFilter, FactResolver, ScoringEngine...
+// Domínio puro (ADR-001 §7): JobTextNormalizer, DeterministicPreFilter, FactResolver, ScoringEngine, ReportComposer...
 // Só `import type` de @trampo/contracts (exceção de valor: ./limits, ADR-005 D2) e arquivos do próprio
 // domínio; sem rede, relógio, aleatoriedade nem zod em runtime (preset domainPurity + dependency-cruiser).
 export {
@@ -22,6 +22,27 @@ export type {
   SignalStrength,
   StackMentionSignal,
 } from "./ports/deterministic-signals.js";
+export type { InvisibleClassCounts } from "./normalization/invisible-characters.js";
+export {
+  DeterministicPreFilter,
+  PRE_FILTER_VERSION,
+  type PreFilterInput,
+} from "./prefilter/deterministic-pre-filter.js";
+export {
+  DEFAULT_PRE_FILTER_ROUTER_POLICY,
+  PRE_FILTER_ROUTER_VERSION,
+  PreFilterRouter,
+  hasMustCriterion,
+  type AnalysisMode,
+  type DeterministicAssessment,
+  type PreFilterDecision,
+  type PreFilterRoute,
+  type PreFilterRouterDeps,
+  type PreFilterRouterPolicy,
+  type PreFilterRoutingInput,
+  type PreFilterRule,
+} from "./prefilter/pre-filter-router.js";
+export { DICTIONARY_TERMS, TECH_DICTIONARY_VERSION } from "./prefilter/tech-dictionary.js";
 export {
   JOB_TEXT_NORMALIZER_VERSION,
   JobTextNormalizer,
@@ -31,6 +52,30 @@ export {
   type NormalizedJobTitle,
 } from "./normalization/job-text-normalizer.js";
 export type { TextHasher } from "./ports/text-hasher.js";
+export {
+  ANALYSIS_WARNINGS,
+  CONTRACT_TYPES,
+  DEFAULT_REPORT_CATALOG,
+  DIMENSION_OUTCOMES,
+  EXPLANATION_MAX,
+  ITEM_TEXT_MAX,
+  MAX_LISTED_FACTS,
+  RED_FLAG_EFFECTS,
+  REPORT_CATALOG_VERSION,
+  SPECIFIC_REASON_CODES,
+  SUMMARY_MAX,
+  VERDICTS,
+  WORK_MODELS,
+  reportCatalogIssues,
+  type ReportCatalog,
+  type SpecificReasonCode,
+} from "./report/report-catalog.js";
+export {
+  ReportComposer,
+  type ReportComposerInput,
+  type ReportEnvelope,
+  type ReportResolution,
+} from "./report/report-composer.js";
 export {
   HEADER_CHARS,
   LLM_INPUT_MAX_CHARS,
@@ -42,3 +87,28 @@ export {
   type SelectionSignals,
 } from "./selection/relevant-section-selector.js";
 export { DependencyContractError, countCodePoints, type TruncateCodePoints } from "./text/code-points.js";
+export {
+  ScoringEngine,
+  foldCity,
+  type DimensionEvaluation,
+  type RedFlagEffect,
+  type RedFlagHit,
+  type ScoreReasonCode,
+  type ScoreResult,
+  type ScoringInput,
+} from "./scoring/scoring-engine.js";
+export {
+  CURRENCIES,
+  DEFAULT_SCORING_POLICY,
+  LANGUAGE_LEVELS,
+  MAX_DIMENSION_PENALTY,
+  NEVER_ATTENUATED_RED_FLAGS,
+  RED_FLAG_SIGNALS,
+  SALARY_PERIODS,
+  SCORE_DIMENSIONS,
+  SCORING_ENGINE_VERSION,
+  SENIORITY_LEVELS,
+  scoringPolicyIssues,
+  type BandedVerdict,
+  type ScoringPolicy,
+} from "./scoring/scoring-policy.js";

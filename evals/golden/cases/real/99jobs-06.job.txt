@@ -1,0 +1,55 @@
+# Banco Rendimento | Analista de Sistemas Sênior - (.NET / C# ou Java)
+
+- **Empresa:** Banco Rendimento
+- **Título da vaga:** Analista de Sistemas Sênior - (.NET / C# ou Java)
+- **Localidade:** São Paulo, SP, Brasil
+- **Regime de atuação:** Híbrido
+- **Tipo de vínculo:** Não informado
+
+---
+
+### Sobre a vaga
+Atuação na sustentação, evolução e integração de aplicações e plataformas do ecossistema bancário, com foco em resiliência, segurança transacional e alta disponibilidade de serviços críticos, intermediando demandas técnicas entre áreas de negócio e fornecedores especializados.
+
+### Responsabilidades e atribuições
+- Sustentar, evoluir e otimizar aplicações bancárias críticas, assegurando estabilidade, conformidade e alta disponibilidade operacional.
+- Conduzir o levantamento de requisitos de negócio e desenhar integrações sistêmicas end-to-end.
+- Parametrizar ferramentas do ecossistema bancário e executar modelagem e migração/carga de dados em novos projetos.
+- Estruturar e coordenar planos de testes técnicos, validação de entregas e suporte aos ciclos de homologação (UAT) com as áreas clientes.
+- Atuar como ponto focal técnico na homologação e acompanhamento de entregas de parceiros e fornecedores de tecnologia.
+- Liderar alinhamentos técnicos com stakeholders de TI e Negócios, produzindo relatórios de status e apoiando os processos de governança.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Graduação completa em Engenharia, Ciência da Computação, Sistemas de Informação ou áreas afins.
+- Experiência sólida em desenvolvimento backend utilizando C# / .NET ou Java.
+- Domínio de Programação Orientada a Objetos (POO), padrões de projeto e boas práticas de arquitetura de software.
+- Conhecimento aprofundado em banco de dados relacional Microsoft SQL Server (modelagem, consultas complexas, procedures e tuning/otimização).
+- Experiência na implementação e consumo de arquiteturas orientadas a eventos/mensageria (RabbitMQ ou Apache Kafka).
+- Domínio no desenvolvimento e consumo de APIs REST/SOAP e arquitetura de microsserviços.
+
+**Desejáveis / Diferenciais:**
+- Não informado.
+
+### Benefícios
+- Vale-Refeição
+- Vale-Alimentação
+- Vale-Transporte
+- Assistência Médica
+- Assistência Odontológica
+- Apoio Psicológico / Programa Mental Health
+- Seguro de Vida
+- Participação nos Lucros e Resultados (PLR)
+- TotalPass
+- Universidade Rendimento (plataforma interna de capacitação)
+- Auxílio Creche / Babá
+- Programa Mommy Care
+- Desconto em Medicamentos
+- Petlove
+- Programa de Benefícios e Fidelidade
+- Programa de Recrutamento Interno
+
+### Modelo e local de trabalho
+- **Regime:** Híbrido.
+- **Base territorial:** São Paulo, SP, Brasil.

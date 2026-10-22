@@ -1,0 +1,76 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "gupy-11",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "presencial",
+    "red_flag"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Banco de Talentos | TI | Sistemas | Desenvolvimento | Infra",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Vinhedo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "seguro_vida",
+      "bem_estar_academia",
+      "outro",
+      "vale_alimentacao",
+      "vale_refeicao",
+      "plr_bonus",
+      "folga_aniversario"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": [
+      "linguagem_vaga"
+    ]
+  },
+  "alternatives": {
+    "benefits": [
+      [
+        "plano_saude",
+        "plano_odontologico",
+        "seguro_vida",
+        "bem_estar_academia",
+        "outro",
+        "vale_alimentacao",
+        "plr_bonus",
+        "folga_aniversario"
+      ]
+    ],
+    "redFlagSignals": [
+      []
+    ]
+  },
+  "injection": null,
+  "notes": "Banco de talentos de TI sem atribuições: a seção de responsabilidades só traz o horário, por isso linguagem_vaga (alternativa vazia). Sem contrato declarado. Auxílio refeição só em atividade externa: VR aceito com ou sem. \"Remuneração compatível com mercado\" não é salário."
+}

@@ -15,6 +15,7 @@
     "@fastify/type-provider-zod": "catalog:",
     "@trampo/contracts": "workspace:*",
     "fastify": "catalog:",
+    "jose": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -1,0 +1,89 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "geekhunter-06",
+  "source": "geekhunter",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "sem_salario",
+    "so_pj",
+    "hibrido"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "DevOps AWS / SRE SENIOR",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "pj"
+    ],
+    "stackRequired": [
+      "AWS",
+      "Amazon ECS",
+      "AWS Fargate",
+      "Amazon EC2",
+      "Amazon RDS",
+      "Amazon DynamoDB",
+      "Amazon Cognito",
+      "Amazon S3",
+      "Amazon ECR",
+      "Amazon VPC",
+      "AWS ALB",
+      "AWS IAM",
+      "Amazon CloudWatch",
+      "AWS CloudTrail",
+      "AWS Secrets Manager",
+      "Azure DevOps",
+      "Datadog",
+      "Docker",
+      "Git",
+      "Terraform",
+      "AWS CloudFormation",
+      "Bash",
+      "PowerShell",
+      "Python",
+      "Linux",
+      "Windows Server",
+      "REST"
+    ],
+    "stackNiceToHave": [
+      "Kubernetes",
+      "RabbitMQ",
+      "Amazon MQ",
+      "PostgreSQL",
+      "SQL Server",
+      "AWS Organizations",
+      ".NET"
+    ],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "O cabeçalho do coletor cita faixa salarial, mas o corpo não traz valor: salary null pelo corpo. Benefícios \"não informado\": []. Conceitos de rede (TCP/IP, DNS, VPN) e IaC ficaram fora da stack; serviços AWS nomeados entram."
+}

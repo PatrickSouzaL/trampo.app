@@ -1,0 +1,62 @@
+Riachuelo
+
+Analista de Dados Pleno
+Brasil
+Remoto
+Tempo integral
+
+Sobre a vaga
+Nosso time de ECOMM CRM E FIDELIZAÇÃO está em busca de Analista de dados Pleno para contribuir com o Futuro da Riachuelo e impulsionar cada vez mais a Moda que inspira o Brasil.
+
+Lembramos que nossas oportunidades são para todos. Na Riachuelo, você encontra um ambiente diverso, com respeito e empatia, em que cuidamos dos colaboradores.
+
+Os desafios da função são:
+
+Desenvolver e manter pipelines de dados em Databricks (notebooks PySpark/SQL, Jobs agendados) que geram atributos e eventos enviados à Insider.
+Escrever SQL analítico avançado — CTEs, window functions (row_number, qualify), MERGE incremental, deduplicação e regras de priorização por origem de dado.
+Criar e ajustar atributos e eventos de CRM (ex.: recompra, última compra, vencimento de fatura, status de fatura, recusa de consignado, NPS, carrinho abandonado), com alta vazão de entregas de negócio.
+Realizar upsert e integração de dados para os painéis da Insider, validando volumetria entre view de origem e dados de retorno, e otimizando volume/custo de chamadas à API.
+Implementar e evoluir alertas de observabilidade: validação de volumetria, comparação com dados de retorno e regras qualitativas; refatorar o framework de alertas (parametrização centralizada em tabela/YAML, threshold configurável por fluxo).
+Executar sustentação: verificação semanal de alertas, reprocessamentos, correção de dados (CPFs nulos, divergências de origem, timestamps/fuso) e monitoramento de fraude.
+Investigar incidentes e divergências de dados (view x retorno x painel), documentar a causa raiz e aplicar correção (ex.: ajuste de MERGE para preservar estado do evento).
+Manter regras de optin/optout (e-mail, SMS, WhatsApp) e consistência cadastral a partir do Golden Record (MDM).
+Versionar entregas em Git (pull requests) e documentar processos, jobs e regras de negócio.
+
+É muito importante que você tenha e/ou saiba:
+
+SQL avançado (Spark SQL): CTEs, window functions, agregações, MERGE/upsert, tuning básico.
+Databricks e Apache Spark (PySpark) — construção e manutenção de notebooks e Jobs.
+Python aplicado a processamento e transformação de dados.
+Experiência com pipelines de dados (ETL/ELT), modelagem de views e camadas de dados.
+Qualidade e governança de dados: validação de volumetria, deduplicação, consistência, tratamento de dados cadastrais (telefone, e-mail, CPF, datas/fuso).
+Git e trabalho em squad ágil (Azure DevOps / Scrum-Kanban).
+Formação superior completa em areas relacionadas.
+
+Diferenciais:
+
+Experiência com CDP / plataformas de CRM (Insider, Salesforce, Braze, Adobe ou similar) e com atributos/eventos de marketing.
+Familiaridade com dados de varejo, crédito e financeiro (cartões, Loyalty, consignado, empréstimo).
+Conhecimento em orquestração de jobs (Control-M, Airflow ou equivalente) e cloud (AWS/S3).
+Noções de observabilidade e construção de dashboards (Databricks SQL) para monitoramento.
+Experiência com integração de sistemas (ex.: alimentar Zendesk, MDM/Golden Record).
+
+E quais são os benefícios? 
+
+Assistência médica;
+Assistência odontológica;
+Vale Refeição;
+Vale Alimentação;
+Gympass;
+Auxilio Creche;
+Vale Cultura;
+PPR - Programa de Participação nos Resultados;
+Previdência Privada;
+Seguro de vida em grupo;
+Parcerias educacionais;
+Descontos na Riachuelo.
+
+Para conhecer todos os nossos benefícios, acesse [URL]
+
+Curtiu? Então candidate-se agora!
+
+Venha fazer parte da Moda que inspira o Brasil.

@@ -1,0 +1,82 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "syn-14-pleno-senior-clt-ou-pj",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "dupla_senioridade",
+    "clt_ou_pj",
+    "remoto_ou_hibrido",
+    "remoto",
+    "hibrido",
+    "com_salario",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor(a) .NET Pleno/Sênior",
+    "seniorityLevels": [
+      "pleno",
+      "senior"
+    ],
+    "yearsExperienceMin": 3,
+    "workModels": [
+      "remoto",
+      "hibrido"
+    ],
+    "location": {
+      "city": "São Paulo",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 9000,
+      "max": 14000,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt",
+      "pj"
+    ],
+    "stackRequired": [
+      "C#",
+      ".NET",
+      "SQL Server",
+      "Azure",
+      "Azure App Service",
+      "Azure Functions",
+      "Azure Service Bus",
+      "Git"
+    ],
+    "stackNiceToHave": [
+      "Angular",
+      "RabbitMQ"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "plr_bonus"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Dupla senioridade (pleno e senior), dois contratos e dois modelos, todos explícitos. A faixa de R$ 9.000 a 14.000 vale para os dois regimes, então não há salario_por_contrato. Para quem aceita só pleno, senioridade é atende_parcialmente."
+}

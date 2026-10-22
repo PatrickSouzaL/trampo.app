@@ -1,0 +1,73 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-13",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "com_salario",
+    "hibrido",
+    "presencial",
+    "conflito"
+  ],
+  "traps": [
+    "conflito_modelo",
+    "termo_ambiguo",
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista Societário",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido",
+      "presencial"
+    ],
+    "location": {
+      "city": "Pedro Leopoldo",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 4000,
+      "max": 6000,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [
+      "Domínio"
+    ],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "workModels": [
+      [
+        "hibrido"
+      ],
+      [
+        "presencial"
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "Conflito real: metadado do anúncio diz Híbrido, corpo diz Modalidade Presencial; união no expected. Salário com \"por month\" colado. \"Domínio\" é o sistema contábil (diferencial). Texto termina truncado no raw e foi mantido."
+}

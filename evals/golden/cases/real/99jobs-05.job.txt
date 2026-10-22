@@ -1,0 +1,18 @@
+# Diffucap Chemobras | Analista Júnior de Inteligência Artificial e Automação
+
+- **Empresa:** Diffucap Chemobras Química Farmacêutica
+- **Título da vaga:** Analista Júnior de Inteligência Artificial e Automação
+- **Localidade:** Rio de Janeiro, RJ, Brasil
+- **Regime de atuação:** Presencial
+- **Tipo de vínculo:** Não informado
+
+---
+
+### Sobre a vaga
+Atuação no levantamento de processos internos junto às áreas de negócio para mapear tarefas repetitivas, desenvolvendo e sustentando automações de rotinas administrativas/operacionais e integrações baseadas em ferramentas no-code/low-code, scripts e Inteligência Artificial Generativa com foco em eficiência verificável.
+
+### Responsabilidades e atribuições
+- Realizar interface com diferentes áreas para mapear gargalos operacionais, fluxos de trabalho, regras e exceções.
+- Mapear processos de negócio e desenhar oportunidades de automação e aplicação de IA com métricas objetivas de resultado.
+- Desenvolver e testar rotinas automáticas envolvendo planilhas, arquivos, e-mails, relatórios e controles internos.
+- Construir integrações de sistemas por meio de ferramentas

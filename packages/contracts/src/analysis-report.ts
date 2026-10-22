@@ -5,7 +5,8 @@ import { VersionTagSchema, safeText, uniqueArray } from './primitives.js';
 
 export const ANALYSIS_REPORT_SCHEMA_VERSION = 1 as const;
 
-export const VerdictSchema = z.enum(['recomendado', 'neutro', 'foge']);
+/** 5 faixas (ADR-002 §3.4, D-S9). Os mínimos de cada faixa são regra de domínio (`ScoringPolicy`). */
+export const VerdictSchema = z.enum(['altamente_recomendado', 'recomendado', 'neutro', 'baixo_alinhamento', 'foge']);
 export type Verdict = z.infer<typeof VerdictSchema>;
 
 /** Por onde a decisão passou no funil híbrido (ADR-001). */
@@ -38,10 +39,15 @@ export const DimensionOutcomeSchema = z.enum([
   'conflito',
   'ignorado',
 ]);
+export type DimensionOutcome = z.infer<typeof DimensionOutcomeSchema>;
 
 export const AppliedImportanceSchema = z.enum(['eliminatorio', 'obrigatorio', 'ponderado', 'ignorar']);
+export type AppliedImportance = z.infer<typeof AppliedImportanceSchema>;
 
-/** Uma linha da composição da nota: auditabilidade ("−30: modelo híbrido, você exige remoto"). */
+/**
+ * Uma linha da composição da nota: auditabilidade ("Modelo de trabalho: fora do que você aceita. Na vaga: híbrido.").
+ * SR-11 (ADR-002 §5.3): o texto só interpola rótulos de enum dos fatos da vaga; "você exige remoto" ecoa o perfil e é proibido.
+ */
 export const ScoreBreakdownEntrySchema = z.strictObject({
   dimension: ScoreDimensionSchema,
   outcome: DimensionOutcomeSchema,
@@ -49,7 +55,7 @@ export const ScoreBreakdownEntrySchema = z.strictObject({
   /** Contribuição assinada desta dimensão para a nota final. */
   points: z.int().min(-100).max(100),
   dealBreakerHit: z.boolean(),
-  /** Gerado por template no servidor. Não ecoa valores do perfil (ex.: pretensão salarial). */
+  /** Gerado por template no servidor (ADR-012). Não ecoa valores do perfil (ex.: pretensão salarial). */
   explanation: safeText(160),
 });
 export type ScoreBreakdownEntry = z.infer<typeof ScoreBreakdownEntrySchema>;
@@ -105,6 +111,8 @@ export const AnalysisReportSchema = z.strictObject({
   platform: PlatformSchema,
   score: z.int().min(0).max(100),
   verdict: VerdictSchema,
+  /** Template da faixa (ADR-002 §3.4, ADR-012 D4): a faixa, o que puxou para cima e o que puxou para baixo. */
+  summary: safeText(200),
   dealBreakerHit: z.boolean(),
   strengths: z.array(ReportItemSchema).max(3),
   redFlags: z.array(ReportItemSchema).max(3),
@@ -124,6 +132,8 @@ export const AnalysisReportSchema = z.strictObject({
   effectiveConfidence: z.number().min(0).max(1),
   meta: z.strictObject({
     engineVersion: VersionTagSchema,
+    /** Versão do catálogo de templates do ReportComposer (ADR-012 D2): texto muda sem mudar a nota. */
+    reportCatalogVersion: VersionTagSchema,
     extractorVersion: VersionTagSchema.nullable(),
     provider: LlmProviderIdSchema.nullable(),
     durationMs: z.int().min(0).max(120_000),

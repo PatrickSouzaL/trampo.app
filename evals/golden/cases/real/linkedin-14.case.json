@@ -1,0 +1,82 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-14",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "armadilha_negacao",
+  "language": "pt",
+  "tags": [
+    "sem_salario",
+    "remoto"
+  ],
+  "traps": [
+    "diferencial"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 1,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Dados Pleno",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": null,
+      "stateUf": null,
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "SQL",
+      "Spark SQL",
+      "Databricks",
+      "Apache Spark",
+      "PySpark",
+      "Python",
+      "Git",
+      "Azure DevOps"
+    ],
+    "stackNiceToHave": [
+      "Insider",
+      "Salesforce",
+      "Braze",
+      "Adobe",
+      "Control-M",
+      "Apache Airflow",
+      "AWS",
+      "Amazon S3",
+      "Zendesk"
+    ],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "bem_estar_academia",
+      "auxilio_creche",
+      "outro",
+      "plr_bonus",
+      "previdencia_privada",
+      "seguro_vida",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Muitas tecnologias só como diferencial (AWS, Airflow, CDPs): mede falso positivo de deal-breaker. Insider aparece nas atividades e nos diferenciais; ficou como desejável. Scrum/Kanban são metodologia. Parcerias educacionais = auxilio_educacao; Vale Cultura e descontos em outro."
+}

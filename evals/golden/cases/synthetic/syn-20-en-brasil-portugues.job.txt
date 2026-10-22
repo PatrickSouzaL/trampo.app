@@ -1,0 +1,42 @@
+Senior Site Reliability Engineer
+
+Acme Tecnologia | Location: Florianópolis, SC, Brazil (100% remote) | Full-time, CLT
+
+About Acme Tecnologia
+Acme Tecnologia is a Brazilian fintech that provides payment terminals and a digital account for small merchants. Our engineering team is spread across Brazil, and we work closely with partners in Europe and North America.
+
+What you will do
+- Keep our payment platform reliable, with clear SLOs for every critical service;
+- Manage our Kubernetes clusters and the infrastructure as code that creates them;
+- Improve our observability stack and alerting, reducing noise for the on-call team;
+- Lead blameless postmortems and follow up on action items;
+- Automate repetitive operational work.
+
+What we are looking for
+- 5+ years of experience in SRE, DevOps or infrastructure roles;
+- Kubernetes;
+- Terraform;
+- AWS;
+- Prometheus and Grafana;
+- Python for automation;
+- Linux;
+- Fluent Portuguese, since our customers and most of our team communicate in Portuguese;
+- Advanced English, for daily work with our international partners.
+
+Nice to have
+- Datadog;
+- Ansible;
+- Experience with payment systems or card networks.
+
+What we offer
+- Health insurance and dental plan;
+- Meal allowance;
+- Wellhub;
+- Stock options;
+- Monthly home office allowance.
+
+Compensation
+Salary will be discussed during the process.
+
+Hiring process
+Recruiter call, technical interview, troubleshooting exercise, and a final conversation with our Head of Infrastructure.

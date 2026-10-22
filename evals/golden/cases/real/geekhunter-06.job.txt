@@ -1,0 +1,55 @@
+
+# Suzantur | DevOps AWS / SRE SENIOR
+
+- **Empresa:** Suzantur
+- **Título da vaga:** DevOps AWS / SRE SENIOR
+- **Localidade:** São Paulo, SP, Brasil
+- **Regime de atuação:** Híbrido
+- **Tipo de vínculo:** PJ (Pessoa Jurídica)
+
+---
+
+### Sobre a vaga
+Atuação na administração e sustentação de ambientes AWS, automação de esteiras de deploy (CI/CD) e garantia de resiliência e estabilidade da infraestrutura e aplicações em produção. O desafio envolve suporte a arquiteturas orientadas a containers, redes de nuvem e implementação de Infraestrutura como Código (IaC).
+
+### Responsabilidades e atribuições
+- Administrar e sustentar ambientes AWS (ECS, Fargate, EC2, RDS, DynamoDB, Cognito, S3).
+- Gerenciar redes em nuvem: VPCs, subnets, tabelas de rotas, Security Groups, NAT Gateways e VPN Site-to-Site.
+- Criar, manter e otimizar pipelines CI/CD no Azure DevOps, além de automatizar rotinas operacionais.
+- Realizar troubleshooting em containers, aplicações, serviços AWS e topologias de rede.
+- Monitorar a infraestrutura e aplicações com CloudWatch e Datadog.
+- Administrar Application Load Balancers (ALB), Target Groups, Health Checks e políticas de Auto Scaling.
+- Gerenciar governança de acessos, chaves e políticas no AWS IAM e AWS Secrets Manager.
+- Apoiar equipes de engenharia/desenvolvimento na resolução de problemas de infraestrutura e deployment.
+- Implementar e versionar Infraestrutura como Código (IaC).
+- Acompanhar custos de nuvem e propor otimizações orçamentárias (FinOps).
+- Produzir e manter documentação técnica de arquitetura, configurações e relatórios de post-mortem de incidentes.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Experiência sólida e comprovada em administração de ambientes Cloud AWS (ECS, Fargate, ECR, EC2, VPC, ALB, RDS, DynamoDB, S3, IAM, CloudWatch e CloudTrail).
+- Domínio em conteinerização com Docker.
+- Experiência na criação e manutenção de pipelines CI/CD com Azure DevOps e versionamento com Git.
+- Vivência prática com Infraestrutura como Código utilizando Terraform ou CloudFormation.
+- Automação via scripts com Bash, PowerShell ou Python.
+- Administração e sustentação de ambientes Linux e Windows Server.
+- Configuração de observabilidade, análise de logs e métricas com Datadog e CloudWatch.
+- Conhecimentos sólidos em redes (TCP/IP, DNS, VPN Site-to-Site), HTTP/HTTPS, APIs REST e certificados SSL/TLS.
+- Prática com estratégias de deployment e rotinas de rollback em ambientes críticos de produção.
+
+**Desejáveis / Diferenciais:**
+- Conhecimento em orquestração com Kubernetes.
+- Experiência com mensageria (RabbitMQ e Amazon MQ).
+- Bancos de dados relacionais (PostgreSQL, SQL Server).
+- Gestão de ambientes multi-account utilizando AWS Organizations.
+- Práticas de FinOps e governança de custos em nuvem.
+- Vivência de sustentação de microsserviços e aplicações construídas em ecossistema .NET.
+- Experiência consolidada em ambientes de alta disponibilidade e tolerância a falhas.
+
+### Benefícios
+- Não informado no anúncio da vaga.
+
+### Modelo e local de trabalho
+- **Regime:** Híbrido.
+- **Base territorial:** São Paulo, SP, Brasil.

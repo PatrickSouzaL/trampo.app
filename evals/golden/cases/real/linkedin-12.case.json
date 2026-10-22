@@ -1,0 +1,76 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-12",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "hibrido"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista Fiscal Tributário I",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "hibrido"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "plr_bonus",
+      "plano_saude",
+      "plano_odontologico",
+      "previdencia_privada",
+      "seguro_vida",
+      "vale_refeicao",
+      "vale_alimentacao",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "seniorityLevels": [
+      [
+        "junior"
+      ]
+    ],
+    "benefits": [
+      [
+        "plr_bonus",
+        "plano_saude",
+        "plano_odontologico",
+        "previdencia_privada",
+        "seguro_vida",
+        "vale_refeicao",
+        "vale_alimentacao",
+        "outro",
+        "auxilio_educacao"
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "\"I\" sem nível escrito no corpo: seniority vazia, júnior em alternatives (o cabeçalho do coletor diz Júnior, o corpo não). SPED Contábil e Lucro Real são obrigação/regime, não tecnologia. Treinamentos internos: auxilio_educacao só em alternatives. VT e Happy Day em outro."
+}

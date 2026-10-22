@@ -1,0 +1,59 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-07",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "remoto",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Advogado Júnior",
+    "seniorityLevels": [
+      "junior"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": "Belo Horizonte",
+      "stateUf": "MG",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "location": [
+      {
+        "city": null,
+        "stateUf": null,
+        "countryIso2": "BR"
+      }
+    ]
+  },
+  "injection": null,
+  "notes": "Mesmo modelo de anúncio do linkedin-03: 100% remoto preso a BH e vizinhas. \"Contrato: Home Office\" não é tipo de contrato. \"Necessário experiência\" sem número: anos null. Pede pretensão salarial; benefícios a combinar."
+}

@@ -1,0 +1,61 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "geekhunter-08",
+  "source": "geekhunter",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "clt_ou_pj",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Social Media",
+    "seniorityLevels": [],
+    "yearsExperienceMin": 3,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Guarulhos",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "clt",
+      "pj"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "outro",
+      "vale_refeicao",
+      "bem_estar_academia",
+      "plano_saude",
+      "plano_odontologico",
+      "folga_aniversario",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "O cabeçalho do coletor cita faixas CLT e PJ diferentes, mas o corpo não traz nenhum valor: salary null pelo corpo, sem tag salario_por_contrato. Nível Pleno só no cabeçalho: []. Instagram e TikTok são redes sociais, não stack. VT e SESC viram outro."
+}

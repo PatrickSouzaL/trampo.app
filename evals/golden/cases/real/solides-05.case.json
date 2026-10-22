@@ -1,0 +1,78 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "solides-05",
+  "source": "solides",
+  "platform": "generico",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "com_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Analista de Suporte Externo N1",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Rio de Janeiro",
+      "stateUf": "RJ",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 1800,
+      "max": 1800,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Windows",
+      "SQL",
+      "Jira",
+      "Azure DevOps"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "vale_refeicao",
+      "vale_alimentacao",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "seniorityLevels": [
+      [
+        "junior"
+      ]
+    ],
+    "benefits": [
+      [
+        "vale_refeicao",
+        "vale_alimentacao",
+        "outro",
+        "folga_aniversario"
+      ]
+    ]
+  },
+  "injection": null,
+  "notes": "N1 é nível de suporte, não senioridade escrita: [] com junior em alternatives (cabeçalho diz Júnior, corpo não). \"Até 2 anos\" é teto, não mínimo: null. Salário aparece dentro de Benefícios, mas é salário. Cartão multibenefício = VR+VA. \"Day Off\" sem \"aniversário\": folga_aniversario só em alternatives. ITIL (metodologia) e VPN (conceito) fora da stack."
+}

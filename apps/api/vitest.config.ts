@@ -8,11 +8,45 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: "dominio", include: ["test/domain/**/*.test.ts", "test/application/**/*.test.ts", "test/infrastructure/**/*.test.ts"], sequence: { groupOrder: 0 } },
+        // Propriedades com 1.000 execuções passam de 5 s quando o turbo roda todos os pacotes juntos: o prazo
+        // sobe, o número de execuções não cai. O SR-09 mede o próprio relógio e não depende deste prazo.
+        test: {
+          name: "dominio",
+          include: ["test/domain/**/*.test.ts", "test/application/**/*.test.ts", "test/infrastructure/**/*.test.ts"],
+          // O motor da nota e o ReportComposer (propriedades pesadas e o ESLint das fixtures) rodam no grupo seguinte, sem disputar
+          // CPU com o SR-09 do seletor, que mede 200 ms de relógio de parede.
+          // O adapter do JWT (F1-API-02) gera chaves ECDSA e sobe um JWKS em socket real: vai para o grupo da
+          // presentation, longe do SR-09.
+          // O cliente REST do Upstash (F1-API-03) também usa socket real (servidor simulado lento e travado).
+          // Camada 1 (F1-DOM-04): o roteador roda o motor da nota e as propriedades fazem 1.000 execuções, então vão
+          // para o grupo do motor. O SR-09 do pré-filtro (48 entradas de 64 KiB) roda sozinho no grupo seguinte, sem
+          // disputar CPU com o SR-09 do normalizador e do seletor.
+          // AnalyzeJob (F1-API-04): o funil inteiro com o motor real e propriedades de 1.000 execuções, no grupo do motor.
+          exclude: [
+            "test/domain/scoring-*.test.ts",
+            "test/domain/report-*.test.ts",
+            "test/domain/prefilter-router.test.ts",
+            "test/domain/prefilter.properties.test.ts",
+            "test/domain/prefilter-sr09.test.ts",
+            "test/application/analyze-job*.test.ts",
+            "test/infrastructure/jose-*.test.ts",
+            "test/infrastructure/upstash-*.test.ts",
+          ],
+          sequence: { groupOrder: 0 },
+          testTimeout: 30_000,
+        },
       },
       {
         extends: true,
-        test: { name: "presentation", include: ["test/*.test.ts"], sequence: { groupOrder: 1 } },
+        test: { name: "sr09-camada1", include: ["test/domain/prefilter-sr09.test.ts"], sequence: { groupOrder: 1 } },
+      },
+      {
+        extends: true,
+        test: { name: "motor", include: ["test/domain/scoring-*.test.ts", "test/domain/report-*.test.ts", "test/domain/prefilter-router.test.ts", "test/domain/prefilter.properties.test.ts", "test/application/analyze-job*.test.ts"], sequence: { groupOrder: 2 }, testTimeout: 30_000 },
+      },
+      {
+        extends: true,
+        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts"], sequence: { groupOrder: 3 } },
       },
     ],
     coverage: {
@@ -24,7 +58,26 @@ export default defineConfig({
         "src/application/**/*.ts",
         "src/infrastructure/crypto/**/*.ts",
         "src/infrastructure/telemetry/**/*.ts",
+        // IdGenerator (F1-API-04, ADR-017 D1).
+        "src/infrastructure/ids/**/*.ts",
         "src/presentation/logging/**/*.ts",
+        // Autenticação (F1-API-02, ADR-013): o adapter jose, o hook e a validação do ambiente.
+        "src/infrastructure/auth/**/*.ts",
+        "src/presentation/edge/auth*.ts",
+        // Rate limit, cota e QuotaLedger (F1-API-03, ADR-014): cliente REST, adapters, relógio e hooks.
+        // JobFactsCache (F1-CACHE-01, ADR-015): o adapter em Redis.
+        "src/infrastructure/cache/**/*.ts",
+        "src/infrastructure/redis/**/*.ts",
+        "src/infrastructure/limits/**/*.ts",
+        "src/infrastructure/time/**/*.ts",
+        "src/presentation/edge/rate-limit.ts",
+        "src/presentation/edge/daily-quota.ts",
+        "src/presentation/edge/client-address.ts",
+        "src/presentation/api-error.ts",
+        // POST /v1/analyze e o escritor SSE (F1-API-04 parte 2, ADR-017 D6 e D7), com o buildApp que a registra.
+        "src/presentation/routes/analyze.ts",
+        "src/presentation/streaming/**/*.ts",
+        "src/presentation/build-app.ts",
       ],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

@@ -1,0 +1,70 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "syn-15-senior-adjacente",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "com_salario",
+    "remoto",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenheiro(a) de Software Back-end Sênior",
+    "seniorityLevels": [
+      "senior"
+    ],
+    "yearsExperienceMin": 5,
+    "workModels": [
+      "remoto"
+    ],
+    "location": {
+      "city": null,
+      "stateUf": null,
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 15000,
+      "max": 15000,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "clt"
+    ],
+    "stackRequired": [
+      "Node.js",
+      "TypeScript",
+      "PostgreSQL",
+      "Redis",
+      "Docker",
+      "AWS"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_refeicao",
+      "auxilio_home_office",
+      "bem_estar_academia"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Fixture da adjacência ascendente (D-S5): vaga só sênior com 6 tecnologias exigidas e nenhuma desejável. Usuário que aceita só pleno e tem 5 ou 6 delas recebe senioridade_adjacente_validada; com menos de 80% da stack, adjacente_acima com penalidade."
+}

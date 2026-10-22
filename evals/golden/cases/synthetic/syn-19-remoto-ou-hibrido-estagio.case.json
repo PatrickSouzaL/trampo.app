@@ -1,0 +1,74 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "syn-19-remoto-ou-hibrido-estagio",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "estagio",
+    "remoto_ou_hibrido",
+    "remoto",
+    "hibrido",
+    "com_salario",
+    "curta"
+  ],
+  "traps": [
+    "beneficio_com_valor"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Estágio em Desenvolvimento de Software",
+    "seniorityLevels": [
+      "estagio"
+    ],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto",
+      "hibrido"
+    ],
+    "location": {
+      "city": "Curitiba",
+      "stateUf": "PR",
+      "countryIso2": "BR"
+    },
+    "salary": {
+      "min": 1800,
+      "max": 1800,
+      "currency": "BRL",
+      "period": "mes"
+    },
+    "contractTypes": [
+      "estagio"
+    ],
+    "stackRequired": [
+      "JavaScript",
+      "SQL"
+    ],
+    "stackNiceToHave": [
+      "React",
+      "Git"
+    ],
+    "benefits": [
+      "vale_refeicao",
+      "auxilio_home_office",
+      "seguro_vida",
+      "outro"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Estágio (nível e contrato), remoto ou híbrido explícito, bolsa de R$ 1.800 por mês como salário. VR de R$ 25 por dia e auxílio home office de R$ 100 são benefícios com valor, não salário. Recesso remunerado = outro."
+}

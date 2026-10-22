@@ -43,6 +43,9 @@ catalog:
   # não há regressão. type-provider-zod ganhou proveniência na 1.0.1.
   fastify: 5.12.7
   '@fastify/type-provider-zod': 1.0.1
+  # JWT (F1-API-02, ADR-013). Zero dependências, sem script, proveniência SLSA. 6.2.13 (2026-10-20) ainda na
+  # quarentena de 3 dias; o changelog dela só tem refatoração.
+  jose: 6.2.12
 
 # Peers usados SÓ nos .d.ts do type-provider-zod (o runtime nunca importa swagger nem openapi-types).
 # Marcados como opcionais para o autoInstallPeers não instalar a árvore do Swagger. Revisão [APPSEC]:

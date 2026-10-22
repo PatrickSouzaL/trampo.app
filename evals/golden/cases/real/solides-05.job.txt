@@ -1,0 +1,53 @@
+# IB2TECH SOLUTIONS LTDA | Analista de Suporte Externo N1
+
+- **Empresa:** IB2TECH SOLUTIONS LTDA
+- **Título da vaga:** Analista de Suporte Externo N1
+- **Localidade:** Rio de Janeiro, RJ, Brasil
+- **Regime de atuação:** Presencial (Atendimento em campo / Externo)
+- **Tipo de vínculo:** CLT
+
+---
+
+### Sobre a vaga
+Prestação de suporte técnico de primeiro nível (N1) presencial e em campo aos clientes da empresa, executando rotinas de instalação, parametrização e manutenção preventiva/corretiva de plataformas de Ponto de Venda (PDV), infraestrutura de rede básica e periféricos de automação comercial para o setor varejista.
+
+### Responsabilidades e atribuições
+- Realizar atendimento técnico presencial aos clientes em campo.
+- Executar instalação, configuração e testes da plataforma proprietária de PDV e frentes de caixa.
+- Instalar e homologar periféricos de automação comercial: impressoras fiscais/não fiscais, leitores de código de barras, PinPads (TEF), balanças e gavetas de dinheiro.
+- Configurar estações de trabalho Windows, periféricos e parâmetros de rede local dos clientes.
+- Diagnosticar e solucionar incidentes técnicos de baixa complexidade em hardware, software e conectividade.
+- Orientar e treinar usuários finais sobre a correta operação da plataforma e dos dispositivos.
+- Registrar e atualizar os status de chamados em plataformas de ITSM/CRM, cumprindo métricas de SLA.
+- Apoiar equipes de Implantação em períodos de Go Live e estabilização de clientes.
+- Atuar de forma integrada com as áreas de Suporte Interno e NOC quando detectadas falhas em infraestrutura local.
+- Assegurar conformidade com políticas de Segurança da Informação e LGPD no manuseio de dados dos clientes.
+
+### Requisitos e qualificações
+
+**Obrigatórios:**
+- Ensino superior em andamento ou completo em Sistemas de Informação, Redes de Computadores, Tecnologia da Informação ou áreas afins.
+- Até 2 anos de experiência prévia com Suporte Técnico, Assistência Técnica ou Atendimento em Campo (Field Service).
+- Conhecimentos práticos no sistema operacional Windows.
+- Fundamentos de redes de computadores (TCP/IP, VPN e endereçamento local).
+- Noções de bancos de dados relacionais e elaboração de consultas SQL básicas.
+- Familiaridade com ferramentas de chamados ou gestão de tarefas (Jira, Azure DevOps ou CRMs).
+- Conhecimentos fundamentais em rotinas e regras de faturamento de varejo (NFC-e, SAT, frente de caixa e cadastros).
+
+**Desejáveis / Diferenciais:**
+- Experiência prévia voltada a sistemas de automação comercial de varejo.
+- Cursos técnicos complementares em Redes, Hardware, Automação Comercial ou Manutenção.
+- Noções e boas práticas baseadas na metodologia ITIL.
+
+### Benefícios
+- Salário: R$ 1.800,00 / mês
+- Cartão Caju (benefícios flexíveis)
+- Vale-Refeição
+- Vale-Transporte
+- Café da manhã no local
+- Refeitório na empresa
+- Day Off
+
+### Modelo e local de trabalho
+- **Regime:** 100% Presencial (atendimento externo/em campo).
+- **Base:** Vila Militar, Rio de Janeiro - RJ, Brasil.

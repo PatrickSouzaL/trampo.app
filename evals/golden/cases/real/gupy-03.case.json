@@ -1,0 +1,60 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "gupy-03",
+  "source": "gupy",
+  "platform": "gupy",
+  "batch": "hitl-003",
+  "synthetic": false,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "fora_de_ti",
+    "sem_salario",
+    "presencial"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Assistente de Manutenção (Pedreiro)",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "presencial"
+    ],
+    "location": {
+      "city": "Campinas",
+      "stateUf": "SP",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [
+      "temporario"
+    ],
+    "stackRequired": [],
+    "stackNiceToHave": [],
+    "benefits": [
+      "plano_saude",
+      "plano_odontologico",
+      "vale_alimentacao",
+      "outro",
+      "auxilio_creche",
+      "seguro_vida",
+      "bem_estar_academia",
+      "plr_bonus",
+      "auxilio_educacao"
+    ],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Refeição no local com desconto sobre o salário não é salário nem VR: vira outro. Título de pedreiro com atividades de pintura, sem red flag (critério conservador). Bolsa para cursos = auxilio_educacao."
+}

@@ -1,0 +1,39 @@
+Senior Backend Engineer (Node.js)
+
+Acme Cloud Labs | Remote | Location: United States | Independent contractor
+
+About us
+Acme Cloud Labs builds scheduling and billing software for physical therapy clinics across the United States. We are a distributed team of 25 engineers and we ship small changes to production every day.
+
+What you will do
+- Design and build APIs for appointment booking, insurance claims and payments;
+- Own services end to end, from design documents to monitoring in production;
+- Improve the performance of our PostgreSQL queries and background jobs;
+- Review pull requests and mentor other engineers;
+- Join planning sessions with product managers and designers.
+
+Requirements
+- 5+ years of professional backend experience;
+- Strong Node.js and TypeScript skills;
+- PostgreSQL;
+- AWS (ECS, RDS, SQS);
+- Docker;
+- Fluent English: all meetings, documents and code reviews are in English.
+
+Nice to have
+- Kubernetes;
+- GraphQL;
+- Experience with healthcare or insurance data.
+
+Engagement and compensation
+- Full-time independent contractor engagement (40 hours per week);
+- USD 35-45 per hour, depending on experience, paid monthly;
+- At least 4 hours of overlap with US Eastern Time.
+
+Perks
+- Flexible schedule outside the overlap window;
+- Annual learning stipend for courses and conferences;
+- One-time home office equipment stipend.
+
+Hiring process
+Short call with our recruiting team, a 90-minute live technical interview, a system design conversation and a final chat with the engineering manager.

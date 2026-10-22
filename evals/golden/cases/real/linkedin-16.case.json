@@ -1,0 +1,88 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "linkedin-16",
+  "source": "linkedin",
+  "platform": "linkedin",
+  "batch": "hitl-017",
+  "synthetic": false,
+  "category": "ambigua",
+  "language": "pt",
+  "tags": [
+    "estresse",
+    "fora_de_ti",
+    "sem_salario",
+    "remoto",
+    "hibrido",
+    "conflito",
+    "ingles"
+  ],
+  "traps": [
+    "conflito_modelo",
+    "termo_ambiguo"
+  ],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Engenheiro Mecânico - Home Office",
+    "seniorityLevels": [],
+    "yearsExperienceMin": null,
+    "workModels": [
+      "remoto",
+      "hibrido"
+    ],
+    "location": {
+      "city": "Rio de Janeiro",
+      "stateUf": "RJ",
+      "countryIso2": "BR"
+    },
+    "salary": null,
+    "contractTypes": [],
+    "stackRequired": [
+      "Microsoft Office"
+    ],
+    "stackNiceToHave": [],
+    "benefits": [],
+    "languageRequirements": [
+      {
+        "language": "ingles",
+        "level": "intermediario",
+        "required": true
+      }
+    ],
+    "redFlagSignals": []
+  },
+  "alternatives": {
+    "title": [
+      "Engenheiro Mecânico"
+    ],
+    "workModels": [
+      [
+        "remoto"
+      ],
+      [
+        "hibrido"
+      ]
+    ],
+    "location": [
+      {
+        "city": "Rio de Janeiro",
+        "stateUf": null,
+        "countryIso2": "BR"
+      },
+      {
+        "city": "Rio de Janeiro",
+        "stateUf": null,
+        "countryIso2": null
+      }
+    ]
+  },
+  "injection": null,
+  "notes": "Conflito: título diz Home Office, metadado diz Híbrido; união no expected. \"API-2SK\" é norma de ancoragem, não tecnologia nem API de software (termo_ambiguo). Sem anos mínimos (só \"sólida experiência\"). UF RJ pela cidade."
+}

@@ -1,0 +1,66 @@
+{
+  "caseSchemaVersion": 2,
+  "id": "syn-17-pj-hora-brl",
+  "source": "sintetico",
+  "platform": "texto_colado",
+  "batch": "sintetico",
+  "synthetic": true,
+  "category": "normal",
+  "language": "pt",
+  "tags": [
+    "salario_hora",
+    "so_pj",
+    "com_salario",
+    "remoto",
+    "curta"
+  ],
+  "traps": [],
+  "anonymization": {
+    "pessoa": 0,
+    "email": 0,
+    "telefone": 0,
+    "documento": 0,
+    "url": 0,
+    "empresa": 0,
+    "endereco": 0
+  },
+  "expected": {
+    "title": "Desenvolvedor(a) Python Pleno (PJ)",
+    "seniorityLevels": [
+      "pleno"
+    ],
+    "yearsExperienceMin": 3,
+    "workModels": [
+      "remoto"
+    ],
+    "location": null,
+    "salary": {
+      "min": 95,
+      "max": 95,
+      "currency": "BRL",
+      "period": "hora"
+    },
+    "contractTypes": [
+      "pj"
+    ],
+    "stackRequired": [
+      "Python",
+      "FastAPI",
+      "PostgreSQL",
+      "Docker",
+      "AWS",
+      "AWS Lambda",
+      "Amazon S3",
+      "Amazon RDS"
+    ],
+    "stackNiceToHave": [
+      "Kubernetes"
+    ],
+    "benefits": [],
+    "languageRequirements": [],
+    "redFlagSignals": []
+  },
+  "alternatives": {},
+  "injection": null,
+  "notes": "Só PJ, R$ 95 por hora (BRL, período hora): testa hora x 220 do motor. A estimativa de 160 horas no mês é informação do texto, não muda o gabarito. Sem pacote de benefícios: benefits vazio."
+}

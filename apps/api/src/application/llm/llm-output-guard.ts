@@ -12,8 +12,11 @@ import {
   truncateCodePoints,
 } from "@trampo/contracts/primitives";
 
-/** Entra no `extractorVersion` da chave de cache: mudar o saneamento muda os fatos (ADR-008 D2). */
-export const LLM_OUTPUT_GUARD_VERSION = "g1";
+/**
+ * Entra no `extractorVersion` da chave de cache: mudar o saneamento muda os fatos (ADR-008 D2).
+ * g2 (ADR-002 §8.1): ARS e `pressao_excessiva` no contrato; teto de `redFlagSignals` de 6 para 7.
+ */
+export const LLM_OUTPUT_GUARD_VERSION = "g2";
 
 /** Teto da resposta bruta em bytes UTF-8, checado antes do parse (ADR-008 D3; calibrar no S-1). */
 export const LLM_OUTPUT_MAX_BYTES = 8_192;
@@ -30,7 +33,7 @@ export const ARRAY_MAX_ITEMS = {
   stackNiceToHave: 30,
   benefits: 15,
   languageRequirements: 5,
-  redFlagSignals: 6,
+  redFlagSignals: 7,
 } as const;
 
 export type LlmOutputRejection =
@@ -88,12 +91,9 @@ export class LlmOutputGuard {
     if (typeof raw !== "string") return { ok: false, reason: "json_invalido" };
     if (exceedsByteLimit(raw)) return { ok: false, reason: "resposta_grande_demais" };
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw, rejectPrototypeKeys);
-    } catch (error) {
-      return { ok: false, reason: error instanceof PrototypeKeyError ? "poluicao_de_prototipo" : "json_invalido" };
-    }
+    const json = parseJsonWithoutPrototypeKeys(raw);
+    if (!json.ok) return json;
+    const parsed = json.value;
 
     const tally: Tally = {
       urlsRemoved: 0,
@@ -112,6 +112,22 @@ export class LlmOutputGuard {
       facts: result.data,
       sanitization: { ...tally, injectionSignal: tally.urlsRemoved + tally.hiddenOrMarkupRemoved > 0 },
     };
+  }
+}
+
+/**
+ * `JSON.parse` que recusa `__proto__` e `constructor` em qualquer nível, inclusive escapados. Também é o parse
+ * da leitura do JobFactsCache (ADR-015 D4). Nunca lança.
+ */
+export function parseJsonWithoutPrototypeKeys(
+  raw: string,
+):
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly reason: "json_invalido" | "poluicao_de_prototipo" } {
+  try {
+    return { ok: true, value: JSON.parse(raw, rejectPrototypeKeys) };
+  } catch (error) {
+    return { ok: false, reason: error instanceof PrototypeKeyError ? "poluicao_de_prototipo" : "json_invalido" };
   }
 }
 
