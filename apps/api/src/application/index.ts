@@ -109,7 +109,8 @@ export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
 export type { DailyQuota, DailyQuotaDecision } from "./ports/daily-quota.js";
 export type { CacheStoreRead, CacheStoreWrite, JobFactsCacheStore } from "./ports/job-facts-cache-store.js";
 export type { Random } from "./ports/random.js";
-export type { CriteriaLookup, CriteriaRepository } from "./ports/criteria-repository.js";
+export { CRITERIA_GUARD_POLICY, CriteriaGuard } from "./criteria/criteria-guard.js";
+export type { CriteriaLookup, CriteriaRepository, CriteriaSubject } from "./ports/criteria-repository.js";
 export type { IdGenerator } from "./ports/id-generator.js";
 export type { RateLimitClass, RateLimitDecision, RateLimiter, RateLimitSubject } from "./ports/rate-limiter.js";
 export {

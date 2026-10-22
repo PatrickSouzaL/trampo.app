@@ -655,10 +655,11 @@ describe("[APPSEC] §3: PII fora do LLM, SR-11 e SR-12", () => {
 describe("FakeCriteriaRepository (para a rota, parte 2)", () => {
   test("as três respostas da porta, sem rejeitar", async () => {
     const repo = new FakeCriteriaRepository().set("u1", criteria());
-    expect(await repo.load("u1")).toEqual({ found: true, criteria: criteria() });
-    expect(await repo.load("u2")).toEqual({ found: false });
+    expect(await repo.load({ userId: "u1", accessToken: "t1" })).toEqual({ found: true, criteria: criteria() });
+    expect(await repo.load({ userId: "u2", accessToken: "t2" })).toEqual({ found: false });
     repo.unavailable = true;
-    expect(await repo.load("u1")).toEqual({ found: false, unavailable: true });
+    expect(await repo.load({ userId: "u1", accessToken: "t3" })).toEqual({ found: false, unavailable: true });
     expect(repo.loads).toEqual(["u1", "u2", "u1"]);
+    expect(repo.tokens).toEqual(["t1", "t2", "t3"]);
   });
 });

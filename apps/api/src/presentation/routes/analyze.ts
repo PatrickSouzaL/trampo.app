@@ -11,9 +11,13 @@ import { type AnalyzeJobRequest, AnalyzeJobRequestSchema, type UserCriteria } fr
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import type { AnalysisAlert, AnalysisStage, AnalyzeJob } from "../../application/analysis/analyze-job.js";
-import type { CriteriaLookup, CriteriaRepository } from "../../application/ports/criteria-repository.js";
+import type {
+  CriteriaLookup,
+  CriteriaRepository,
+  CriteriaSubject,
+} from "../../application/ports/criteria-repository.js";
 import { apiError, sendApiError } from "../api-error.js";
-import { unauthenticated } from "../edge/auth.js";
+import { bearerToken, unauthenticated } from "../edge/auth.js";
 import { SSE_CONTENT_TYPE, SSE_HEADERS, SseStream } from "../streaming/sse-stream.js";
 
 export const ANALYZE_ROUTE = "/v1/analyze";
@@ -39,23 +43,25 @@ function safely(write: () => void): void {
 }
 
 /** A porta nunca rejeita (ADR-017 D1). Se rejeitar ou lançar, é banco fora do ar: falha fechado. */
-async function loadCriteria(repository: CriteriaRepository, userId: string): Promise<CriteriaLookup> {
+async function loadCriteria(repository: CriteriaRepository, subject: CriteriaSubject): Promise<CriteriaLookup> {
   try {
-    return await repository.load(userId);
+    return await repository.load(subject);
   } catch {
     return { found: false, unavailable: true };
   }
 }
 
 /**
- * preHandler dos critérios (ADR-017 D6, passo 3). Sem principal → 401; não configurados → 409; banco fora do ar
- * → 503. Nada do `sub` nem dos critérios vai para o log (SR-12).
+ * preHandler dos critérios (ADR-017 D6, passo 3). Sem principal ou sem token → 401; não configurados → 409; banco
+ * fora do ar → 503. O token é o que o hook de autenticação já verificou nesta requisição: ele segue ao adapter para
+ * a RLS valer (ADR-018 D6). Nada do `sub`, do token nem dos critérios vai para o log (SR-12).
  */
 export function createCriteriaPreHandler(repository: CriteriaRepository, loaded: LoadedCriteria) {
   return async function criteriaPreHandler(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | undefined> {
     const principal = request.principal;
-    if (principal === null) return unauthenticated(request, reply);
-    const lookup = await loadCriteria(repository, principal.userId);
+    const accessToken = bearerToken(request.headers.authorization);
+    if (principal === null || accessToken === null) return unauthenticated(request, reply);
+    const lookup = await loadCriteria(repository, { userId: principal.userId, accessToken });
     if (lookup.found) {
       loaded.set(request, lookup.criteria);
       return undefined;

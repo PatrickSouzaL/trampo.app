@@ -36,7 +36,7 @@ import {
 } from "./application/fakes/analyze-job-harness.js";
 import type { FakeClock } from "./application/fakes/fake-clock.js";
 import { FakeCriteriaRepository } from "./application/fakes/fake-criteria-repository.js";
-import { TEST_AUTHORIZATION, TEST_PRINCIPAL, fakeVerifier } from "./auth-fakes.js";
+import { TEST_AUTHORIZATION, TEST_PRINCIPAL, TEST_TOKEN, fakeVerifier } from "./auth-fakes.js";
 import { ELIMINATORY, REQUIRED, criteria, stack } from "./domain/fakes/scoring-fixtures.js";
 import { type FakeBehavior, fakeLimits } from "./limit-fakes.js";
 
@@ -208,6 +208,7 @@ describe("stream SSE (ADR-017 D6)", () => {
     expect(report).toMatchObject({ requestId: REQUEST_ID, decisionPath: "fallback_deterministico" });
     expect(report.warnings).toContain("analise_degradada");
     expect(repository.loads).toEqual([TEST_PRINCIPAL.userId]);
+    expect(repository.tokens).toEqual([TEST_TOKEN]);
     expect(quota.calls).toEqual([{ userId: TEST_PRINCIPAL.userId, requestId: REQUEST_ID }]);
   });
 
@@ -462,7 +463,7 @@ describe("ordem de defesa na borda ([APPSEC] §3)", () => {
     expect(ApiErrorSchema.parse(res.json()).code).toBe("SERVICO_INDISPONIVEL");
     expect(quota.calls).toEqual([]);
     expect(records(lines).filter((r) => r["level"] === 40)).toEqual([expect.objectContaining({ msg: "criterios_indisponiveis" })]);
-    for (const leak of [TEST_PRINCIPAL.userId, REQUEST_ID]) expect(lines.join("")).not.toContain(leak);
+    for (const leak of [TEST_PRINCIPAL.userId, REQUEST_ID, TEST_TOKEN]) expect(lines.join("")).not.toContain(leak);
   });
 
   test.each<[string, () => Promise<never>]>([
@@ -512,6 +513,23 @@ describe("ordem de defesa na borda ([APPSEC] §3)", () => {
     bare.decorateRequest("principal", null);
     bare.post("/probe", { preHandler: createCriteriaPreHandler(repository, new WeakMap()) }, async () => ({ ok: true }));
     const res = await bare.inject({ method: "POST", url: "/probe", payload: {} });
+    expect(res.statusCode).toBe(401);
+    expect(repository.loads).toEqual([]);
+    await bare.close();
+  });
+
+  test.each([
+    ["sem Authorization", {}],
+    ["Authorization fora da forma", { authorization: "Bearer não-é-jws" }],
+  ])("invariante: preHandler dos critérios com principal mas %s responde 401 e não lê o banco (ADR-018 D6)", async (_name, headers) => {
+    const repository = new FakeCriteriaRepository();
+    const bare = Fastify({ logger: false, genReqId: () => randomUUID() });
+    bare.decorateRequest("principal", null);
+    bare.addHook("onRequest", async (request) => {
+      request.principal = TEST_PRINCIPAL;
+    });
+    bare.post("/probe", { preHandler: createCriteriaPreHandler(repository, new WeakMap()) }, async () => ({ ok: true }));
+    const res = await bare.inject({ method: "POST", url: "/probe", headers, payload: {} });
     expect(res.statusCode).toBe(401);
     expect(repository.loads).toEqual([]);
     await bare.close();

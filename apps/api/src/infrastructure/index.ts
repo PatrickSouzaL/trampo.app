@@ -8,3 +8,15 @@ export {
   type JoseAccessTokenVerifierConfig,
   type JwksTimings,
 } from "./auth/jose-access-token-verifier.js";
+export {
+  SALARY_CIPHER_POLICY,
+  SALARY_ENVELOPE_VERSION,
+  SalaryKeyringConfigError,
+  SalarySealError,
+  createSalaryCipher,
+  parseSalaryKeyring,
+  type SalaryCipher,
+  type SalaryKeyring,
+  type SalaryOpenResult,
+  type SalaryValue,
+} from "./crypto/salary-cipher.js";
