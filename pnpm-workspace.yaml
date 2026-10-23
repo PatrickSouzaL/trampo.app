@@ -46,6 +46,9 @@ catalog:
   # JWT (F1-API-02, ADR-013). Zero dependências, sem script, proveniência SLSA. 6.2.13 (2026-10-20) ainda na
   # quarentena de 3 dias; o changelog dela só tem refatoração.
   jose: 6.2.12
+  # Política do workflow (F1-OPS-01, ADR-019 D7). Já estava no lockfile como transitiva do ESLint:
+  # nenhum pacote novo. Tipos por declaração local, sem @types/js-yaml.
+  js-yaml: 4.3.2
 
 # Peers usados SÓ nos .d.ts do type-provider-zod (o runtime nunca importa swagger nem openapi-types).
 # Marcados como opcionais para o autoInstallPeers não instalar a árvore do Swagger. Revisão [APPSEC]:
