@@ -11,7 +11,7 @@ import {
   SeniorityLevelSchema,
   WorkModelSchema,
 } from './enums.js';
-import { SALARY_MAX } from './limits.js';
+import { SALARY_MAX, USER_CRITERIA_MAX_JSON_BYTES } from './limits.js';
 import { safeText, techTagList, uniqueArray } from './primitives.js';
 
 export const USER_CRITERIA_SCHEMA_VERSION = 1 as const;
@@ -104,10 +104,19 @@ export const BenefitsCriterionSchema = z.strictObject({
 export const RedFlagToleranceSchema = z.enum(['ignorar', 'alertar', 'penalizar', 'eliminatorio']);
 export type RedFlagTolerance = z.infer<typeof RedFlagToleranceSchema>;
 
+// TextEncoder, e não Buffer: o mesmo schema roda no portal e na API (ADR-021 D3).
+const UTF8 = new TextEncoder();
+
+/** Bytes UTF-8 do JSON do valor já parseado (depois do `trim`): a unidade do teto do ADR-021 D3. */
+export function userCriteriaJsonBytes(criteria: unknown): number {
+  return UTF8.encode(JSON.stringify(criteria)).length;
+}
+
 /**
  * Critérios do usuário (portal -> API -> Postgres com RLS). NUNCA vai para a extensão
  * nem para o LLM (D2). Não contém `userId`: o dono vem SEMPRE do token (anti-IDOR/BOPLA);
- * `strictObject` rejeita a tentativa de "mass assignment".
+ * `strictObject` rejeita a tentativa de "mass assignment". O teto de bytes (ADR-021 D3) vale
+ * também na leitura: uma linha acima dele é recusada (falha fechado, 503 na API).
  */
 export const UserCriteriaSchema = z.strictObject({
   schemaVersion: z.literal(USER_CRITERIA_SCHEMA_VERSION),
@@ -123,5 +132,7 @@ export const UserCriteriaSchema = z.strictObject({
   redFlagTolerance: z.record(RedFlagSignalSchema, RedFlagToleranceSchema),
   /** Observações livres: não alimentam regra, não vão ao LLM, não são logadas (Blueprint §3). */
   notes: safeText(500, { multiline: true }).nullable(),
+}).refine((criteria) => userCriteriaJsonBytes(criteria) <= USER_CRITERIA_MAX_JSON_BYTES, {
+  error: 'criterios_grandes_demais',
 });
 export type UserCriteria = z.infer<typeof UserCriteriaSchema>;

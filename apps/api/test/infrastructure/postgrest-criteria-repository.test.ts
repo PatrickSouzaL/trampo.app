@@ -4,7 +4,13 @@
 // banco fora do ar é `unavailable` (503), NUNCA `found: false` (409) — também pela rota, de ponta a ponta.
 import { randomBytes } from "node:crypto";
 
-import { ApiErrorSchema, type UserCriteria } from "@trampo/contracts";
+import {
+  ApiErrorSchema,
+  USER_CRITERIA_MAX_JSON_BYTES,
+  UserCriteriaSchema,
+  userCriteriaJsonBytes,
+  type UserCriteria,
+} from "@trampo/contracts";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { CriteriaGuard, type CriteriaRepository } from "../../src/application/index.js";
@@ -190,6 +196,24 @@ describe("linha fora do contrato: unavailable", () => {
   test("critérios que não passam no UserCriteriaSchema (gravados direto pelo PostgREST)", async () => {
     const { salary: _salary, schemaVersion: _version, ...rest } = criteria();
     store(OWNER, criteria(), { criteria: { ...rest, workModel: { accepted: ["lua"], importance: REQUIRED } } });
+    await expect(load()).resolves.toEqual(UNAVAILABLE);
+  });
+
+  test("linha acima do teto de bytes do contrato (ADR-021 D3), gravada direto pelo PostgREST", async () => {
+    // Tags e cidades de 4 bytes por code point: cada item vale pelo formato, e só o conjunto passa de 12 KiB.
+    const astral = (first: number, length: number): string => String.fromCodePoint(first) + String.fromCodePoint(0x1d400).repeat(length - 1);
+    const tags = Array.from({ length: 60 }, (_, i) => astral(0x20000 + i, 40));
+    // Montado por fora do `criteria()`, que já passa pelo schema (e recusaria o teto).
+    const base = criteria();
+    const value: UserCriteria = {
+      ...base,
+      stack: { ...base.stack, mustHave: tags.slice(0, 15), niceToHave: tags.slice(15, 45), dealBreakers: tags.slice(45) },
+      location: { acceptedUfs: [], acceptedCities: Array.from({ length: 10 }, (_, i) => astral(0x20100 + i, 80)), importance: REQUIRED },
+    };
+    expect(userCriteriaJsonBytes(value)).toBeGreaterThan(USER_CRITERIA_MAX_JSON_BYTES);
+    const parsed = UserCriteriaSchema.safeParse(value);
+    expect(parsed.success ? [] : parsed.error.issues.map((issue) => issue.message)).toEqual(["criterios_grandes_demais"]);
+    store(OWNER, value);
     await expect(load()).resolves.toEqual(UNAVAILABLE);
   });
 
