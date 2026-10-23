@@ -9,8 +9,10 @@ import {
   LIMIT_GUARD_POLICY,
   RATE_LIMIT_POLICY,
   STRICTEST_RATE_LIMIT_CLASS,
+  WORKERS_AI_NEURON_BUDGET,
   effectiveLimit,
   isEpochMs,
+  workersAiCallsPerDay,
   providerLimits,
   quotaDay,
   resolveRateLimitClass,
@@ -42,7 +44,7 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
       globalCallsPerDay: 400,
       providers: {
         groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000 },
-        cloudflare_workers_ai: { rpm: 60, rpd: 200, tpm: null, tpd: null },
+        cloudflare_workers_ai: { rpm: 60, rpd: 54, tpm: null, tpd: null },
         ollama: { rpm: null, rpd: null, tpm: null, tpd: null },
       },
       minuteTtlSeconds: 120,
@@ -50,6 +52,24 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
       maxTokensPerCall: 1_000_000,
     });
     expect(LIMIT_GUARD_POLICY).toEqual({ timeoutMs: 250 });
+  });
+
+  test("Workers AI: rpd pela fórmula de neurons do ADR-020 D9, com a folga aplicada uma vez só", () => {
+    expect(WORKERS_AI_NEURON_BUDGET).toEqual({
+      neuronsPerDay: 10_000,
+      inputTokens: 2_200,
+      outputTokens: 600,
+      inputNeuronsPerMillion: 26_668,
+      outputNeuronsPerMillion: 204_805,
+    });
+    // 2.200 × 26.668 / 1e6 = 58,67 e 600 × 204.805 / 1e6 = 122,88: 181,55 → 182 neurons por chamada.
+    const perCall = Math.ceil((2_200 * 26_668 + 600 * 204_805) / 1_000_000);
+    expect(perCall).toBe(182);
+    expect(workersAiCallsPerDay()).toBe(Math.floor(10_000 / perCall));
+    expect(workersAiCallsPerDay()).toBe(54);
+    expect(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd).toBe(workersAiCallsPerDay());
+    // Teto efetivo de 45 por dia, abaixo dos 10.000 × 0,85 ÷ 182 ≈ 46,7 do ADR: a folga não entra duas vezes.
+    expect(effectiveLimit(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd)).toBe(45);
   });
 
   test("o Gemini não tem política (HITL-012): o ledger o trata como esgotado", () => {
