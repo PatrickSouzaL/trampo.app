@@ -63,6 +63,15 @@ export {
   type LlmOutputSanitization,
 } from "./llm/llm-output-guard.js";
 export {
+  EXTRACTION_PROMPT_VERSION,
+  EXTRACTION_RESPONSE_SCHEMA,
+  EXTRACTION_SYSTEM_PROMPT_TEMPLATE,
+  buildExtractionMessages,
+  type ExtractionMessage,
+  type ExtractionMessagesResult,
+  type JsonSchemaValue,
+} from "./llm/extraction-prompt.js";
+export {
   BREAKER_POLICY,
   INITIAL_PROVIDER_STATE,
   InMemoryProviderStateStore,
