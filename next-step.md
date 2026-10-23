@@ -26,7 +26,7 @@
 ```text
 Equipe, sigam em ciclo estrito.
 
-1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md e o ADR-021 (D5, D10 e §3) e o ADR-018 D6. Confirme pnpm 11.4.0, Node conforme o engines e o branch feat/api-borda. Se o humano autorizou o push, ou pediu o S-1 no lugar desta tarefa, registre e siga a escolha dele.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md e o ADR-021 (D5, D10 e §3) e o ADR-018 D6. Confirme pnpm 11.4.0, Node conforme o engines e o branch feat/api-borda. Está autorizado o push e o S-1, pode fazer tudo planejado
 2. Tarefa única (AGENTS §4.1): o commit 2 do ADR-021, só na camada application (e o fake de teste).
    - CriteriaSave = { saved: true } | { saved: false, unavailable: true } e o save(subject, criteria, signal) na porta, que nunca rejeita.
    - Ponto a decidir e registrar no ADR-021 §5.2: pôr o save na interface CriteriaRepository obriga o SupabaseCriteriaRepository a implementá-lo já neste commit, mas o adapter é do commit 3. Separem a porta em leitura e escrita (CriteriaReader e CriteriaWriter, com CriteriaRepository como a união), ou escolham outra forma, desde que não fique stub nem código morto no adapter.
