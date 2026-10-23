@@ -114,7 +114,12 @@ export const JobFactsCacheEntrySchema = z.strictObject({
   extractorVersion: VersionTagSchema,
   textHash: Sha256HexSchema,
   provider: LlmProviderIdSchema,
-  model: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:\/-]{0,79}$/),
+  // Id do modelo no provedor. O único `@` aceito é o prefixo exato `@cf/` dos ids da Workers AI (F1-LLM-02,
+  // decisão do humano de 2026-10-22); o teto de 80 vale com o prefixo.
+  model: z
+    .string()
+    .max(80)
+    .regex(/^(?:@cf\/)?[A-Za-z0-9][A-Za-z0-9._:\/-]{0,79}$/),
   extractedAt: z.iso.datetime(),
   facts: JobFactsSchema,
 });
