@@ -1,0 +1,21 @@
+# Varredura de segredos (SR-14; ADR-019 D6). Estende as regras padrão do gitleaks.
+# A liberação é por VALOR EXATO de fixture falsa dos testes, nunca por caminho: um segredo real
+# colado num arquivo de teste continua sendo pego. Valor novo aqui exige revisão do [APPSEC].
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fixtures falsas dos testes da API (tokens JWS montados à mão, chave secret fictícia e prefixo legado)"
+regexes = [
+  # JWS falsos: cabeçalho, carga de teste e assinatura "c2lnbmF0dXJh" / "b3V0cmE" / "canario-assinatura".
+  '''^eyJhbGciOiJFUzI1NiJ9\.eyJzdWIiOiJhIn0\.c2lnbmF0dXJh$''',
+  '''^eyJhbGciOiJFUzI1NiJ9\.eyJzdWIiOiJ0ZXN0ZSJ9\.c2lnbmF0dXJh$''',
+  '''^eyJhbGciOiJFUzI1NiJ9\.eyJzdWIiOiJvdXRyYSJ9\.b3V0cmE$''',
+  '''^eyJjYW5hcmlvIjoiaGVhZGVyIn0\.eyJjYW5hcmlvIjoic3ViIn0\.canario-assinatura$''',
+  '''^eyJhbGciOiJIUzI1NiJ9\.eyJyb2xlIjoic2VydmljZV9yb2xlIn0\.assinatura$''',
+  # Prefixo da chave legada e chaves secret fictícias que o boot e o cliente devem recusar.
+  '''^eyJhbGciOiJIUzI1NiJ9$''',
+  '''^sb_secret_AbC123-teste_xyz$''',
+  '''^sb_secret_vazada-123$''',
+]

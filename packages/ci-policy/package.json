@@ -1,0 +1,22 @@
+{
+  "name": "@trampo/ci-policy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Política dos workflows do GitHub Actions como teste (ADR-019 D7): todo arquivo de .github/workflows passa por ela no pnpm test.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint",
+    "test": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@trampo/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "js-yaml": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
