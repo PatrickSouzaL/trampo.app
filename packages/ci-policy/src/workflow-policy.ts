@@ -18,7 +18,9 @@ export type WorkflowRule =
   | "interpolacao_em_run"
   | "instalacao_sem_lockfile"
   | "execucao_remota"
-  | "download_sem_hash";
+  | "download_sem_hash"
+  | "versao_nao_fixa"
+  | "supabase_remoto";
 
 export interface WorkflowViolation {
   readonly rule: WorkflowRule;
@@ -30,7 +32,12 @@ export const WORKFLOW_POLICY = Object.freeze({
   /** Gatilhos que não rodam código de PR com permissão de escrita (D2). */
   allowedEvents: Object.freeze(["push", "pull_request"]),
   /** Lista fechada de actions (D3). Action nova exige mudar a política. */
-  allowedActions: Object.freeze(["actions/checkout", "actions/setup-node", "pnpm/action-setup"]),
+  allowedActions: Object.freeze(["actions/checkout", "actions/setup-node", "pnpm/action-setup", "supabase/setup-cli"]),
+  /**
+   * Subcomandos da CLI do Supabase permitidos em `run` (ADR-019 D8): só a pilha local do runner. Lista positiva,
+   * então `link`, `db push`, `login`, `projects` e qualquer comando novo da CLI ficam de fora.
+   */
+  allowedSupabaseCommands: Object.freeze(["start", "status", "stop", "telemetry", "--version"]),
   /** Runner fixo: nunca `*-latest` nem `self-hosted` (D5). */
   allowedRunners: Object.freeze(["ubuntu-24.04"]),
   maxTimeoutMinutes: 30,
@@ -45,6 +52,12 @@ const OTHER_INSTALL = /\b(?:npm|yarn)\s+(?:install|i|add|ci)\b|\bpnpm\s+add\b/;
 const REMOTE_EXECUTION = /\bnpx\b|\bpnpx\b|\bpnpm\s+dlx\b|\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:ba|z)?sh\b/;
 const DOWNLOAD = /\b(?:curl|wget)\b/;
 const HASH_CHECK = /\bsha256sum\s+(?:--check|-c)\b/;
+/** A versão da CLI que o `supabase/setup-cli` instala: exata, nunca `latest`, `beta` nem intervalo. */
+const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
+const SUPABASE_COMMAND = /\bsupabase\s+(\S+)/g;
+/** Qualquer marca do projeto real, em valor ou em chave (ADR-019 D8): token da CLI, senha, URL ou projeto ligado. */
+const SUPABASE_REMOTE =
+  /\bSUPABASE_ACCESS_TOKEN\b|\bSUPABASE_DB_PASSWORD\b|--db-url\b|--linked\b|--project-ref\b|\.supabase\.(?:co|com|in)\b/;
 
 function isRecord(value: unknown): value is Doc {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -55,6 +68,18 @@ function collectStrings(value: unknown, out: string[]): string[] {
   if (typeof value === "string") out.push(value);
   else if (Array.isArray(value)) for (const item of value) collectStrings(item, out);
   else if (isRecord(value)) for (const item of Object.values(value)) collectStrings(item, out);
+  return out;
+}
+
+/** Toda chave de objeto do documento: `env: { SUPABASE_ACCESS_TOKEN: ... }` carrega a marca na chave. */
+function collectKeys(value: unknown, out: string[]): string[] {
+  if (Array.isArray(value)) for (const item of value) collectKeys(item, out);
+  else if (isRecord(value)) {
+    for (const [key, item] of Object.entries(value)) {
+      out.push(key);
+      collectKeys(item, out);
+    }
+  }
   return out;
 }
 
@@ -109,6 +134,12 @@ function auditUses(uses: string, step: Doc, where: string, out: WorkflowViolatio
     if (inputs["cache"] !== undefined && inputs["cache"] !== false) out.push({ rule: "cache", where });
     if ("run_install" in inputs) out.push({ rule: "instalacao_sem_lockfile", where });
   }
+  if (action === "supabase/setup-cli") {
+    const version = inputs["version"];
+    if (typeof version !== "string" || !EXACT_VERSION.test(version)) out.push({ rule: "versao_nao_fixa", where });
+    // O token só serve para resolver `latest` na API do GitHub; com a versão fixa, nenhum token entra na action.
+    if ("github-token" in inputs) out.push({ rule: "segredo", where });
+  }
 }
 
 function auditRun(run: string, where: string, out: WorkflowViolation[]): void {
@@ -120,6 +151,10 @@ function auditRun(run: string, where: string, out: WorkflowViolation[]): void {
   if (unfrozen) out.push({ rule: "instalacao_sem_lockfile", where });
   if (REMOTE_EXECUTION.test(run)) out.push({ rule: "execucao_remota", where });
   if (DOWNLOAD.test(run) && !HASH_CHECK.test(run)) out.push({ rule: "download_sem_hash", where });
+  const commands = [...run.matchAll(SUPABASE_COMMAND)].map((match) => match[1] as string);
+  if (commands.some((command) => !WORKFLOW_POLICY.allowedSupabaseCommands.includes(command))) {
+    out.push({ rule: "supabase_remoto", where });
+  }
 }
 
 function auditStep(step: unknown, where: string, out: WorkflowViolation[]): void {
@@ -167,8 +202,12 @@ export function auditWorkflow(document: unknown): readonly WorkflowViolation[] {
   const jobs = document["jobs"];
   if (!isRecord(jobs) || Object.keys(jobs).length === 0) out.push({ rule: "job", where: "jobs" });
   else for (const [name, job] of Object.entries(jobs)) auditJob(job, `jobs.${name}`, out);
-  if (collectStrings(document, []).some((text) => SECRET_EXPRESSION.test(text))) {
+  const strings = collectStrings(document, []);
+  if (strings.some((text) => SECRET_EXPRESSION.test(text))) {
     out.push({ rule: "segredo", where: "" });
+  }
+  if ([...strings, ...collectKeys(document, [])].some((text) => SUPABASE_REMOTE.test(text))) {
+    out.push({ rule: "supabase_remoto", where: "" });
   }
   return out;
 }

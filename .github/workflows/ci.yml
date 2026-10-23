@@ -20,6 +20,11 @@ env:
   DO_NOT_TRACK: "1"
   GITLEAKS_VERSION: "8.30.1"
   GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  # Supabase CLI 2.120.0 (job db): o setup-cli baixa o tarball do release sem conferir nada, então os dois
+  # binários extraídos são conferidos aqui (sha256 calculado do supabase_2.120.0_linux_amd64.tar.gz, que bate
+  # com o checksums.txt oficial do release).
+  SUPABASE_CLI_SHA256: "e4e5d910546d7eda3bc3c63affce09a12b9954a00685dce5236080cd45f43eda"
+  SUPABASE_GO_SHA256: "3a2239de4dddd58040920fdb9706a11c7f9b396e0f2975d65b3829cf375834f4"
 
 jobs:
   # SR-14: todo o histórico, com o binário oficial conferido por sha256 antes de extrair.
@@ -77,3 +82,43 @@ jobs:
           package-manager-cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec turbo run test --concurrency=1
+
+  # SR-15 (ADR-018 D7; ADR-019 D8): RLS, privilégios, checks e cascade contra o Supabase local do próprio runner.
+  # A migration entra pelo supabase start. Nunca link, db push, login nem token: só as chaves de demonstração
+  # que o supabase status imprime, e o test:db recusa qualquer URL que não seja 127.0.0.1.
+  db:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - uses: supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b # v2.1.2
+        with:
+          version: "2.120.0"
+      - name: Conferir a CLI e desligar a telemetria
+        run: |
+          set -euo pipefail
+          dir="$(dirname "$(command -v supabase)")"
+          echo "${SUPABASE_CLI_SHA256}  $dir/supabase" | sha256sum --check --strict
+          echo "${SUPABASE_GO_SHA256}  $dir/supabase-go" | sha256sum --check --strict
+          supabase telemetry disable
+          supabase --version
+      - run: pnpm install --frozen-lockfile
+      - name: Subir só Postgres, Auth, PostgREST e o gateway
+        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - name: test:db
+        run: |
+          set -euo pipefail
+          psql --version
+          # Só as três variáveis que o teste usa: a secret e a service_role locais nunca chegam ao processo.
+          supabase status -o env | grep -E '^(API_URL|DB_URL|PUBLISHABLE_KEY)=' > "$RUNNER_TEMP/supabase-local.env"
+          set -a
+          . "$RUNNER_TEMP/supabase-local.env"
+          set +a
+          pnpm --filter @trampo/api test:db

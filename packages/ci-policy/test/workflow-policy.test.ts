@@ -330,3 +330,107 @@ describe("auditWorkflow: segredos", () => {
     expect(rules(auditWorkflow(doc))).toEqual(["segredo@"]);
   });
 });
+
+const SETUP_SUPABASE = "supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b";
+
+describe("auditWorkflow: supabase/setup-cli (ADR-019 D8)", () => {
+  it("aceita a action com a versao exata da CLI", () => {
+    expect(auditWorkflow(withStep({ uses: SETUP_SUPABASE, with: { version: "2.120.0" } }))).toEqual([]);
+  });
+
+  it.each([
+    ["sem with", undefined],
+    ["sem version", {}],
+    ["latest", { version: "latest" }],
+    ["beta", { version: "beta" }],
+    ["com v", { version: "v2.120.0" }],
+    ["intervalo", { version: "^2.120.0" }],
+    ["pre-release", { version: "2.121.0-beta.1" }],
+    ["so major e minor", { version: "2.120" }],
+    ["numero", { version: 2.12 }],
+    ["com espaco", { version: " 2.120.0" }],
+    ["com quebra de linha", { version: "2.120.0\n" }],
+  ])("recusa versao que nao e exata: %s", (_label, inputs) => {
+    const step = inputs === undefined ? { uses: SETUP_SUPABASE } : { uses: SETUP_SUPABASE, with: inputs };
+    expect(rules(auditWorkflow(withStep(step)))).toEqual([`versao_nao_fixa@${LAST}`]);
+  });
+
+  it("recusa o github-token, mesmo vazio", () => {
+    const step = { uses: SETUP_SUPABASE, with: { version: "2.120.0", "github-token": "" } };
+    expect(rules(auditWorkflow(withStep(step)))).toEqual([`segredo@${LAST}`]);
+  });
+
+  it("outra action do dono supabase continua fora da lista", () => {
+    expect(rules(auditWorkflow(withStep({ uses: `supabase/setup-cli-fork@${OTHER_SHA}`, with: { version: "2.120.0" } })))).toEqual([
+      `action_fora_da_lista@${LAST}`,
+    ]);
+  });
+});
+
+describe("auditWorkflow: supabase só local (ADR-019 D8)", () => {
+  it("aceita os subcomandos da pilha local", () => {
+    const run = [
+      "supabase telemetry disable",
+      "supabase --version",
+      "supabase start -x studio,realtime",
+      'supabase status -o env | grep -E "^API_URL=" > "$RUNNER_TEMP/supabase-local.env"',
+      "supabase stop --no-backup",
+      'dir="$(dirname "$(command -v supabase)")"',
+    ].join("\n");
+    expect(auditWorkflow(withStep({ run }))).toEqual([]);
+  });
+
+  it.each([
+    "supabase link --project-ref abc",
+    "supabase db push",
+    "supabase login",
+    "supabase projects list",
+    "supabase secrets set X=1",
+    "supabase functions deploy",
+    "supabase migration up",
+    "supabase  db reset",
+    "supabase\tlink",
+    "echo ok && supabase link",
+    "supabase start\nsupabase link",
+  ])("recusa subcomando fora da lista: %s", (run) => {
+    expect(rules(auditWorkflow(withStep({ run })))).toContain(`supabase_remoto@${LAST}`);
+  });
+
+  it.each([
+    ["token da CLI no env", { env: { SUPABASE_ACCESS_TOKEN: "x" } }],
+    ["senha do banco no env do job", { jobs: { test: job(baseSteps(), { env: { SUPABASE_DB_PASSWORD: "x" } }) } }],
+    ["token citado no valor", { env: { X: "$SUPABASE_ACCESS_TOKEN" } }],
+    ["URL do projeto real", { env: { API_URL: "https://abcdefgh.supabase.co" } }],
+    ["pooler do projeto real", { env: { DB: "postgresql://u:p@aws-0-us-east-1.pooler.supabase.com:6543/postgres" } }],
+    ["dominio supabase.in", { env: { API_URL: "https://abc.supabase.in" } }],
+    ["--db-url num run", { jobs: { test: job([...baseSteps(), { run: "supabase start --db-url postgres://x" }]) } }],
+    ["--linked num run", { jobs: { test: job([...baseSteps(), { run: "supabase status --linked" }]) } }],
+    ["--project-ref no with", { jobs: { test: job([...baseSteps(), { uses: SETUP_SUPABASE, with: { version: "2.120.0", args: "--project-ref x" } }]) } }],
+  ])("recusa marca do projeto real: %s", (_label, overrides) => {
+    expect(rules(auditWorkflow(workflow(overrides)))).toContain("supabase_remoto@");
+  });
+
+  it("nao confunde nomes parecidos", () => {
+    const doc = workflow({
+      env: { SUPABASE_ACCESS_TOKENS_NOTE: "x", LINKED: "--linkedin", HOST: "x.supabase.company.example" },
+      jobs: { test: job([...baseSteps(), { run: "echo nosupabase link\necho supabase-link" }]) },
+    });
+    expect(auditWorkflow(doc)).toEqual([]);
+  });
+
+  it("acha a marca na chave do env de um passo (dentro da lista de passos)", () => {
+    const step = { run: "echo ok", env: { SUPABASE_ACCESS_TOKEN: "x" } };
+    expect(rules(auditWorkflow(withStep(step)))).toEqual(["supabase_remoto@"]);
+  });
+
+  it("acha a marca dentro de listas", () => {
+    const doc = workflow({ on: { push: { branches: ["x.supabase.co"] } } });
+    expect(rules(auditWorkflow(doc))).toEqual(["supabase_remoto@"]);
+  });
+
+  it("expoe a lista de subcomandos congelada", () => {
+    expect(WORKFLOW_POLICY.allowedSupabaseCommands).toEqual(["start", "status", "stop", "telemetry", "--version"]);
+    expect(Object.isFrozen(WORKFLOW_POLICY.allowedSupabaseCommands)).toBe(true);
+    expect(WORKFLOW_POLICY.allowedActions).toContain("supabase/setup-cli");
+  });
+});

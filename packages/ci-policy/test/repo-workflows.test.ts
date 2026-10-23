@@ -38,8 +38,35 @@ describe("ci.yml: o que o ADR-019 D5 exige", () => {
   const jobs = ci["jobs"] as Record<string, unknown>;
   const env = ci["env"] as Record<string, string>;
 
-  it("tem exatamente os jobs secrets, quality e test", () => {
-    expect(Object.keys(jobs).sort()).toEqual(["quality", "secrets", "test"]);
+  it("tem exatamente os jobs secrets, quality, test e db", () => {
+    expect(Object.keys(jobs).sort()).toEqual(["db", "quality", "secrets", "test"]);
+  });
+
+  it("db: CLI fixa e conferida por sha256 antes de qualquer comando, só a pilha local e o test:db (ADR-019 D8)", () => {
+    const steps = (jobs["db"] as { steps: Array<{ uses?: string; with?: Record<string, unknown>; run?: string }> }).steps;
+    const setup = steps.findIndex((step) => step.uses?.startsWith("supabase/setup-cli@"));
+    expect(steps[setup]?.with).toEqual({ version: "2.120.0" });
+    expect(env["SUPABASE_CLI_SHA256"]).toMatch(/^[0-9a-f]{64}$/);
+    expect(env["SUPABASE_GO_SHA256"]).toMatch(/^[0-9a-f]{64}$/);
+    // O primeiro passo depois da action confere os dois binários e só então roda a CLI.
+    const check = steps.at(setup + 1)?.run ?? "";
+    expect(check.indexOf("sha256sum --check --strict")).toBeGreaterThan(-1);
+    expect(check.lastIndexOf("sha256sum")).toBeLessThan(check.indexOf("supabase telemetry disable"));
+    const script = runs(jobs["db"]);
+    expect(script).toContain("supabase start -x ");
+    expect(script).toContain("pnpm --filter @trampo/api test:db");
+    // Só as três variáveis do teste saem do status: a secret e a service_role locais ficam de fora.
+    expect(script).toContain("grep -E '^(API_URL|DB_URL|PUBLISHABLE_KEY)='");
+  });
+
+  it("db: o start deixa de fora tudo que o test:db não usa", () => {
+    const start = /supabase start -x (\S+)/.exec(runs(jobs["db"]))?.[1]?.split(",") ?? [];
+    expect(start.sort()).toEqual(
+      ["edge-runtime", "imgproxy", "logflare", "mailpit", "postgres-meta", "realtime", "storage-api", "studio", "supavisor", "vector"],
+    );
+    expect(start).not.toContain("gotrue");
+    expect(start).not.toContain("postgrest");
+    expect(start).not.toContain("kong");
   });
 
   it("secrets: histórico completo, gitleaks fixo e conferido, configuração do repositório", () => {
@@ -67,7 +94,7 @@ describe("ci.yml: o que o ADR-019 D5 exige", () => {
   });
 
   it("Node 24, o piso do engines", () => {
-    for (const name of ["quality", "test"]) {
+    for (const name of ["quality", "test", "db"]) {
       const steps = (jobs[name] as { steps: Array<{ uses?: string; with?: Record<string, unknown> }> }).steps;
       const node = steps.find((step) => step.uses?.startsWith("actions/setup-node@"));
       expect(node?.with?.["node-version"]).toBe("24");
