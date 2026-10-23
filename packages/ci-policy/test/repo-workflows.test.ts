@@ -59,6 +59,13 @@ describe("ci.yml: o que o ADR-019 D5 exige", () => {
     expect(script).toContain("grep -E '^(API_URL|DB_URL|PUBLISHABLE_KEY)='");
   });
 
+  it("db: as dependências da API são compiladas antes do test:db, que roda fora do turbo", () => {
+    const script = runs(jobs["db"]);
+    const build = script.indexOf("pnpm exec turbo run build --filter=@trampo/api^...");
+    expect(build).toBeGreaterThan(script.indexOf("pnpm install --frozen-lockfile"));
+    expect(build).toBeLessThan(script.indexOf("pnpm --filter @trampo/api test:db"));
+  });
+
   it("db: o start deixa de fora tudo que o test:db não usa", () => {
     const start = /supabase start -x (\S+)/.exec(runs(jobs["db"]))?.[1]?.split(",") ?? [];
     expect(start.sort()).toEqual(
