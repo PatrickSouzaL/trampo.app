@@ -1,32 +1,24 @@
-# Próximo passo: F1-API-05 commit 1, teto de bytes no `UserCriteriaSchema` (ADR-021 D3)
+# Próximo passo: F1-API-05 commit 2, porta `save` e `CriteriaGuard.save` (ADR-021 D5)
 
-> **Sem HITL bloqueando.** A sessão parou por escopo (AGENTS §4.1): a entrega única foi o ADR-021.
+> **Sem HITL bloqueando.** A sessão parou por escopo (AGENTS §4.1): a entrega única foi o commit 1 do ADR-021.
 
 ## O que acabou de ser entregue (2026-10-23)
 
-### F1-API-05: desenho aceito no ADR-021 (sem código)
-- **Arquivo:** `../base/02-arquitetura/ADRs/ADR-021-criteria-routes.md`, com `status: aceito`.
-- **Rotas:**
-  - `GET /v1/criteria` responde 200 com o `UserCriteria` e `Cache-Control: no-store`. Sem critérios, 409 `CRITERIOS_NAO_CONFIGURADOS`; em qualquer falha, 503.
-  - `PUT /v1/criteria` substitui o documento inteiro e responde 204, sem corpo. Também pode responder 400, 413 (teto de 16 KiB na rota) ou 503.
-- **Escrita:**
-  - um *upsert* único no PostgREST (`on_conflict=user_id`, `merge-duplicates`, `return=minimal`), com as colunas explícitas em `columns=`;
-  - a pretensão sai da API só cifrada e nunca é devolvida pelo PUT;
-  - o corpo de erro do PostgREST nunca é lido, porque o Postgres ecoa a linha recusada;
-  - o `CriteriaGuard.save` tem prazo de 1.000 ms e revalida os critérios.
-- **Idempotência e concorrência:** o PUT é idempotente porque substitui tudo. A última gravação vence, sem coluna de versão na Fase 1; o ADR registra quando rever.
-- **Borda:**
-  - classe de rate limit `criterios` no PUT, com 10 por usuário e 30 por IP;
-  - CORS por rota: a origem da extensão só alcança `POST /v1/analyze` (emenda ao ADR-007 D6), para os critérios nunca chegarem à extensão;
-  - nenhum evento de telemetria novo.
-- **Achado:** um perfil válido com caracteres de 4 bytes ocupa 16.693 bytes na coluna, acima do `check` de 16.384 do banco. O PUT desse perfil daria 503 para sempre. A correção é um teto de 12.288 bytes no contrato, sem migration. O pior caso em texto latino tem 7,2 KB.
-- **`[APPSEC]` sem veto:** 10 critérios de aceite e 5 riscos residuais aceitos.
-- **Partição em 6 commits:** contrato → porta e guarda → cliente e adapter → CORS e classe → rotas e composição → `test:db`. O 6º só fecha com push e o job `db` verde.
-- STATE, BACKLOG e SESSION-LOG atualizados. Só este arquivo entra no commit local, sem push.
+### F1-API-05 commit 1: teto de bytes no contrato (ADR-021 §5.1)
+- **Contrato:**
+  - `USER_CRITERIA_MAX_JSON_BYTES` = 12.288, medido em bytes UTF-8 do JSON do valor já parseado;
+  - `CRITERIA_BODY_MAX_BYTES` = 16.384, o teto do corpo da rota PUT, que entra no commit 5;
+  - o `UserCriteriaSchema` recusa o que passar do teto com `criterios_grandes_demais`. A conta usa `TextEncoder`, que também roda no portal.
+- **Leitura:** herda o teto. Uma linha gravada direto no PostgREST acima dele dá 503.
+- **Correção no ADR-021 §1.1:** o caso "latino" de 7.228 bytes tinha as notas com caracteres de 4 bytes. Com `Ã`, são 6.328. Nenhuma decisão muda.
+- **Testes:** 10 novos. Contratos com 91 e API com 2.370, os dois com 100%.
+- **Portão:** turbo 16/16 e 7/7 em série; depcruise sem violações; mutação com 9 mutantes, todos mortos.
+- **`[APPSEC]` sem veto.**
+- **Commit `1cbf825`**, local, sem push. STATE, BACKLOG, SESSION-LOG e ADR-021 atualizados.
 
 ### Pendências do humano
-- **Push** do commit deste arquivo, quando quiser. Nada do código mudou.
-- **S-1 (decisão do humano):** continua disponível. Ele manda os textos do golden dataset para a Groq e a Workers AI reais e gasta a cota gratuita. Se quiser rodá-lo antes do commit 1, avise.
+- **Push** do `feat/api-borda` (o `next-step` anterior, o `1cbf825` e o commit deste arquivo), quando quiser. O gitleaks não rodou na estação, e o job `secrets` do CI confere no push.
+- **S-1 (decisão do humano):** continua disponível. Ele gasta a cota gratuita dos provedores reais. Se quiser rodá-lo antes do commit 2, avise.
 - O `git stash` no `master` pode ser descartado (`git stash drop`) se a edição não for mais útil.
 
 ## Prompt para enviar ao agente
@@ -34,11 +26,13 @@
 ```text
 Equipe, sigam em ciclo estrito.
 
-1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md e o ADR-021 (D1, D3, D10 e §3). Confirme pnpm 11.4.0, Node conforme o engines e o branch feat/api-borda. Se o humano pediu o S-1 no lugar desta tarefa, registre e siga a escolha dele.
-2. Tarefa única (AGENTS §4.1): o commit 1 do ADR-021, só em packages/contracts.
-   - USER_CRITERIA_MAX_JSON_BYTES = 12_288 e CRITERIA_BODY_MAX_BYTES = 16_384 em limits.ts.
-   - refine no UserCriteriaSchema com TextEncoder sobre o JSON.stringify do valor parseado, erro criterios_grandes_demais, sem Buffer (o portal usa o mesmo schema). Confirmem que o .shape e os usos atuais do schema continuam funcionando.
-   - Testes: o pior caso de 4 bytes (16.828) recusado, o pior caso latino (7.228) aceito, as bordas 12.288 e 12.289 no byte exato e o espelho na leitura do SupabaseCriteriaRepository (linha acima do teto → unavailable).
-   - 100% de cobertura no contrato, mutação e o [APPSEC] do critério 9 do §3.
-3. [SCRIBE]: atualizem o ADR-021 (§5, implementação), STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md e o ADR-021 (D5, D10 e §3) e o ADR-018 D6. Confirme pnpm 11.4.0, Node conforme o engines e o branch feat/api-borda. Se o humano autorizou o push, ou pediu o S-1 no lugar desta tarefa, registre e siga a escolha dele.
+2. Tarefa única (AGENTS §4.1): o commit 2 do ADR-021, só na camada application (e o fake de teste).
+   - CriteriaSave = { saved: true } | { saved: false, unavailable: true } e o save(subject, criteria, signal) na porta, que nunca rejeita.
+   - Ponto a decidir e registrar no ADR-021 §5.2: pôr o save na interface CriteriaRepository obriga o SupabaseCriteriaRepository a implementá-lo já neste commit, mas o adapter é do commit 3. Separem a porta em leitura e escrita (CriteriaReader e CriteriaWriter, com CriteriaRepository como a união), ou escolham outra forma, desde que não fique stub nem código morto no adapter.
+   - CriteriaGuard.save: confere o sujeito, revalida os critérios com o UserCriteriaSchema e passa o objeto reparseado, prazo de 1.000 ms com o Clock e o sinal abortado, resposta conferida por schema estrito. Nunca rejeita.
+   - FakeCriteriaRepository com o save.
+   - Testes do D10 (commit 2): porta travada, que rejeita, que lança de forma síncrona e que devolve forma errada; critérios fora do schema, acima do teto ou com chave a mais não chegam à porta; o adapter recebe o objeto reparseado.
+   - 100% de cobertura, mutação e o [APPSEC] (critério 6 do §3).
+3. [SCRIBE]: atualizem o ADR-021 (§5.2), STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md.
 ```
