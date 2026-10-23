@@ -21,6 +21,15 @@ export {
   type SalaryValue,
 } from "./crypto/salary-cipher.js";
 export {
+  WORKERS_AI_DEFAULT_MODEL,
+  WORKERS_AI_POLICY,
+  WorkersAiConfigError,
+  createCloudflareWorkersAiExtractor,
+  parseRetryAfterMs,
+  type WorkersAiConfigVariable,
+  type WorkersAiExtractorConfig,
+} from "./llm/cloudflare-workers-ai-extractor.js";
+export {
   USER_CRITERIA_SELECT,
   createSupabaseCriteriaRepository,
   type SupabaseCriteriaRepositoryDeps,

@@ -40,6 +40,32 @@ export interface ProviderLimits {
   readonly tpd: number | null;
 }
 
+/**
+ * Estimativa de neurons por chamada da Workers AI com o modelo provisório (ADR-020 D9 e D10), no pior caso do
+ * orçamento: 2.200 tokens de entrada a 26.668 neurons por milhão e 600 de saída a 204.805 por milhão, arredondado
+ * para cima (≈ 58,7 + 122,9 = 181,6 → 182). A medida real é do S-1, e muda este valor por emenda ao ADR-020.
+ */
+export const WORKERS_AI_NEURON_BUDGET = {
+  neuronsPerDay: 10_000,
+  inputTokens: 2_200,
+  outputTokens: 600,
+  inputNeuronsPerMillion: 26_668,
+  outputNeuronsPerMillion: 204_805,
+} as const;
+
+/**
+ * Chamadas por dia que cabem nos neurons gratuitos, ANTES da folga: `floor(10.000 ÷ 182)` = 54. A tabela do ledger
+ * guarda o limite publicado, e o `effectiveLimit` aplica os 15%: `floor(54 × 0,85)` = 45 por dia (emenda ao ADR-020
+ * D9, que dava 46 já com a folga e, posto na tabela, teria a folga aplicada duas vezes).
+ */
+export function workersAiCallsPerDay(): number {
+  const budget = WORKERS_AI_NEURON_BUDGET;
+  const perCall = Math.ceil(
+    (budget.inputTokens * budget.inputNeuronsPerMillion + budget.outputTokens * budget.outputNeuronsPerMillion) / 1_000_000,
+  );
+  return Math.floor(budget.neuronsPerDay / perCall);
+}
+
 export const LEDGER_POLICY = {
   /** Folga de 15% abaixo do limite publicado (ADR-001 §5.5). */
   headroom: 0.85,
@@ -48,8 +74,9 @@ export const LEDGER_POLICY = {
   /** Provedor fora desta tabela (o Gemini, HITL-012) é sempre `provedor_esgotado`. */
   providers: {
     groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000 },
-    // Hipótese: o limite real é de 10.000 neurons por dia; os neurons por chamada só saem no S-1.
-    cloudflare_workers_ai: { rpm: 60, rpd: 200, tpm: null, tpd: null },
+    // O limite real é de 10.000 neurons por dia; o `rpd` vem da estimativa de neurons por chamada (ADR-020 D9), e a
+    // medida real é do S-1. O `rpm` fica bem abaixo dos 300 por minuto documentados.
+    cloudflare_workers_ai: { rpm: 60, rpd: workersAiCallsPerDay(), tpm: null, tpd: null },
     ollama: { rpm: null, rpd: null, tpm: null, tpd: null },
   } satisfies Partial<Record<LlmProviderId, ProviderLimits>>,
   minuteTtlSeconds: 120,

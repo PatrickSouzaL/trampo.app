@@ -35,9 +35,11 @@ export {
   LIMIT_GUARD_POLICY,
   RATE_LIMIT_POLICY,
   STRICTEST_RATE_LIMIT_CLASS,
+  WORKERS_AI_NEURON_BUDGET,
   effectiveLimit,
   providerLimits,
   resolveRateLimitClass,
+  workersAiCallsPerDay,
   type ProviderLimits,
 } from "./limits/limit-policy.js";
 export { withDeadline } from "./shared/with-deadline.js";
@@ -62,6 +64,15 @@ export {
   type LlmOutputRejection,
   type LlmOutputSanitization,
 } from "./llm/llm-output-guard.js";
+export {
+  EXTRACTION_PROMPT_VERSION,
+  EXTRACTION_RESPONSE_SCHEMA,
+  EXTRACTION_SYSTEM_PROMPT_TEMPLATE,
+  buildExtractionMessages,
+  type ExtractionMessage,
+  type ExtractionMessagesResult,
+  type JsonSchemaValue,
+} from "./llm/extraction-prompt.js";
 export {
   BREAKER_POLICY,
   INITIAL_PROVIDER_STATE,

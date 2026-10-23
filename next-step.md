@@ -1,37 +1,27 @@
-# Próximo passo: F1-LLM-02, commit 1 (prompt `p1` compartilhado)
+# Próximo passo: F1-API-05, desenho do `GET`/`PUT /v1/criteria` (ADR-021)
 
-> **Sem HITL bloqueando.** A sessão parou por escopo (AGENTS §4.1): a entrega única foi o desenho do ADR-020.
+> **Sem HITL bloqueando.** A sessão parou por escopo (AGENTS §4.1): a entrega única foi o commit 2 do F1-LLM-02.
 
 ## O que acabou de ser entregue (2026-10-23)
 
-### HITL-023 fechado (declarado pelo humano)
-- A migration foi aplicada no projeto real pelo caminho A (SQL Editor), com o hash conferido e as consultas §4.1 a §4.4 conforme.
-- A equipe não conferiu o projeto real ([[supabase-migration-real]] §6).
-- A API deixa de dar 503 por falta das tabelas, e o F1-API-05 de ponta a ponta fica destravado.
-
-### Arrumação do git
-- A cópia de trabalho estava no `master`, com o `next-step.md` editado. A edição foi para o `git stash` ("master: next-step.md sem o bloco do prompt"), sem descarte.
-- A equipe está no `feat/api-borda`.
-
-### ADR-020: desenho do adapter da Workers AI (sem código; `[APPSEC]` sem veto)
-- **Prompt `p1` compartilhado** em `apps/api/src/application/llm/extraction-prompt.ts`:
-  - sistema fixo;
-  - envelope `<vaga id=NONCE>` com 128 bits;
-  - recusa de texto com `vaga id=`;
-  - schema relaxado sem `pattern`, em *snapshot*;
-  - o Groq usa o mesmo prompt.
-- **URL** `/client/v4/accounts/{conta}/ai/run/{model}`, montada por segmento validado e conferida byte a byte no boot. `redirect: "error"`.
-- **Corpo de lista fechada:** `messages`, `response_format` `json_schema`, `max_tokens` 600 e `temperature` 0. O SR-01 é um teste do corpo exato.
-- **Tetos e parse:** 48 KiB enviados, 32 KiB lidos, UTF-8 estrito e *reviver*.
-- **Mapeamento de status:**
-  - 429 dá `limite_de_taxa`, com `Retry-After`;
-  - 5xx, 408 e rede dão `erro_transitorio`;
-  - os outros 4xx e o envelope fora da forma dão `erro_permanente`;
-  - o corpo de erro nunca é lido.
-- **Modelo provisório:** `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, o único modelo de chat ativo na lista oficial do modo JSON. Ele fica **fora da cadeia de produção até o gate do S-1** (T28). O `rpd` do ledger vai a 46 (~182 neurons por chamada).
+### F1-LLM-02 commit 2: adapter da Workers AI e `rpd` do ledger (ADR-020 §6.2)
+- **Adapter:** `apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.ts`, **sem ligação no `main.ts`**. Ele só entra na produção depois do gate do S-1 (T28).
+  - URL por segmento validado e conferida no boot.
+  - Corpo de lista fechada com o prompt `p1` (SR-01) e um nonce por chamada.
+  - Tetos de 48 KiB enviados e 32 KiB lidos, com UTF-8 estrito e *reviver*.
+  - Tabela de status do D6 e `Retry-After` só em segundos ou IMF-fixdate.
+  - O token fica só no closure, e o corpo de erro nunca é lido (SR-12).
+- **Emendas ao ADR-020:**
+  - **D5:** `redirect: "manual"`. O 3xx vira `erro_permanente` sem 2ª requisição; com `"error"`, viraria transitório.
+  - **D9:** `rpd` publicado 54 e efetivo 45. O 46 do ADR já tinha a folga, que seria aplicada duas vezes.
+- **Testes:** 151 novos, contra uma Workers AI simulada em socket real. A API tem 2.369 testes e 100% de cobertura.
+- **Mutação:** 54 mutantes, 49 mortos e 5 equivalentes. Três sobreviventes da 1ª rodada viraram testes.
+- **`[APPSEC]` sem veto:** os 9 critérios do §3 foram cumpridos.
+- **Commit `b4b4689`**, local, sem push.
 
 ### Pendências do humano
-- **Push** do `feat/api-borda` (`a703ed3`, `2b441d3` e este commit), quando autorizar.
+- **Push** do `feat/api-borda` (`a703ed3`, `2b441d3`, `bb0c7ab`, `0cc7d4e`, `56d8f09`, `b4b4689` e o commit deste arquivo), quando autorizar. O gitleaks não rodou na estação, e o job `secrets` do CI confere no push.
+- **S-1 (decisão do humano):** o código do F1-LLM-02 está pronto para o S-1, que manda os textos do golden dataset para a Groq e a Workers AI reais e gasta a cota gratuita. Se quiser rodá-lo antes do F1-API-05, avise. Antes, rode o teste do passo 4 do runbook `llm`.
 - O `git stash` no `master` pode ser descartado (`git stash drop`) se a edição não for mais útil.
 
 ## Prompt para enviar ao agente
@@ -39,12 +29,12 @@
 ```text
 Equipe, sigam em ciclo estrito.
 
-1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-LLM-02) e HITL-QUEUE.md, o ADR-020 (§2 D1 e §4), o ADR-008 (D1) e o ADR-015 D2. Confirme pnpm 11.4.0, Node conforme o engines e o branch feat/api-borda. Se o humano autorizou o push, registre.
-2. Tarefa única (AGENTS §4.1): commit 1 do ADR-020 §4, o prompt p1 em apps/api/src/application/llm/extraction-prompt.ts, ainda sem o adapter.
-   - EXTRACTION_PROMPT_VERSION = "p1", EXTRACTION_RESPONSE_SCHEMA (relaxado, sem pattern, congelado) e buildExtractionMessages(payload, nonce), que nunca lança.
-   - Testes: nonce de 32 hex (inválido dá { ok: false }), envelope, recusa de "vaga id=" e do próprio nonce no texto, só o campo text no corpo, snapshot do schema (sem pattern, additionalProperties false, todos os campos em required) e hash do prompt fixado contra o p1.
-   - Fronteira: application só importa zod e @trampo/contracts (depcruise).
-3. [DEV] + [QA_EVALS]: exijam 100% de cobertura nos arquivos novos e mutação (um mutante por vez, script em arquivo fora do repositório, original conferido depois de cada mutante; patch com acento só pela ferramenta de edição).
-4. [APPSEC]: auditem contra os critérios do ADR-020 §3 que cabem ao prompt (T1, T2, LGPD) antes de dar a tarefa como concluída.
-5. [SCRIBE]: atualizem STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md, o ADR-018 (D2 a D7 e §3), o ADR-017 (a rota /v1/analyze e o CriteriaGuard) e o ADR-014 (classes de rate limit). Confirme pnpm 11.4.0, Node conforme o engines e o branch feat/api-borda. Se o humano autorizou o push, ou pediu o S-1 no lugar desta tarefa, registre e siga a escolha dele.
+2. Tarefa única (AGENTS §4.1): o desenho do F1-API-05 num ADR-021 aceito, SEM código.
+   - GET /v1/criteria e PUT /v1/criteria com o UserCriteriaSchema, o userId só do token verificado e o erro CRITERIOS_NAO_CONFIGURADOS.
+   - Escrita pelo cliente de usuário do PostgREST (publishable + JWT, RLS como 2ª barreira), com a pretensão cifrada pelo SalaryCipher antes de sair da API e nunca devolvida em claro de forma diferente da leitura.
+   - Rate limit, teto do corpo, idempotência do PUT, concorrência (upsert e versão), telemetria sem perfil e logs sem PII (SR-12).
+   - Partição em commits atômicos e critérios de aceite do [APPSEC] (SR-15, T16).
+3. [APPSEC]: auditem o desenho com poder de veto antes de aceitar o ADR.
+4. [SCRIBE]: atualizem STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md.
 ```
