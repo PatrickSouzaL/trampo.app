@@ -14,7 +14,7 @@ catalog:
   typescript: 5.9.3
   tailwindcss: 4.3.3
   '@tailwindcss/turbopack': 4.3.3
-  # Tipos da menor versão aceita em engines.node (>=24), para não usar API exclusiva do Node 26.
+  # Tipos da linha 24, a menor aceita em engines.node (^24.22.1), para não usar API exclusiva do Node 26.
   '@types/node': 24.19.2
   '@types/react': 19.3.0
   '@types/react-dom': 19.3.0

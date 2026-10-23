@@ -93,11 +93,11 @@ describe("ci.yml: o que o ADR-019 D5 exige", () => {
     expect(runs(jobs["quality"])).not.toContain("turbo run test");
   });
 
-  it("Node 24, o piso do engines", () => {
+  it("Node 24.22.1, o piso do engines (hotfix de CVE)", () => {
     for (const name of ["quality", "test", "db"]) {
       const steps = (jobs[name] as { steps: Array<{ uses?: string; with?: Record<string, unknown> }> }).steps;
       const node = steps.find((step) => step.uses?.startsWith("actions/setup-node@"));
-      expect(node?.with?.["node-version"]).toBe("24");
+      expect(node?.with?.["node-version"]).toBe("24.22.1");
     }
   });
 
