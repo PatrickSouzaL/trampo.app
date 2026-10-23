@@ -251,7 +251,8 @@ describe("escrita (SR-08): todas as condições, cada uma isolada, sem comando n
     ["fatos que a guarda mudaria (URL no título)", { facts: { ...CLEAN, title: "Dev https://golpe.example/x" } }, "fatos_fora_do_contrato"],
     ["fatos que a guarda mudaria (espaço duplo)", { facts: { ...CLEAN, title: "Dev  Pleno" } }, "fatos_fora_do_contrato"],
     ["fatos com campo a mais", { facts: { ...CLEAN, userId: "x" } as JobFacts }, "fatos_fora_do_contrato"],
-    ["modelo fora do padrão do contrato", { model: "@cf/meta/llama" }, "provedor_nao_permitido"],
+    ["modelo fora do padrão do contrato", { model: "@CF/meta/llama" }, "provedor_nao_permitido"],
+    ["id da Workers AI que não está na cadeia", { provider: "cloudflare_workers_ai", model: "@cf/meta/llama" }, "provedor_nao_permitido"],
   ])("%s → %s", async (_name, patch, reason) => {
     const h = harness();
     await expect(h.save(patch)).resolves.toEqual({ written: false, reason });
@@ -270,10 +271,17 @@ describe("escrita (SR-08): todas as condições, cada uma isolada, sem comando n
     });
   });
 
-  test("modelo cuja entrada o contrato recusaria: fatos_fora_do_contrato, mesmo aceito na cadeia", async () => {
-    const h = harness({ models: [{ provider: "groq", model: "@cf/x" }] });
-    await expect(h.save({ model: "@cf/x" })).resolves.toEqual({ written: false, reason: "fatos_fora_do_contrato" });
+  test.each(["x@cf/", "@CF/x", "@cf//x", "@cf/"])("modelo %j, que o contrato recusa: fatos_fora_do_contrato, mesmo aceito na cadeia", async (model) => {
+    const h = harness({ models: [{ provider: "groq", model }] });
+    await expect(h.save({ model })).resolves.toEqual({ written: false, reason: "fatos_fora_do_contrato" });
     expect(h.calls).toEqual([]);
+  });
+
+  test("id da Workers AI com @cf/ na cadeia: grava e a leitura devolve hit com o id exato (F1-LLM-02)", async () => {
+    const workersAi: AcceptedModel = { provider: "cloudflare_workers_ai", model: "@cf/openai/gpt-oss-120b" };
+    const h = harness({ models: [GROQ, workersAi] });
+    await expect(h.save({ provider: workersAi.provider, model: workersAi.model })).resolves.toEqual({ written: true });
+    await expect(h.lookup()).resolves.toMatchObject({ hit: true, entry: { provider: workersAi.provider, model: workersAi.model } });
   });
 
   test("dado do usuário pendurado no candidato nunca chega ao valor gravado", async () => {

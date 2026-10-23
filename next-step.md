@@ -1,56 +1,50 @@
-# Próximo passo: push e primeira execução do job `db` (HITL-026)
+# Próximo passo: F1-LLM-02, commit 1 (prompt `p1` compartilhado)
 
-> **[PARADA OBRIGATÓRIA]** (AGENTS §2, Fase 5):
-> - a prova definitiva da migration é o job `db` no *runner* do GitHub, porque a estação não tem Docker;
-> - o **HITL-026** (lista de actions, push e execução) é ação humana.
+> **Sem HITL bloqueando.** A sessão parou por escopo (AGENTS §4.1): a entrega única foi o desenho do ADR-020.
 
-## O que acabou de ser entregue (2026-10-22, commit local `02f4bcb`, sem push)
+## O que acabou de ser entregue (2026-10-23)
 
-### Decisões registradas
-- **HITL-025 fechado:** os jobs `secrets`, `quality` e `test` ficaram verdes no GitHub, e o **QA-01 fechou**. As actions estão restritas, o `GITHUB_TOKEN` é só leitura e a proteção do `master` é a opção B.
+### HITL-023 fechado (declarado pelo humano)
+- A migration foi aplicada no projeto real pelo caminho A (SQL Editor), com o hash conferido e as consultas §4.1 a §4.4 conforme.
+- A equipe não conferiu o projeto real ([[supabase-migration-real]] §6).
+- A API deixa de dar 503 por falta das tabelas, e o F1-API-05 de ponta a ponta fica destravado.
 
-### F1-OPS-01 parte 2 e F1-DB-01 parte 3 ([[ADR-019-ci-github-actions]] §3.2, [[ADR-018-postgres-schema-rls-and-criteria]] §3.3; `[APPSEC]` sem veto)
-- **Migration** `supabase/migrations/20261022230000_criterios_analises_feedback.sql`, numa transação:
-  - as tabelas `user_criteria`, `analyses` e `analysis_feedback`, com `check`s nomeados;
-  - RLS ligada e forçada, e `revoke` de `public`, `anon`, `authenticated` e `service_role`;
-  - uma policy por comando, pelo dono, e a FK composta no feedback.
-- **Job `db`** no `ci.yml`:
-  - `supabase/setup-cli` v2.1.2 por SHA e a CLI 2.120.0, com os dois binários conferidos por sha256;
-  - telemetria desligada e `start -x` só com Postgres, Auth, PostgREST e o gateway;
-  - só `API_URL`, `DB_URL` e `PUBLISHABLE_KEY` saem do `status`.
-- **`test:db`** (fora do `pnpm test`): o SR-15 inteiro em 47 testes, inclusive pelo adapter real da API. O guarda aceita só `127.0.0.1` e a publishable, e recusa qualquer variável do projeto real.
-- **Política** `@trampo/ci-policy`: `setup-cli` na lista fechada, com duas regras novas:
-  - `versao_nao_fixa`;
-  - `supabase_remoto`: lista positiva de subcomandos e nenhuma marca do projeto real, em valor ou em chave.
-- **Prova local**, por simulação do runner no scratchpad (PGlite com um esboço do Supabase):
-  - 88/88 cenários SQL;
-  - o próprio `test:db` com 47/47, por um emulador de Auth e PostgREST;
-  - mutação: migration com 63 de 65 mortos (2 equivalentes), política com 31 de 32 (1 equivalente) e guarda com 35 de 35.
-- **Gate:**
-  - turbo 21/21 em série;
-  - API com 2.162 testes e 100%;
-  - depcruise sem violações (368 módulos);
-  - gitleaks sem achados.
+### Arrumação do git
+- A cópia de trabalho estava no `master`, com o `next-step.md` editado. A edição foi para o `git stash` ("master: next-step.md sem o bloco do prompt"), sem descarte.
+- A equipe está no `feat/api-borda`.
 
-### Pendência do humano: HITL-026 ([[github-actions]] §6)
-1. **Antes do push**, acrescentar `supabase/setup-cli@*` e `oven-sh/setup-bun@*` à lista de actions permitidas. A `setup-cli` chama o `setup-bun` por dentro.
-2. Fazer o push do `feat/api-borda` e abrir o PR.
-3. Conferir os quatro jobs: `secrets`, `quality`, `test` e `db`.
-4. Com o `db` verde, exigir o check `db` no `master`.
+### ADR-020: desenho do adapter da Workers AI (sem código; `[APPSEC]` sem veto)
+- **Prompt `p1` compartilhado** em `apps/api/src/application/llm/extraction-prompt.ts`:
+  - sistema fixo;
+  - envelope `<vaga id=NONCE>` com 128 bits;
+  - recusa de texto com `vaga id=`;
+  - schema relaxado sem `pattern`, em *snapshot*;
+  - o Groq usa o mesmo prompt.
+- **URL** `/client/v4/accounts/{conta}/ai/run/{model}`, montada por segmento validado e conferida byte a byte no boot. `redirect: "error"`.
+- **Corpo de lista fechada:** `messages`, `response_format` `json_schema`, `max_tokens` 600 e `temperature` 0. O SR-01 é um teste do corpo exato.
+- **Tetos e parse:** 48 KiB enviados, 32 KiB lidos, UTF-8 estrito e *reviver*.
+- **Mapeamento de status:**
+  - 429 dá `limite_de_taxa`, com `Retry-After`;
+  - 5xx, 408 e rede dão `erro_transitorio`;
+  - os outros 4xx e o envelope fora da forma dão `erro_permanente`;
+  - o corpo de erro nunca é lido.
+- **Modelo provisório:** `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, o único modelo de chat ativo na lista oficial do modo JSON. Ele fica **fora da cadeia de produção até o gate do S-1** (T28). O `rpd` do ledger vai a 46 (~182 neurons por chamada).
 
-Não crie *secret* nem token. Não rode `supabase link` nem `db push`. Se o `db` falhar, mande o passo e as últimas linhas do erro, sem o bloco de chaves locais que o `supabase start` imprime.
+### Pendências do humano
+- **Push** do `feat/api-borda` (`a703ed3`, `2b441d3` e este commit), quando autorizar.
+- O `git stash` no `master` pode ser descartado (`git stash drop`) se a edição não for mais útil.
 
 ## Prompt para enviar ao agente
 
 ```text
 Equipe, sigam em ciclo estrito.
 
-1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md e HITL-QUEUE.md (HITL-026), o ADR-019 §3.2 e o ADR-018 §3.3. Confirme pnpm 11.4.0, Node >= 24 e o branch feat/api-borda. Registre a resposta do humano ao HITL-026: db verde (e o check db exigido no master) ou o passo que falhou, com as últimas linhas do erro.
-2. Escolha UMA tarefa (AGENTS §4.1):
-   - Se o job db falhou: corrija a causa na migration, no test:db ou no workflow, sem afrouxar a política do @trampo/ci-policy, o guarda do test:db nem a RLS. Repita a simulação do runner fora do repositório (PGlite e emulador) e a mutação, e devolva para um novo push (HITL-026 de novo).
-   - Com o db verde: feche o F1-OPS-01 parte 2 e o F1-DB-01 parte 3 e abra o HITL-023 (aplicar a migration no projeto real pelo painel ou pela CLI do humano, nunca pela equipe), com runbook. Depois siga para o F1-LLM-02: o contrato do model com o prefixo estrito @cf/ vem primeiro, num commit próprio, com os testes negativos do BACKLOG.
-   - Sem resposta do HITL-026: o F1-LLM-02, como acima.
+1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-LLM-02) e HITL-QUEUE.md, o ADR-020 (§2 D1 e §4), o ADR-008 (D1) e o ADR-015 D2. Confirme pnpm 11.4.0, Node conforme o engines e o branch feat/api-borda. Se o humano autorizou o push, registre.
+2. Tarefa única (AGENTS §4.1): commit 1 do ADR-020 §4, o prompt p1 em apps/api/src/application/llm/extraction-prompt.ts, ainda sem o adapter.
+   - EXTRACTION_PROMPT_VERSION = "p1", EXTRACTION_RESPONSE_SCHEMA (relaxado, sem pattern, congelado) e buildExtractionMessages(payload, nonce), que nunca lança.
+   - Testes: nonce de 32 hex (inválido dá { ok: false }), envelope, recusa de "vaga id=" e do próprio nonce no texto, só o campo text no corpo, snapshot do schema (sem pattern, additionalProperties false, todos os campos em required) e hash do prompt fixado contra o p1.
+   - Fronteira: application só importa zod e @trampo/contracts (depcruise).
 3. [DEV] + [QA_EVALS]: exijam 100% de cobertura nos arquivos novos e mutação (um mutante por vez, script em arquivo fora do repositório, original conferido depois de cada mutante; patch com acento só pela ferramenta de edição).
-4. [APPSEC]: auditem antes de dar a tarefa como concluída.
+4. [APPSEC]: auditem contra os critérios do ADR-020 §3 que cabem ao prompt (T1, T2, LGPD) antes de dar a tarefa como concluída.
 5. [SCRIBE]: atualizem STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md.
 ```

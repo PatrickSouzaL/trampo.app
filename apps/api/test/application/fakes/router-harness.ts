@@ -37,6 +37,8 @@ export const VALID_RAW = JSON.stringify(VALID_FACTS);
 export interface HarnessOptions {
   readonly chain?: readonly LlmProviderId[];
   readonly scripts?: Partial<Record<LlmProviderId, readonly Step[]>>;
+  /** Id do modelo por provedor; sem ele, o padrão do `ScriptedExtractor`. */
+  readonly models?: Partial<Record<LlmProviderId, string>>;
   readonly ledger?: (provider: LlmProviderId, nth: number) => LedgerBehavior;
   readonly random?: () => number;
   readonly states?: ProviderStateStore;
@@ -56,7 +58,10 @@ export class Harness {
     this.ledger = new FakeQuotaLedger(this.clock, options.ledger);
     this.states = options.states ?? new InMemoryProviderStateStore();
     this.extractors = new Map(
-      chain.map((provider) => [provider, new ScriptedExtractor(provider, this.clock, options.scripts?.[provider] ?? [])]),
+      chain.map((provider) => [
+        provider,
+        new ScriptedExtractor(provider, this.clock, options.scripts?.[provider] ?? [], options.models?.[provider]),
+      ]),
     );
     const random = options.random ?? (() => 0.5);
     this.router = new LlmProviderRouter({

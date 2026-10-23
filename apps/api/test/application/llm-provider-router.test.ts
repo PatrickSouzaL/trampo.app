@@ -559,9 +559,31 @@ describe("configuração do router (ADR-009 D7)", () => {
     expect(() => new LlmProviderRouter({ ...base, chain: ["groq"], extractors: [groq, groq] })).toThrow(/há 2/u);
   });
 
-  test.each(["", "modelo com espaço", "-começa-com-hífen", "a".repeat(81)])("modelo %j inválido lança no boot", (model) => {
-    const bad = new ScriptedExtractor("groq", clock, [], model);
-    expect(() => new LlmProviderRouter({ ...base, chain: ["groq"], extractors: [bad] })).toThrow(/modelo inválido/u);
+  test.each([
+    "",
+    "modelo com espaço",
+    "-começa-com-hífen",
+    "a".repeat(81),
+    // F1-LLM-02: só o prefixo estrito `@cf/` no início.
+    "@CF/meta/llama",
+    "@cf",
+    "@cfmeta/llama",
+    "@cf//meta",
+    "@cf/",
+    "x@cf/meta",
+    "meta/@cf/llama",
+    `@cf/${"a".repeat(77)}`,
+  ])("modelo %j inválido lança no boot", (model) => {
+    const bad = new ScriptedExtractor("cloudflare_workers_ai", clock, [], model);
+    expect(() => new LlmProviderRouter({ ...base, chain: ["cloudflare_workers_ai"], extractors: [bad] })).toThrow(/modelo inválido/u);
+  });
+
+  test("id da Workers AI com @cf/ sobe, e o resultado leva o id exato", async () => {
+    const model = "@cf/openai/gpt-oss-120b";
+    const h = new Harness({ chain: ["cloudflare_workers_ai"], models: { cloudflare_workers_ai: model }, scripts: { cloudflare_workers_ai: [OK] } });
+    const ok = succeeded((await h.analyze()).outcome);
+    expect(ok.provider).toBe("cloudflare_workers_ai");
+    expect(ok.model).toBe(model);
   });
 
   test("adapters fora da cadeia são ignorados, e a ordem é a da cadeia", async () => {
