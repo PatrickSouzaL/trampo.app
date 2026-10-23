@@ -86,6 +86,9 @@ export default defineConfig({
         "src/presentation/routes/analyze.ts",
         "src/presentation/streaming/**/*.ts",
         "src/presentation/build-app.ts",
+        // Guarda do test:db (F1-OPS-01 parte 2, ADR-019 D8): só 127.0.0.1 e a publishable local. A suíte do banco
+        // roda à parte (vitest.db.config.ts), mas os casos negativos do guarda rodam aqui, sem Docker.
+        "test/db/support/local-stack-env.ts",
       ],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

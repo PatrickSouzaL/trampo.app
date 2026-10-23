@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint",
     "test": "vitest run --coverage",
+    "test:db": "vitest run --config vitest.db.config.ts --coverage",
     "start": "node dist/main.js"
   },
   "dependencies": {
