@@ -13,8 +13,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       // O acesso à pilha local e as consultas de catálogo. O guarda do ambiente (local-stack-env) tem os casos
-      // negativos e a cobertura no `pnpm test`.
-      include: ["test/db/support/local-stack.ts", "test/db/support/catalog-sql.ts"],
+      // negativos e a cobertura no `pnpm test`. O gerador do perfil mais pesado (F1-API-05 commit 6) também.
+      include: ["test/db/support/local-stack.ts", "test/db/support/catalog-sql.ts", "test/db/support/heaviest-criteria.ts"],
       reportsDirectory: "coverage/db",
       reporter: ["text"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

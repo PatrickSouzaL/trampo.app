@@ -5,7 +5,7 @@
 // O construtor recusa chave *secret* (`sb_secret_`) e legada (`eyJ`): este cliente nunca fura a RLS. Na leitura,
 // falha fechado em qualquer desvio (status ≠ 200, redirecionamento, prazo, `content-type` que não é JSON, corpo
 // acima de 32 KiB, UTF-8 ou JSON inválido, `__proto__`/`constructor`) → `{ ok: false }`. Na escrita (ADR-021 D5),
-// o corpo enviado tem teto de 32 KiB e só as colunas declaradas, e só o status de sucesso fixado vale; o corpo da
+// o corpo enviado tem teto de 32 KiB e só as colunas declaradas, e só os status de sucesso fixados valem; o corpo da
 // resposta nunca é lido (o erro de `check` do Postgres ecoa a linha recusada). Nunca rejeita. Nada da chave, do
 // token, da URL, do corpo enviado ou da resposta vai para log ou mensagem de erro.
 import { parseJsonWithoutPrototypeKeys } from "../../application/llm/llm-output-guard.js";
@@ -17,10 +17,10 @@ export const POSTGREST_CLIENT_POLICY = {
   /** O mesmo teto da leitura, para o corpo enviado no `upsert` (ADR-021 D3). */
   maxRequestBytes: 32 * 1024,
   /**
-   * O único status de sucesso do `upsert` com `return=minimal`. Hipótese documentada do PostgREST, fixada contra o
-   * real pelo `test:db` (ADR-021 D5 e D10, commit 6).
+   * Os status de sucesso do `upsert` com `return=minimal`, fixados contra o PostgREST real pelo `test:db` (ADR-021
+   * D5 e §5.6): 201 quando a linha é inserida e 200 quando a linha em conflito é atualizada. Nenhum outro vale.
    */
-  upsertSuccessStatus: 201,
+  upsertSuccessStatuses: Object.freeze([201, 200] as const),
   /** O mesmo teto da borda (ADR-013 D3) e do CriteriaGuard. */
   accessTokenMaxChars: 8_192,
 } as const;
@@ -87,6 +87,7 @@ const ACCESS_TOKEN = /^[\w-]+\.[\w-]+\.[\w-]+$/;
 const FAILURE = { ok: false } as const;
 const WRITTEN: PostgrestWrite = { ok: true };
 const UPSERT_PREFER = "resolution=merge-duplicates,return=minimal";
+const UPSERT_SUCCESS: ReadonlySet<number> = new Set(POSTGREST_CLIENT_POLICY.upsertSuccessStatuses);
 
 /** Token fora da forma nem sai daqui (e nunca vira cabeçalho com quebra de linha). */
 function isAccessToken(accessToken: string): boolean {
@@ -180,7 +181,7 @@ export function createPostgrestUserClient(config: PostgrestUserClientConfig): Po
         });
         // O corpo nunca é lido: o `details` de um erro de `check` traz a linha recusada inteira.
         await response.body?.cancel();
-        return response.status === POSTGREST_CLIENT_POLICY.upsertSuccessStatus ? WRITTEN : FAILURE;
+        return UPSERT_SUCCESS.has(response.status) ? WRITTEN : FAILURE;
       } catch {
         return FAILURE;
       }

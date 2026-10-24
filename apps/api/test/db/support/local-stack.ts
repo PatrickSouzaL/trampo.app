@@ -36,8 +36,10 @@ async function send(stack: LocalStack, path: string, init: RequestInit): Promise
     redirect: "error",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  // Toda resposta tem corpo JSON: as escritas pedem `return=representation`, e os erros vêm como objeto.
-  return { status: response.status, body: JSON.parse(await response.text()) as unknown };
+  // As escritas do `rest` pedem `return=representation`, e os erros vêm como objeto. Só o upsert com
+  // `return=minimal` volta sem corpo, e aí o `body` é `null`.
+  const text = await response.text();
+  return { status: response.status, body: text === "" ? null : (JSON.parse(text) as unknown) };
 }
 
 export async function signUp(stack: LocalStack): Promise<StackUser> {
@@ -74,6 +76,24 @@ export async function rest(
     headers,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+}
+
+/**
+ * O upsert do adapter (ADR-021 D5) montado à mão: `POST /rest/v1/<path>` com
+ * `Prefer: resolution=merge-duplicates,return=minimal`. O `path` traz o `on_conflict` e o `columns=` como o teste
+ * quiser escrevê-los (vírgula crua ou `%2C`). Serve para ver o status e o erro que o cliente da API nunca lê.
+ * Com `prefer: "return=minimal"`, é um insert puro, sem `ON CONFLICT` nem `RETURNING`.
+ */
+export async function upsert(
+  stack: LocalStack,
+  path: string,
+  user: StackUser | null,
+  body: unknown,
+  prefer = "resolution=merge-duplicates,return=minimal",
+): Promise<RestResponse> {
+  const headers: Record<string, string> = { apikey: stack.publishableKey, "content-type": "application/json", prefer };
+  if (user !== null) headers["authorization"] = `Bearer ${user.accessToken}`;
+  return send(stack, `/rest/v1/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
 /**
