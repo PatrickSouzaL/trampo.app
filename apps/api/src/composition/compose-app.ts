@@ -98,6 +98,9 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
   const auth = AuthEnvSchema.parse(source);
   const limitsEnv = LimitsEnvSchema.parse(source);
 
+  // Um relógio só, compartilhado pelos critérios e pelos limites.
+  const now = (): number => Date.now();
+
   // Critérios (ADR-018 D5 e D6): cliente de usuário só com a publishable, e o adapter sempre dentro do guarda.
   const criteria = new CriteriaGuard(
     createSupabaseCriteriaRepository({
@@ -105,12 +108,12 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
       cipher: createSalaryCipher(
         parseSalaryKeyring(source["CRITERIA_SALARY_KEYS"] ?? "", source["CRITERIA_SALARY_ACTIVE_KEY"] ?? ""),
       ),
+      now,
     }),
     systemClock,
   );
 
   // Instâncias de limite criadas uma vez e compartilhadas por todas as requisições (ADR-014 D8; T39).
-  const now = (): number => Date.now();
   const limitsRedis = createUpstashRestClient({ url: limitsEnv.restUrl, token: limitsEnv.restToken });
   const limitDeps = { redis: limitsRedis, pseudonymizer: createHmacKeyPseudonymizer(limitsEnv.pepper), now };
 

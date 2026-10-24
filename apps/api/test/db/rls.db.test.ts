@@ -30,6 +30,7 @@ const stack: LocalStack = parseLocalStackEnv(process.env);
 // Chave gerada no teste: nenhum anel real entra no runner.
 const cipher = createSalaryCipher(parseSalaryKeyring(`k1:${randomBytes(32).toString("base64url")}`, "k1"));
 const repository = createSupabaseCriteriaRepository({
+  now: () => Date.now(),
   client: createPostgrestUserClient({ url: stack.apiUrl, publishableKey: stack.publishableKey }),
   cipher,
 });

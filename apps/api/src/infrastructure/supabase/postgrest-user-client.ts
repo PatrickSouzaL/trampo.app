@@ -2,24 +2,46 @@
 // (ADR-014 D2): a chave *publishable* no `apikey` e o JWT do próprio usuário no `Authorization`, um token por
 // chamada e nunca guardado. Assim a RLS vale como segunda barreira (a primeira é o filtro pelo `sub` verificado).
 //
-// O construtor recusa chave *secret* (`sb_secret_`) e legada (`eyJ`): este cliente nunca fura a RLS. Falha
-// fechado em qualquer desvio (status ≠ 200, redirecionamento, prazo, `content-type` que não é JSON, corpo acima
-// de 32 KiB, UTF-8 ou JSON inválido, `__proto__`/`constructor`) → `{ ok: false }`. Nunca rejeita. Nada da chave,
-// do token, da URL ou da resposta vai para log ou mensagem de erro.
+// O construtor recusa chave *secret* (`sb_secret_`) e legada (`eyJ`): este cliente nunca fura a RLS. Na leitura,
+// falha fechado em qualquer desvio (status ≠ 200, redirecionamento, prazo, `content-type` que não é JSON, corpo
+// acima de 32 KiB, UTF-8 ou JSON inválido, `__proto__`/`constructor`) → `{ ok: false }`. Na escrita (ADR-021 D5),
+// o corpo enviado tem teto de 32 KiB e só as colunas declaradas, e só o status de sucesso fixado vale; o corpo da
+// resposta nunca é lido (o erro de `check` do Postgres ecoa a linha recusada). Nunca rejeita. Nada da chave, do
+// token, da URL, do corpo enviado ou da resposta vai para log ou mensagem de erro.
 import { parseJsonWithoutPrototypeKeys } from "../../application/llm/llm-output-guard.js";
 
 export const POSTGREST_CLIENT_POLICY = {
   /** Teto de cada chamada. O CriteriaGuard tem 1.000 ms (ADR-018 D6); este é o cinto por baixo dele. */
   timeoutMs: 900,
   maxResponseBytes: 32 * 1024,
+  /** O mesmo teto da leitura, para o corpo enviado no `upsert` (ADR-021 D3). */
+  maxRequestBytes: 32 * 1024,
+  /**
+   * O único status de sucesso do `upsert` com `return=minimal`. Hipótese documentada do PostgREST, fixada contra o
+   * real pelo `test:db` (ADR-021 D5 e D10, commit 6).
+   */
+  upsertSuccessStatus: 201,
   /** O mesmo teto da borda (ADR-013 D3) e do CriteriaGuard. */
   accessTokenMaxChars: 8_192,
 } as const;
 
-/** Tabelas que o cliente de usuário pode ler. Cresce com o F1-API-05 e o F1-API-06. */
+/** Tabelas que o cliente de usuário pode ler e gravar. Cresce com o F1-API-06. */
 export type PostgrestTable = "user_criteria";
 
+/** Colunas que o cliente pode gravar em cada tabela (ADR-021 D4): a lista vai na URL (`columns=`) e no corpo. */
+export interface PostgrestWritableColumns {
+  readonly user_criteria: "user_id" | "schema_version" | "criteria" | "salary_ciphertext" | "updated_at";
+}
+
 export type PostgrestRead = { readonly ok: true; readonly value: unknown } | { readonly ok: false };
+export type PostgrestWrite = { readonly ok: true } | { readonly ok: false };
+
+/** Um `INSERT ... ON CONFLICT DO UPDATE` com as colunas explícitas. */
+export interface PostgrestUpsert<T extends PostgrestTable> {
+  readonly columns: readonly PostgrestWritableColumns[T][];
+  readonly onConflict: PostgrestWritableColumns[T];
+  readonly row: Readonly<Record<PostgrestWritableColumns[T], unknown>>;
+}
 
 export interface PostgrestUserClient {
   /** `GET /rest/v1/<table>?<query>` com o token do dono. Nunca rejeita. */
@@ -29,6 +51,17 @@ export interface PostgrestUserClient {
     accessToken: string,
     signal?: AbortSignal,
   ): Promise<PostgrestRead>;
+  /**
+   * `POST /rest/v1/<table>?on_conflict=<coluna>&columns=<lista>` com o token do dono e
+   * `Prefer: resolution=merge-duplicates,return=minimal`. O corpo leva só as colunas de `columns`, na ordem delas,
+   * mesmo que `row` traga outras chaves. Nunca rejeita.
+   */
+  upsert<T extends PostgrestTable>(
+    table: T,
+    upsert: PostgrestUpsert<T>,
+    accessToken: string,
+    signal?: AbortSignal,
+  ): Promise<PostgrestWrite>;
 }
 
 export interface PostgrestUserClientConfig {
@@ -51,7 +84,25 @@ export class PostgrestClientConfigError extends Error {
 // service_role) caem no mesmo caminho de recusa.
 const PUBLISHABLE_KEY = /^sb_publishable_[\w-]{1,256}$/;
 const ACCESS_TOKEN = /^[\w-]+\.[\w-]+\.[\w-]+$/;
-const FAILURE: PostgrestRead = { ok: false };
+const FAILURE = { ok: false } as const;
+const WRITTEN: PostgrestWrite = { ok: true };
+const UPSERT_PREFER = "resolution=merge-duplicates,return=minimal";
+
+/** Token fora da forma nem sai daqui (e nunca vira cabeçalho com quebra de linha). */
+function isAccessToken(accessToken: string): boolean {
+  return accessToken.length <= POSTGREST_CLIENT_POLICY.accessTokenMaxChars && ACCESS_TOKEN.test(accessToken);
+}
+
+/** O corpo com só as colunas declaradas, ou `null` se não serializa ou passa do teto. */
+function upsertBody(columns: readonly string[], row: Readonly<Record<string, unknown>>): string | null {
+  try {
+    const body = JSON.stringify(Object.fromEntries(columns.map((column) => [column, row[column]])));
+    return Buffer.byteLength(body, "utf8") <= POSTGREST_CLIENT_POLICY.maxRequestBytes ? body : null;
+  } catch {
+    // Valor cíclico ou BigInt: nada é enviado.
+    return null;
+  }
+}
 
 /** Lê o corpo contando bytes; `null` acima do teto. Sair do for-await cancela o resto do stream. */
 async function readCapped(body: ReadableStream<Uint8Array>, maxBytes: number): Promise<string | null> {
@@ -75,24 +126,24 @@ export function createPostgrestUserClient(config: PostgrestUserClientConfig): Po
   const base = new URL("/rest/v1/", config.url);
   const { publishableKey } = config;
   const timeoutMs = config.timeoutMs ?? POSTGREST_CLIENT_POLICY.timeoutMs;
+  const deadline = (signal: AbortSignal | undefined): AbortSignal => {
+    const timeout = AbortSignal.timeout(timeoutMs);
+    return signal === undefined ? timeout : AbortSignal.any([signal, timeout]);
+  };
 
   return {
     async select(table, query, accessToken, signal) {
-      // Token fora da forma nem sai daqui (e nunca vira cabeçalho com quebra de linha).
-      if (accessToken.length > POSTGREST_CLIENT_POLICY.accessTokenMaxChars || !ACCESS_TOKEN.test(accessToken)) {
-        return FAILURE;
-      }
+      if (!isAccessToken(accessToken)) return FAILURE;
       const endpoint = new URL(table, base);
       // URLSearchParams codifica cada valor: um filtro não injeta outro parâmetro.
       endpoint.search = new URLSearchParams(query).toString();
-      const timeout = AbortSignal.timeout(timeoutMs);
       try {
         const response = await fetch(endpoint, {
           method: "GET",
           headers: { apikey: publishableKey, authorization: `Bearer ${accessToken}`, accept: "application/json" },
           // Seguir um redirecionamento levaria o token do usuário para outro host.
           redirect: "error",
-          signal: signal === undefined ? timeout : AbortSignal.any([signal, timeout]),
+          signal: deadline(signal),
         });
         if (response.status !== 200 || response.body === null || !isJson(response.headers.get("content-type"))) {
           await response.body?.cancel();
@@ -102,6 +153,34 @@ export function createPostgrestUserClient(config: PostgrestUserClientConfig): Po
         if (text === null) return FAILURE;
         const json = parseJsonWithoutPrototypeKeys(text);
         return json.ok ? { ok: true, value: json.value } : FAILURE;
+      } catch {
+        return FAILURE;
+      }
+    },
+
+    async upsert(table, upsert, accessToken, signal) {
+      if (!isAccessToken(accessToken)) return FAILURE;
+      const body = upsertBody(upsert.columns, upsert.row);
+      if (body === null) return FAILURE;
+      const endpoint = new URL(table, base);
+      endpoint.search = new URLSearchParams({ on_conflict: upsert.onConflict, columns: upsert.columns.join(",") }).toString();
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            apikey: publishableKey,
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
+            prefer: UPSERT_PREFER,
+          },
+          body,
+          // Seguir um redirecionamento levaria o token e os critérios do usuário para outro host.
+          redirect: "error",
+          signal: deadline(signal),
+        });
+        // O corpo nunca é lido: o `details` de um erro de `check` traz a linha recusada inteira.
+        await response.body?.cancel();
+        return response.status === POSTGREST_CLIENT_POLICY.upsertSuccessStatus ? WRITTEN : FAILURE;
       } catch {
         return FAILURE;
       }
