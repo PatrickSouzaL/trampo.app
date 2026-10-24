@@ -13,7 +13,7 @@ import {
 } from "@trampo/contracts";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
-import { CriteriaGuard, type CriteriaRepository } from "../../src/application/index.js";
+import { CriteriaGuard, type CriteriaReader } from "../../src/application/index.js";
 import { createSalaryCipher, parseSalaryKeyring, type SalaryCipher } from "../../src/infrastructure/crypto/salary-cipher.js";
 import {
   USER_CRITERIA_SELECT,
@@ -40,7 +40,7 @@ const KEY_B = key();
 
 let postgrest: FakePostgrest;
 let cipher: SalaryCipher;
-let repository: CriteriaRepository;
+let repository: CriteriaReader;
 let app: ReturnType<typeof buildApp> | undefined;
 
 beforeEach(async () => {

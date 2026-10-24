@@ -1,6 +1,7 @@
-// CriteriaRepository sobre o PostgREST do Supabase (ADR-018 D5; F1-DB-01 parte 2). Lê a linha do dono com o
+// CriteriaReader sobre o PostgREST do Supabase (ADR-018 D5; F1-DB-01 parte 2). Lê a linha do dono com o
 // token dele (a RLS é a segunda barreira; o filtro por `user_id` é a primeira), abre a pretensão com o
 // SalaryCipher e monta o UserCriteria. Entra no main.ts sempre embrulhado no CriteriaGuard (prazo e revalidação).
+// Só lê: a escrita (CriteriaWriter) entra no commit 3 do ADR-021, sem stub até lá (ADR-021 §5.2).
 //
 // Falha de decifragem é `unavailable` (503), NUNCA `found: false` (409): quem perdeu a chave não pode ver
 // "configure seus critérios" e sobrescrever o que tinha (critério 3 do [APPSEC]). O mesmo vale para `salary` em
@@ -8,7 +9,7 @@
 import { UserCriteriaSchema } from "@trampo/contracts";
 import { z } from "zod";
 
-import type { CriteriaLookup, CriteriaRepository } from "../../application/ports/criteria-repository.js";
+import type { CriteriaLookup, CriteriaReader } from "../../application/ports/criteria-repository.js";
 import type { SalaryCipher } from "../crypto/salary-cipher.js";
 import type { PostgrestUserClient } from "../supabase/postgrest-user-client.js";
 
@@ -40,7 +41,7 @@ export interface SupabaseCriteriaRepositoryDeps {
   readonly cipher: SalaryCipher;
 }
 
-export function createSupabaseCriteriaRepository(deps: SupabaseCriteriaRepositoryDeps): CriteriaRepository {
+export function createSupabaseCriteriaRepository(deps: SupabaseCriteriaRepositoryDeps): CriteriaReader {
   const { client, cipher } = deps;
   return {
     async load(subject, signal) {
