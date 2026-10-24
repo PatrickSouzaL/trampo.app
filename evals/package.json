@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint",
     "test": "vitest run --coverage",
-    "spike:s4": "vitest run --config spikes/s4-layer1/vitest.config.ts"
+    "spike:s4": "vitest run --config spikes/s4-layer1/vitest.config.ts",
+    "spike:s1": "vitest run --config spikes/s1-extraction/vitest.config.ts"
   },
   "dependencies": {
     "@trampo/contracts": "workspace:*",
