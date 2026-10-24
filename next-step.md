@@ -1,57 +1,59 @@
-# Próximo passo: F1-API-05 commit 3, `PostgrestUserClient.upsert` e `SupabaseCriteriaRepository.save` (ADR-021 D5 e D6)
+# Próximo passo: F1-API-05 commit 4, CORS por rota e a classe `criterios` (ADR-021 D8.2 e D8.3)
 
-> **Sem HITL bloqueando.** A sessão parou por escopo (AGENTS §4.1): a única entrega foi o commit 2 do ADR-021.
+> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este `next-step.md`.
+>
+> **Nenhum HITL bloqueia.** A única entrega desta rodada foi o commit 3 do ADR-021.
 
-## O que acabou de ser entregue (2026-10-23)
+## O que acabou de ser entregue (2026-10-24)
 
-### F1-API-05 commit 2: porta `save` e `CriteriaGuard.save` (ADR-021 §5.2)
-- **Porta partida:**
-  - `CriteriaReader` tem o `load`, e `CriteriaWriter` tem o `save`, que devolve `CriteriaSave`;
-  - `CriteriaRepository` é a união das duas;
-  - o adapter do Supabase declara só `CriteriaReader` até o commit 3, sem stub;
-  - a rota de análise pede só `CriteriaReader` (privilégio mínimo).
-- **`CriteriaGuard<P>` genérico:**
-  - o `save` declara `this: CriteriaGuard<CriteriaRepository>`. Num guarda sobre uma porta só de leitura, chamar `save` não compila (provado com `@ts-expect-error`), e, furado o tipo, a chamada falha fechado;
-  - confere o sujeito, reparseia os critérios e entrega à porta o valor reparseado;
-  - prazo de 1.000 ms no `Clock`, com o sinal abortado;
-  - só `{ saved: true }` estrito conta como sucesso. O `save` nunca rejeita.
-- **Fake:** o `FakeCriteriaRepository` ganhou o `save`, que registra `saves`.
-- **Testes:** 43 novos. A API está com 2.413 testes e 100% de cobertura.
-- **Portão:** turbo 16/16 e 7/7 em série, depcruise sem violações e mutação 14/14. Numa das 8 rodadas, um teste de relógio do SR-09 falhou de forma intermitente com a CPU disputada, como já estava registrado.
-- **`[APPSEC]` sem veto.** O critério 6 do §3 está cumprido na camada de aplicação.
-- **Commit `3d3cd50`**, mais o commit deste arquivo. Os dois foram enviados no **push autorizado** do `feat/api-borda`. STATE, BACKLOG, SESSION-LOG e ADR-021 foram atualizados.
+### F1-API-05 commit 3: `PostgrestUserClient.upsert` e `SupabaseCriteriaRepository.save` (ADR-021 §5.3)
+- **Cliente (`upsert`):**
+  - faz `POST` com `on_conflict=user_id` e `columns=` e manda `Prefer: resolution=merge-duplicates,return=minimal`;
+  - usa a chave publishable e o Bearer do dono;
+  - tem `redirect: "error"` e prazo de 900 ms combinado com o sinal do guarda;
+  - monta o corpo **só com as colunas declaradas**, tipadas por tabela. Uma chave a mais no `row` não chega ao servidor;
+  - tem teto de 32 KiB **em bytes**. Acima disso, nada é enviado;
+  - só o 201 conta como sucesso;
+  - **nunca lê o corpo da resposta.** Há um teste com uma resposta que não termina.
+- **Adapter (`save`):**
+  - agora é um `CriteriaRepository`;
+  - cifra a pretensão com o AAD do dono, inclusive `null`;
+  - grava a coluna `criteria` sem `salary` e sem `schemaVersion`;
+  - preenche o `updated_at` com o `now` injetado;
+  - faz um único *upsert* com as 5 colunas;
+  - falha no `seal` ou no relógio dá `unavailable`, sem enviar nada.
+- **`composeApp`:** só passa o `now` ao adapter. O guarda da análise ganhou o `save` sem outra mudança.
+- **Testes:** 59 novos, entre eles os canários no corpo cru, a RLS recusando com a primeira barreira furada (no PostgREST simulado) e a ida e volta `save` → `load`. A API tem 2.472 testes e 100% de cobertura.
+- **Portão:**
+  - turbo 16/16, depcruise sem violações e mutação com 26 mortos de 27 (1 equivalente);
+  - 2 rodadas do turbo tiveram 1 falha intermitente cada, em arquivos que este commit não tocou (`limits-stack` e `upstash-cache-stack`, os dois com prazo em relógio real; QA-01). A suíte da API sozinha passou nas 4 rodadas.
+- **`[APPSEC]` sem veto.** Critérios 1, 3 e 6 do §3 atendidos na infraestrutura. A metade "banco real" do critério 2 e o status 201 real ficam para o commit 6.
+- **Commit `955da43`**, local, sem push. STATE, BACKLOG, SESSION-LOG e ADR-021 foram atualizados.
 
 ### Pendências do humano
-- **Push feito** (`6465fa7..f460f24`). O CI deste branch só roda em `pull_request`, e não há PR aberto, então o `secrets` (gitleaks) ainda não conferiu estes commits. Uma varredura local do diff não achou padrão de chave. O job roda quando você abrir o PR do `feat/api-borda` para o `master`.
-- **S-1 (autorizado):** o S-1 é um spike inteiro e gasta a cota gratuita dos provedores reais, então fica para uma sessão própria (AGENTS §4.1). Se quiser rodá-lo antes do commit 3, troque a tarefa do prompt abaixo pelo S-1 do BACKLOG.
-- O `git stash` no `master` pode ser descartado com `git stash drop`, se a edição não servir mais.
+- **Push** do `feat/api-borda` (o `955da43` e o commit deste arquivo), quando quiser. O CI deste branch só roda em `pull_request`, então o `secrets` (gitleaks) só confere quando o PR para o `master` for aberto.
+- **S-1 (autorizado):** fica para uma sessão própria, porque gasta a cota gratuita dos provedores reais. Para rodá-lo antes do commit 4, troque a tarefa do prompt abaixo pela do S-1 no BACKLOG.
+- O `git stash` no `master` pode ser descartado com `git stash drop` se a edição não servir mais.
 
 ## Prompt para enviar ao agente
 
 ```text
 Equipe, sigam em ciclo estrito.
 
-1. [ORCHESTRATOR]: Leia STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md, o ADR-021 (D3, D4, D5, D6, D10 e §3, e o §5.2 para a porta partida) e o ADR-018 (D4 e D5). Confirme pnpm 11.4.0, o Node conforme o engines e o branch feat/api-borda.
-2. Tarefa única (AGENTS §4.1): o commit 3 do ADR-021, só na camada infrastructure.
-   - PostgrestUserClient.upsert:
-     - POST /rest/v1/user_criteria?on_conflict=user_id&columns=user_id,schema_version,criteria,salary_ciphertext,updated_at;
-     - Prefer: resolution=merge-duplicates,return=minimal; apikey publishable e Bearer do dono;
-     - redirect "error", prazo de 900 ms combinado com o sinal do guarda e token conferido antes de virar cabeçalho;
-     - teto de 32 KiB no corpo enviado (acima disso, { ok: false } sem enviar);
-     - lista de colunas como parâmetro tipado;
-     - sucesso só no status fixado (hipótese 201, a confirmar no commit 6);
-     - corpo de erro nunca lido.
-   - SupabaseCriteriaRepository.save:
-     - cipher.seal(userId, salary), com a SalarySealError virando unavailable;
-     - coluna criteria sem salary e sem schemaVersion;
-     - updated_at vindo do now() injetado, em ISO 8601;
-     - linha montada como literal com exatamente as 5 colunas.
-     - O adapter passa de CriteriaReader para CriteriaRepository (ADR-021 §5.2), e o composeApp ganha o save sem mudar.
-   - Testes do D10 (commit 3), contra o PostgREST simulado em socket real:
-     - cabeçalhos exatos, URL e corpo com as 5 colunas;
-     - canários (pretensão ausente do corpo cru, coluna criteria sem salary/schemaVersion, AAD do dono);
-     - falha fechado em 401, 403, 409 com corpo que ecoa canário, 413, 500, redirecionamento, lento, travado, socket cortado e corpo acima de 32 KiB;
-     - ida e volta save → load, inclusive com salary: null.
-   - 100% de cobertura, mutação e o [APPSEC] (critérios 1, 3 e 6 do §3).
-3. [SCRIBE]: atualizem o ADR-021 (§5.3), STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md.
+1. [ORCHESTRATOR]: Leiam STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md, o ADR-021 (D8.1, D8.2, D8.3, D10 e §3) e as partes emendadas: ADR-007 D6 (CORS) e ADR-014 D4 (classes de rate limit). Confirmem pnpm 11.4.0, o Node conforme o engines e o branch feat/api-borda.
+2. Tarefa única (AGENTS §4.1): o commit 4 do ADR-021, só em presentation/edge e application/limits.
+   - CORS por rota (emenda ao ADR-007 D6):
+     - uma origem chrome-extension:// (o padrão EXTENSION_ORIGIN do edge-env) é aceita só nas rotas de EXTENSION_ROUTES = [{ method: "POST", path: "/v1/analyze" }];
+     - comparação exata do caminho cru antes do "?", sem normalizar;
+     - fora da lista, 403 PROIBIDO, tanto no preflight (pelo Access-Control-Request-Method) quanto na requisição real (pelo método);
+     - as outras origens (o portal) não mudam.
+   - Classe de rate limit "criterios" (emenda ao ADR-014 D4): 10 por minuto por usuário e 30 por IP. A "analise" continua a mais estrita, e um valor desconhecido continua caindo nela.
+   - Testes do D10 (commit 4):
+     - a origem da extensão passa no POST /v1/analyze;
+     - ela recebe 403 em GET e PUT /v1/criteria, no preflight e na requisição real;
+     - também recebe 403 em /v1/analyze/, /v1/%61nalyze, //v1/analyze e com outro método;
+     - a origem do portal passa em todas;
+     - a política fixa "criterios" em 10/30 contra o ADR.
+   - 100% de cobertura, mutação e o [APPSEC] (critérios 5 e 8 do §3).
+3. [SCRIBE]: atualizem o ADR-021 (§5.4), o ADR-007 e o ADR-014 (nota da emenda), STATE.md, BACKLOG.md e SESSION-LOG.md, façam só o commit local (sem push) e gerem o novo ./next-step.md.
 ```
