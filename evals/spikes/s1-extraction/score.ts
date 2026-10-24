@@ -120,14 +120,16 @@ export function scoreCase(golden: GoldenCase, got: Facts): CaseScore {
   const known = new Set([...wantReq, ...wantNice]);
 
   const benefits = bestListCount(got.benefits, candidates(golden, "benefits"));
-  const redFlags = bestListCount(got.redFlagSignals, candidates(golden, "redFlagSignals"));
+  // O FactResolver descarta o `salario_omitido` do LLM (ADR-001 §5.6): a métrica mede o que chega ao motor.
+  const gotFlags = got.redFlagSignals.filter((f) => f !== "salario_omitido");
+  const redFlags = bestListCount(gotFlags, candidates(golden, "redFlagSignals"));
   const languageRequirements = candidates(golden, "languageRequirements").some((want) => sameSet(got.languageRequirements, want, langKey));
 
   const seniorityLevels = anySet("seniorityLevels");
   const workModels = anySet("workModels");
   const contractTypes = anySet("contractTypes");
   const benefitsExact = candidates(golden, "benefits").some((w) => sameSet<string>(got.benefits, w));
-  const flagsExact = candidates(golden, "redFlagSignals").some((w) => sameSet<string>(got.redFlagSignals, w));
+  const flagsExact = candidates(golden, "redFlagSignals").some((w) => sameSet<string>(gotFlags, w));
   const salaryIntact = salaryOptions.some((want) => sameSalary(got.salary, want));
 
   return {

@@ -35,11 +35,17 @@ export interface CallRecord {
   readonly retryAfterMs: number | null;
   /** Workers AI: tipo de `result.response` e presença de `usage` (ADR-020 §1.1). */
   readonly responseShape: string | null;
+  /** Groq 400 `json_validate_failed`: a geração recusada, só em memória (vai para o Zod e o guard, nunca ao disco). */
+  readonly failedGeneration: string | null;
 }
+
+/** `estrito`: o modo de produção previsto (json_schema estrito). `nao_estrito`: json_schema sem `strict`, com o guard. */
+export type Variant = "estrito" | "nao_estrito";
 
 export interface SpikeProvider {
   readonly key: ProviderKey;
   readonly model: string;
+  readonly variant: Variant;
   call(text: string, timeoutMs: number): Promise<CallRecord>;
 }
 
@@ -96,19 +102,20 @@ const EMPTY: Omit<CallRecord, "outcome" | "status" | "latencyMs"> = {
   errorCode: null,
   retryAfterMs: null,
   responseShape: null,
+  failedGeneration: null,
 };
 
 export const GROQ_MODEL = "openai/gpt-oss-20b";
 /** Teto do spike: largo de propósito, para medir quanto o raciocínio realmente gasta (ADR-001 §5.5, H6). */
 export const GROQ_MAX_COMPLETION_TOKENS = 2_048;
 
-export function groqRequestBody(messages: readonly unknown[]): Record<string, unknown> {
+export function groqRequestBody(messages: readonly unknown[], strict = true): Record<string, unknown> {
   return {
     model: GROQ_MODEL,
     messages,
     response_format: {
       type: "json_schema",
-      json_schema: { name: "job_facts", strict: true, schema: EXTRACTION_RESPONSE_SCHEMA },
+      json_schema: { name: "job_facts", strict, schema: EXTRACTION_RESPONSE_SCHEMA },
     },
     reasoning_effort: "low",
     include_reasoning: false,
@@ -117,14 +124,15 @@ export function groqRequestBody(messages: readonly unknown[]): Record<string, un
   };
 }
 
-export function createGroqProvider(apiKey: string, fetchImpl: typeof fetch = fetch): SpikeProvider {
+export function createGroqProvider(apiKey: string, variant: Variant = "estrito", fetchImpl: typeof fetch = fetch): SpikeProvider {
   return {
     key: "groq",
     model: GROQ_MODEL,
+    variant,
     async call(text, timeoutMs) {
       const built = buildExtractionMessages({ text }, randomBytes(16).toString("hex"));
       if (!built.ok) return { ...EMPTY, outcome: "recusa_do_prompt", status: null, latencyMs: 0 };
-      const body = groqRequestBody(built.messages);
+      const body = groqRequestBody(built.messages, variant === "estrito");
       if ("tools" in body) throw new Error("SR-01: requisição com tools");
       const started = performance.now();
       let res: Response;
@@ -146,7 +154,11 @@ export function createGroqProvider(apiKey: string, fetchImpl: typeof fetch = fet
       if (res.status === 429) {
         return { ...base, outcome: "limite_de_taxa", errorCode: errorCodeOf(json), retryAfterMs: parseRetryAfterMs(res.headers.get("retry-after"), Date.now()) };
       }
-      if (!res.ok) return { ...base, outcome: res.status >= 500 ? "erro_transitorio" : "erro_permanente", errorCode: errorCodeOf(json) };
+      if (!res.ok) {
+        const err = isRecord(json) ? json["error"] : null;
+        const failed = isRecord(err) && typeof err["failed_generation"] === "string" ? err["failed_generation"] : null;
+        return { ...base, outcome: res.status >= 500 ? "erro_transitorio" : "erro_permanente", errorCode: errorCodeOf(json), failedGeneration: failed };
+      }
       const choice = isRecord(json) && Array.isArray(json["choices"]) ? (json["choices"][0] as unknown) : null;
       const message = isRecord(choice) ? choice["message"] : null;
       const content = isRecord(message) ? message["content"] : null;
@@ -198,6 +210,7 @@ export function createWorkersAiProvider(
   return {
     key: "cloudflare_workers_ai",
     model: config.model,
+    variant: "estrito",
     async call(text, timeoutMs) {
       note = { status: null, rateHeaders: {}, errorCode: null, responseShape: null };
       const controller = new AbortController();

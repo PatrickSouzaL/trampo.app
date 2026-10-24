@@ -27,6 +27,19 @@ export function parseGroqDuration(value: string | undefined): number | null {
   return ((Number(h) * 60 + Number(min)) * 60 + Number(s)) * 1_000 + Number(ms);
 }
 
+/** Caminhos de topo que o `JobFactsSchema` recusa, ou `["(json)"]` se nem faz parse. */
+function issuePaths(raw: string): string[] {
+  const parsed = parseJsonWithoutPrototypeKeys(raw);
+  if (!parsed.ok) return ["(json)"];
+  const result = JobFactsSchema.safeParse(parsed.value);
+  return result.success ? [] : [...new Set(result.error.issues.map((i) => (i.path.length === 0 ? "(raiz)" : String(i.path[0]))))];
+}
+
+function analyseFailed(call: CallRecord): Pick<ResultRow, "failedGenerationIssuePaths" | "failedGenerationGuardOk"> {
+  if (call.failedGeneration === null) return { failedGenerationIssuePaths: null, failedGenerationGuardOk: null };
+  return { failedGenerationIssuePaths: issuePaths(call.failedGeneration), failedGenerationGuardOk: guard.inspect(call.failedGeneration).ok };
+}
+
 function analyse(c: SpikeCase, call: CallRecord): Pick<
   ResultRow,
   "outputBytes" | "rawSchemaValid" | "rawIssuePaths" | "rawStackOverlap" | "guardOk" | "guardReason" | "sanitization" | "canaryLeak" | "facts"
@@ -68,10 +81,11 @@ function analyse(c: SpikeCase, call: CallRecord): Pick<
 }
 
 function toRow(provider: SpikeProvider, c: SpikeCase, budget: Budget, payload: string, call: CallRecord): ResultRow {
-  const { raw: _raw, ...wire } = call;
+  const { raw: _raw, failedGeneration: _failed, ...wire } = call;
   return {
     provider: provider.key,
     model: provider.model,
+    variant: provider.variant,
     budget,
     caseId: c.golden.id,
     at: new Date().toISOString(),
@@ -79,6 +93,7 @@ function toRow(provider: SpikeProvider, c: SpikeCase, budget: Budget, payload: s
     ...wire,
     latencyMs: Math.round(call.latencyMs),
     ...analyse(c, call),
+    ...analyseFailed(call),
   };
 }
 
@@ -97,7 +112,7 @@ export async function runProvider(
   log: (line: string) => void,
 ): Promise<RunSummary> {
   const done = doneKeys(readRows());
-  const pending = plan.filter((p) => !done.has(rowKey(provider.key, provider.model, p.caseId, p.budget)));
+  const pending = plan.filter((p) => !done.has(rowKey(provider.key, provider.model, provider.variant, p.caseId, p.budget)));
   let count = 0;
   let last: ResultRow | undefined;
   for (const item of pending) {

@@ -14,16 +14,25 @@ import { WORKERS_AI_DEFAULT_MODEL } from "../../../apps/api/src/infrastructure/l
 
 const mode = process.env["S1_MODE"] ?? "plan";
 const wanted = (process.env["S1_PROVIDERS"] ?? "groq,cloudflare_workers_ai").split(",");
+const groqVariant = process.env["S1_GROQ_VARIANT"] === "nao_estrito" ? "nao_estrito" : "estrito";
+/** S1_ONLY=json_validate_failed: só os itens que o Groq estrito recusou (para a variante `nao_estrito`). */
+const only = process.env["S1_ONLY"];
 const maxItems = Number(process.env["S1_MAX_ITEMS"] ?? (mode === "smoke" ? "1" : "1000"));
 
 const cases = loadSpikeCases();
 const byId = new Map(cases.map((c) => [c.golden.id, c] as const));
-const plan = buildPlan(cases);
+const fullPlan = buildPlan(cases);
+const failedKeys = new Set(
+  readRows()
+    .filter((r) => r.provider === "groq" && r.variant === "estrito" && r.errorCode === only)
+    .map((r) => `${r.caseId}|${String(r.budget)}`),
+);
+const plan = only === undefined ? fullPlan : fullPlan.filter((p) => failedKeys.has(`${p.caseId}|${String(p.budget)}`));
 
 function providers(): SpikeProvider[] {
   const env = readSpikeEnv();
   const out: SpikeProvider[] = [];
-  if (wanted.includes("groq")) out.push(createGroqProvider(requireVar(env, "GROQ_API_KEY")));
+  if (wanted.includes("groq")) out.push(createGroqProvider(requireVar(env, "GROQ_API_KEY"), groqVariant));
   if (wanted.includes("cloudflare_workers_ai")) {
     out.push(
       createWorkersAiProvider({

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { JobFacts } from "@trampo/contracts";
 import type { LlmOutputSanitization } from "../../../apps/api/src/application/llm/llm-output-guard.js";
 import type { Budget } from "./cases.js";
-import type { CallOutcome, ProviderKey } from "./providers.js";
+import type { CallOutcome, ProviderKey, Variant } from "./providers.js";
 
 export const OUT_DIR = join(import.meta.dirname, "out");
 export const RESULTS_PATH = join(OUT_DIR, "s1-results.jsonl");
@@ -14,6 +14,8 @@ export const RESULTS_PATH = join(OUT_DIR, "s1-results.jsonl");
 export interface ResultRow {
   readonly provider: ProviderKey;
   readonly model: string;
+  /** Linhas antigas (antes da variante) são `estrito`. */
+  readonly variant: Variant;
   readonly budget: Budget;
   readonly caseId: string;
   readonly at: string;
@@ -40,6 +42,9 @@ export interface ResultRow {
   readonly sanitization: LlmOutputSanitization | null;
   readonly canaryLeak: boolean | null;
   readonly facts: JobFacts | null;
+  /** Groq 400: o que o Zod e o guard diriam da geração recusada (só caminhos e desfecho). */
+  readonly failedGenerationIssuePaths: readonly string[] | null;
+  readonly failedGenerationGuardOk: boolean | null;
 }
 
 export function readRows(path: string = RESULTS_PATH): ResultRow[] {
@@ -47,7 +52,7 @@ export function readRows(path: string = RESULTS_PATH): ResultRow[] {
   return readFileSync(path, "utf8")
     .split("\n")
     .filter((l) => l.trim() !== "")
-    .map((l) => JSON.parse(l) as ResultRow);
+    .map((l) => ({ variant: "estrito", failedGenerationIssuePaths: null, failedGenerationGuardOk: null, ...(JSON.parse(l) as Partial<ResultRow>) }) as ResultRow);
 }
 
 export function appendRow(row: ResultRow, path: string = RESULTS_PATH): void {
@@ -55,9 +60,9 @@ export function appendRow(row: ResultRow, path: string = RESULTS_PATH): void {
   appendFileSync(path, `${JSON.stringify(row)}\n`, "utf8");
 }
 
-export const rowKey = (provider: string, model: string, caseId: string, budget: number): string =>
-  `${provider}|${model}|${caseId}|${String(budget)}`;
+export const rowKey = (provider: string, model: string, variant: string, caseId: string, budget: number): string =>
+  `${provider}|${model}|${variant}|${caseId}|${String(budget)}`;
 
 export function doneKeys(rows: readonly ResultRow[]): Set<string> {
-  return new Set(rows.filter((r) => r.outcome !== "limite_de_taxa").map((r) => rowKey(r.provider, r.model, r.caseId, r.budget)));
+  return new Set(rows.filter((r) => r.outcome !== "limite_de_taxa").map((r) => rowKey(r.provider, r.model, r.variant, r.caseId, r.budget)));
 }

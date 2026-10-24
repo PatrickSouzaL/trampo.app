@@ -154,6 +154,15 @@ function operations(rows: readonly ResultRow[], all: readonly ResultRow[]): Reco
     guardReasons,
     rawIssuePaths: issuePaths,
     rawStackOverlapCases: rows.filter((r) => r.rawStackOverlap === true).map((r) => r.caseId),
+    salarioOmitidoEmittedCases: rows.filter((r) => r.facts?.redFlagSignals.includes("salario_omitido") === true).length,
+    failedGeneration: {
+      cases: rows.filter((r) => r.failedGenerationIssuePaths !== null).length,
+      guardWouldAccept: rows.filter((r) => r.failedGenerationGuardOk === true).length,
+      issuePaths: rows.reduce<Record<string, number>>((acc, r) => {
+        for (const p of r.failedGenerationIssuePaths ?? []) acc[p] = (acc[p] ?? 0) + 1;
+        return acc;
+      }, {}),
+    },
     finishReasonLength: rows.filter((r) => r.finishReason === "length").map((r) => r.caseId),
     latencyMsOk: dist(nums(ok, (r) => r.latencyMs)),
     over10sOk: ok.filter((r) => r.latencyMs > 10_000).length,
@@ -180,11 +189,11 @@ export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly 
   const sweepIds = new Set(sweepCases(spikeCases).map((c) => c.golden.id));
   const groups = new Map<string, ResultRow[]>();
   for (const r of allRows) {
-    const key = `${r.provider}|${r.model}`;
+    const key = `${r.provider}|${r.model}|${r.variant}`;
     groups.set(key, [...(groups.get(key) ?? []), r]);
   }
   const providers = [...groups.entries()].map(([key, all]) => {
-    const [provider = "", model = ""] = key.split("|");
+    const [provider = "", model = "", variant = ""] = key.split("|");
     const final = finalRows(all);
     const byBudget = (b: Budget, onlySweep: boolean): ResultRow[] =>
       final.filter((r) => r.budget === b && (!onlySweep || sweepIds.has(r.caseId)));
@@ -197,6 +206,7 @@ export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly 
     return {
       provider,
       model,
+      variant,
       primaryBudget: {
         budget: PRIMARY_BUDGET,
         coverage: `${String(new Set(primary.map((r) => r.caseId)).size)}/${String(spikeCases.length)}`,
