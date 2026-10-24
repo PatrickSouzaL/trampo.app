@@ -1,38 +1,44 @@
-# Próximo passo: F1-API-05 commit 6, `test:db` da escrita (ADR-021 D10 e §3, critérios 2 e 9)
+# Próximo passo: HITL-027 (push e job `db` verde), que fecha o F1-API-05; depois, o S-1
 
 > **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este `next-step.md`.
 >
-> **Nenhum HITL bloqueia o código do commit 6.** Ele só **fecha** com push e o job `db` verde no GitHub, e o HITL de push abre nessa entrega.
+> **O HITL-027 bloqueia o fechamento do F1-API-05.** Ele não bloqueia o S-1.
 
 ## O que acabou de ser entregue (2026-10-24)
 
-### F1-API-05 commit 5: rotas `GET` e `PUT /v1/criteria` e a composição (ADR-021 §5.5)
-- **Rotas** (`presentation/routes/criteria.ts`), só com a opção `criteria?: { repository }` do `buildApp`. Sem ela, as rotas dão 404 `PROIBIDO`.
-  - **GET**, na classe `padrao`: 200 com o `UserCriteria` validado na saída, 409 `CRITERIOS_NAO_CONFIGURADOS` e 503. Uma saída fora do contrato vira 500 sem eco.
-  - **PUT**, na classe `criterios`:
-    - `bodyLimit` de 16 KiB: 413 sem parse, provado no byte exato;
-    - `UserCriteriaSchema`: 400 sem as *issues* do Zod;
-    - 204 sem corpo, e 503 sem eco.
-  - **`Cache-Control: no-store`** por `onSend` da rota. Vale também nos erros dos hooks globais (401, 403, 415, 429) e do mapeador de erro (400, 413, 500). O `/health` não ganha o cabeçalho.
-  - O dono vem só do principal, e o token é o bearer já verificado. A *query* é ignorada, e nenhuma das rotas gasta cota diária.
-- **`composeApp`:** passa o **mesmo** `CriteriaGuard` da análise. Isso foi provado pela identidade da instância, com um espião no protótipo, em PUT, GET e `POST /v1/analyze`.
-- **Log (emenda ao ADR-010 D2):** `criterios_gravacao_indisponivel` (warn, sem campos), no PUT que vira 503. O GET reusa o `criterios_indisponiveis`.
-- **Testes:**
-  - 65 novos: 60 da rota e 5 do boot com as peças reais;
-  - o parser JSON instrumentado prova que não há parse no 401, no 413 e no 429;
-  - o SR-12 usa canários nos caminhos 200, 204, 400, 413, 429 e 503;
-  - a API tem 2.598 testes e 100% de cobertura, já com o `criteria.ts`;
-  - o `HEAD` anterior tinha 2.533 testes, e não os 2.531 registrados antes. A contagem foi corrigida no cofre.
+### F1-API-05 commit 6: `test:db` da escrita (ADR-021 §5.6)
+- **`apps/api/test/db/criteria-write.db.test.ts`**, com 14 testes no job `db`:
+  - **SR-15 da escrita:** a primeira barreira foi furada de propósito (dono B, token de A). O resultado foi 403 `42501` na inserção, na sobrescrita e no insert puro, e a linha de B ficou intacta byte a byte. Sem token, `anon` recebeu 401;
+  - o status real do *upsert*;
+  - o perfil válido mais pesado dentro do `check` de 16 KiB;
+  - 5 rodadas de concorrência sem mistura;
+  - o `columns=` com `%2C`, lido como lista.
+- **`heaviest-criteria.ts`:** gera um perfil com 12.288 bytes de JSON em ideogramas de 4 bytes sorteados, com semente fixa. O teste dele roda no `pnpm test`.
+- **Achado (emenda ao ADR-021 D5):** o PostgREST 16.4 responde **201 quando insere e 200 quando atualiza**. Com a hipótese anterior (só 201), todo PUT depois do primeiro viraria 503.
+  - O cliente passou a aceitar `[201, 200]`.
+  - O PostgREST simulado agora imita o real.
+  - Os testes de unidade conferem o retorno das duas gravações.
+- **Prova local com Postgres 17.11 e PostgREST 16.4 reais**, no scratchpad e sem Docker:
+  - `test:db` com 61/61 e 100% de cobertura no apoio;
+  - a coluna do pior caso tem 12.663 bytes sem compressão, abaixo dos 16.384;
+  - o Kong e o GoTrue foram trocados por um gateway mínimo, então a prova definitiva continua sendo o job `db`.
+- **Mutação:**
+  - cliente com 7/7 mortos;
+  - migration com 6/6 mortos, rodando contra a pilha real;
+  - um teste de insert puro entrou para isolar a policy de insert da de SELECT.
 - **Portão:**
-  - turbo com 16/16 de build, typecheck e lint e 7/7 de teste, em série, sem intermitência;
-  - depcruise sem violações (381 módulos);
-  - mutação com 34 mortos de 35. O sobrevivente é equivalente: o GET sem a classe declarada cai em `padrao`.
-- **`[APPSEC]` sem veto.** Os critérios 1, 4, 7 e 8 do §3 foram atendidos.
-- **Commit `2667e6e`**, local, sem push. ADR-021, ADR-010, STATE, BACKLOG e SESSION-LOG foram atualizados.
+  - turbo com 16/16 de build, typecheck e lint e 7/7 de teste, em série;
+  - API com 2.609 testes e 100% de cobertura;
+  - depcruise sem violações (384 módulos).
+- **`[APPSEC]` sem veto.** Os critérios 2 e 9 do §3 foram atendidos.
+- **Commit `f3491d8`**, local, sem push. ADR-021, STATE, BACKLOG, HITL-QUEUE e SESSION-LOG foram atualizados.
 
 ### Pendências do humano
-- **Push** do `feat/api-borda`, quando quiser. Faltam subir o `955da43`, o `9371774`, o `2667e6e` e os commits de `next-step`. O CI deste branch só roda em `pull_request`.
-- **S-1 (autorizado):** fica para uma sessão própria, porque gasta a cota gratuita dos provedores reais. Para rodá-lo antes do commit 6, troque a tarefa do prompt abaixo pela do S-1 no BACKLOG.
+- **HITL-027:**
+  1. Faça o push do `feat/api-borda`. Sobem o `955da43`, o `9371774`, o `2667e6e`, o `f3491d8` e os commits de `next-step`.
+  2. Abra o PR para o `master`. O CI deste branch só roda em `pull_request`.
+  3. Confira o job `db`: o `test:db` precisa mostrar **61 passed**.
+  4. Responda "HITL-027 concluído: db verde com 61/61, PR #N", ou mande as últimas linhas do erro, sem o bloco de chaves do `supabase start`.
 - O `git stash` no `master` pode ser descartado com `git stash drop`, se a edição não servir mais.
 
 ## Prompt para enviar ao agente
@@ -40,15 +46,10 @@
 ```text
 Equipe, sigam em ciclo estrito.
 
-1. [ORCHESTRATOR]: Leiam STATE.md, BACKLOG.md (F1-API-05) e HITL-QUEUE.md, o ADR-021 (D5, D7, D10, §3 e §5.3 a §5.5), o ADR-018 (D2, D3, D7 e §3.3) e o ADR-019 (§3.2 e §3.3, o job db). Confirmem pnpm 11.4.0, o Node conforme o engines e o branch feat/api-borda.
-2. Tarefa única (AGENTS §4.1): o commit 6 do ADR-021, em apps/api/test/db, contra o Supabase local do runner (nunca o projeto real).
-   - SR-15 da escrita: A grava pelo adapter real; o cliente de A, chamado direto com o user_id de B (furando a primeira barreira de propósito), é recusado pela RLS na inserção e na sobrescrita da linha de B, e a linha de B continua intacta.
-   - O upsert real fixa o status de sucesso do D5 (hipótese: 201). Se for outro, ajustem o upsertSuccessStatus e registrem no ADR.
-   - O perfil válido mais pesado (12.288 bytes de JSON, caracteres de 4 bytes não compressíveis) passa no check de 16 KiB do banco real.
-   - Duas gravações concorrentes do mesmo dono terminam em um dos dois documentos inteiros, nunca numa mistura.
-   - A vírgula de columns= codificada (%2C) é aceita pelo PostgREST real na escrita.
-   - anon continua sem acesso (herdado).
-   - Sem Docker na estação: a prova local é a simulação já usada no F1-DB-01 parte 3 (scratchpad). A prova real é o job db no GitHub.
-   - 100% de cobertura no que for tocado, mutação e o [APPSEC] (critérios 2 e 9 do §3).
-3. [SCRIBE]: atualizem o ADR-021 (§5.6), STATE.md, BACKLOG.md e SESSION-LOG.md, façam o commit local, abram o HITL de push e da execução do job db (o F1-API-05 só fecha com ele verde) e gerem o novo ./next-step.md.
+1. [ORCHESTRATOR]: Leiam STATE.md, BACKLOG.md e HITL-QUEUE.md. Confirmem pnpm 11.4.0, o Node conforme o engines e o branch feat/api-borda.
+2. HITL-027: <cole aqui a resposta, por exemplo "HITL-027 concluído: db verde com 61/61, PR #N", ou o erro do job>.
+   - Se o db estiver verde, conferir no GitHub só com leitura, fechar o HITL-027 e o F1-API-05 (ADR-021, STATE e BACKLOG).
+   - Se falhou, diagnosticar pelo log e corrigir numa tarefa única (AGENTS §4.1).
+3. Com o F1-API-05 fechado, a tarefa seguinte é o S-1 (autorizado; gasta a cota gratuita dos provedores reais), conforme o BACKLOG, numa sessão própria se o contexto não for seguro.
+4. [SCRIBE]: atualizem SESSION-LOG.md e STATE.md, façam o commit local e gerem o novo ./next-step.md.
 ```
