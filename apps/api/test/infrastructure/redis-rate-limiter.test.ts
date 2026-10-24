@@ -46,6 +46,22 @@ describe("contagem por usuário", () => {
     await expect(h.check("padrao")).resolves.toMatchObject({ ok: false, reason: "limite_excedido" });
   });
 
+  test("criterios: 10 passam e a 11ª é negada (ADR-021 D8.2)", async () => {
+    const h = harness(T0 + 15_000);
+    const results = await repeat(10, () => h.check("criterios"));
+    expect(results).toEqual(Array(10).fill({ ok: true }));
+    await expect(h.check("criterios")).resolves.toEqual({ ok: false, reason: "limite_excedido", retryAfterSeconds: 45 });
+  });
+
+  test("criterios tem contador próprio: esgotar a analise não toca nela, e vice-versa", async () => {
+    const h = harness();
+    await repeat(5, () => h.check("analise"));
+    await expect(h.check("analise")).resolves.toMatchObject({ ok: false });
+    await repeat(10, () => h.check("criterios"));
+    await expect(h.check("criterios")).resolves.toMatchObject({ ok: false });
+    await expect(h.check("padrao")).resolves.toEqual({ ok: true });
+  });
+
   test("as classes têm contadores separados", async () => {
     const h = harness();
     await repeat(5, () => h.check("analise"));
@@ -93,6 +109,14 @@ describe("janela deslizante", () => {
 });
 
 describe("contagem por IP", () => {
+  test("criterios: 30 por IP somando usuários; o 31º é negado mesmo para um usuário novo", async () => {
+    const h = harness();
+    const users = Array.from({ length: 30 }, (_, i) => `6f0c2a4e-1b3d-4c5e-8f70-${String(i).padStart(12, "0")}`);
+    for (const user of users) await expect(h.check("criterios", user)).resolves.toEqual({ ok: true });
+    await expect(h.check("criterios", OTHER_USER)).resolves.toMatchObject({ ok: false, reason: "limite_excedido" });
+    await expect(h.check("criterios", OTHER_USER, "v4:198.51.100.1")).resolves.toEqual({ ok: true });
+  });
+
   test("analise: 20 por IP somando usuários; o 21º é negado mesmo para um usuário novo", async () => {
     const h = harness();
     const users = Array.from({ length: 20 }, (_, i) => `6f0c2a4e-1b3d-4c5e-8f70-${String(i).padStart(12, "0")}`);

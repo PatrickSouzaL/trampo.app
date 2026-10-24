@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 import {
   DailyQuotaGuard,
   LIMIT_GUARD_POLICY,
+  RATE_LIMIT_POLICY,
   RateLimitGuard,
   type DailyQuota,
   type RateLimitClass,
@@ -150,10 +151,21 @@ describe("RateLimitGuard", () => {
     ["clientAddress vazio", "padrao", { userId: USER, clientAddress: "" }],
     ["clientAddress longo demais", "padrao", { userId: USER, clientAddress: "x".repeat(65) }],
     ["classe fora do conjunto", "outra", SUBJECT],
+    ["classe com outra caixa", "CRITERIOS", SUBJECT],
   ])("entrada inválida (%s) dá indisponível sem tocar na porta", async (_name, rateClass, subject) => {
     const h = rateHarness({ kind: "valor", value: { ok: true } });
     await expect(h.guard.check(rateClass as RateLimitClass, subject)).resolves.toEqual(UNAVAILABLE);
     expect(h.calls).toHaveLength(0);
+  });
+
+  test("toda classe da política passa pelo guarda e chega à porta como veio", async () => {
+    const classes = Object.keys(RATE_LIMIT_POLICY.classes) as RateLimitClass[];
+    expect(classes).toEqual(["padrao", "analise", "criterios"]);
+    for (const rateClass of classes) {
+      const h = rateHarness({ kind: "valor", value: { ok: true } });
+      await expect(h.clock.run(h.guard.check(rateClass, SUBJECT))).resolves.toEqual({ ok: true });
+      expect(h.calls.map((c) => c.rateClass)).toEqual([rateClass]);
+    }
   });
 
   test("o endereço de 64 caracteres ainda é aceito", async () => {

@@ -49,6 +49,14 @@ function limitApp(rate?: FakeBehavior, options: { verifier?: Parameters<typeof f
       return { ok: true };
     },
   );
+  instance.put(
+    "/probe/criterios",
+    { config: { rateLimit: "criterios" }, schema: { body: z.strictObject({ texto: z.string() }) } },
+    async () => {
+      counts.handler += 1;
+      return { ok: true };
+    },
+  );
   instance.get("/probe/classe-estranha", { config: { rateLimit: "inexistente" as RateLimitClass } }, async () => ({ ok: true }));
   app = instance;
   return { app: instance, counts, calls: fakes.rate.calls };
@@ -114,8 +122,23 @@ describe("quando o rate limit roda", () => {
   test("a rota declara a classe; classe desconhecida vale a mais estrita", async () => {
     const { app, calls } = limitApp();
     await app.inject({ method: "POST", url: "/probe/analise", headers: { ...authed, "content-type": "application/json" }, payload: '{"texto":"a"}' });
+    await app.inject({ method: "PUT", url: "/probe/criterios", headers: { ...authed, "content-type": "application/json" }, payload: '{"texto":"a"}' });
     await app.inject({ method: "GET", url: "/probe/classe-estranha", headers: authed });
-    expect(calls.map((c) => c.rateClass)).toEqual(["analise", "analise"]);
+    expect(calls.map((c) => c.rateClass)).toEqual(["analise", "criterios", "analise"]);
+  });
+
+  test("criterios: 429 antes de ler o corpo, como as outras classes", async () => {
+    const { app, calls, counts } = limitApp({ kind: "valor", value: { ok: false, reason: "limite_excedido", retryAfterSeconds: 9 } });
+    const res = await app.inject({
+      method: "PUT",
+      url: "/probe/criterios",
+      headers: { ...authed, "content-type": "application/json" },
+      payload: '{"texto":"a"}',
+    });
+    expect(res.statusCode).toBe(429);
+    expect(res.headers["retry-after"]).toBe("9");
+    expect(calls.map((c) => c.rateClass)).toEqual(["criterios"]);
+    expect(counts).toEqual({ parser: 0, handler: 0 });
   });
 
   test("rota inexistente com token conta como padrao (a sondagem também gasta limite) e dá 404", async () => {

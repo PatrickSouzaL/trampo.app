@@ -25,7 +25,7 @@ const DailyQuotaDecisionSchema = z.union([
 ]);
 
 const RateLimitInputSchema = z.strictObject({
-  rateClass: z.enum(["padrao", "analise"]),
+  rateClass: z.enum(["padrao", "analise", "criterios"]),
   userId: z.uuid(),
   clientAddress: z.string().min(1).max(64),
 });

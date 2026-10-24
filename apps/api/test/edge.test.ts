@@ -23,10 +23,12 @@ afterEach(async () => {
 
 /**
  * App com rota de eco e contadores. O parser JSON padrão é envolvido por um contador (mesmo parser,
- * mesmo bodyLimit da instância), para provar que o 413 e o 415 acontecem SEM parse.
+ * mesmo bodyLimit da instância), para provar que o 413 e o 415 acontecem SEM parse. As rotas de sonda em
+ * `/v1/analyze` e `/v1/criteria` têm os caminhos reais, para o CORS por rota (ADR-021 D8.3), e contam no `routes`.
  */
 function probeApp(options: Partial<BuildAppOptions> = {}) {
   const counts = { parser: 0, handler: 0 };
+  const routes: string[] = [];
   const instance = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll, corsAllowedOrigins: [EXTENSION, PORTAL], ...options });
   const defaultJson = instance.getDefaultJsonParser("error", "error");
   instance.removeContentTypeParser("application/json");
@@ -39,8 +41,20 @@ function probeApp(options: Partial<BuildAppOptions> = {}) {
     return { ok: true };
   });
   instance.get("/probe/ip", async (request) => ({ ip: request.ip }));
+  instance.post("/v1/analyze", { schema: { body: z.strictObject({ texto: z.string() }) } }, async () => {
+    routes.push("POST /v1/analyze");
+    return { ok: true };
+  });
+  instance.get("/v1/criteria", async () => {
+    routes.push("GET /v1/criteria");
+    return { ok: true };
+  });
+  instance.put("/v1/criteria", { schema: { body: z.strictObject({ texto: z.string() }) } }, async () => {
+    routes.push("PUT /v1/criteria");
+    return { ok: true };
+  });
   app = instance;
-  return { app: instance, counts };
+  return { app: instance, counts, routes };
 }
 
 function expectApiError(body: string, code: string) {
@@ -201,14 +215,24 @@ describe("SR-07: tipo de mídia e Content-Encoding dão 415 antes de ler o corpo
 describe("CORS com origens exatas", () => {
   const VALID = '{"texto":"oi"}';
 
-  test.each([[EXTENSION], [PORTAL]])("origem permitida %s: ecoa a origem exata, com Vary e sem credentials", async (origin) => {
+  test("origem permitida (portal): ecoa a origem exata, com Vary e sem credentials", async () => {
     const { app, counts } = probeApp();
-    const res = await app.inject({ method: "POST", url: "/probe/eco", headers: { ...JSON_HEADERS, origin }, payload: VALID });
+    const res = await app.inject({ method: "POST", url: "/probe/eco", headers: { ...JSON_HEADERS, origin: PORTAL }, payload: VALID });
     expect(res.statusCode).toBe(200);
-    expect(res.headers["access-control-allow-origin"]).toBe(origin);
+    expect(res.headers["access-control-allow-origin"]).toBe(PORTAL);
     expect(res.headers["vary"]).toMatch(/Origin/);
     expect(res.headers["access-control-allow-credentials"]).toBeUndefined();
     expect(counts.handler).toBe(1);
+  });
+
+  test("origem permitida (extensão, na rota dela): ecoa a origem exata, com Vary e sem credentials", async () => {
+    const { app, routes } = probeApp();
+    const res = await app.inject({ method: "POST", url: "/v1/analyze", headers: { ...JSON_HEADERS, origin: EXTENSION }, payload: VALID });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["access-control-allow-origin"]).toBe(EXTENSION);
+    expect(res.headers["vary"]).toMatch(/Origin/);
+    expect(res.headers["access-control-allow-credentials"]).toBeUndefined();
+    expect(routes).toEqual(["POST /v1/analyze"]);
   });
 
   test.each([
@@ -229,8 +253,9 @@ describe("CORS com origens exatas", () => {
 
   test("lista vazia (padrão) nega toda origem de navegador", async () => {
     app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: acceptAll });
-    const res = await app.inject({ method: "GET", url: "/health", headers: { origin: EXTENSION } });
-    expect(res.statusCode).toBe(403);
+    const portal = await app.inject({ method: "GET", url: "/health", headers: { origin: PORTAL } });
+    const extension = await app.inject({ method: "OPTIONS", url: "/v1/analyze", headers: { origin: EXTENSION, "access-control-request-method": "POST" } });
+    expect([portal.statusCode, extension.statusCode]).toEqual([403, 403]);
   });
 
   test("sem Origin (cliente que não é navegador): segue, sem cabeçalhos de CORS", async () => {
@@ -244,7 +269,7 @@ describe("CORS com origens exatas", () => {
     const { app, counts } = probeApp();
     const res = await app.inject({
       method: "OPTIONS",
-      url: "/probe/eco",
+      url: "/v1/analyze",
       headers: {
         origin: EXTENSION,
         "access-control-request-method": "POST",
@@ -267,11 +292,14 @@ describe("CORS com origens exatas", () => {
     ["header fora da lista", { "access-control-request-method": "POST", "access-control-request-headers": "content-type, x-debug" }],
   ])("preflight negado (%s): 403 sem cabeçalhos de CORS", async (_label, headers) => {
     const { app } = probeApp();
-    const res = await app.inject({ method: "OPTIONS", url: "/probe/eco", headers: { origin: EXTENSION, ...headers } });
-    expect(res.statusCode).toBe(403);
-    expectApiError(res.body, "PROIBIDO");
-    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
-    expect(res.headers["access-control-allow-methods"]).toBeUndefined();
+    // Na rota da extensão e também com a origem do portal: a recusa é pelo método ou pelo header, não pela rota.
+    for (const origin of [EXTENSION, PORTAL]) {
+      const res = await app.inject({ method: "OPTIONS", url: "/v1/analyze", headers: { origin, ...headers } });
+      expect(res.statusCode).toBe(403);
+      expectApiError(res.body, "PROIBIDO");
+      expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+      expect(res.headers["access-control-allow-methods"]).toBeUndefined();
+    }
   });
 
   test("preflight de origem negada: 403", async () => {
@@ -289,13 +317,13 @@ describe("CORS com origens exatas", () => {
     const { app } = probeApp();
     const tooBig = await app.inject({
       method: "POST",
-      url: "/probe/eco",
+      url: "/v1/analyze",
       headers: { ...JSON_HEADERS, origin: EXTENSION },
       payload: `${jsonOfBytes(HTTP_BODY_MAX_BYTES)} `,
     });
     const badType = await app.inject({
       method: "POST",
-      url: "/probe/eco",
+      url: "/v1/analyze",
       headers: { "content-type": "text/plain", origin: EXTENSION, authorization: TEST_AUTHORIZATION },
       payload: "x",
     });
