@@ -2,7 +2,8 @@
 // (ADR-007): só o parser JSON, bodyLimit antes do parse, timeouts explícitos, trustProxy fechado e
 // CORS com origens exatas, a autenticação por JWT da F1-API-02 (ADR-013) e o rate limit da F1-API-03 (ADR-014),
 // no onRequest depois do JWT. A cota diária é um preHandler que a rota de análise usa. A rota POST /v1/analyze
-// (F1-API-04, ADR-017 D7) só é registrada com a opção `analysis`.
+// (F1-API-04, ADR-017 D7) só é registrada com a opção `analysis`, e GET e PUT /v1/criteria (F1-API-05, ADR-021 D2)
+// só com a opção `criteria`.
 import { randomUUID } from "node:crypto";
 
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "@fastify/type-provider-zod";
@@ -21,6 +22,7 @@ import { createRateLimitHook } from "./edge/rate-limit.js";
 import { EDGE_TIMEOUTS, type EdgeTimeouts } from "./edge/timeouts.js";
 import { createLoggerOptions, type LoggerConfig } from "./logging/log-policy.js";
 import { type AnalysisRouteOptions, analyzeRoutes } from "./routes/analyze.js";
+import { type CriteriaRouteOptions, criteriaRoutes } from "./routes/criteria.js";
 import { healthRoutes } from "./routes/health.js";
 
 declare module "fastify" {
@@ -57,6 +59,11 @@ export interface BuildAppOptions {
    * passa no F1-API-04b, depois do CriteriaRepository do Supabase (F1-DB-01).
    */
   readonly analysis?: AnalysisRouteOptions;
+  /**
+   * O CriteriaGuard que lê e grava os critérios do dono (ADR-021 §4). Sem a opção, GET e PUT /v1/criteria são rotas
+   * inexistentes (404 PROIBIDO). O composeApp passa o mesmo guarda da análise.
+   */
+  readonly criteria?: CriteriaRouteOptions;
 }
 
 /** Caminho do texto da vaga no AnalyzeJobRequestSchema: curto demais é 422, não 400 (ADR-017 D6). */
@@ -162,5 +169,6 @@ export function buildApp(options: BuildAppOptions) {
 
   void app.register(healthRoutes);
   if (options.analysis !== undefined) void app.register(analyzeRoutes, options.analysis);
+  if (options.criteria !== undefined) void app.register(criteriaRoutes, options.criteria);
   return app;
 }

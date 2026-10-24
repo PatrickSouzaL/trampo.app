@@ -2,7 +2,7 @@
 // teste toca o Supabase real nem precisa de Docker. Imita a RLS do D3: o token identifica o dono, e a leitura só
 // devolve as linhas dele que casam com o filtro `user_id=eq.<uuid>`. O upsert (ADR-021 D5) guarda só as colunas de
 // `columns=`, recusa com 403 a linha de outro dono (a RLS do insert e do update) e substitui a linha em conflito
-// por `user_id`, respondendo 201 sem corpo. Modos de falha: lento, travado, status, corpo arbitrário (com
+// por `user_id`, respondendo sem corpo 201 na inserção e 200 na atualização, como o real. Modos de falha: lento, travado, status, corpo arbitrário (com
 // `content-type` escolhido), corpo gigante, redirecionamento, socket cortado e corpo que nunca termina. Registra cada requisição, com o
 // corpo cru recebido (para os canários).
 //
@@ -120,9 +120,13 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
         // A RLS do insert e do update (`with check (auth.uid() = user_id)`).
         if (row.user_id !== owner) return send(response, 403, '{"code":"42501","message":"new row violates row-level security policy"}');
         const conflict = url.searchParams.get("on_conflict") === "user_id" ? rows.findIndex((existing) => existing.user_id === row.user_id) : -1;
-        if (conflict === -1) rows.push(row);
-        else rows[conflict] = { ...rows[conflict], ...row };
-        return send(response, 201, "", null);
+        // Como o PostgREST real (fixado pelo test:db, ADR-021 §5.6): 201 na inserção e 200 na atualização.
+        if (conflict === -1) {
+          rows.push(row);
+          return send(response, 201, "", null);
+        }
+        rows[conflict] = { ...rows[conflict], ...row };
+        return send(response, 200, "", null);
       }
       // A RLS (`auth.uid() = user_id`) e depois o filtro da consulta.
       const filter = url.searchParams.get("user_id");

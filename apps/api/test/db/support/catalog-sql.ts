@@ -81,5 +81,18 @@ select json_build_array(json_build_object(
 ));
 `;
 
+/**
+ * Tamanho da coluna `criteria` do usuário `:'uid'`: `stored` como o TOAST a guardou (comprimida ou não) e `plain`
+ * sem compressão, que é o que o check de 16 KiB mede (o check roda na linha nova, antes do TOAST).
+ */
+export const CRITERIA_SIZE_SQL = `
+select json_build_object(
+  'stored', pg_column_size(criteria),
+  'plain', pg_column_size(criteria::text::jsonb)
+)
+from public.user_criteria
+where user_id = :'uid';
+`;
+
 /** Exclusão da conta no Auth, como a API de admin fará no F1-PORTAL-03 (a prova completa do SR-16 é de lá). */
 export const DELETE_AUTH_USER_SQL = `delete from auth.users where id = :'uid';`;

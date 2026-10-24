@@ -398,10 +398,11 @@ describe("escrita do dono", () => {
     await expect(load()).resolves.toEqual({ found: true, criteria: value });
   });
 
-  test("a segunda gravação substitui a primeira (uma linha só, última gravação vence)", async () => {
-    await save(criteria({ salary: SALARY }));
+  test("a segunda gravação substitui a primeira (uma linha só, última gravação vence), e as duas são sucesso", async () => {
+    // A primeira cai no ramo da inserção (201) e a segunda no da atualização (200), como no PostgREST real.
+    await expect(save(criteria({ salary: SALARY }))).resolves.toEqual({ saved: true });
     const updated = criteria({ salary: null, notes: "nova" });
-    await save(updated);
+    await expect(save(updated)).resolves.toEqual({ saved: true });
     expect(postgrest.rows).toHaveLength(1);
     await expect(load()).resolves.toEqual({ found: true, criteria: updated });
   });
@@ -480,7 +481,7 @@ describe("escrita: falha fechado (unavailable, nunca rejeita)", () => {
     expect(JSON.stringify(result)).not.toContain("CANARIO");
   });
 
-  test.each([401, 403, 413, 500, 200, 204])("status %i", async (status) => {
+  test.each([401, 403, 413, 500, 202, 204])("status %i", async (status) => {
     postgrest.mode = { kind: "status", status };
     await expect(save(criteria())).resolves.toStrictEqual(SAVE_UNAVAILABLE);
   });

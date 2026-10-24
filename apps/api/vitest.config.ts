@@ -89,6 +89,8 @@ export default defineConfig({
         "src/presentation/api-error.ts",
         // POST /v1/analyze e o escritor SSE (F1-API-04 parte 2, ADR-017 D6 e D7), com o buildApp que a registra.
         "src/presentation/routes/analyze.ts",
+        // GET e PUT /v1/criteria (F1-API-05 commit 5, ADR-021 D2).
+        "src/presentation/routes/criteria.ts",
         "src/presentation/streaming/**/*.ts",
         "src/presentation/build-app.ts",
         // Guarda do test:db (F1-OPS-01 parte 2, ADR-019 D8): só 127.0.0.1 e a publishable local. A suíte do banco

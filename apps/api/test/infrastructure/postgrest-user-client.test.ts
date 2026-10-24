@@ -3,7 +3,8 @@
 // secret e legada no construtor, e falha fechado (`{ ok: false }`, nunca rejeição) em status, `content-type`,
 // tamanho, UTF-8, JSON, `__proto__`, prazo, travamento, aborto, redirecionamento e servidor fora do ar.
 // O upsert (ADR-021 D5): URL, cabeçalhos e corpo exatos (só as colunas declaradas), teto de 32 KiB em bytes no
-// corpo enviado, sucesso só no 201 e o corpo da resposta nunca lido (nem o eco da linha recusada).
+// corpo enviado, sucesso só no 201 (inserção) e no 200 (atualização), os status do PostgREST real fixados pelo
+// test:db (ADR-021 §5.6), e o corpo da resposta nunca lido (nem o eco da linha recusada).
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import {
@@ -73,7 +74,7 @@ describe("construtor: só a chave publishable", () => {
       timeoutMs: 900,
       maxResponseBytes: 32_768,
       maxRequestBytes: 32_768,
-      upsertSuccessStatus: 201,
+      upsertSuccessStatuses: [201, 200],
       accessTokenMaxChars: 8_192,
     });
   });
@@ -305,13 +306,23 @@ const bodyBytes = (row: Readonly<Record<string, unknown>>): number =>
   Buffer.byteLength(JSON.stringify(Object.fromEntries(COLUMNS.map((column) => [column, row[column]]))), "utf8");
 
 describe("upsert: protocolo", () => {
-  test("POST /rest/v1/user_criteria com on_conflict e columns; 201 é sucesso e a linha do dono é substituída", async () => {
+  test("POST /rest/v1/user_criteria com on_conflict e columns; o 200 da atualização é sucesso e a linha do dono é substituída", async () => {
     await expect(upsert()).resolves.toEqual(WRITTEN);
     const url = new URL(postgrest.requests[0]?.url ?? "", "http://x");
     expect(postgrest.requests[0]?.method).toBe("POST");
     expect(url.pathname).toBe("/rest/v1/user_criteria");
     expect(Object.fromEntries(url.searchParams)).toEqual({ on_conflict: "user_id", columns: COLUMNS.join(",") });
     expect(postgrest.rows).toEqual([WRITE_ROW]);
+  });
+
+  test("sem a linha do dono, o 201 da inserção é sucesso", async () => {
+    postgrest.rows.length = 0;
+    await expect(upsert()).resolves.toEqual(WRITTEN);
+    expect(postgrest.rows).toEqual([WRITE_ROW]);
+  });
+
+  test("a lista de status de sucesso é congelada", () => {
+    expect(Object.isFrozen(POSTGREST_CLIENT_POLICY.upsertSuccessStatuses)).toBe(true);
   });
 
   test("cabeçalhos exatos: publishable, Bearer do dono, JSON e o Prefer do D5", async () => {
@@ -399,7 +410,7 @@ describe("upsert: nada é enviado fora da forma", () => {
 
 describe("upsert: falha fechado, sem ler o corpo da resposta", () => {
   test.each([
-    ["200 (não é o status fixado)", 200],
+    ["202 (não é um status fixado)", 202],
     ["204", 204],
     ["400", 400],
     ["409 de constraint", 409],
@@ -420,13 +431,14 @@ describe("upsert: falha fechado, sem ler o corpo da resposta", () => {
   });
 
   test.each([
-    ["erro", 409],
-    ["sucesso", 201],
-  ])("resposta de %s com corpo que nunca termina: o cliente não espera o corpo", async (_name, status) => {
+    ["erro", 409, FAILURE],
+    ["inserção", 201, WRITTEN],
+    ["atualização", 200, WRITTEN],
+  ])("resposta de %s com corpo que nunca termina: o cliente não espera o corpo", async (_name, status, expected) => {
     postgrest.mode = { kind: "sem_fim", status, chunk: '{"details":"Failing row contains (' };
     const slow = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 10_000 });
     const start = performance.now();
-    await expect(slow.upsert("user_criteria", UPSERT, TOKEN)).resolves.toEqual(status === 201 ? WRITTEN : FAILURE);
+    await expect(slow.upsert("user_criteria", UPSERT, TOKEN)).resolves.toEqual(expected);
     expect(performance.now() - start).toBeLessThan(2_000);
   });
 
