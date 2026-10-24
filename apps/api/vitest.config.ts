@@ -84,6 +84,8 @@ export default defineConfig({
         "src/presentation/edge/rate-limit.ts",
         "src/presentation/edge/daily-quota.ts",
         "src/presentation/edge/client-address.ts",
+        // CORS por rota (F1-API-05 commit 4, ADR-021 D8.3): a origem da extensão só alcança EXTENSION_ROUTES.
+        "src/presentation/edge/cors.ts",
         "src/presentation/api-error.ts",
         // POST /v1/analyze e o escritor SSE (F1-API-04 parte 2, ADR-017 D6 e D7), com o buildApp que a registra.
         "src/presentation/routes/analyze.ts",

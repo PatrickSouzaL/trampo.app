@@ -185,7 +185,7 @@ describe("rotas públicas e ordem dos hooks (ADR-013 D2)", () => {
     const { app } = authApp(verifier);
     const res = await app.inject({
       method: "OPTIONS",
-      url: "/probe/eu",
+      url: "/v1/analyze",
       headers: { origin: EXTENSION, "access-control-request-method": "POST", "access-control-request-headers": "authorization" },
     });
     expect(res.statusCode).toBe(204);
@@ -194,7 +194,8 @@ describe("rotas públicas e ordem dos hooks (ADR-013 D2)", () => {
 
   test("401 de origem permitida traz Access-Control-Allow-Origin (a extensão lê o ApiError)", async () => {
     const { app } = authApp(fakeVerifier().verifier);
-    const res = await app.inject({ method: "GET", url: "/probe/eu", headers: { origin: EXTENSION } });
+    // Na rota da extensão (ADR-021 D8.3); sem a opção `analysis` ela não existe, e o JWT vem antes do 404.
+    const res = await app.inject({ method: "POST", url: "/v1/analyze", headers: { origin: EXTENSION, "content-type": "application/json" }, payload: "{}" });
     expect(res.statusCode).toBe(401);
     expect(res.headers["access-control-allow-origin"]).toBe(EXTENSION);
   });

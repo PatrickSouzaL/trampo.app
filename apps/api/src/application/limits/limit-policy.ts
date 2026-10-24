@@ -10,10 +10,12 @@ export const RATE_LIMIT_POLICY = {
   classes: {
     padrao: { user: 60, address: 120 },
     analise: { user: 5, address: 20 },
+    /** Gravação dos critérios (o PUT /v1/criteria): cada requisição é uma cifragem e uma escrita no banco (ADR-021 D8.2). */
+    criterios: { user: 10, address: 30 },
   },
 } as const satisfies { windowMs: number; classes: Record<RateLimitClass, { user: number; address: number }> };
 
-/** A classe mais estrita: vale para qualquer valor de `config.rateLimit` fora do conjunto fechado. */
+/** A classe mais estrita (a menor nas duas dimensões): vale para qualquer valor de `config.rateLimit` fora do conjunto fechado. */
 export const STRICTEST_RATE_LIMIT_CLASS: RateLimitClass = "analise";
 
 const RATE_LIMIT_CLASSES: ReadonlySet<unknown> = new Set(Object.keys(RATE_LIMIT_POLICY.classes));

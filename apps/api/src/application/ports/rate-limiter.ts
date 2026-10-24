@@ -2,7 +2,7 @@
 // adapter em Redis fica em infrastructure/limits e o hook que lê o principal e o IP fica na presentation.
 
 /** Classe de limite que a rota declara. Rota sem classe usa `padrao`; valor desconhecido usa a mais estrita. */
-export type RateLimitClass = "padrao" | "analise";
+export type RateLimitClass = "padrao" | "analise" | "criterios";
 
 export interface RateLimitSubject {
   /** `sub` do token já verificado (UUID). Só entra no Redis dentro de um HMAC (SR-17). */
