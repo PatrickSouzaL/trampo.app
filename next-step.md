@@ -22,7 +22,7 @@
 - **Commit `3d3cd50`**, mais o commit deste arquivo. Os dois foram enviados no **push autorizado** do `feat/api-borda`. STATE, BACKLOG, SESSION-LOG e ADR-021 foram atualizados.
 
 ### Pendências do humano
-- **Push:** o gitleaks não rodou na estação. Confira o job `secrets` do CI no GitHub para o push desta sessão.
+- **Push feito** (`6465fa7..f460f24`). O CI deste branch só roda em `pull_request`, e não há PR aberto, então o `secrets` (gitleaks) ainda não conferiu estes commits. Uma varredura local do diff não achou padrão de chave. O job roda quando você abrir o PR do `feat/api-borda` para o `master`.
 - **S-1 (autorizado):** o S-1 é um spike inteiro e gasta a cota gratuita dos provedores reais, então fica para uma sessão própria (AGENTS §4.1). Se quiser rodá-lo antes do commit 3, troque a tarefa do prompt abaixo pelo S-1 do BACKLOG.
 - O `git stash` no `master` pode ser descartado com `git stash drop`, se a edição não servir mais.
 
