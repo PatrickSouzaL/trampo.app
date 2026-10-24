@@ -6,10 +6,10 @@
 import { randomBytes } from "node:crypto";
 
 import { AnalysisStreamEventSchema, ApiErrorSchema, type AnalysisStreamEvent } from "@trampo/contracts";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ZodError } from "zod";
 
-import { CacheConfigError, ProviderChainConfigError, RouterConfigError } from "../src/application/index.js";
+import { CacheConfigError, CriteriaGuard, ProviderChainConfigError, RouterConfigError } from "../src/application/index.js";
 import { NO_EXTRACTOR_PROMPT_VERSION, composeApp, type ComposedApp, type Environment } from "../src/composition/compose-app.js";
 import { SalaryKeyringConfigError, createSalaryCipher, parseSalaryKeyring } from "../src/infrastructure/crypto/salary-cipher.js";
 import { PostgrestClientConfigError } from "../src/infrastructure/supabase/postgrest-user-client.js";
@@ -88,15 +88,29 @@ function events(raw: string): AnalysisStreamEvent[] {
     .map((block) => AnalysisStreamEventSchema.parse(JSON.parse(block.split("\n")[1]?.slice("data: ".length) ?? "")));
 }
 
-/** Grava a linha do dono como o UpdateCriteria (F1-API-05) fará: pretensão só no cifrado. */
-async function storeOwnerCriteria(): Promise<string> {
+/** Grava a linha de um dono como o PUT /v1/criteria grava (pretensão só no cifrado) e devolve o token do OWNER. */
+async function storeOwnerCriteria(owner: string = OWNER): Promise<string> {
   const value = criteria({ salary: SALARY });
   const { salary, schemaVersion, ...rest } = value;
   const cipher = createSalaryCipher(parseSalaryKeyring(`k1:${SALARY_KEY}`, "k1"));
-  postgrest.rows.push({ user_id: OWNER, schema_version: schemaVersion, criteria: rest, salary_ciphertext: cipher.seal(OWNER, salary) });
+  postgrest.rows.push({ user_id: owner, schema_version: schemaVersion, criteria: rest, salary_ciphertext: cipher.seal(owner, salary) });
+  return ownerToken();
+}
+
+/** Token do OWNER, conhecido pela RLS do PostgREST simulado. */
+async function ownerToken(): Promise<string> {
   const token = await signToken(key, supabaseClaims(`${postgrest.url.origin}/auth/v1`, { sub: OWNER }));
   postgrest.sessions.set(token, OWNER);
   return token;
+}
+
+function criteriaRequest(instance: ComposedApp, method: "GET" | "PUT", headers: Record<string, string> = {}, payload?: unknown) {
+  return instance.app.inject({
+    method,
+    url: "/v1/criteria",
+    headers: { ...(payload === undefined ? {} : { "content-type": "application/json" }), ...headers },
+    ...(payload === undefined ? {} : { payload: JSON.stringify(payload) }),
+  });
 }
 
 describe("aceite: boot com o ambiente completo", () => {
@@ -190,6 +204,101 @@ describe("fluxo completo com as peças reais", () => {
     });
     expect(res.statusCode).toBe(503);
     expect(ApiErrorSchema.parse(res.json()).code).toBe("SERVICO_INDISPONIVEL");
+  });
+});
+
+describe("rotas de critérios (F1-API-05 commit 5; ADR-021 §4)", () => {
+  const OTHER_OWNER = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
+  const restRequests = () => postgrest.requests.filter((request) => request.url.includes("/rest/v1/"));
+  const capture = (lines: string[]) => ({ logger: { level: "trace" as const, stream: { write: (line: string) => lines.push(line) } } });
+
+  test("o boot monta GET e PUT /v1/criteria: 401 com no-store sem token, sem tocar o banco nem o Redis", async () => {
+    const instance = boot();
+    for (const method of ["GET", "PUT"] as const) {
+      const res = await criteriaRequest(instance, method, {}, method === "PUT" ? criteria() : undefined);
+      expect(res.statusCode).toBe(401);
+      expect(res.headers["cache-control"]).toBe("no-store");
+    }
+    expect(restRequests()).toHaveLength(0);
+    expect(upstash.requests).toHaveLength(0);
+  });
+
+  test("PUT, GET e a análise passam pelo MESMO CriteriaGuard, com a pretensão só cifrada no banco", async () => {
+    const seen = { load: new Set<unknown>(), save: new Set<unknown>() };
+    const originalLoad = CriteriaGuard.prototype.load;
+    const originalSave = CriteriaGuard.prototype.save;
+    const loadSpy = vi.spyOn(CriteriaGuard.prototype, "load").mockImplementation(function (this: CriteriaGuard, ...args) {
+      seen.load.add(this);
+      return originalLoad.apply(this, args);
+    });
+    const saveSpy = vi.spyOn(CriteriaGuard.prototype, "save").mockImplementation(function (this: CriteriaGuard, ...args) {
+      seen.save.add(this);
+      return originalSave.apply(this, args);
+    });
+    try {
+      const token = await ownerToken();
+      const lines: string[] = [];
+      const instance = boot({}, capture(lines));
+      const value = criteria({ salary: SALARY });
+      const auth = { authorization: `Bearer ${token}` };
+
+      const saved = await criteriaRequest(instance, "PUT", auth, value);
+      expect(saved.statusCode).toBe(204);
+      expect(saved.body).toBe("");
+      const [written] = restRequests();
+      expect(written).toEqual(expect.objectContaining({ method: "POST", apikey: PUBLISHABLE, authorization: `Bearer ${token}` }));
+      expect(written?.body).not.toContain("9000");
+      expect(postgrest.rows).toEqual([expect.objectContaining({ user_id: OWNER })]);
+
+      const read = await criteriaRequest(instance, "GET", auth);
+      expect(read.statusCode).toBe(200);
+      expect(read.headers["cache-control"]).toBe("no-store");
+      expect(read.json()).toEqual(value);
+
+      expect((await analyze(instance, auth)).statusCode).toBe(200);
+      expect([loadSpy.mock.calls.length, saveSpy.mock.calls.length]).toEqual([2, 1]);
+      const [guard] = [...seen.save];
+      expect(guard).toBeInstanceOf(CriteriaGuard);
+      expect([...seen.load]).toEqual([guard]);
+      for (const leak of [token, OWNER, "9000", SALARY_KEY]) expect(lines.join("")).not.toContain(leak);
+    } finally {
+      loadSpy.mockRestore();
+      saveSpy.mockRestore();
+    }
+  });
+
+  test("GET com a linha só de outro dono: 409 CRITERIOS_NAO_CONFIGURADOS (a RLS a esconde)", async () => {
+    const token = await storeOwnerCriteria(OTHER_OWNER);
+    const res = await criteriaRequest(boot(), "GET", { authorization: `Bearer ${token}` });
+    expect(res.statusCode).toBe(409);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe("CRITERIOS_NAO_CONFIGURADOS");
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  test("GET com a chave perdida: 503, nunca 409; o PUT seguinte recupera a linha (ADR-021 D2)", async () => {
+    const token = await storeOwnerCriteria();
+    const instance = boot({ CRITERIA_SALARY_KEYS: `k2:${randomBytes(32).toString("base64url")}`, CRITERIA_SALARY_ACTIVE_KEY: "k2" });
+    const auth = { authorization: `Bearer ${token}` };
+    const lost = await criteriaRequest(instance, "GET", auth);
+    expect(lost.statusCode).toBe(503);
+    expect(ApiErrorSchema.parse(lost.json()).code).toBe("SERVICO_INDISPONIVEL");
+    expect((await criteriaRequest(instance, "PUT", auth, criteria({ salary: SALARY }))).statusCode).toBe(204);
+    expect((await criteriaRequest(instance, "GET", auth)).json()).toEqual(criteria({ salary: SALARY }));
+  });
+
+  test("PostgREST que recusa a gravação ecoando a linha: 503 sem eco e só `criterios_gravacao_indisponivel` no log", async () => {
+    const token = await ownerToken();
+    postgrest.mode = { kind: "status", status: 409, body: JSON.stringify({ details: "Failing row contains (9000, nota-canaria)" }) };
+    const lines: string[] = [];
+    const instance = boot({}, capture(lines));
+    const res = await criteriaRequest(instance, "PUT", { authorization: `Bearer ${token}` }, criteria({ salary: SALARY, notes: "nota-canaria" }));
+    expect(res.statusCode).toBe(503);
+    for (const leak of ["nota-canaria", "9000", "Failing"]) {
+      expect(res.body).not.toContain(leak);
+      expect(lines.join("")).not.toContain(leak);
+    }
+    const warned = lines.map((line) => JSON.parse(line) as Record<string, unknown>).filter((r) => r["level"] === 40);
+    expect(warned.map((r) => r["msg"])).toEqual(["criterios_gravacao_indisponivel"]);
   });
 });
 

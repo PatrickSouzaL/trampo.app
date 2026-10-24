@@ -1,5 +1,6 @@
 // Raiz de composição da API (F1-API-04b; ADR-017 D7, ADR-018 D5 e D6). Lê o ambiente, monta cada adapter UMA vez
-// no boot e entrega ao buildApp a rota POST /v1/analyze com os critérios do Supabase. O main.ts só sobe a porta.
+// no boot e entrega ao buildApp a rota POST /v1/analyze com os critérios do Supabase e as rotas GET e PUT
+// /v1/criteria (F1-API-05, ADR-021 §4) com o MESMO CriteriaGuard. O main.ts só sobe a porta.
 //
 // Falha fechado no boot: ambiente da borda, do JWT ou do Redis inválido (ZodError), chave do Supabase que não é
 // publishable (PostgrestClientConfigError) e anel da pretensão inválido ou ausente (SalaryKeyringConfigError)
@@ -157,6 +158,8 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
     corsAllowedOrigins: server.CORS_ALLOWED_ORIGINS,
     trustProxy: server.TRUST_PROXY,
     analysis: { job, criteria },
+    // O mesmo guarda (prazo e revalidação) lê para a análise e lê e grava para o portal.
+    criteria: { repository: criteria },
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   });
   return { app, host: server.HOST, port: server.PORT };

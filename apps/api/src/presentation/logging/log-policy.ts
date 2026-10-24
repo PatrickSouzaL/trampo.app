@@ -33,6 +33,8 @@ export const LOG_MESSAGES = [
   // POST /v1/analyze (ADR-017 D5 e D6): leitura corrompida do JobFactsCache e banco de critérios fora do ar.
   "cache_corrompido",
   "criterios_indisponiveis",
+  // PUT /v1/criteria (ADR-021 D9): gravação que virou 503. O GET reusa `criterios_indisponiveis`.
+  "criterios_gravacao_indisponivel",
   "encerrando",
   "mensagem_fora_do_catalogo",
   "linha_de_log_descartada",
