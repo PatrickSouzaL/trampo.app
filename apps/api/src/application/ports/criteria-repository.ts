@@ -1,6 +1,7 @@
-// Critérios do usuário (ADR-017 D1; ADR-018 D6). O adapter em Supabase é do F1-DB-01 parte 2, embrulhado pelo
-// CriteriaGuard (prazo e revalidação). Quem chama é a rota, num preHandler antes da cota (ADR-017 D6): o
-// AnalyzeJob recebe os critérios prontos e nunca vê o userId nem o token (minimização).
+// Critérios do usuário (ADR-017 D1; ADR-018 D6; ADR-021 D5). O adapter em Supabase é do F1-DB-01 parte 2,
+// embrulhado pelo CriteriaGuard (prazo e revalidação). Quem lê é a rota de análise, num preHandler antes da cota
+// (ADR-017 D6): o AnalyzeJob recebe os critérios prontos e nunca vê o userId nem o token (minimização). A porta
+// é partida em leitura e escrita (ADR-021 §5.2): quem só lê não recebe o poder de gravar.
 import type { UserCriteria } from "@trampo/contracts";
 
 /**
@@ -23,7 +24,17 @@ export interface CriteriaSubject {
   readonly accessToken: string;
 }
 
-export interface CriteriaRepository {
+/** `saved: false` é sempre `unavailable` (503): banco fora do ar, prazo, cifra que falha ou resposta fora do contrato. */
+export type CriteriaSave = { readonly saved: true } | { readonly saved: false; readonly unavailable: true };
+
+export interface CriteriaReader {
   /** Nunca rejeita: qualquer falha é `unavailable`. O `signal` aborta a chamada que perdeu o prazo. */
   load(subject: CriteriaSubject, signal?: AbortSignal): Promise<CriteriaLookup>;
 }
+
+export interface CriteriaWriter {
+  /** Substitui os critérios do dono. Nunca rejeita: qualquer falha é `unavailable`. */
+  save(subject: CriteriaSubject, criteria: UserCriteria, signal?: AbortSignal): Promise<CriteriaSave>;
+}
+
+export interface CriteriaRepository extends CriteriaReader, CriteriaWriter {}

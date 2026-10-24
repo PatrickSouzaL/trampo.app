@@ -662,4 +662,20 @@ describe("FakeCriteriaRepository (para a rota, parte 2)", () => {
     expect(repo.loads).toEqual(["u1", "u2", "u1"]);
     expect(repo.tokens).toEqual(["t1", "t2", "t3"]);
   });
+
+  test("save substitui os critérios do dono, e o banco fora do ar não grava (ADR-021 D5)", async () => {
+    const repo = new FakeCriteriaRepository().set("u1", criteria());
+    const updated = criteria({ notes: "nova" });
+    expect(await repo.save({ userId: "u1", accessToken: "t1" }, updated)).toEqual({ saved: true });
+    expect(await repo.load({ userId: "u1", accessToken: "t2" })).toEqual({ found: true, criteria: updated });
+    repo.unavailable = true;
+    expect(await repo.save({ userId: "u2", accessToken: "t3" }, updated)).toEqual({ saved: false, unavailable: true });
+    repo.unavailable = false;
+    expect(await repo.load({ userId: "u2", accessToken: "t4" })).toEqual({ found: false });
+    expect(repo.saves).toEqual([
+      { userId: "u1", criteria: updated },
+      { userId: "u2", criteria: updated },
+    ]);
+    expect(repo.tokens).toEqual(["t1", "t2", "t3", "t4"]);
+  });
 });

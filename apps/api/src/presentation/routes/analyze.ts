@@ -13,7 +13,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { AnalysisAlert, AnalysisStage, AnalyzeJob } from "../../application/analysis/analyze-job.js";
 import type {
   CriteriaLookup,
-  CriteriaRepository,
+  CriteriaReader,
   CriteriaSubject,
 } from "../../application/ports/criteria-repository.js";
 import { apiError, sendApiError } from "../api-error.js";
@@ -24,7 +24,7 @@ export const ANALYZE_ROUTE = "/v1/analyze";
 
 export interface AnalysisRouteOptions {
   readonly job: Pick<AnalyzeJob, "run">;
-  readonly criteria: CriteriaRepository;
+  readonly criteria: CriteriaReader;
 }
 
 /**
@@ -43,7 +43,7 @@ function safely(write: () => void): void {
 }
 
 /** A porta nunca rejeita (ADR-017 D1). Se rejeitar ou lançar, é banco fora do ar: falha fechado. */
-async function loadCriteria(repository: CriteriaRepository, subject: CriteriaSubject): Promise<CriteriaLookup> {
+async function loadCriteria(repository: CriteriaReader, subject: CriteriaSubject): Promise<CriteriaLookup> {
   try {
     return await repository.load(subject);
   } catch {
@@ -56,7 +56,7 @@ async function loadCriteria(repository: CriteriaRepository, subject: CriteriaSub
  * fora do ar → 503. O token é o que o hook de autenticação já verificou nesta requisição: ele segue ao adapter para
  * a RLS valer (ADR-018 D6). Nada do `sub`, do token nem dos critérios vai para o log (SR-12).
  */
-export function createCriteriaPreHandler(repository: CriteriaRepository, loaded: LoadedCriteria) {
+export function createCriteriaPreHandler(repository: CriteriaReader, loaded: LoadedCriteria) {
   return async function criteriaPreHandler(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | undefined> {
     const principal = request.principal;
     const accessToken = bearerToken(request.headers.authorization);
