@@ -313,12 +313,11 @@
     },
     "redFlagSignals": {
       "minItems": 0,
-      "maxItems": 7,
+      "maxItems": 6,
       "type": "array",
       "items": {
         "type": "string",
         "enum": [
-          "salario_omitido",
           "escopo_excessivo",
           "sobreaviso_nao_remunerado",
           "teste_tecnico_longo",

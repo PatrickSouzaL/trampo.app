@@ -65,6 +65,7 @@ export {
   type LlmOutputSanitization,
 } from "./llm/llm-output-guard.js";
 export {
+  BENEFIT_PROMPT_TERMS,
   EXTRACTION_PROMPT_VERSION,
   EXTRACTION_RESPONSE_SCHEMA,
   EXTRACTION_SYSTEM_PROMPT_TEMPLATE,
