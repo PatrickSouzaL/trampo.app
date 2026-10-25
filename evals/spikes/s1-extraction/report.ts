@@ -184,6 +184,27 @@ function operations(rows: readonly ResultRow[], all: readonly ResultRow[]): Reco
   };
 }
 
+/**
+ * Groq "composto": a linha estrita quando o servidor aceitou e a `nao_estrito` onde ele recusou com
+ * `json_validate_failed`. Aproxima o `nao_estrito` em tudo, porque o estrito do Groq valida depois de gerar (a geração
+ * recusada e a `nao_estrito` do mesmo item falham no mesmo campo).
+ */
+function compositeGroups(groups: ReadonlyMap<string, readonly ResultRow[]>): Map<string, ResultRow[]> {
+  const out = new Map<string, ResultRow[]>();
+  for (const [key, strictRows] of groups) {
+    const [provider = "", model = "", variant = ""] = key.split("|");
+    const loose = groups.get(`${provider}|${model}|nao_estrito`);
+    if (variant !== "estrito" || loose === undefined) continue;
+    const looseFinal = new Map(finalRows(loose).map((r) => [`${r.caseId}|${String(r.budget)}`, r] as const));
+    const rows = finalRows(strictRows).map((r): ResultRow => {
+      const replacement = r.errorCode === "json_validate_failed" ? looseFinal.get(`${r.caseId}|${String(r.budget)}`) : undefined;
+      return { ...(replacement ?? r), variant: "composto" };
+    });
+    out.set(`${provider}|${model}|composto`, rows);
+  }
+  return out;
+}
+
 export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly SpikeCase[]): Record<string, unknown> {
   const cases = new Map(spikeCases.map((c) => [c.golden.id, c] as const));
   const sweepIds = new Set(sweepCases(spikeCases).map((c) => c.golden.id));
@@ -192,6 +213,7 @@ export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly 
     const key = `${r.provider}|${r.model}|${r.variant}`;
     groups.set(key, [...(groups.get(key) ?? []), r]);
   }
+  for (const [key, composite] of compositeGroups(groups)) groups.set(key, composite);
   const providers = [...groups.entries()].map(([key, all]) => {
     const [provider = "", model = "", variant = ""] = key.split("|");
     const final = finalRows(all);

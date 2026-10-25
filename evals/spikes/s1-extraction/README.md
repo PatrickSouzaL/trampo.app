@@ -12,9 +12,13 @@ S1_MODE=plan   pnpm --filter @trampo/evals spike:s1 --silent=false   # sem rede:
 S1_MODE=smoke  pnpm --filter @trampo/evals spike:s1 --silent=false   # 1 chamada por provedor
 S1_MODE=run    pnpm --filter @trampo/evals spike:s1 --silent=false   # o plano inteiro, retomável
 S1_MODE=report pnpm --filter @trampo/evals spike:s1                  # sem rede: refaz out/s1-metrics.json
+S1_MODE=diag   pnpm --filter @trampo/evals spike:s1 --silent=false   # refaz em memória as saídas que o guard recusou
 ```
 
-`S1_PROVIDERS=groq` (ou `cloudflare_workers_ai`) limita a um provedor; `S1_MAX_ITEMS` limita as chamadas. As chaves
+`S1_PROVIDERS=groq` (ou `cloudflare_workers_ai`) limita a um provedor; `S1_MAX_ITEMS` limita as chamadas.
+`S1_GROQ_VARIANT=nao_estrito` manda o `json_schema` sem `strict`, e `S1_ONLY=json_validate_failed` roda só os itens que o
+Groq estrito recusou. O relatório traz, além de cada variante, o Groq `composto`: a linha estrita aceita mais a
+`nao_estrito` onde o estrito foi recusado. As chaves
 saem só de `apps/api/.env` (`GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` e, opcional,
 `CLOUDFLARE_WORKERS_AI_MODEL`), sem passar pelo `process.env`.
 
@@ -27,7 +31,8 @@ saem só de `apps/api/.env` (`GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLAR
 | `providers.ts` | Groq com `json_schema` estrito, `reasoning_effort: low` e sem `tools`; Workers AI pelo adapter real com `fetch` instrumentado (status, cabeçalhos de lista fechada, código de erro). |
 | `runner.ts` | Percorre o plano, aplica o guard, mede o JSON cru, procura o canário e dá ritmo pelos cabeçalhos; para no teto diário. |
 | `score.ts` | Métricas por campo do golden-dataset-spec §8.1 e §8.2 (aliases do `td1`, dobra de cidade do ADR-002). |
-| `report.ts` | Agrega em `out/s1-metrics.json`. |
+| `report.ts` | Agrega em `out/s1-metrics.json`, inclusive o Groq `composto`. |
+| `diag.ts` | `S1_MODE=diag`: issues do Zod (caminho, código e valor só com forma de enum) e o guard simulado sem os itens fora do enum, em `out/s1-diag.json`; não grava linha no JSONL. |
 | `store.ts` | `out/s1-results.jsonl`, uma linha por chamada, sem texto de vaga nem saída bruta. |
 
 ## Limites conhecidos

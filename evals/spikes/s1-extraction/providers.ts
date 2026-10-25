@@ -1,5 +1,5 @@
 // S-1: os dois provedores medidos. O Groq não tem adapter (F1-LLM-01 parte 2 espera o S-1), então o spike faz a
-// chamada com o mesmo prompt `p1`; a Workers AI passa pelo adapter real (ADR-020) com um `fetch` instrumentado.
+// chamada com o mesmo prompt da API (`extraction-prompt.ts`); a Workers AI passa pelo adapter real (ADR-020) com um `fetch` instrumentado.
 // [APPSEC]: nenhuma requisição leva `tools` (SR-01); só cabeçalhos de lista fechada e códigos de erro numéricos ou
 // curtos são guardados; o corpo de sucesso só é lido para o tipo de `result.response` e a presença de `usage`.
 import { randomBytes } from "node:crypto";

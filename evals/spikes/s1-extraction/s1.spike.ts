@@ -1,15 +1,16 @@
 // S-1: extração com provedores reais (BACKLOG S-1; plano estratificado de 2026-10-24).
-// S1_MODE=plan|smoke|run|report; S1_PROVIDERS=groq,cloudflare_workers_ai; S1_MAX_ITEMS limita as chamadas por provedor.
+// S1_MODE=plan|smoke|run|report|diag; S1_PROVIDERS=groq,cloudflare_workers_ai; S1_MAX_ITEMS limita as chamadas por provedor.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildPlan, differs, loadSpikeCases, sweepCases } from "./cases.js";
 import { readSpikeEnv, requireVar } from "./env.js";
 import { createGroqProvider, createWorkersAiProvider, type SpikeProvider } from "./providers.js";
+import { diagnose } from "./diag.js";
 import { buildReport } from "./report.js";
 import { scoreCase } from "./score.js";
 import { runProvider } from "./runner.js";
-import { OUT_DIR, readRows } from "./store.js";
+import { OUT_DIR, readRows, type ResultRow } from "./store.js";
 import { WORKERS_AI_DEFAULT_MODEL } from "../../../apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
 
 const mode = process.env["S1_MODE"] ?? "plan";
@@ -83,6 +84,37 @@ describe(`S-1 (${mode})`, () => {
   it.runIf(mode === "smoke" || mode === "run")("chama os provedores", async () => {
     const summaries = await Promise.all(providers().map((p) => runProvider(p, plan, byId, maxItems, (l) => console.log(l))));
     for (const s of summaries) console.log(`[${s.provider}] feitos=${String(s.done)} restantes=${String(s.remaining)} parada=${s.stoppedBy}`);
+  });
+
+  it.runIf(mode === "diag")("diagnostica em memória as saídas que o guard recusou", async () => {
+    const report: Record<string, unknown>[] = [];
+    for (const p of providers()) {
+      const latest = new Map<string, ResultRow>();
+      for (const r of readRows()) {
+        if (r.provider === p.key && r.model === p.model && r.variant === p.variant && r.outcome !== "limite_de_taxa") latest.set(`${r.caseId}|${String(r.budget)}`, r);
+      }
+      const targets = [...latest.values()].filter((r) => r.guardOk === false).slice(0, maxItems);
+      console.log(`[${p.key}/${p.variant}] ${String(targets.length)} saídas recusadas pelo guard`);
+      for (const t of targets) {
+        const payload = byId.get(t.caseId)?.payloads.get(t.budget);
+        if (payload === undefined) throw new Error(`linha sem caso: ${t.caseId}`);
+        const call = await p.call(payload, 30_000);
+        const raw = call.raw ?? call.failedGeneration;
+        const d = raw === null ? null : diagnose(raw);
+        const entry = { provider: p.key, variant: p.variant, caseId: t.caseId, budget: t.budget, outcome: call.outcome, status: call.status, errorCode: call.errorCode, ...d };
+        report.push(entry);
+        console.log(
+          `[${p.key}] ${t.caseId} ${String(t.budget)} → ${call.outcome} guard=${String(d?.guardOk)} semForaDoEnum=${String(d?.guardOkWithoutOffEnum)}` +
+            ` removidos=${String(d?.offEnumDropped)} ${(d?.issues ?? []).map((i) => `${i.path}:${i.code}:${i.message ?? "-"}:${i.value}`).join(" ")}`,
+        );
+        await new Promise((r) => setTimeout(r, p.key === "groq" ? 20_000 : 1_000));
+      }
+    }
+    const serialized = JSON.stringify({ spike: "S-1", diag: true, generatedAt: new Date().toISOString(), entries: report }, null, 2);
+    assertClean(serialized);
+    mkdirSync(OUT_DIR, { recursive: true });
+    writeFileSync(join(OUT_DIR, "s1-diag.json"), `${serialized}
+`, "utf8");
   });
 
   it.runIf(mode === "report" || mode === "run" || mode === "smoke")("grava o relatório agregado", () => {

@@ -1,49 +1,54 @@
-# Próximo passo: terminar o S-1 no Groq (cota renovada) e decidir a cadeia de provedores
+# Próximo passo: rodada de aceite do S-1 com `p2` e `g3`
 
-> **O próximo passo depende do tempo, não de você.** O teto diário de tokens do Groq (200K) acabou em 2026-10-24, por volta das 19h UTC, e se renova aos poucos ao longo de 24 h. Rode o prompt abaixo a partir de 2026-10-25, por volta das 19h UTC.
+> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
 
-## O que acabou de ser entregue (2026-10-24)
+## O que acabou de ser entregue (2026-10-25)
 
-### HITL-027 fechado e F1-API-05 concluído
-- **PR #11** foi mergeado, e o job `db` passou com **61/61**. A equipe conferiu no GitHub, só com leitura.
-- ADR-021 §5.7, STATE, BACKLOG e HITL-QUEUE foram fechados.
+### Prompt `p2` (commit `22ecc9c`, local, sem push)
+- O `p2` está no ADR-020 §7.5. Ele mantém as 6 linhas do `p1` e soma uma regra por campo:
+  - benefícios conforme o §5.1 da spec, com a tabela montada de `BENEFIT_PROMPT_TERMS`, exaustiva pelo tipo e por teste;
+  - jornada não é contrato;
+  - recall de stack;
+  - nunca `salario_omitido`;
+  - ausência como `[]` e `null`.
+- Schema enviado:
+  - o enum de `redFlagSignals` saiu sem `salario_omitido` (`maxItems` 6);
+  - o contrato não mudou;
+  - o hash e o *snapshot* estão fixados.
+- Tamanho:
+  - o sistema tem 1.199 caracteres a mais que o do `p1`;
+  - isso dá 400 tokens a 3 caracteres por token, no teto do §7;
+  - **a medição real é nesta rodada**, pelo `usage` do provedor.
+- Um teste confere que nenhuma linha dos 83 casos do `gd1` aparece no prompt.
+- Emenda registrada: a regra de stack foi escrita pelo lado do desejável ("diferencial, desejável ou plus → `stackNiceToHave`, o resto → `stackRequired`"), com o mesmo alcance.
 
-### S-1 medido em parte (branch `spike/s1-extraction`)
-- **Script:** `evals/spikes/s1-extraction/`, com o prompt `p1`, o guard `g2`, o normalizador e o seletor reais. O comando é `pnpm --filter @trampo/evals spike:s1`, e os modos estão no README do spike.
-- **Plano estratificado**, decidido pelo humano:
-  - 6k nos 83 casos;
-  - 4k e 8k só onde o orçamento muda o texto. Isso dá 9 casos em 4k e nenhum em 8k, porque o maior texto do `gd1` tem 5.602 caracteres.
-- **Workers AI (Llama 3.3 70B), 92/92:**
-  - 96,4% de JSON válido depois do guard;
-  - **p50 de 6,4 s e p95 de 9,9 s**;
-  - cerca de 70 neurônios por chamada (o ADR-020 estimava 182).
-- **Groq `gpt-oss-20b` estrito:**
-  - p95 de 1,2 s, cerca de 2,1k tokens por chamada e a melhor qualidade por campo;
-  - **21 de 83 recusas com `400 json_validate_failed`**;
-  - o teto diário chegou depois de 90 chamadas.
-- **Gate §8.1:** nenhum dos dois provedores passa inteiro. Os dois falham em `contractTypes`, porque leem "Tempo integral" como contrato, e no recall de stack.
-- **Segurança:** 0 canário vazado, 0 salário inventado e 0 moeda nula. O SR-04 só diverge em `benefits`.
-- **Recomendação** (proposta, [[spike-metrics]] §2.5):
-  - Groq como primário, se o modo `nao_estrito` com o guard resolver as recusas;
-  - Workers AI como fallback, com o Groq limitado a cerca de 3 s;
-  - `LLM_INPUT_MAX_CHARS` mantido em 6.000;
-  - um prompt `p2`.
-- **Commits locais**, sem push.
+### Verificação
+- 11 testes novos. A API tem 2.659 testes e cobertura de 100%.
+- Mutação: 31 mutantes, 30 mortos e 1 equivalente.
+- Depcruise sem violações.
+- `[APPSEC]` sem veto.
+- O turbo inteiro não rodou nesta sessão. Rode `pnpm turbo run typecheck lint test --concurrency=1` no começo da próxima.
+- **QA-02:** em cada rodada da suíte inteira, 4 testes de relógio caíram, sempre um conjunto diferente. Isolados, passam. Se um deles aparecer vermelho, rode de novo antes de investigar.
 
 ### Pendências do humano
-- **Nenhuma bloqueante.** Depois da rodada final, a equipe vai pedir a sua decisão sobre a cadeia de provedores e o gate `gd2`.
-- O `git stash` no `master` pode ser descartado com `git stash drop`, se não servir mais.
+- Nenhuma bloqueante. O push continua não autorizado.
+- **A rodada gasta a cota do Groq de um dia inteiro (~180K de 200K tokens).** Comece a sessão com a cota zerada.
 
 ## Prompt para enviar ao agente
 
 ```text
 Equipe, sigam em ciclo estrito.
 
-1. [ORCHESTRATOR]: Leiam STATE.md, BACKLOG.md (S-1), spike-metrics §2 e o README de evals/spikes/s1-extraction. Confirmem pnpm 11.4.0, o Node conforme o engines e o branch spike/s1-extraction.
-2. S-1, rodada final do Groq (gasta a cota gratuita; autorizado):
-   - S1_MODE=run S1_PROVIDERS=groq (1 item em 4k);
-   - S1_MODE=run S1_PROVIDERS=groq S1_GROQ_VARIANT=nao_estrito S1_ONLY=json_validate_failed (24 itens), com o diagnóstico do failed_generation;
-   - se a cota ainda não tiver voltado, o script para sozinho no teto diário: registrem e parem.
-3. [ARCHITECT] + [APPSEC]: fechar a §2.5 com os números finais e levar ao humano a decisão da cadeia (primário, fallback, strict ou não, teto do Groq) e do gd2 (SR-04 sem benefits?), via HITL.
-4. [SCRIBE]: atualizem spike-metrics, SESSION-LOG.md e STATE.md, façam o commit local e gerem o novo ./next-step.md.
+1. [ORCHESTRATOR]: Leiam STATE.md, spike-metrics §2, ADR-020 §7.5 (p2), ADR-008 §5 (g3), a golden-dataset-spec §8.2 (gate do gd2) e o README do evals/spikes/s1-extraction. Confirmem pnpm 11.4.0, o Node conforme o engines e o branch spike/s1-extraction. Rodem o turbo em série (typecheck, lint e test) antes de gastar cota.
+2. [DEV] + [QA_EVALS]: preparem o S-1 para a rodada de aceite:
+   - ATENÇÃO: o out/s1-results.jsonl tem as linhas do p1/g2, e o runner retoma de onde parou. Sem separar a saída por versão de prompt e guard (registrar promptVersion e guardVersion em cada linha, ou um arquivo por versão), a rodada pularia todos os itens. Não apaguem os resultados do p1: arquivem para comparar;
+   - confiram que o runner usa EXTRACTION_PROMPT_VERSION "p2" e o guard "g3";
+   - implementem o avaliador do gate do gd2 (golden-dataset-spec §8.2), se ainda não existir.
+3. [QA_EVALS]: rodem o S-1 nos 83 casos, na Workers AI e no Groq (variante nao_estrito, conforme o HITL-028). Meçam:
+   - o gate do gd2;
+   - os tokens de entrada reais do sistema do p2 contra o p1 (teto de +400);
+   - contractTypes, recall de stack, benefits e salario_omitido contra a rodada do p1.
+   Se a cota do Groq acabar, parem e registrem onde pararam.
+4. [APPSEC]: confiram que nenhuma linha guardada tem texto de vaga nem saída bruta, e que nenhum pedido leva tools (SR-01).
+5. [SCRIBE]: atualizem spike-metrics, STATE.md, SESSION-LOG.md e o ADR-020 §7 com o resultado do aceite, façam o commit local e gerem o novo ./next-step.md. Se o gate passar, o próximo é o adapter do Groq (F1-LLM-01 parte 2) com o teto de 3 s do ADR-009 §5. Se não passar, abram um HITL com os números e as opções.
 ```

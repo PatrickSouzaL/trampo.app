@@ -15,8 +15,9 @@ import {
 /**
  * Entra no `extractorVersion` da chave de cache: mudar o saneamento muda os fatos (ADR-008 D2).
  * g2 (ADR-002 §8.1): ARS e `pressao_excessiva` no contrato; teto de `redFlagSignals` de 6 para 7.
+ * g3 (ADR-008 §5): item fora do enum sai, `null` em campo de array vira `[]` e `location` sem nenhum campo vira `null`.
  */
-export const LLM_OUTPUT_GUARD_VERSION = "g2";
+export const LLM_OUTPUT_GUARD_VERSION = "g3";
 
 /** Teto da resposta bruta em bytes UTF-8, checado antes do parse (ADR-008 D3; calibrar no S-1). */
 export const LLM_OUTPUT_MAX_BYTES = 8_192;
@@ -36,6 +37,20 @@ export const ARRAY_MAX_ITEMS = {
   redFlagSignals: 7,
 } as const;
 
+const ENUM_ARRAY_KEYS = ["seniorityLevels", "workModels", "contractTypes", "benefits", "redFlagSignals"] as const;
+type EnumArrayKey = (typeof ENUM_ARRAY_KEYS)[number];
+
+/** Valores aceitos em cada array de enum, lidos do próprio contrato: o que estiver fora sai (ADR-008 §5, G3-1). */
+const ENUM_ARRAY_VALUES: Readonly<Record<EnumArrayKey, ReadonlySet<string>>> = {
+  seniorityLevels: new Set(JobFactsSchema.shape.seniorityLevels.element.options),
+  workModels: new Set(JobFactsSchema.shape.workModels.element.options),
+  contractTypes: new Set(JobFactsSchema.shape.contractTypes.element.options),
+  benefits: new Set(JobFactsSchema.shape.benefits.element.options),
+  redFlagSignals: new Set(JobFactsSchema.shape.redFlagSignals.element.options),
+};
+
+const LOCATION_KEYS = ["city", "stateUf", "countryIso2"] as const;
+
 export type LlmOutputRejection =
   | "resposta_grande_demais"
   | "json_invalido"
@@ -50,6 +65,10 @@ export interface LlmOutputSanitization {
   readonly hiddenOrMarkupRemoved: number;
   /** Tags descartadas por estarem fora do TECH_TAG_PATTERN. */
   readonly malformedItemsRemoved: number;
+  /** Strings fora do enum tiradas dos arrays de enum, sem virar outro valor (g3). Não é sinal de injection. */
+  readonly offEnumItemsRemoved: number;
+  /** `null` num campo de array que virou `[]`, e `location` sem nenhum campo que virou `null` (g3). */
+  readonly absentValuesNormalized: number;
   readonly duplicatesRemoved: number;
   /** Itens cortados acima do máximo do array. */
   readonly itemsCut: number;
@@ -66,6 +85,8 @@ interface Tally {
   urlsRemoved: number;
   hiddenOrMarkupRemoved: number;
   malformedItemsRemoved: number;
+  offEnumItemsRemoved: number;
+  absentValuesNormalized: number;
   duplicatesRemoved: number;
   itemsCut: number;
   textTruncated: boolean;
@@ -99,6 +120,8 @@ export class LlmOutputGuard {
       urlsRemoved: 0,
       hiddenOrMarkupRemoved: 0,
       malformedItemsRemoved: 0,
+      offEnumItemsRemoved: 0,
+      absentValuesNormalized: 0,
       duplicatesRemoved: 0,
       itemsCut: 0,
       textTruncated: false,
@@ -146,16 +169,20 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Mexe só em valores do tipo esperado: o resto (inclusive chave ausente) fica para o Zod reprovar. */
+/**
+ * Mexe só em valores do tipo esperado: o resto (inclusive chave ausente) fica para o Zod reprovar. A única troca de
+ * forma é a da ausência (g3): `null` num campo de array, que o contrato já lê como "não informado", vira `[]`.
+ */
 function sanitizeFacts(facts: JsonRecord, tally: Tally): void {
+  for (const key of Object.keys(ARRAY_MAX_ITEMS)) update(facts, key, (value) => emptyIfNull(value, tally));
   update(facts, "title", (value) =>
     typeof value === "string" ? sanitizeFreeText(value, FREE_TEXT_MAX_CHARS.title, tally) : value,
   );
   update(facts, "location", (value) => sanitizeLocation(value, tally));
   update(facts, "stackRequired", (value) => sanitizeTags(value, ARRAY_MAX_ITEMS.stackRequired, tally));
   update(facts, "stackNiceToHave", (value) => sanitizeTags(value, ARRAY_MAX_ITEMS.stackNiceToHave, tally));
-  for (const key of ["seniorityLevels", "workModels", "contractTypes", "benefits", "redFlagSignals"] as const) {
-    update(facts, key, (value) => dedupeAndCut(value, ARRAY_MAX_ITEMS[key], tally));
+  for (const key of ENUM_ARRAY_KEYS) {
+    update(facts, key, (value) => sanitizeEnumArray(value, ENUM_ARRAY_VALUES[key], ARRAY_MAX_ITEMS[key], tally));
   }
   update(facts, "languageRequirements", (value) =>
     Array.isArray(value) ? cut(value, ARRAY_MAX_ITEMS.languageRequirements, tally) : value,
@@ -164,6 +191,13 @@ function sanitizeFacts(facts: JsonRecord, tally: Tally): void {
 
 function update(record: JsonRecord, key: string, change: (value: unknown) => unknown): void {
   record[key] = change(record[key]);
+}
+
+/** Só o `null` explícito: chave ausente não ganha valor padrão (ADR-008 D6). */
+function emptyIfNull(value: unknown, tally: Tally): unknown {
+  if (value !== null) return value;
+  tally.absentValuesNormalized += 1;
+  return [];
 }
 
 /**
@@ -197,12 +231,22 @@ function sanitizeFreeText(value: string, max: number, tally: Tally): string | nu
   return text === "" ? null : text;
 }
 
+/** Sem nenhum campo, a localização é "não informada": vira null, venha do modelo assim ou da cidade esvaziada. */
 function sanitizeLocation(value: unknown, tally: Tally): unknown {
-  if (!isRecord(value) || typeof value["city"] !== "string") return value;
-  const city = sanitizeFreeText(value["city"], FREE_TEXT_MAX_CHARS.city, tally);
-  if (city === null && value["stateUf"] === null && value["countryIso2"] === null) return null;
-  value["city"] = city;
-  return value;
+  if (!isRecord(value)) return value;
+  const city = value["city"];
+  if (typeof city === "string") value["city"] = sanitizeFreeText(city, FREE_TEXT_MAX_CHARS.city, tally);
+  if (!isEmptyLocation(value)) return value;
+  tally.absentValuesNormalized += 1;
+  return null;
+}
+
+/**
+ * Exatamente as três chaves do contrato, todas null. Com chave a mais ou a menos, o objeto fica para o Zod reprovar:
+ * virar null esconderia a chave extra (ADR-008 §5, G3-3). Chave ausente lê undefined, que não é null.
+ */
+function isEmptyLocation(location: JsonRecord): boolean {
+  return Object.keys(location).length === LOCATION_KEYS.length && LOCATION_KEYS.every((key) => location[key] === null);
 }
 
 /** Tag ruim sai inteira: nunca se removem caracteres de dentro dela ("Node.js<x>" não vira "Node.jsx"). */
@@ -229,13 +273,20 @@ function sanitizeTags(value: unknown, max: number, tally: Tally): unknown {
   return cut(kept, max, tally);
 }
 
-/** Arrays de enum: duplicata exata sai; valor fora do enum fica, para o Zod reprovar. */
-function dedupeAndCut(value: unknown, max: number, tally: Tally): unknown {
+/**
+ * Arrays de enum: string fora do enum sai, comparada exatamente e nunca mapeada ("CLT" não vira "clt"); depois sai
+ * a duplicata exata, e só então vem o corte. Item que não é string fica, para o Zod reprovar (ADR-008 §5, G3-1).
+ */
+function sanitizeEnumArray(value: unknown, allowed: ReadonlySet<string>, max: number, tally: Tally): unknown {
   if (!Array.isArray(value)) return value;
   const kept: unknown[] = [];
   const seen = new Set<string>();
   for (const item of value as readonly unknown[]) {
     if (typeof item === "string") {
+      if (!allowed.has(item)) {
+        tally.offEnumItemsRemoved += 1;
+        continue;
+      }
       if (seen.has(item)) {
         tally.duplicatesRemoved += 1;
         continue;
