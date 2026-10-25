@@ -14,8 +14,8 @@ export const RESULTS_PATH = join(OUT_DIR, "s1-results.jsonl");
 export interface ResultRow {
   readonly provider: ProviderKey;
   readonly model: string;
-  /** Linhas antigas (antes da variante) são `estrito`. */
-  readonly variant: Variant;
+  /** Linhas antigas (antes da variante) são `estrito`; `composto` só existe no relatório (report.ts). */
+  readonly variant: Variant | "composto";
   readonly budget: Budget;
   readonly caseId: string;
   readonly at: string;
