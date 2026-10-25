@@ -21,32 +21,50 @@ const hostileText = fc.array(fc.constantFrom(...FRAGMENTS), { maxLength: 25 }).m
 const anyText = fc.oneof(hostileText, fc.string({ unit: "binary", maxLength: 120 }));
 const tags = fc.array(fc.oneof(hostileText, fc.constantFrom("TypeScript", "react", "React", "Go")), { maxLength: 40 });
 
-const seniority = fc.array(fc.constantFrom("estagio", "junior", "pleno", "senior", "especialista", "lideranca"), {
-  maxLength: 8,
-});
+/** Valores fora de todo enum que o S-1 viu ou que um ataque tentaria (g3: saem sem virar outro valor). */
+const OFF_ENUM = ["vale_transporte", "gympass", "auxilio_refeicao", "CLT", "tempo_integral", "", "__proto__", "toString"];
+
+/** Array de enum com valores válidos, valores fora do enum e, às vezes, `null` no lugar do array (g3). */
+function enumArray(valid: readonly string[], maxLength: number) {
+  return fc.oneof(
+    { weight: 6, arbitrary: fc.array(fc.constantFrom(...valid, ...OFF_ENUM), { maxLength }) },
+    { weight: 1, arbitrary: fc.constant(null) },
+  );
+}
+
+const ENUM_ARRAY_KEYS = ["seniorityLevels", "workModels", "contractTypes", "benefits", "redFlagSignals"] as const;
+const ENUM_VALUES: Record<string, ReadonlySet<string>> = Object.fromEntries(
+  ENUM_ARRAY_KEYS.map((key) => [key, new Set<string>(JobFactsSchema.shape[key].element.options)]),
+);
 
 /** Saídas no formato do JobFacts, com texto hostil e às vezes um campo trocado por qualquer JSON. */
 const factsLike = fc
   .record({
     title: fc.option(anyText, { nil: null }),
-    seniorityLevels: seniority,
+    seniorityLevels: enumArray(["estagio", "junior", "pleno", "senior", "especialista", "lideranca"], 8),
     yearsExperienceMin: fc.option(fc.integer({ min: 0, max: 40 }), { nil: null }),
-    workModels: fc.array(fc.constantFrom("remoto", "hibrido", "presencial"), { maxLength: 5 }),
-    location: fc.option(
-      fc.record({
-        city: fc.option(anyText, { nil: null }),
-        stateUf: fc.option(fc.constantFrom("SP", "RJ"), { nil: null }),
-        countryIso2: fc.option(fc.constantFrom("BR", "US"), { nil: null }),
-      }),
-      { nil: null },
+    workModels: enumArray(["remoto", "hibrido", "presencial"], 5),
+    location: fc.oneof(
+      {
+        weight: 6,
+        arbitrary: fc.option(
+          fc.record({
+            city: fc.option(anyText, { nil: null }),
+            stateUf: fc.option(fc.constantFrom("SP", "RJ"), { nil: null }),
+            countryIso2: fc.option(fc.constantFrom("BR", "US"), { nil: null }),
+          }),
+          { nil: null },
+        ),
+      },
+      { weight: 1, arbitrary: fc.constant({ city: null, stateUf: null, countryIso2: null }) },
     ),
     salary: fc.constant(null),
-    contractTypes: fc.array(fc.constantFrom("clt", "pj"), { maxLength: 4 }),
+    contractTypes: enumArray(["clt", "pj"], 4),
     stackRequired: tags,
-    stackNiceToHave: fc.constant([]),
-    benefits: fc.array(fc.constantFrom("plano_saude", "outro"), { maxLength: 4 }),
-    languageRequirements: fc.constant([]),
-    redFlagSignals: fc.array(fc.constantFrom("salario_omitido", "linguagem_vaga"), { maxLength: 4 }),
+    stackNiceToHave: fc.constantFrom([], null),
+    benefits: enumArray(["plano_saude", "outro", "vale_refeicao"], 6),
+    languageRequirements: fc.constantFrom([], null),
+    redFlagSignals: enumArray(["salario_omitido", "linguagem_vaga"], 4),
     extractionConfidence: fc.double({ min: 0, max: 1, noNaN: true }),
   })
   .chain((facts) =>
@@ -139,6 +157,8 @@ describe("LlmOutputGuard (propriedades)", () => {
               urlsRemoved: 0,
               hiddenOrMarkupRemoved: 0,
               malformedItemsRemoved: 0,
+              offEnumItemsRemoved: 0,
+              absentValuesNormalized: 0,
               duplicatesRemoved: 0,
               itemsCut: 0,
               textTruncated: false,
@@ -149,6 +169,64 @@ describe("LlmOutputGuard (propriedades)", () => {
       }),
       { numRuns: 1_000 },
     );
+  });
+
+  test("g3: cada array de enum da saída é subsequência da entrada (nunca acrescenta nem troca valor)", () => {
+    let removed = 0;
+    fc.assert(
+      fc.property(factsLike, (input) => {
+        const result = guard.inspect(JSON.stringify(input));
+        if (!result.ok) return;
+        removed += result.sanitization.offEnumItemsRemoved;
+        for (const key of ENUM_ARRAY_KEYS) {
+          const before: unknown = (input as Record<string, unknown>)[key];
+          const source = Array.isArray(before) ? (before as readonly unknown[]) : [];
+          let at = 0;
+          for (const item of result.facts[key]) {
+            while (at < source.length && source[at] !== item) at += 1;
+            expect(at).toBeLessThan(source.length);
+            at += 1;
+          }
+        }
+      }),
+      { numRuns: 1_000 },
+    );
+    // Não é vazia: os valores fora do enum chegam ao guard e saem.
+    expect(removed).toBeGreaterThan(200);
+  });
+
+  test("g3: offEnumItemsRemoved conta exatamente as strings fora do enum da entrada", () => {
+    fc.assert(
+      fc.property(factsLike, (input) => {
+        const result = guard.inspect(JSON.stringify(input));
+        if (!result.ok) return;
+        let expected = 0;
+        for (const key of ENUM_ARRAY_KEYS) {
+          const before: unknown = (input as Record<string, unknown>)[key];
+          if (!Array.isArray(before)) continue;
+          expected += before.filter((item) => typeof item === "string" && !ENUM_VALUES[key]?.has(item)).length;
+        }
+        expect(result.sanitization.offEnumItemsRemoved).toBe(expected);
+      }),
+      { numRuns: 1_000 },
+    );
+  });
+
+  test("o sinal de injection é sempre URL ou oculto removido, e nunca os contadores do g3", () => {
+    let quietRemovals = 0;
+    fc.assert(
+      fc.property(rawResponse, (raw) => {
+        const result = guard.inspect(raw);
+        if (!result.ok) return;
+        const { urlsRemoved, hiddenOrMarkupRemoved, offEnumItemsRemoved, absentValuesNormalized, injectionSignal } =
+          result.sanitization;
+        expect(injectionSignal).toBe(urlsRemoved + hiddenOrMarkupRemoved > 0);
+        if (!injectionSignal && offEnumItemsRemoved + absentValuesNormalized > 0) quietRemovals += 1;
+      }),
+      { numRuns: 1_000 },
+    );
+    // Não é vazia: em 40 sementes, de 45 a 75 saídas tiveram remoção do g3 sem sinal de injection.
+    expect(quietRemovals).toBeGreaterThan(20);
   });
 
   test("a falha carrega só o motivo: a resposta nunca volta", () => {

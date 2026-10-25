@@ -43,6 +43,8 @@ const CLEAN: LlmOutputSanitization = {
   urlsRemoved: 0,
   hiddenOrMarkupRemoved: 0,
   malformedItemsRemoved: 0,
+  offEnumItemsRemoved: 0,
+  absentValuesNormalized: 0,
   duplicatesRemoved: 0,
   itemsCut: 0,
   textTruncated: false,
@@ -65,8 +67,8 @@ describe("LlmOutputGuard: caminho feliz", () => {
     expect(result.sanitization).toStrictEqual(CLEAN);
   });
 
-  test("versão g2 (entra no extractorVersion do cache)", () => {
-    expect(LLM_OUTPUT_GUARD_VERSION).toBe("g2");
+  test("versão g3 (entra no extractorVersion do cache)", () => {
+    expect(LLM_OUTPUT_GUARD_VERSION).toBe("g3");
   });
 
   test("os fatos devolvidos são objetos com protótipo padrão, construídos pelo Zod", () => {
@@ -173,8 +175,11 @@ describe("LlmOutputGuard: JobFactsSchema estrito, sem coerção", () => {
     ["salário 1e308", { salary: { min: 1e308, max: null, currency: "BRL", period: "mes" } }],
     ["salário negativo", { salary: { min: -1, max: null, currency: "BRL", period: "mes" } }],
     ["salário min > max", { salary: { min: 9000, max: 8000, currency: "BRL", period: "mes" } }],
-    ["enum desconhecido", { workModels: ["metaverso"] }],
-    ["enum em caixa alta", { contractTypes: ["CLT"] }],
+    ["moeda fora do enum (o g3 não mexe em salário)", { salary: { min: 9000, max: null, currency: "ARG", period: "mes" } }],
+    ["período fora do enum", { salary: { min: 9000, max: null, currency: "BRL", period: "semana" } }],
+    ["confiança null", { extractionConfidence: null }],
+    ["null dentro de array de enum", { benefits: [null] }],
+    ["idioma fora do enum (objeto, não enum)", { languageRequirements: [{ language: "russo", level: null, required: true }] }],
     ["array no lugar de objeto", { location: ["São Paulo"] }],
     ["string no lugar de array", { stackRequired: "TypeScript" }],
     ["objeto dentro de tags", { stackRequired: [{ name: "TypeScript" }] }],
@@ -197,9 +202,9 @@ describe("LlmOutputGuard: JobFactsSchema estrito, sem coerção", () => {
     expectRejected(guard.inspect(raw), "schema_invalido");
   });
 
-  test("chave faltando não ganha valor padrão", () => {
+  test.each(["salary", "benefits", "languageRequirements", "location"])("chave %s faltando não ganha valor padrão", (key) => {
     const facts = validFacts();
-    delete facts["salary"];
+    delete facts[key];
     expectRejected(guard.inspect(JSON.stringify(facts)), "schema_invalido");
   });
 
@@ -309,10 +314,37 @@ describe("LlmOutputGuard: localização", () => {
     expect(result.facts.location).toStrictEqual({ city: null, stateUf: "SP", countryIso2: null });
   });
 
-  test("cidade esvaziada sem UF nem país: a localização inteira vira null", () => {
+  test("cidade esvaziada sem UF nem país: a localização inteira vira null, contada uma vez", () => {
     const result = expectOk(inspectWith({ location: { city: "https://x.example", stateUf: null, countryIso2: null } }));
     expect(result.facts.location).toBeNull();
-    expect(result.sanitization.injectionSignal).toBe(true);
+    expect(result.sanitization).toStrictEqual({
+      ...CLEAN,
+      urlsRemoved: 1,
+      absentValuesNormalized: 1,
+      injectionSignal: true,
+    });
+  });
+
+  test("g3: os três campos nulos vindos do modelo viram location null, sem sinal de injection", () => {
+    const result = expectOk(inspectWith({ location: { city: null, stateUf: null, countryIso2: null } }));
+    expect(result.facts.location).toBeNull();
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, absentValuesNormalized: 1 });
+  });
+
+  test("g3: cidade em branco sem UF nem país também vira location null", () => {
+    const result = expectOk(inspectWith({ location: { city: " \n ", stateUf: null, countryIso2: null } }));
+    expect(result.facts.location).toBeNull();
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, absentValuesNormalized: 1 });
+  });
+
+  test.each([
+    ["chave extra com os três nulos", { city: null, stateUf: null, countryIso2: null, bairro: null }],
+    ["chave extra com a cidade esvaziada", { city: "https://x.example", stateUf: null, countryIso2: null, extra: 1 }],
+    ["faltando o país", { city: null, stateUf: null }],
+    ["objeto vazio", {}],
+    ["chave com o nome errado (country)", { city: null, stateUf: null, country: null }],
+  ])("g3: %s não vira null; o Zod reprova a forma", (_name, location) => {
+    expectRejected(inspectWith({ location }), "schema_invalido");
   });
 
   test("corta a cidade no teto de 80", () => {
@@ -394,6 +426,109 @@ describe("LlmOutputGuard: arrays de enum e idiomas", () => {
     );
     expect(result.facts.languageRequirements.map((l) => l.language)).toStrictEqual(languages.slice(0, 5));
     expect(result.sanitization.itemsCut).toBe(2);
+  });
+});
+
+const ENUM_ARRAY_KEYS = ["seniorityLevels", "workModels", "contractTypes", "benefits", "redFlagSignals"] as const;
+
+function field(result: { readonly facts: unknown }, key: string): unknown {
+  return (result.facts as Record<string, unknown>)[key];
+}
+
+describe("LlmOutputGuard g3: item fora do enum sai, sem virar outro valor", () => {
+  test("os benefícios do diagnóstico do S-1 saem e não são mapeados (vale_transporte, auxilio_refeicao, gympass)", () => {
+    const result = expectOk(inspectWith({ benefits: ["plano_saude", "vale_transporte", "auxilio_refeicao", "gympass"] }));
+    expect(result.facts.benefits).toStrictEqual(["plano_saude"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 3 });
+  });
+
+  // Cada campo recebe um valor válido em OUTRO enum: prova que cada um usa a própria lista do contrato.
+  test.each([
+    ["seniorityLevels", ["pleno", "hibrido"], ["pleno"]],
+    ["workModels", ["remoto", "pleno"], ["remoto"]],
+    ["contractTypes", ["clt", "remoto"], ["clt"]],
+    ["benefits", ["outro", "clt"], ["outro"]],
+    ["redFlagSignals", ["linguagem_vaga", "plano_saude"], ["linguagem_vaga"]],
+  ])("%s usa a própria lista do contrato", (key, input, expected) => {
+    const result = expectOk(inspectWith({ [key]: input }));
+    expect(field(result, key)).toStrictEqual(expected);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 1 });
+  });
+
+  test("todo valor do contrato passa intacto, em cada campo de enum", () => {
+    for (const key of ENUM_ARRAY_KEYS) {
+      for (const value of JobFactsSchema.shape[key].element.options) {
+        const result = expectOk(inspectWith({ [key]: [value] }));
+        expect(field(result, key)).toStrictEqual([value]);
+        expect(result.sanitization).toStrictEqual(CLEAN);
+      }
+    }
+  });
+
+  test("comparação exata: caixa, espaço e largura total não são normalizados", () => {
+    const result = expectOk(inspectWith({ contractTypes: ["CLT", " clt", "ｃｌｔ", "Pj"], workModels: ["Remoto"] }));
+    expect(result.facts.contractTypes).toStrictEqual([]);
+    expect(result.facts.workModels).toStrictEqual([]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 5 });
+  });
+
+  test("nomes de propriedade do protótipo e a string vazia saem como qualquer valor fora do enum", () => {
+    const result = expectOk(inspectWith({ benefits: ["__proto__", "constructor", "toString", "hasOwnProperty", ""] }));
+    expect(result.facts.benefits).toStrictEqual([]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 5 });
+  });
+
+  test("a remoção vem antes da duplicata e do corte: o item removido não ocupa vaga", () => {
+    const all = JobFactsSchema.shape.benefits.element.options;
+    expect(all).toHaveLength(ARRAY_MAX_ITEMS.benefits);
+    const result = expectOk(inspectWith({ benefits: ["vale_transporte", "gympass", ...all, "outro"] }));
+    expect(result.facts.benefits).toStrictEqual(all);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 2, duplicatesRemoved: 1 });
+  });
+
+  test("valor fora do enum repetido conta como fora do enum, não como duplicata", () => {
+    const result = expectOk(inspectWith({ contractTypes: ["tempo_integral", "tempo_integral", "pj"] }));
+    expect(result.facts.contractTypes).toStrictEqual(["pj"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 2 });
+  });
+
+  test("os contadores novos não acendem o sinal de injection; URL no título continua acendendo", () => {
+    const quiet = expectOk(inspectWith({ benefits: ["vale_transporte"], languageRequirements: null }));
+    expect(quiet.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 1, absentValuesNormalized: 1 });
+    const loud = expectOk(inspectWith({ title: "Dev https://x.example", benefits: ["vale_transporte"] }));
+    expect(loud.sanitization).toStrictEqual({ ...CLEAN, urlsRemoved: 1, offEnumItemsRemoved: 1, injectionSignal: true });
+  });
+});
+
+describe("LlmOutputGuard g3: null num campo de array vira []", () => {
+  test.each(Object.keys(ARRAY_MAX_ITEMS))("%s: null vira [], contado e sem sinal de injection", (key) => {
+    const result = expectOk(inspectWith({ [key]: null }));
+    expect(field(result, key)).toStrictEqual([]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, absentValuesNormalized: 1 });
+  });
+
+  test("os 8 campos de array nulos de uma vez contam 8", () => {
+    const nulls = Object.fromEntries(Object.keys(ARRAY_MAX_ITEMS).map((key) => [key, null]));
+    const result = expectOk(inspectWith(nulls));
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, absentValuesNormalized: 8 });
+  });
+
+  test("os três achados do diagnóstico do S-1, juntos, passam (fatos sintéticos)", () => {
+    const result = expectOk(
+      inspectWith({
+        benefits: ["plano_saude", "vale_transporte"],
+        languageRequirements: null,
+        location: { city: null, stateUf: null, countryIso2: null },
+      }),
+    );
+    expect(result.facts).toMatchObject({ benefits: ["plano_saude"], languageRequirements: [], location: null });
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, offEnumItemsRemoved: 1, absentValuesNormalized: 2 });
+  });
+
+  test("null fora dos campos de array não é trocado: title, anos, location e salary continuam null", () => {
+    const result = expectOk(inspectWith({ title: null, yearsExperienceMin: null, location: null, salary: null }));
+    expect(result.facts).toMatchObject({ title: null, yearsExperienceMin: null, location: null, salary: null });
+    expect(result.sanitization).toStrictEqual(CLEAN);
   });
 });
 
