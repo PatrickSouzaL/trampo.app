@@ -4,7 +4,9 @@ import { JobFactsSchema } from "@trampo/contracts";
 import { LlmOutputGuard, parseJsonWithoutPrototypeKeys } from "../../../apps/api/src/application/llm/llm-output-guard.js";
 import type { Budget, PlanItem, SpikeCase } from "./cases.js";
 import type { CallRecord, SpikeProvider } from "./providers.js";
-import { appendRow, doneKeys, readRows, rowKey, type ResultRow } from "./store.js";
+import { EXTRACTION_PROMPT_VERSION } from "../../../apps/api/src/application/llm/extraction-prompt.js";
+import { LLM_OUTPUT_GUARD_VERSION } from "../../../apps/api/src/application/llm/llm-output-guard.js";
+import { appendRow, CURRENT_VERSIONS, doneKeys, readRows, rowKey, type ResultRow } from "./store.js";
 
 /** Prazo do spike: acima do de produção (10 s) para medir a cauda; o relatório conta quantos passaram de 10 s. */
 export const SPIKE_TIMEOUT_MS = 30_000;
@@ -86,6 +88,8 @@ function toRow(provider: SpikeProvider, c: SpikeCase, budget: Budget, payload: s
     provider: provider.key,
     model: provider.model,
     variant: provider.variant,
+    promptVersion: EXTRACTION_PROMPT_VERSION,
+    guardVersion: LLM_OUTPUT_GUARD_VERSION,
     budget,
     caseId: c.golden.id,
     at: new Date().toISOString(),
@@ -112,7 +116,7 @@ export async function runProvider(
   log: (line: string) => void,
 ): Promise<RunSummary> {
   const done = doneKeys(readRows());
-  const pending = plan.filter((p) => !done.has(rowKey(provider.key, provider.model, provider.variant, p.caseId, p.budget)));
+  const pending = plan.filter((p) => !done.has(rowKey(CURRENT_VERSIONS, provider.key, provider.model, provider.variant, p.caseId, p.budget)));
   let count = 0;
   let last: ResultRow | undefined;
   for (const item of pending) {
