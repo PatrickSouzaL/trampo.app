@@ -1,6 +1,6 @@
-# Próximo passo: responder o HITL-029 e seguir conforme as letras
+# Próximo passo: desenho e implementação do `g4` e do `p3` (HITL-029: 1A, 2A, 3A, 4A)
 
-> **Parada obrigatória (HITL).** A rodada de aceite do S-1 terminou e abriu um marco de decisão. Responda o HITL-029 e envie este next-step.md numa sessão nova.
+> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
 
 ## O que acabou de ser entregue (2026-10-26)
 
@@ -40,23 +40,23 @@
   - nenhum pedido levou `tools` (SR-01).
 
 ### Pendências do humano
-- **HITL-029** (base/00-orquestracao/HITL-QUEUE.md). A recomendação é 1A, 2A, 3A, 4A:
+- **HITL-029 fechado em 2026-10-26 com 1A, 2A, 3A, 4A**, todas as recomendações:
   - `p3`: stack só com tecnologia nomeada;
   - `g4`: sobreposição de stack fica em `stackNiceToHave`;
   - adapter do Groq em paralelo;
   - Workers AI mantida como fallback.
 - O push continua não autorizado.
 
-## Prompt para enviar ao agente (depois de responder o HITL-029)
+## Prompt para enviar ao agente
 
 ```text
-Equipe, sigam em ciclo estrito. HITL-029: <letras>.
+Equipe, sigam em ciclo estrito. HITL-029 fechado: 1A, 2A, 3A, 4A.
 
-1. [ORCHESTRATOR]: Leiam STATE.md, o HITL-029, spike-metrics §2.7, ADR-020 §7.6, ADR-008 D5 e ADR-009 §5. Confirmem pnpm 11.4.0, o Node conforme o engines e o branch spike/s1-extraction. Fechem o HITL-029 no cofre com as letras escolhidas.
-2. [ARCHITECT] + [APPSEC]: desenhem as emendas escolhidas, sem código ainda:
-   - se 1A, o p3 no ADR-020 §8: a regra de stack só com tecnologia nomeada (linguagem, framework, banco, ferramenta, plataforma, produto), dentro do teto de +400 tokens sobre o p1;
-   - se 2A, o g4 no ADR-008: o termo nas duas listas fica só em stackNiceToHave, contado e fora do injectionSignal.
-3. [DEV] + [QA_EVALS]: um commit atômico por vez (g4, depois p3), com testes, cobertura de 100% e mutação. Se 3A, o adapter do Groq (F1-LLM-01 parte 2, teto de 3 s do ADR-009 §5) vem na sessão seguinte, sem ligar no main.ts.
+1. [ORCHESTRATOR]: Leiam STATE.md, o HITL-029, spike-metrics §2.7, ADR-020 §7.6, ADR-008 D5 e ADR-009 §5. Confirmem pnpm 11.4.0, o Node conforme o engines e o branch spike/s1-extraction.
+2. [ARCHITECT] + [APPSEC]: desenhem as duas emendas, sem código ainda:
+   - o p3 no ADR-020 §8: a regra de stack só com tecnologia nomeada (linguagem, framework, banco, ferramenta, plataforma, produto), dentro do teto de +400 tokens sobre o p1;
+   - o g4 no ADR-008: o termo nas duas listas fica só em stackNiceToHave, contado e fora do injectionSignal.
+3. [DEV] + [QA_EVALS]: um commit atômico por vez (g4, depois p3), com testes, cobertura de 100% e mutação. O adapter do Groq (F1-LLM-01 parte 2, teto de 3 s do ADR-009 §5) vem na sessão seguinte, sem ligar no main.ts.
 4. [QA_EVALS]: a rodada de aceite do p3 gasta o TPD do Groq de um dia. Façam a rodada só numa sessão com a cota zerada: S1_MODE=run S1_BUDGETS=6000 S1_GROQ_VARIANT=nao_estrito.
 5. [SCRIBE]: atualizem STATE.md, SESSION-LOG.md e os ADRs, façam o commit local e gerem o novo ./next-step.md.
 ```
