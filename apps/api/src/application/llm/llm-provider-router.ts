@@ -25,10 +25,21 @@ import {
   type LlmOutputSanitization,
 } from "./llm-output-guard.js";
 
+/**
+ * Teto de cada tentativa, por provedor (ADR-009 §5; ADR-022 D9). O tipo total obriga quem acrescentar um provedor ao
+ * enum a decidir o teto dele. O Groq (máximo medido de 1,39 s) fica em 3 s: travado, deixa 8,7 s à Workers AI.
+ */
+export type AttemptTimeoutMaxMs = Readonly<Record<LlmProviderId, number>>;
+
 /** Hipóteses do ADR-001 §5.5, calibradas no S-1 e alteradas só por ADR (ADR-009 D4 e D5). */
 export const ROUTER_POLICY = {
   analysisDeadlineMs: 12_000,
-  attemptTimeoutMaxMs: 10_000,
+  attemptTimeoutMaxMs: Object.freeze({
+    groq: 3_000,
+    cloudflare_workers_ai: 10_000,
+    ollama: 10_000,
+    google_ai_studio: 10_000,
+  }) satisfies AttemptTimeoutMaxMs,
   deadlineReserveMs: 300,
   minAttemptMs: 2_500,
   maxLlmCallsPerAnalysis: 2,
@@ -74,6 +85,8 @@ export interface LlmProviderRouterDeps {
   readonly ledger: QuotaLedger;
   readonly states: ProviderStateStore;
   readonly guard?: LlmOutputGuard;
+  /** Só para os testes (propriedades com tetos sorteados). O padrão é `ROUTER_POLICY.attemptTimeoutMaxMs`. */
+  readonly attemptTimeoutMaxMs?: AttemptTimeoutMaxMs;
 }
 
 export class RouterConfigError extends Error {
@@ -100,6 +113,7 @@ export class LlmProviderRouter {
   readonly #ledger: QuotaLedger;
   readonly #states: ProviderStateStore;
   readonly #guard: LlmOutputGuard;
+  readonly #attemptTimeoutMaxMs: AttemptTimeoutMaxMs;
 
   /** Lança no boot se a cadeia não casa com os adapters (ADR-009 D7). Em requisição, nunca lança. */
   constructor(deps: LlmProviderRouterDeps) {
@@ -116,6 +130,7 @@ export class LlmProviderRouter {
     this.#ledger = deps.ledger;
     this.#states = deps.states;
     this.#guard = deps.guard ?? new LlmOutputGuard();
+    this.#attemptTimeoutMaxMs = deps.attemptTimeoutMaxMs ?? ROUTER_POLICY.attemptTimeoutMaxMs;
   }
 
   async extract(payload: LlmJobPayload, deadline: Deadline): Promise<ExtractionOutcome> {
@@ -173,8 +188,9 @@ export class LlmProviderRouter {
       }
 
       budget.calls += 1;
+      // O retry no mesmo provedor usa o mesmo teto (ADR-009 §5.2).
       const timeoutMs = Math.min(
-        ROUTER_POLICY.attemptTimeoutMaxMs,
+        this.#attemptTimeoutMaxMs[provider],
         this.#remaining(deadline) - ROUTER_POLICY.deadlineReserveMs,
       );
       const result = await this.#call(extractor, payload, timeoutMs);
@@ -204,6 +220,7 @@ export class LlmProviderRouter {
 
       if (result.kind === "limite_de_taxa") {
         this.#states.set(provider, recordRateLimit(state, now, result.retryAfterMs));
+        this.#recordRateLimit(provider, result.retryAfterMs);
         trail.push({ provider, outcome: "limite_de_taxa", called: true });
         return { ok: false, reason: "limite_de_taxa", trail };
       }
@@ -259,6 +276,13 @@ export class LlmProviderRouter {
   #recordUsage(provider: LlmProviderId, usage: TokenUsage): void {
     Promise.resolve()
       .then(() => this.#ledger.recordUsage(provider, usage))
+      .catch(() => undefined);
+  }
+
+  /** Bloqueio compartilhado pelo `Retry-After` (ADR-022 D7.3). Melhor esforço, sem bloquear a troca de provedor. */
+  #recordRateLimit(provider: LlmProviderId, retryAfterMs: number | null): void {
+    Promise.resolve()
+      .then(() => this.#ledger.recordRateLimit(provider, retryAfterMs))
       .catch(() => undefined);
   }
 

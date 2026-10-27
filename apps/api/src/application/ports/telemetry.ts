@@ -8,12 +8,17 @@ import { z } from "zod";
 import type { AnalysisMode, InjectionLevel, PreFilterRule } from "../../domain/index.js";
 import type { CacheMissReason } from "../cache/job-facts-cache.js";
 import type { ExtractionFailureReason, RouterTrailEntry } from "../llm/llm-provider-router.js";
-import type { LlmOutputRejection } from "../llm/llm-output-guard.js";
+import type { LlmOutputRejection, LlmOutputSanitization } from "../llm/llm-output-guard.js";
 
 /** Limite da latência registrada: 10× o prazo da análise (ADR-009 D4). Acima disso é erro de medida. */
 export const TELEMETRY_LATENCY_MAX_MS = 120_000;
 /** Teto de passos da trilha: até 3 provedores (dev) com um retry cada. */
 export const TELEMETRY_STEPS_MAX = 6;
+/**
+ * Saturação dos contadores do g3/g4 na cópia (ADR-022 D10). O teto de 8 KiB da guarda já limita a contagem real
+ * abaixo disso.
+ */
+export const TELEMETRY_GUARD_NORMALIZATION_MAX = 8_192;
 
 const ExtractionFailureReasonSchema = z.enum([
   "timeout",
@@ -26,6 +31,7 @@ const ExtractionFailureReasonSchema = z.enum([
 const ExtractionOutcomeSchema = z.union([z.literal("ok"), ExtractionFailureReasonSchema]);
 const LlmOutputRejectionSchema = z.enum(["resposta_grande_demais", "json_invalido", "poluicao_de_prototipo", "schema_invalido"]);
 const count = z.int().min(0).max(Number.MAX_SAFE_INTEGER);
+const normalizationCount = z.int().min(0).max(TELEMETRY_GUARD_NORMALIZATION_MAX);
 
 export const LlmExtractionEventSchema = z.strictObject({
   kind: z.literal("llm_extraction"),
@@ -48,6 +54,18 @@ export const LlmExtractionEventSchema = z.strictObject({
       }),
     )
     .max(TELEMETRY_STEPS_MAX),
+  /**
+   * Só três inteiros do `sanitization` da guarda (ADR-022 D10; emenda ao ADR-010 D5): nenhum texto, tag ou campo
+   * dos fatos. Todos 0 na falha.
+   */
+  guardNormalizations: z.strictObject({
+    /** g3: itens fora do enum removidos. */
+    offEnumItemsRemoved: normalizationCount,
+    /** g3: valores de ausência normalizados. */
+    absentValuesNormalized: normalizationCount,
+    /** g4: termos nas duas listas de stack resolvidos. */
+    stackOverlapsResolved: normalizationCount,
+  }),
 });
 export type LlmExtractionEvent = z.infer<typeof LlmExtractionEventSchema>;
 
@@ -93,10 +111,15 @@ type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 const sameReason: Same<z.infer<typeof ExtractionFailureReasonSchema>, ExtractionFailureReason> = true;
 const sameRejection: Same<z.infer<typeof LlmOutputRejectionSchema>, LlmOutputRejection> = true;
 const sameStepKeys: Same<keyof LlmExtractionEvent["steps"][number], keyof RouterTrailEntry> = true;
+// Os três contadores existem no `sanitization` da guarda com o mesmo nome.
+const sameNormalizations: Same<
+  Pick<LlmOutputSanitization, keyof LlmExtractionEvent["guardNormalizations"]>,
+  LlmExtractionEvent["guardNormalizations"]
+> = true;
 const sameStepOutcome: Same<z.infer<typeof ExtractionOutcomeSchema>, RouterTrailEntry["outcome"]> = true;
 const sameMode: Same<z.infer<typeof AnalysisModeSchema>, AnalysisMode> = true;
 const sameRule: Same<z.infer<typeof PreFilterRuleSchema>, PreFilterRule> = true;
 const sameMiss: Same<z.infer<typeof CacheMissReasonSchema>, CacheMissReason> = true;
 const sameInjection: Same<z.infer<typeof InjectionLevelSchema>, InjectionLevel> = true;
 const sameEvent: Same<z.infer<typeof TelemetryEventSchema>, TelemetryEvent> = true;
-void [sameReason, sameRejection, sameStepKeys, sameStepOutcome, sameMode, sameRule, sameMiss, sameInjection, sameEvent];
+void [sameReason, sameRejection, sameStepKeys, sameNormalizations, sameStepOutcome, sameMode, sameRule, sameMiss, sameInjection, sameEvent];

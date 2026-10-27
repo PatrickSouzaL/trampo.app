@@ -13,7 +13,9 @@ export type LedgerBehavior =
 export class FakeQuotaLedger implements QuotaLedger {
   readonly reservations: LlmProviderId[] = [];
   readonly usage: { provider: LlmProviderId; usage: TokenUsage }[] = [];
+  readonly rateLimits: { provider: LlmProviderId; retryAfterMs: number | null }[] = [];
   failUsage = false;
+  failRateLimit = false;
 
   constructor(
     readonly clock: Clock,
@@ -41,6 +43,12 @@ export class FakeQuotaLedger implements QuotaLedger {
   recordUsage(provider: LlmProviderId, usage: TokenUsage): Promise<void> {
     this.usage.push({ provider, usage });
     if (this.failUsage) throw new Error("redis fora do ar");
+    return Promise.resolve();
+  }
+
+  recordRateLimit(provider: LlmProviderId, retryAfterMs: number | null): Promise<void> {
+    this.rateLimits.push({ provider, retryAfterMs });
+    if (this.failRateLimit) return Promise.reject(new Error("redis fora do ar"));
     return Promise.resolve();
   }
 }

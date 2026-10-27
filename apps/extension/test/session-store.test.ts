@@ -1,5 +1,5 @@
 // T22: o único armazenamento é storage.session, revalidado com Zod na leitura.
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { z } from "zod";
 
@@ -40,5 +40,15 @@ describe("sessionStore", () => {
     await store.set({ text: "ok", at: 2 });
     await store.remove();
     expect(await store.get()).toBeUndefined();
+  });
+
+  // O Chrome omite a chave ausente; o fake-browser devolve { chave: undefined } e não exercita esse caminho.
+  test("chave ausente como no Chrome é lida como ausente, sem apagar nada", async () => {
+    const area = { get: vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ ultima: { text: "ok", at: 3 } }), set: vi.fn(), remove: vi.fn() };
+    const store = sessionStore("ultima", Schema, area);
+    expect(await store.get()).toBeUndefined();
+    expect(area.remove).not.toHaveBeenCalled();
+    expect(await store.get()).toEqual({ text: "ok", at: 3 });
+    expect(area.get).toHaveBeenCalledWith("ultima");
   });
 });

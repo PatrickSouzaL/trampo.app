@@ -1,0 +1,186 @@
+// S-2 / ADR-023 §3: o extrator genérico no Edge real, serializado e no mundo isolado.
+// Critérios: canário oculto nunca aparece e o contador da técnica sobe (1); controles visíveis
+// aparecem (2); atributos, comentários e não-texto nunca aparecem (3); invisíveis Unicode e Base64
+// literais (4); página hostil não muda o resultado (5); limites (6); função serializada (7, toda
+// execução); cobertura de bloco de 100% medida pelo V8 (8, último teste do arquivo).
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+
+import type { ExtractionResult } from "../../src/extraction/generic-extractor";
+
+import { Bench, LIMITS, page } from "./bench";
+import { ALL_REASONS, SYNTHETIC_CASES } from "./synthetic-cases";
+
+const bench = new Bench();
+beforeAll(() => bench.open());
+afterAll(() => bench.close());
+
+function ok(r: ExtractionResult): Extract<ExtractionResult, { ok: true }> {
+  if (!r.ok) throw new Error(`esperava ok, veio ${r.motivo}`);
+  return r;
+}
+
+describe("fixtures sintéticas: uma por técnica do T2", () => {
+  for (const c of SYNTHETIC_CASES) {
+    test(`${c.id}: ${c.technique}`, async () => {
+      const r = ok(await bench.run(c.html));
+      expect(r.versao).toBe("ge1");
+      expect(r.raiz).toBe("main");
+      expect(r.truncado).toBe(false);
+      expect(r.texto).not.toContain("CANARIO");
+      expect(r.texto).toContain("VISIVEL-base");
+      for (const v of c.visible) expect(r.texto).toContain(v);
+      expect(r.descartes).toEqual(Object.fromEntries(ALL_REASONS.map((k) => [k, c.discards[k] ?? 0])));
+    });
+  }
+
+  test("pagina-hostil: a troca de APIs vale no mundo principal (a prova do isolamento não é vazia)", async () => {
+    const hostile = SYNTHETIC_CASES.find((c) => c.id === "pagina-hostil");
+    expect(hostile).toBeDefined();
+    await bench.run(hostile?.html ?? "");
+    const seen = await bench.mainWorld.evaluate(() => {
+      const hidden = document.querySelector("main p[style]");
+      return { visible: hidden?.checkVisibility(), opacity: getComputedStyle(document.body).opacity, text: document.createTextNode("x").data };
+    });
+    expect(seen).toEqual({ visible: true, opacity: "1", text: "CANARIO-hostil-3" });
+  });
+});
+
+describe("montagem do texto (ADR-023 D6)", () => {
+  test("blocos, parágrafos, BR, inline, contents, listas, pre e espaços", async () => {
+    const r = ok(
+      await bench.run(
+        page(
+          "<main><h1>Título</h1><div>linha a<br>linha b</div><span>in</span><span>line</span> <b>x</b>" +
+            '<div style="display:contents">conteúdo</div>\n  <ul>\n    <li>item 1</li>\n    <li>item 2</li>\n  </ul>\n' +
+            "<pre>  pre   1\n  pre 2</pre><p>  espaços \t\n  colapsados  </p><div><div><div>fundo</div></div></div></main>",
+        ),
+      ),
+    );
+    expect(r.texto).toBe("Título\n\nlinha a\nlinha b\ninline xconteúdo\n\nitem 1\nitem 2\n\npre 1\npre 2\n\nespaços colapsados\n\nfundo");
+  });
+
+  test("white-space: break-spaces e pre-line preservam as quebras", async () => {
+    const r = ok(
+      await bench.run(page('<main><p style="white-space:break-spaces">a\nb</p><p style="white-space:pre-line">c\nd</p></main>')),
+    );
+    expect(r.texto).toBe("a\nb\n\nc\nd");
+  });
+
+  test("BR seguido de parágrafo não passa de uma linha em branco", async () => {
+    const r = ok(await bench.run(page("<main>a<br><p>b</p></main>")));
+    expect(r.texto).toBe("a\n\nb");
+  });
+
+  test("CR e CRLF em pre viram LF", async () => {
+    const r = ok(
+      await bench.run(page('<main><pre id="p"></pre><script>document.getElementById("p").append("a\\r\\nb\\rc");</script></main>')),
+    );
+    expect(r.texto).toBe("a\nb\nc");
+  });
+});
+
+describe("escolha da raiz (ADR-023 D7)", () => {
+  test("o primeiro main visível", async () => {
+    const r = ok(await bench.run(page('<main style="display:none">CANARIO-main-oculto</main><main>segundo main</main><article>artigo</article>')));
+    expect([r.raiz, r.texto]).toEqual(["main", "segundo main"]);
+  });
+
+  test("sem main visível, o article com mais texto", async () => {
+    const r = ok(await bench.run(page('<main hidden>CANARIO-main</main><article>curto</article><article>artigo mais longo</article>')));
+    expect([r.raiz, r.texto]).toEqual(["article", "artigo mais longo"]);
+  });
+
+  test("article empatado fica com o primeiro", async () => {
+    const r = ok(await bench.run(page("<article>AAAA</article><article>BBBB</article>")));
+    expect(r.texto).toBe("AAAA");
+  });
+
+  test("sem main nem article, o body", async () => {
+    const r = ok(await bench.run(page("<div>só o corpo</div>")));
+    expect([r.raiz, r.texto]).toEqual(["body", "só o corpo"]);
+  });
+
+  test("sem body, o documentElement (e o head não conta)", async () => {
+    const r = await bench.run(page("<script>document.body.remove();</script>", "<title>CANARIO-titulo</title>"));
+    expect(r).toEqual({ ok: false, versao: "ge1", motivo: "texto_insuficiente" });
+  });
+
+  test("ancestral da raiz oculto descarta tudo", async () => {
+    const html = '<!doctype html><html><body style="opacity:0"><main>CANARIO-ancestral texto longo</main></body></html>';
+    expect(await bench.run(html)).toEqual({ ok: false, versao: "ge1", motivo: "texto_insuficiente" });
+  });
+
+  test("página rolada: o que ficou acima ou à esquerda da viewport continua visível", async () => {
+    const r = ok(
+      await bench.run(
+        page(
+          '<main><p>VISIVEL-topo</p><div style="width:6000px;height:4000px"></div></main>' +
+            "<script>window.scrollTo(3000, 2000);</script>",
+        ),
+      ),
+    );
+    expect(r.texto).toBe("VISIVEL-topo");
+    expect(r.descartes.foraDaTela).toBe(0);
+  });
+});
+
+describe("limites (ADR-023 D1 e D7)", () => {
+  const invalid: [string, unknown][] = [
+    ["null", null],
+    ["string", "x"],
+    ["maxChars fracionário", { ...LIMITS, maxChars: 1.5 }],
+    ["maxChars zero", { ...LIMITS, maxChars: 0, minChars: 0 }],
+    ["maxChars acima do teto", { ...LIMITS, maxChars: 1_000_001 }],
+    ["maxChars ausente", { maxNodes: 10, minChars: 0 }],
+    ["maxNodes zero", { ...LIMITS, maxNodes: 0 }],
+    ["maxNodes acima do teto", { ...LIMITS, maxNodes: 10_000_001 }],
+    ["minChars negativo", { ...LIMITS, minChars: -1 }],
+    ["minChars acima de maxChars", { ...LIMITS, maxChars: 10, minChars: 11 }],
+  ];
+  for (const [name, limits] of invalid) {
+    test(`inválido: ${name}`, async () => {
+      expect(await bench.run(page("<main>texto</main>"), limits)).toEqual({ ok: false, versao: "ge1", motivo: "limites_invalidos" });
+    });
+  }
+
+  test("tetos aceitos nos extremos", async () => {
+    const r = ok(await bench.run(page("<main>abcde</main>"), { maxChars: 1_000_000, maxNodes: 10_000_000, minChars: 0 }));
+    expect(r.texto).toBe("abcde");
+    const exact = ok(await bench.run(page("<main>abcde</main>"), { maxChars: 5, maxNodes: 2, minChars: 5 }));
+    expect([exact.texto, exact.truncado]).toEqual(["abcde", false]);
+  });
+
+  test("minChars: abaixo do mínimo é texto_insuficiente", async () => {
+    expect(await bench.run(page("<main>abcde</main>"), { ...LIMITS, minChars: 6 })).toEqual({
+      ok: false,
+      versao: "ge1",
+      motivo: "texto_insuficiente",
+    });
+  });
+
+  test("maxChars corta o texto final", async () => {
+    const r = ok(await bench.run(page("<main>abcde</main>"), { ...LIMITS, maxChars: 4 }));
+    expect([r.texto, r.truncado]).toEqual(["abcd", true]);
+  });
+
+  test("maxChars para a leitura", async () => {
+    const r = ok(await bench.run(page("<main><p>abcdef</p><p>CANARIO-depois-do-teto</p></main>"), { ...LIMITS, maxChars: 8 }));
+    expect([r.texto, r.truncado]).toEqual(["abcdef", true]);
+  });
+
+  test("maxNodes para a leitura", async () => {
+    const r = ok(await bench.run(page("<main><p>um</p><p>dois</p><p>CANARIO-tres</p></main>"), { ...LIMITS, maxNodes: 4 }));
+    expect([r.texto, r.truncado]).toEqual(["um\n\ndois", true]);
+  });
+
+  test("o teto atingido num nível interno para também os níveis de cima", async () => {
+    const html = page("<main><div><p>um</p><p>CANARIO-a</p></div><p>CANARIO-b</p><div><p>CANARIO-c</p></div></main>");
+    const r = ok(await bench.run(html, { ...LIMITS, maxNodes: 4 }));
+    expect([r.texto, r.truncado]).toEqual(["um", true]);
+  });
+});
+
+// Precisa ser o último: une a cobertura de bloco de todas as execuções acima.
+test("cobertura de bloco do V8: 100% do extrator", () => {
+  expect(bench.uncovered()).toEqual([]);
+});

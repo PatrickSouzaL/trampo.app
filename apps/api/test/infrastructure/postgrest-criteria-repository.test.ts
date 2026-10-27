@@ -30,6 +30,7 @@ import { CLEAN_TEXT, JobHarness, REQUEST_ID } from "../application/fakes/analyze
 import { TEST_AUTHORIZATION, TEST_PRINCIPAL, TEST_TOKEN, fakeVerifier } from "../auth-fakes.js";
 import { REQUIRED, criteria, weighted } from "../domain/fakes/scoring-fixtures.js";
 import { fakeLimits } from "../limit-fakes.js";
+import { HAPPY_PATH_TIMEOUT_MS } from "../support/socket-deadlines.js";
 import { startFakePostgrest, type FakePostgrest, type PostgrestMode } from "./fakes/fake-postgrest.js";
 
 const PUBLISHABLE = "sb_publishable_teste-repositorio";
@@ -57,7 +58,7 @@ beforeEach(async () => {
   cipher = createSalaryCipher(parseSalaryKeyring(`k1:${KEY_A}`, "k1"));
   repository = createSupabaseCriteriaRepository({
     now,
-    client: createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 300 }),
+    client: createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: HAPPY_PATH_TIMEOUT_MS }),
     cipher,
   });
 });
@@ -277,7 +278,7 @@ describe("de ponta a ponta pela rota (critério 3 do [APPSEC])", () => {
       accessTokenVerifier: fakeVerifier().verifier,
       limits: fakes.limits,
       logger: lines === undefined ? false : { level: "trace", stream: { write: (line: string) => lines.push(line) } },
-      analysis: { job: new JobHarness({ groq: null }).job, criteria: new CriteriaGuard(repository, systemClock) },
+      analysis: { job: new JobHarness({ groq: null }).job, criteria: new CriteriaGuard(repository, systemClock, HAPPY_PATH_TIMEOUT_MS) },
     });
     return { app, quota: fakes.quota };
   }
@@ -431,7 +432,7 @@ describe("escrita do dono", () => {
   });
 
   test("pelo CriteriaGuard: o mesmo guarda grava e lê", async () => {
-    const guard = new CriteriaGuard(repository, systemClock);
+    const guard = new CriteriaGuard(repository, systemClock, HAPPY_PATH_TIMEOUT_MS);
     const value = criteria({ salary: SALARY });
     await expect(guard.save({ userId: OWNER, accessToken: TEST_TOKEN }, value)).resolves.toEqual({ saved: true });
     await expect(guard.load({ userId: OWNER, accessToken: TEST_TOKEN })).resolves.toEqual({ found: true, criteria: value });
@@ -491,8 +492,14 @@ describe("escrita: falha fechado (unavailable, nunca rejeita)", () => {
     ["travado", { kind: "trava" }],
     ["socket cortado", { kind: "corta" }],
   ])("%s", async (_name, mode) => {
+    // Prazo curto só aqui (QA-02): com o folgado do arquivo, o "lento" de 1 s gravaria.
+    const short = createSupabaseCriteriaRepository({
+      now,
+      client: createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 300 }),
+      cipher,
+    });
     postgrest.mode = mode;
-    await expect(save(criteria())).resolves.toEqual(SAVE_UNAVAILABLE);
+    await expect(short.save({ userId: OWNER, accessToken: TEST_TOKEN }, criteria())).resolves.toEqual(SAVE_UNAVAILABLE);
   });
 
   test("redirecionamento: zero requisições ao 2º host", async () => {

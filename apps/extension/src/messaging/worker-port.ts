@@ -9,6 +9,7 @@ export interface PanelPort {
   postMessage(message: WorkerToPanel): void;
   disconnect(): void;
   readonly onMessage: { addListener(listener: (message: unknown) => void): void };
+  readonly onDisconnect: { addListener(listener: () => void): void };
 }
 
 export type RejectReason =
@@ -55,6 +56,14 @@ export interface PortContext {
   readonly extensionBaseUrl: string;
   /** Registra só o motivo, nunca o conteúdo da mensagem (threat-model T23). */
   readonly logRejection: (reason: RejectReason) => void;
+  /** Porta confiável depois do `hello`: passa a receber o estado da captura (ADR-024 D4). */
+  readonly onReady: (port: PanelPort) => void;
+  /** Texto colado no painel, já com a forma validada (ADR-024 D5). */
+  readonly onPaste: (texto: string) => void;
+  /** Aceite do aviso de envio, já com a versão vigente conferida pelo schema (ADR-025 D2). */
+  readonly onConsent: () => void;
+  /** O usuário retirou o consentimento. */
+  readonly onRevoke: () => void;
 }
 
 /** Valida a porta na conexão e cada mensagem recebida. Qualquer falha desconecta (fail closed). */
@@ -76,6 +85,16 @@ export function handlePanelConnection(port: PanelPort, ctx: PortContext): void {
     switch (parsed.data.kind) {
       case "hello":
         port.postMessage({ kind: "ready", protocolVersion: PROTOCOL_VERSION });
+        ctx.onReady(port);
+        break;
+      case "colar":
+        ctx.onPaste(parsed.data.texto);
+        break;
+      case "consentir":
+        ctx.onConsent();
+        break;
+      case "revogar":
+        ctx.onRevoke();
         break;
     }
   });

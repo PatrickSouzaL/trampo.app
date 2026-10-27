@@ -92,6 +92,7 @@ export {
   RouterConfigError,
   type ExtractionFailureReason,
   type ExtractionOutcome,
+  type AttemptTimeoutMaxMs,
   type LlmProviderRouterDeps,
   type RouterTrailEntry,
 } from "./llm/llm-provider-router.js";
@@ -137,6 +138,7 @@ export {
   AnalysisEventSchema,
   LlmExtractionEventSchema,
   TELEMETRY_LATENCY_MAX_MS,
+  TELEMETRY_GUARD_NORMALIZATION_MAX,
   TELEMETRY_STEPS_MAX,
   TelemetryEventSchema,
   type AnalysisCacheStatus,

@@ -9,16 +9,19 @@ import {
   type RedisCommand,
   type RedisTransactions,
 } from "../../src/infrastructure/redis/upstash-rest-client.js";
+import { HAPPY_PATH_TIMEOUT_MS } from "../support/socket-deadlines.js";
 import { startFakeUpstash, type FakeUpstash } from "./fakes/fake-upstash.js";
 
 const TOKEN = "AXyz_token-de-teste.123";
+/** Prazo curto dos testes de prazo em socket real; os demais usam o folgado (QA-02). */
+const SHORT_TIMEOUT_MS = 300;
 
 let upstash: FakeUpstash;
 let other: FakeUpstash | undefined;
 let client: RedisTransactions;
 beforeEach(async () => {
   upstash = await startFakeUpstash(TOKEN);
-  client = createUpstashRestClient({ url: upstash.url, token: TOKEN, timeoutMs: 300 });
+  client = createUpstashRestClient({ url: upstash.url, token: TOKEN, timeoutMs: HAPPY_PATH_TIMEOUT_MS });
 });
 afterEach(async () => {
   await upstash.close();
@@ -61,7 +64,7 @@ describe("protocolo", () => {
   });
 
   test("a URL base com barra final ou não dá no mesmo endpoint", async () => {
-    const withSlash = createUpstashRestClient({ url: new URL(`${upstash.url.origin}/`), token: TOKEN });
+    const withSlash = createUpstashRestClient({ url: new URL(`${upstash.url.origin}/`), token: TOKEN, timeoutMs: HAPPY_PATH_TIMEOUT_MS });
     await expect(withSlash.exec([["INCR", "x"]], new AbortController().signal)).resolves.toEqual([1]);
     expect(upstash.requests.at(-1)?.url).toBe("/multi-exec");
   });
@@ -82,7 +85,7 @@ describe("protocolo", () => {
 
 describe("falha fechado: nunca rejeita, devolve null", () => {
   test("token errado (401)", async () => {
-    const wrong = createUpstashRestClient({ url: upstash.url, token: "outro" });
+    const wrong = createUpstashRestClient({ url: upstash.url, token: "outro", timeoutMs: HAPPY_PATH_TIMEOUT_MS });
     await expect(wrong.exec(COMMANDS, new AbortController().signal)).resolves.toBeNull();
   });
 
@@ -160,16 +163,18 @@ describe("falha fechado: nunca rejeita, devolve null", () => {
   });
 
   test("lento além do prazo: null dentro do prazo", async () => {
+    const short = createUpstashRestClient({ url: upstash.url, token: TOKEN, timeoutMs: SHORT_TIMEOUT_MS });
     upstash.mode = { kind: "lento", delayMs: 1_000 };
     const start = performance.now();
-    await expect(exec()).resolves.toBeNull();
+    await expect(short.exec(COMMANDS, new AbortController().signal)).resolves.toBeNull();
     expect(performance.now() - start).toBeLessThan(900);
   });
 
   test("travado (nunca responde): null dentro do prazo", async () => {
+    const short = createUpstashRestClient({ url: upstash.url, token: TOKEN, timeoutMs: SHORT_TIMEOUT_MS });
     upstash.mode = { kind: "trava" };
     const start = performance.now();
-    await expect(exec()).resolves.toBeNull();
+    await expect(short.exec(COMMANDS, new AbortController().signal)).resolves.toBeNull();
     expect(performance.now() - start).toBeLessThan(900);
   });
 
@@ -195,7 +200,7 @@ describe("falha fechado: nunca rejeita, devolve null", () => {
     const url = upstash.url;
     await upstash.close();
     upstash = await startFakeUpstash(TOKEN);
-    const closed = createUpstashRestClient({ url, token: TOKEN, timeoutMs: 300 });
+    const closed = createUpstashRestClient({ url, token: TOKEN, timeoutMs: SHORT_TIMEOUT_MS });
     await expect(closed.exec(COMMANDS, new AbortController().signal)).resolves.toBeNull();
   });
 });

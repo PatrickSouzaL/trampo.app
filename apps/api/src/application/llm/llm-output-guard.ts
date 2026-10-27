@@ -16,8 +16,9 @@ import {
  * Entra no `extractorVersion` da chave de cache: mudar o saneamento muda os fatos (ADR-008 D2).
  * g2 (ADR-002 §8.1): ARS e `pressao_excessiva` no contrato; teto de `redFlagSignals` de 6 para 7.
  * g3 (ADR-008 §5): item fora do enum sai, `null` em campo de array vira `[]` e `location` sem nenhum campo vira `null`.
+ * g4 (ADR-008 §6): o termo nas duas listas de stack fica só em `stackNiceToHave`.
  */
-export const LLM_OUTPUT_GUARD_VERSION = "g3";
+export const LLM_OUTPUT_GUARD_VERSION = "g4";
 
 /** Teto da resposta bruta em bytes UTF-8, checado antes do parse (ADR-008 D3; calibrar no S-1). */
 export const LLM_OUTPUT_MAX_BYTES = 8_192;
@@ -69,6 +70,8 @@ export interface LlmOutputSanitization {
   readonly offEnumItemsRemoved: number;
   /** `null` num campo de array que virou `[]`, e `location` sem nenhum campo que virou `null` (g3). */
   readonly absentValuesNormalized: number;
+  /** Termos tirados do `stackRequired` por estarem também no `stackNiceToHave` (g4). Não é sinal de injection. */
+  readonly stackOverlapsResolved: number;
   readonly duplicatesRemoved: number;
   /** Itens cortados acima do máximo do array. */
   readonly itemsCut: number;
@@ -87,6 +90,7 @@ interface Tally {
   malformedItemsRemoved: number;
   offEnumItemsRemoved: number;
   absentValuesNormalized: number;
+  stackOverlapsResolved: number;
   duplicatesRemoved: number;
   itemsCut: number;
   textTruncated: boolean;
@@ -122,6 +126,7 @@ export class LlmOutputGuard {
       malformedItemsRemoved: 0,
       offEnumItemsRemoved: 0,
       absentValuesNormalized: 0,
+      stackOverlapsResolved: 0,
       duplicatesRemoved: 0,
       itemsCut: 0,
       textTruncated: false,
@@ -179,8 +184,10 @@ function sanitizeFacts(facts: JsonRecord, tally: Tally): void {
     typeof value === "string" ? sanitizeFreeText(value, FREE_TEXT_MAX_CHARS.title, tally) : value,
   );
   update(facts, "location", (value) => sanitizeLocation(value, tally));
-  update(facts, "stackRequired", (value) => sanitizeTags(value, ARRAY_MAX_ITEMS.stackRequired, tally));
-  update(facts, "stackNiceToHave", (value) => sanitizeTags(value, ARRAY_MAX_ITEMS.stackNiceToHave, tally));
+  // O desejável vem antes: o exigido é saneado contra a lista final dele (g4, ADR-008 §6).
+  update(facts, "stackNiceToHave", (value) => sanitizeTags(value, ARRAY_MAX_ITEMS.stackNiceToHave, NO_OVERLAP, tally));
+  const desired = foldedTags(facts["stackNiceToHave"]);
+  update(facts, "stackRequired", (value) => sanitizeTags(value, ARRAY_MAX_ITEMS.stackRequired, desired, tally));
   for (const key of ENUM_ARRAY_KEYS) {
     update(facts, key, (value) => sanitizeEnumArray(value, ENUM_ARRAY_VALUES[key], ARRAY_MAX_ITEMS[key], tally));
   }
@@ -249,8 +256,19 @@ function isEmptyLocation(location: JsonRecord): boolean {
   return Object.keys(location).length === LOCATION_KEYS.length && LOCATION_KEYS.every((key) => location[key] === null);
 }
 
-/** Tag ruim sai inteira: nunca se removem caracteres de dentro dela ("Node.js<x>" não vira "Node.jsx"). */
-function sanitizeTags(value: unknown, max: number, tally: Tally): unknown {
+const NO_OVERLAP: ReadonlySet<string> = new Set();
+
+/** Tags já saneadas, em minúsculas, como o `stacksAreDisjoint` do contrato compara. Fora de array: conjunto vazio. */
+function foldedTags(value: unknown): ReadonlySet<string> {
+  if (!Array.isArray(value)) return NO_OVERLAP;
+  return new Set((value as readonly unknown[]).filter((item) => typeof item === "string").map((tag) => tag.toLowerCase()));
+}
+
+/**
+ * Tag ruim sai inteira: nunca se removem caracteres de dentro dela ("Node.js<x>" não vira "Node.jsx"). Tag boa que está
+ * em `overlap` (o desejável final) sai antes da duplicata e do corte, e continua no desejável (g4, ADR-008 §6).
+ */
+function sanitizeTags(value: unknown, max: number, overlap: ReadonlySet<string>, tally: Tally): unknown {
   if (!Array.isArray(value)) return value;
   const kept: unknown[] = [];
   const seen = new Set<string>();
@@ -264,6 +282,7 @@ function sanitizeTags(value: unknown, max: number, tally: Tally): unknown {
     if (containsUrlLike(tag)) tally.urlsRemoved += 1;
     else if (INVISIBLE_OR_CONTROL.test(tag) || ANGLE_BRACKET.test(tag)) tally.hiddenOrMarkupRemoved += 1;
     else if (!TECH_TAG_PATTERN.test(tag)) tally.malformedItemsRemoved += 1;
+    else if (overlap.has(folded)) tally.stackOverlapsResolved += 1;
     else if (seen.has(folded)) tally.duplicatesRemoved += 1;
     else {
       seen.add(folded);

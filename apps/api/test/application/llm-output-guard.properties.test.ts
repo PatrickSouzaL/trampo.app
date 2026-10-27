@@ -20,6 +20,12 @@ const FRAGMENTS = [
 const hostileText = fc.array(fc.constantFrom(...FRAGMENTS), { maxLength: 25 }).map((parts) => parts.join(""));
 const anyText = fc.oneof(hostileText, fc.string({ unit: "binary", maxLength: 120 }));
 const tags = fc.array(fc.oneof(hostileText, fc.constantFrom("TypeScript", "react", "React", "Go")), { maxLength: 40 });
+/** Desejável (g4): quase sempre termos que também caem no exigido, às vezes hostil, às vezes vazio ou `null`. */
+const niceTags = fc.oneof(
+  { weight: 3, arbitrary: fc.array(fc.constantFrom("typescript", "React", "GO", "Kotlin"), { maxLength: 6 }) },
+  { weight: 1, arbitrary: tags },
+  { weight: 1, arbitrary: fc.constantFrom([], null) },
+);
 
 /** Valores fora de todo enum que o S-1 viu ou que um ataque tentaria (g3: saem sem virar outro valor). */
 const OFF_ENUM = ["vale_transporte", "gympass", "auxilio_refeicao", "CLT", "tempo_integral", "", "__proto__", "toString"];
@@ -61,7 +67,7 @@ const factsLike = fc
     salary: fc.constant(null),
     contractTypes: enumArray(["clt", "pj"], 4),
     stackRequired: tags,
-    stackNiceToHave: fc.constantFrom([], null),
+    stackNiceToHave: niceTags,
     benefits: enumArray(["plano_saude", "outro", "vale_refeicao"], 6),
     languageRequirements: fc.constantFrom([], null),
     redFlagSignals: enumArray(["salario_omitido", "linguagem_vaga"], 4),
@@ -159,6 +165,7 @@ describe("LlmOutputGuard (propriedades)", () => {
               malformedItemsRemoved: 0,
               offEnumItemsRemoved: 0,
               absentValuesNormalized: 0,
+              stackOverlapsResolved: 0,
               duplicatesRemoved: 0,
               itemsCut: 0,
               textTruncated: false,
@@ -212,20 +219,71 @@ describe("LlmOutputGuard (propriedades)", () => {
     );
   });
 
-  test("o sinal de injection é sempre URL ou oculto removido, e nunca os contadores do g3", () => {
+  test("g4: a saída nunca tem sobreposição, e o desejável é o mesmo que sairia sem o exigido", () => {
+    let resolved = 0;
+    fc.assert(
+      fc.property(factsLike, (input) => {
+        const result = guard.inspect(JSON.stringify(input));
+        if (!result.ok) return;
+        resolved += result.sanitization.stackOverlapsResolved;
+        const desired = new Set(result.facts.stackNiceToHave.map((tag) => tag.toLowerCase()));
+        for (const tag of result.facts.stackRequired) expect(desired.has(tag.toLowerCase())).toBe(false);
+        const alone = guard.inspect(JSON.stringify({ ...input, stackRequired: [] }));
+        if (alone.ok) expect(result.facts.stackNiceToHave).toStrictEqual(alone.facts.stackNiceToHave);
+      }),
+      { numRuns: 1_000 },
+    );
+    // Não é vazia: em 25 sementes, de 670 a 907 termos saíram por sobreposição.
+    expect(resolved).toBeGreaterThan(300);
+  });
+
+  test("g4: sem corte, o exigido é o de sempre menos o desejável, a união se conserva e a contagem fecha", () => {
+    let checked = 0;
+    fc.assert(
+      fc.property(factsLike, (input) => {
+        const result = guard.inspect(JSON.stringify(input));
+        // Referência sem o g4: cada lista saneada sozinha.
+        const requiredAlone = guard.inspect(JSON.stringify({ ...input, stackNiceToHave: [] }));
+        const desiredAlone = guard.inspect(JSON.stringify({ ...input, stackRequired: [] }));
+        // Sem nenhuma tag: as duplicatas dos arrays de enum, que as duas referências contam.
+        const baseline = guard.inspect(JSON.stringify({ ...input, stackRequired: [], stackNiceToHave: [] }));
+        if (!result.ok || !requiredAlone.ok || !desiredAlone.ok || !baseline.ok) return;
+        if (requiredAlone.sanitization.itemsCut + desiredAlone.sanitization.itemsCut > 0) return;
+        checked += 1;
+        const desired = new Set(result.facts.stackNiceToHave.map((tag) => tag.toLowerCase()));
+        const reference = requiredAlone.facts.stackRequired;
+        const overlapping = reference.filter((tag) => desired.has(tag.toLowerCase()));
+        expect(result.facts.stackRequired).toStrictEqual(reference.filter((tag) => !desired.has(tag.toLowerCase())));
+        const union = (tags: readonly string[]) => new Set([...tags.map((tag) => tag.toLowerCase()), ...desired]);
+        expect(union(result.facts.stackRequired)).toStrictEqual(union(reference));
+        // Toda remoção de tag boa é duplicata ou sobreposição: o total fecha com as listas saneadas sozinhas.
+        expect(result.sanitization.duplicatesRemoved + result.sanitization.stackOverlapsResolved).toBe(
+          requiredAlone.sanitization.duplicatesRemoved +
+            desiredAlone.sanitization.duplicatesRemoved -
+            baseline.sanitization.duplicatesRemoved +
+            overlapping.length,
+        );
+      }),
+      { numRuns: 1_000 },
+    );
+    // Em 25 sementes, de 764 a 817 entradas chegaram à comparação sem corte.
+    expect(checked).toBeGreaterThan(400);
+  });
+
+  test("o sinal de injection é sempre URL ou oculto removido, e nunca os contadores do g3 e do g4", () => {
     let quietRemovals = 0;
     fc.assert(
       fc.property(rawResponse, (raw) => {
         const result = guard.inspect(raw);
         if (!result.ok) return;
-        const { urlsRemoved, hiddenOrMarkupRemoved, offEnumItemsRemoved, absentValuesNormalized, injectionSignal } =
-          result.sanitization;
+        const { urlsRemoved, hiddenOrMarkupRemoved, injectionSignal } = result.sanitization;
+        const { offEnumItemsRemoved, absentValuesNormalized, stackOverlapsResolved } = result.sanitization;
         expect(injectionSignal).toBe(urlsRemoved + hiddenOrMarkupRemoved > 0);
-        if (!injectionSignal && offEnumItemsRemoved + absentValuesNormalized > 0) quietRemovals += 1;
+        if (!injectionSignal && offEnumItemsRemoved + absentValuesNormalized + stackOverlapsResolved > 0) quietRemovals += 1;
       }),
       { numRuns: 1_000 },
     );
-    // Não é vazia: em 40 sementes, de 45 a 75 saídas tiveram remoção do g3 sem sinal de injection.
+    // Não é vazia: em 25 sementes (com o g4), de 36 a 64 saídas tiveram remoção do g3 ou do g4 sem sinal de injection.
     expect(quietRemovals).toBeGreaterThan(20);
   });
 

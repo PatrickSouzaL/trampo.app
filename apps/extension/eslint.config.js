@@ -26,6 +26,50 @@ const storageSelectors = [
   },
 ];
 
+// O painel não tem link nem recurso externo (ADR-025 D5; AnalysisReport D8): o texto do servidor nunca
+// vira navegação, e a CSP não precisa abrir nada além de 'self'.
+const NAVIGATING_ELEMENTS = "a|area|base|link|iframe|frame|embed|object|img|image|video|audio|source|track|portal";
+const NAVIGATING_ATTRIBUTES = "href|src|srcSet|action|formAction|xlinkHref|poster|data|ping|background|cite";
+const noLinkSelectors = [
+  {
+    selector: `JSXOpeningElement[name.name=/^(${NAVIGATING_ELEMENTS})$/]`,
+    message: "O painel não tem links nem recursos externos: renderize texto (ADR-025 D5).",
+  },
+  {
+    selector: `JSXAttribute[name.name=/^(${NAVIGATING_ATTRIBUTES})$/]`,
+    message: "Atributo que navega ou carrega recurso é proibido no painel (ADR-025 D5).",
+  },
+  {
+    selector: `JSXAttribute[name.namespace.name="xlink"]`,
+    message: "xlink:* é proibido no painel (ADR-025 D5).",
+  },
+];
+
+// Extrator de DOM só-leitura e autocontido (ADR-023 D3, D5 e D8; threat-model T2).
+const EXTRACTION_READS = "innerText|outerText|textContent|getAttribute|getAttributeNS|getAttributeNode|getAttributeNames|attributes|dataset";
+const DOM_WRITES =
+  "appendChild|append|prepend|insertBefore|removeChild|replaceChild|replaceWith|remove|setAttribute|setAttributeNS|removeAttribute|toggleAttribute|click|focus|dispatchEvent|scrollTo|scrollIntoView";
+const FORBIDDEN_IN_EXTRACTOR =
+  "atob|btoa|TextDecoder|decodeURI|decodeURIComponent|unescape|eval|Function|fetch|XMLHttpRequest|WebSocket|EventSource|postMessage|chrome|browser|localStorage|sessionStorage|indexedDB";
+const extractionSelectors = [
+  {
+    selector: `MemberExpression[property.name=/^(${EXTRACTION_READS})$/]`,
+    message: "O extrator lê só o `data` de nós de texto que passam no descarte: nada de atributo nem de API que ignora a visibilidade (T2).",
+  },
+  {
+    selector: `MemberExpression[property.name=/^(${DOM_WRITES})$/]`,
+    message: "O extrator é só-leitura: nunca muda nem aciona a página (ADR-023 D8).",
+  },
+  {
+    selector: `Identifier[name=/^(${FORBIDDEN_IN_EXTRACTOR})$/]`,
+    message: "Proibido no extrator: decodificar, executar, falar com a rede ou com a extensão (ADR-023 D5 e D8).",
+  },
+  {
+    selector: `ImportDeclaration[importKind!="type"]`,
+    message: "O extrator é serializado pelo executeScript: só `import type`, nada do escopo do módulo em tempo de execução.",
+  },
+];
+
 export default defineConfig([
   globalIgnores([".output/**", ".wxt/**"]),
   ...security,
@@ -51,7 +95,14 @@ export default defineConfig([
         },
       ],
       // A regra não se acumula entre configs: os seletores de HTML do preset são repetidos aqui.
-      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors],
+      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors],
+    },
+  },
+  {
+    name: "@trampo/extension/extraction",
+    files: ["src/extraction/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...extractionSelectors],
     },
   },
 ]);

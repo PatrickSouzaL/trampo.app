@@ -9,8 +9,9 @@
     "build": "wxt build",
     "typecheck": "wxt prepare && tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
     "lint": "wxt prepare && eslint",
-    "test": "vitest run",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts"
+    "test": "vitest run --coverage",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
     "@trampo/contracts": "workspace:*",
@@ -23,6 +24,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "@wxt-dev/module-react": "catalog:",
     "eslint": "catalog:",
     "playwright-core": "catalog:",

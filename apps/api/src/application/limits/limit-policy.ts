@@ -40,6 +40,11 @@ export interface ProviderLimits {
   readonly rpd: number | null;
   readonly tpm: number | null;
   readonly tpd: number | null;
+  /**
+   * Reserva pessimista de tokens por chamada (ADR-022 D7.2), somada ao TPM e ao TPD no `reserve` e reconciliada
+   * pelo `recordUsage`. A chamada que não volta 200 fica com a reserva cheia. `null`: sem reserva (tokens lidos).
+   */
+  readonly reservedTokensPerCall: number | null;
 }
 
 /**
@@ -75,16 +80,23 @@ export const LEDGER_POLICY = {
   globalCallsPerDay: 400,
   /** Provedor fora desta tabela (o Gemini, HITL-012) é sempre `provedor_esgotado`. */
   providers: {
-    groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000 },
+    // Reserva de 3.000: entrada p95 de ~2,5k mais a saída p50 de ~0,4k (S-1), arredondada para cima. Recalibrada
+    // com o p95 do aceite do p3 (ADR-022 D7.2).
+    groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000, reservedTokensPerCall: 3_000 },
     // O limite real é de 10.000 neurons por dia; o `rpd` vem da estimativa de neurons por chamada (ADR-020 D9), e a
     // medida real é do S-1. O `rpm` fica bem abaixo dos 300 por minuto documentados.
-    cloudflare_workers_ai: { rpm: 60, rpd: workersAiCallsPerDay(), tpm: null, tpd: null },
-    ollama: { rpm: null, rpd: null, tpm: null, tpd: null },
+    cloudflare_workers_ai: { rpm: 60, rpd: workersAiCallsPerDay(), tpm: null, tpd: null, reservedTokensPerCall: null },
+    ollama: { rpm: null, rpd: null, tpm: null, tpd: null, reservedTokensPerCall: null },
   } satisfies Partial<Record<LlmProviderId, ProviderLimits>>,
   minuteTtlSeconds: 120,
   dayTtlSeconds: 172_800,
   /** Teto de tokens aceitos num `recordUsage` (acima disso o uso é ignorado como fora da forma). */
   maxTokensPerCall: 1_000_000,
+  /**
+   * Bloqueio compartilhado por `Retry-After` (ADR-022 D7.3): `null` ou inválido vira 60 s, e o valor fica em
+   * [1 s, 1 h]. O teto de 1 h passa dos 887 s medidos no TPD do Groq (S-1).
+   */
+  rateLimitBlock: { defaultMs: 60_000, minMs: 1_000, maxMs: 3_600_000 },
 } as const;
 
 /** Prazo do guarda em volta da porta (o cliente REST tem o próprio teto, menor). */

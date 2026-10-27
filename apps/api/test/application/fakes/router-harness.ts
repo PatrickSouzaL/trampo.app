@@ -2,6 +2,7 @@
 import type { LlmProviderId } from "@trampo/contracts";
 
 import {
+  type AttemptTimeoutMaxMs,
   type ExtractionOutcome,
   InMemoryProviderStateStore,
   type LlmJobPayload,
@@ -43,6 +44,7 @@ export interface HarnessOptions {
   readonly random?: () => number;
   readonly states?: ProviderStateStore;
   readonly clock?: FakeClock;
+  readonly attemptTimeoutMaxMs?: AttemptTimeoutMaxMs;
 }
 
 export class Harness {
@@ -71,6 +73,7 @@ export class Harness {
       random: { next: random },
       ledger: this.ledger,
       states: this.states,
+      ...(options.attemptTimeoutMaxMs === undefined ? {} : { attemptTimeoutMaxMs: options.attemptTimeoutMaxMs }),
     });
   }
 

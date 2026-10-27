@@ -13,6 +13,7 @@ import {
   createPostgrestUserClient,
   type PostgrestUserClient,
 } from "../../src/infrastructure/supabase/postgrest-user-client.js";
+import { HAPPY_PATH_TIMEOUT_MS } from "../support/socket-deadlines.js";
 import { startFakePostgrest, type FakePostgrest } from "./fakes/fake-postgrest.js";
 
 const PUBLISHABLE = "sb_publishable_AbC123-teste_xyz";
@@ -24,11 +25,14 @@ const ROW = { user_id: USER, schema_version: 1, criteria: { a: 1 }, salary_ciphe
 let postgrest: FakePostgrest;
 let other: FakePostgrest | undefined;
 let client: PostgrestUserClient;
+/** Prazo curto, só nos testes de prazo em socket real; os demais usam o folgado (QA-02). */
+let short: PostgrestUserClient;
 beforeEach(async () => {
   postgrest = await startFakePostgrest(PUBLISHABLE);
   postgrest.sessions.set(TOKEN, USER);
   postgrest.rows.push(ROW);
-  client = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 300 });
+  client = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: HAPPY_PATH_TIMEOUT_MS });
+  short = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 300 });
 });
 afterEach(async () => {
   await postgrest.close();
@@ -121,7 +125,7 @@ describe("protocolo", () => {
   });
 
   test("a URL base com caminho ou barra final dá no mesmo endpoint", async () => {
-    const withPath = createPostgrestUserClient({ url: new URL(`${postgrest.url.origin}/outro/caminho/`), publishableKey: PUBLISHABLE });
+    const withPath = createPostgrestUserClient({ url: new URL(`${postgrest.url.origin}/outro/caminho/`), publishableKey: PUBLISHABLE, timeoutMs: HAPPY_PATH_TIMEOUT_MS });
     await expect(withPath.select("user_criteria", QUERY, TOKEN)).resolves.toMatchObject({ ok: true });
     expect(new URL(postgrest.requests.at(-1)?.url ?? "", "http://x").pathname).toBe("/rest/v1/user_criteria");
   });
@@ -141,7 +145,7 @@ describe("protocolo", () => {
   test("sem signal do chamador, o prazo próprio ainda vale", async () => {
     postgrest.mode = { kind: "trava" };
     const start = performance.now();
-    await expect(client.select("user_criteria", QUERY, TOKEN)).resolves.toEqual(FAILURE);
+    await expect(short.select("user_criteria", QUERY, TOKEN)).resolves.toEqual(FAILURE);
     expect(performance.now() - start).toBeLessThan(900);
   });
 });
@@ -173,7 +177,7 @@ describe("token fora da forma: falha sem requisição", () => {
 
 describe("falha fechado: nunca rejeita, devolve { ok: false }", () => {
   test("publishable errada (401)", async () => {
-    const wrong = createPostgrestUserClient({ url: postgrest.url, publishableKey: "sb_publishable_outra" });
+    const wrong = createPostgrestUserClient({ url: postgrest.url, publishableKey: "sb_publishable_outra", timeoutMs: HAPPY_PATH_TIMEOUT_MS });
     await expect(wrong.select("user_criteria", QUERY, TOKEN)).resolves.toEqual(FAILURE);
   });
 
@@ -241,7 +245,7 @@ describe("falha fechado: nunca rejeita, devolve { ok: false }", () => {
   test("lento além do prazo: falha dentro do prazo", async () => {
     postgrest.mode = { kind: "lento", delayMs: 1_000 };
     const start = performance.now();
-    await expect(select()).resolves.toEqual(FAILURE);
+    await expect(short.select("user_criteria", QUERY, TOKEN)).resolves.toEqual(FAILURE);
     expect(performance.now() - start).toBeLessThan(900);
   });
 
@@ -259,7 +263,7 @@ describe("falha fechado: nunca rejeita, devolve { ok: false }", () => {
   test("com o signal do chamador que nunca aborta, o prazo próprio ainda vale", async () => {
     postgrest.mode = { kind: "trava" };
     const start = performance.now();
-    await expect(select(TOKEN, new AbortController().signal)).resolves.toEqual(FAILURE);
+    await expect(short.select("user_criteria", QUERY, TOKEN, new AbortController().signal)).resolves.toEqual(FAILURE);
     expect(performance.now() - start).toBeLessThan(900);
   });
 
@@ -360,7 +364,7 @@ describe("upsert: protocolo", () => {
   test("sem signal do chamador, o prazo próprio ainda vale", async () => {
     postgrest.mode = { kind: "trava" };
     const start = performance.now();
-    await expect(upsert()).resolves.toEqual(FAILURE);
+    await expect(short.upsert("user_criteria", UPSERT, TOKEN)).resolves.toEqual(FAILURE);
     expect(performance.now() - start).toBeLessThan(2_000);
   });
 });
@@ -443,7 +447,7 @@ describe("upsert: falha fechado, sem ler o corpo da resposta", () => {
   });
 
   test("publishable errada (401)", async () => {
-    const wrong = createPostgrestUserClient({ url: postgrest.url, publishableKey: "sb_publishable_outra", timeoutMs: 300 });
+    const wrong = createPostgrestUserClient({ url: postgrest.url, publishableKey: "sb_publishable_outra", timeoutMs: HAPPY_PATH_TIMEOUT_MS });
     await expect(wrong.upsert("user_criteria", UPSERT, TOKEN)).resolves.toEqual(FAILURE);
   });
 
@@ -462,7 +466,7 @@ describe("upsert: falha fechado, sem ler o corpo da resposta", () => {
   test("lento além do prazo", async () => {
     postgrest.mode = { kind: "lento", delayMs: 1_000 };
     const start = performance.now();
-    await expect(upsert()).resolves.toEqual(FAILURE);
+    await expect(short.upsert("user_criteria", UPSERT, TOKEN)).resolves.toEqual(FAILURE);
     expect(performance.now() - start).toBeLessThan(900);
   });
 
@@ -485,7 +489,7 @@ describe("upsert: falha fechado, sem ler o corpo da resposta", () => {
   test("com o signal do chamador que nunca aborta, o prazo próprio ainda vale", async () => {
     postgrest.mode = { kind: "trava" };
     const start = performance.now();
-    await expect(upsert(TOKEN, new AbortController().signal)).resolves.toEqual(FAILURE);
+    await expect(short.upsert("user_criteria", UPSERT, TOKEN, new AbortController().signal)).resolves.toEqual(FAILURE);
     expect(performance.now() - start).toBeLessThan(2_000);
   });
 

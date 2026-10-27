@@ -26,15 +26,23 @@ declare module "vitest" {
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
+function setEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
+
 async function buildVariant(outDir: string, apiOrigin: string | undefined): Promise<string> {
-  const previous = process.env["TRAMPO_API_ORIGIN"];
-  if (apiOrigin === undefined) delete process.env["TRAMPO_API_ORIGIN"];
-  else process.env["TRAMPO_API_ORIGIN"] = apiOrigin;
+  const previousOrigin = process.env["TRAMPO_API_ORIGIN"];
+  // O vitest define NODE_ENV=test, e o Vite respeita um NODE_ENV já definido: sem isto, o build sairia
+  // com o React de desenvolvimento (StrictMode rodando os efeitos duas vezes), e não o da loja (ADR-025 D6).
+  const previousNodeEnv = process.env["NODE_ENV"];
+  setEnv("TRAMPO_API_ORIGIN", apiOrigin);
+  setEnv("NODE_ENV", "production");
   try {
     await build({ root, outDir, mode: "production" });
   } finally {
-    if (previous === undefined) delete process.env["TRAMPO_API_ORIGIN"];
-    else process.env["TRAMPO_API_ORIGIN"] = previous;
+    setEnv("TRAMPO_API_ORIGIN", previousOrigin);
+    setEnv("NODE_ENV", previousNodeEnv);
   }
   return join(outDir, "chrome-mv3");
 }

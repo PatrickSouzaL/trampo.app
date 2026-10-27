@@ -7,7 +7,7 @@ import {
   EXTRACTION_RESPONSE_SCHEMA,
   buildExtractionMessages,
 } from "../../../apps/api/src/application/llm/extraction-prompt.js";
-import { parseRetryAfterMs } from "../../../apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
+import { parseRetryAfterMs } from "../../../apps/api/src/infrastructure/llm/llm-http.js";
 import { createCloudflareWorkersAiExtractor } from "../../../apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
 
 export type ProviderKey = "groq" | "cloudflare_workers_ai";

@@ -1,0 +1,127 @@
+/* Side Panel (ADR-025 D7). Arquivo servido pela própria extensão: a CSP `default-src 'self'` barra
+   <style> inline. Texto longo sem espaço quebra em qualquer ponto, sem rolagem horizontal. */
+:root {
+  color-scheme: light dark;
+  --texto: #1b1b1f;
+  --suave: #5c5c66;
+  --fundo: #ffffff;
+  --cartao: #f3f3f6;
+  --borda: #d6d6de;
+  --alerta: #8a1c1c;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --texto: #ececf1;
+    --suave: #a4a4b0;
+    --fundo: #1b1b1f;
+    --cartao: #26262c;
+    --borda: #3a3a44;
+    --alerta: #ff9b9b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+}
+
+main {
+  padding: 12px 16px 24px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 16px 0 4px;
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 12px 0 4px;
+}
+
+ul,
+ol {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+li {
+  margin: 2px 0;
+}
+
+section,
+article {
+  margin-top: 12px;
+}
+
+[data-consentimento],
+[data-analise="erro"],
+[data-analise="concluida"] {
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+[data-analise="erro"] strong,
+[data-eliminatorio] {
+  color: var(--alerta);
+}
+
+.etapas [data-etapa="feita"] {
+  color: var(--suave);
+}
+
+.etapas [data-etapa="atual"] {
+  font-weight: 600;
+}
+
+.etapas [data-etapa="pendente"] {
+  color: var(--suave);
+  opacity: 0.7;
+}
+
+.avisos li {
+  color: var(--alerta);
+}
+
+.nota {
+  color: var(--suave);
+  font-size: 0.9em;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  margin: 4px 0 8px;
+  font: inherit;
+}
+
+button {
+  font: inherit;
+  padding: 6px 12px;
+  margin-top: 8px;
+}
+
+button.secundario {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--suave);
+  text-decoration: underline;
+  cursor: pointer;
+}

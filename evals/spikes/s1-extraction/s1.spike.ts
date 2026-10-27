@@ -10,7 +10,7 @@ import { diagnose } from "./diag.js";
 import { buildReport } from "./report.js";
 import { scoreCase } from "./score.js";
 import { runProvider } from "./runner.js";
-import { OUT_DIR, readRows, type ResultRow } from "./store.js";
+import { OUT_DIR, readAllRows, readRows, resultsPath, type ResultRow } from "./store.js";
 import { WORKERS_AI_DEFAULT_MODEL } from "../../../apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
 
 const mode = process.env["S1_MODE"] ?? "plan";
@@ -19,16 +19,20 @@ const groqVariant = process.env["S1_GROQ_VARIANT"] === "nao_estrito" ? "nao_estr
 /** S1_ONLY=json_validate_failed: só os itens que o Groq estrito recusou (para a variante `nao_estrito`). */
 const only = process.env["S1_ONLY"];
 const maxItems = Number(process.env["S1_MAX_ITEMS"] ?? (mode === "smoke" ? "1" : "1000"));
+/** S1_BUDGETS=6000: só esses orçamentos (a rodada de aceite do p2 não refaz a varredura de 4k/8k). */
+const budgets = process.env["S1_BUDGETS"]?.split(",").map(Number);
 
 const cases = loadSpikeCases();
 const byId = new Map(cases.map((c) => [c.golden.id, c] as const));
 const fullPlan = buildPlan(cases);
 const failedKeys = new Set(
-  readRows()
+  readRows(resultsPath("p1", "g2"))
     .filter((r) => r.provider === "groq" && r.variant === "estrito" && r.errorCode === only)
     .map((r) => `${r.caseId}|${String(r.budget)}`),
 );
-const plan = only === undefined ? fullPlan : fullPlan.filter((p) => failedKeys.has(`${p.caseId}|${String(p.budget)}`));
+const plan = (only === undefined ? fullPlan : fullPlan.filter((p) => failedKeys.has(`${p.caseId}|${String(p.budget)}`))).filter(
+  (p) => budgets === undefined || budgets.includes(p.budget),
+);
 
 function providers(): SpikeProvider[] {
   const env = readSpikeEnv();
@@ -118,7 +122,7 @@ describe(`S-1 (${mode})`, () => {
   });
 
   it.runIf(mode === "report" || mode === "run" || mode === "smoke")("grava o relatório agregado", () => {
-    const serialized = JSON.stringify(buildReport(readRows(), cases), null, 2);
+    const serialized = JSON.stringify(buildReport(readAllRows(), cases), null, 2);
     assertClean(serialized);
     mkdirSync(OUT_DIR, { recursive: true });
     writeFileSync(join(OUT_DIR, "s1-metrics.json"), `${serialized}\n`, "utf8");

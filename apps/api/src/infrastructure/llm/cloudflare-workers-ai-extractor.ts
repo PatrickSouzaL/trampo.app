@@ -10,16 +10,23 @@ import { randomBytes } from "node:crypto";
 import { JobFactsCacheEntrySchema } from "@trampo/contracts/job-facts";
 import { z } from "zod";
 
-import { LEDGER_POLICY } from "../../application/limits/limit-policy.js";
 import { EXTRACTION_RESPONSE_SCHEMA, buildExtractionMessages } from "../../application/llm/extraction-prompt.js";
-import { parseJsonWithoutPrototypeKeys } from "../../application/llm/llm-output-guard.js";
 import type {
   AttemptControl,
   JobFactsExtractor,
   LlmJobPayload,
   ProviderCallOutcome,
-  TokenUsage,
 } from "../../application/ports/job-facts-extractor.js";
+
+import {
+  PERMANENT_FAILURE as PERMANENT,
+  TRANSIENT_FAILURE as TRANSIENT,
+  decodeUtf8,
+  failureForStatus,
+  parseEnvelope,
+  readCapped,
+  usageFrom,
+} from "./llm-http.js";
 
 /** Modelo provisório (ADR-020 D10): o único modelo de chat ativo na lista oficial do modo JSON. Decisão final no S-1. */
 export const WORKERS_AI_DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
@@ -44,9 +51,6 @@ const API_TOKEN = /^[A-Za-z0-9_-]{40,200}$/;
  * `\`, `@`, `/` e espaço estão fora do conjunto, e o segmento vazio (`@cf//x`) também.
  */
 const MODEL_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
-/** IMF-fixdate (RFC 9110 §5.6.7), a única forma de data aceita no `Retry-After`. */
-const HTTP_DATE =
-  /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/;
 
 export type WorkersAiConfigVariable = "CLOUDFLARE_ACCOUNT_ID" | "CLOUDFLARE_API_TOKEN" | "CLOUDFLARE_WORKERS_AI_MODEL";
 
@@ -68,12 +72,6 @@ export interface WorkersAiExtractorConfig {
   readonly baseUrl?: URL;
 }
 
-const PERMANENT: ProviderCallOutcome = Object.freeze({ ok: false, failure: "erro_permanente" });
-const TRANSIENT: ProviderCallOutcome = Object.freeze({ ok: false, failure: "erro_transitorio" });
-const NO_USAGE: TokenUsage = Object.freeze({ inputTokens: 0, outputTokens: 0 });
-
-const TokenCountSchema = z.int().min(0).max(LEDGER_POLICY.maxTokensPerCall);
-const UsageSchema = z.object({ prompt_tokens: TokenCountSchema, completion_tokens: TokenCountSchema });
 /**
  * Envelope `{ result: { response, usage? }, success }` (D6), sem exigir chaves extras. `response` é string (a
  * referência da API) ou objeto (o exemplo do modo JSON). O formato OpenAI (`choices[]`) não tem `result.response`.
@@ -93,61 +91,16 @@ function isValidModelId(model: string): boolean {
   return prefix === "@cf" && rest.length > 0 && rest.every((segment) => MODEL_SEGMENT.test(segment));
 }
 
-/**
- * `Retry-After` em ms (D7): inteiro de segundos, ou data HTTP no futuro. Qualquer outra coisa é `null`; o router
- * limita a [1 s, 120 s] e usa 60 s com `null` (ADR-009 D5).
- */
-export function parseRetryAfterMs(value: string | null, nowMs: number): number | null {
-  if (value === null) return null;
-  if (/^\d{1,6}$/.test(value)) return Number(value) * 1_000;
-  if (!HTTP_DATE.test(value)) return null;
-  const at = Date.parse(value);
-  return at > nowMs ? at - nowMs : null;
-}
-
-/** Lê o corpo contando bytes; `null` acima do teto. Sair do for-await cancela o resto do stream. */
-async function readCapped(body: ReadableStream<Uint8Array>, maxBytes: number): Promise<Buffer | null> {
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for await (const chunk of body) {
-    total += chunk.byteLength;
-    if (total > maxBytes) return null;
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
-}
-
-function decodeUtf8(bytes: Buffer): string | null {
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    return null;
-  }
-}
-
-/** Status ≠ 200 (D6). O corpo nunca é lido. 3xx chega aqui porque o redirecionamento não é seguido. */
-function failureFor(status: number, retryAfter: string | null): ProviderCallOutcome {
-  if (status === 429) {
-    return { ok: false, failure: "limite_de_taxa", retryAfterMs: parseRetryAfterMs(retryAfter, Date.now()) };
-  }
-  return (status >= 500 && status <= 599) || status === 408 ? TRANSIENT : PERMANENT;
-}
-
 /** 200 com corpo já decodificado: envelope válido dá a resposta bruta; o resto é permanente. */
 function outcomeFor(text: string): ProviderCallOutcome {
-  const json = parseJsonWithoutPrototypeKeys(text);
-  if (!json.ok) return PERMANENT;
-  const envelope = EnvelopeSchema.safeParse(json.value);
-  if (!envelope.success) return PERMANENT;
-  const { response, usage } = envelope.data.result;
-  const counted = UsageSchema.safeParse(usage);
+  const envelope = parseEnvelope(text, EnvelopeSchema);
+  if (envelope === null) return PERMANENT;
+  const { response, usage } = envelope.result;
   return {
     ok: true,
     // Objeto (exemplo do modo JSON): volta a ser texto, e a guarda do router parseia de novo, com o teto de 8 KiB.
     raw: typeof response === "string" ? response : JSON.stringify(response),
-    usage: counted.success
-      ? { inputTokens: counted.data.prompt_tokens, outputTokens: counted.data.completion_tokens }
-      : NO_USAGE,
+    usage: usageFrom(usage),
   };
 }
 
@@ -200,7 +153,7 @@ export function createCloudflareWorkersAiExtractor(config: WorkersAiExtractorCon
       });
       if (response.status !== 200) {
         await response.body?.cancel().catch(() => undefined);
-        return failureFor(response.status, response.headers.get("retry-after"));
+        return failureForStatus(response.status, response.headers.get("retry-after"));
       }
       if (response.body === null) return PERMANENT;
       const bytes = await readCapped(response.body, WORKERS_AI_POLICY.maxResponseBytes);

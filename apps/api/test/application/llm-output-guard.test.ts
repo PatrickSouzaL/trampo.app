@@ -45,6 +45,7 @@ const CLEAN: LlmOutputSanitization = {
   malformedItemsRemoved: 0,
   offEnumItemsRemoved: 0,
   absentValuesNormalized: 0,
+  stackOverlapsResolved: 0,
   duplicatesRemoved: 0,
   itemsCut: 0,
   textTruncated: false,
@@ -67,8 +68,8 @@ describe("LlmOutputGuard: caminho feliz", () => {
     expect(result.sanitization).toStrictEqual(CLEAN);
   });
 
-  test("versão g3 (entra no extractorVersion do cache)", () => {
-    expect(LLM_OUTPUT_GUARD_VERSION).toBe("g3");
+  test("versão g4 (entra no extractorVersion do cache)", () => {
+    expect(LLM_OUTPUT_GUARD_VERSION).toBe("g4");
   });
 
   test("os fatos devolvidos são objetos com protótipo padrão, construídos pelo Zod", () => {
@@ -190,7 +191,6 @@ describe("LlmOutputGuard: JobFactsSchema estrito, sem coerção", () => {
       { language: "ingles", level: null, required: true },
       { language: "ingles", level: "fluente", required: false },
     ] }],
-    ["stack obrigatória e desejável sobrepostas", { stackNiceToHave: ["typescript"] }],
     ["UF fora do enum", { location: { city: null, stateUf: "XX", countryIso2: null } }],
   ])("%s → schema_invalido", (_name, overrides) => {
     expectRejected(inspectWith(overrides), "schema_invalido");
@@ -529,6 +529,111 @@ describe("LlmOutputGuard g3: null num campo de array vira []", () => {
     const result = expectOk(inspectWith({ title: null, yearsExperienceMin: null, location: null, salary: null }));
     expect(result.facts).toMatchObject({ title: null, yearsExperienceMin: null, location: null, salary: null });
     expect(result.sanitization).toStrictEqual(CLEAN);
+  });
+});
+
+describe("LlmOutputGuard g4: termo nas duas listas de stack fica só no desejável", () => {
+  test("sai do exigido, fica no desejável e é contado, sem diferenciar caixa e sem sinal de injection", () => {
+    const result = expectOk(inspectWith({ stackRequired: ["TypeScript", "Node.js"], stackNiceToHave: ["typescript"] }));
+    expect(result.facts.stackRequired).toStrictEqual(["Node.js"]);
+    expect(result.facts.stackNiceToHave).toStrictEqual(["typescript"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, stackOverlapsResolved: 1 });
+  });
+
+  test("as 3 recusas do aceite do p2 (sobreposição), com fatos sintéticos, passam no guard", () => {
+    const result = expectOk(
+      inspectWith({
+        stackRequired: ["Python", "SQL", "Airflow", "AWS"],
+        stackNiceToHave: ["Airflow", "aws", "Databricks", "sql"],
+      }),
+    );
+    expect(result.facts.stackRequired).toStrictEqual(["Python"]);
+    expect(result.facts.stackNiceToHave).toStrictEqual(["Airflow", "aws", "Databricks", "sql"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, stackOverlapsResolved: 3 });
+  });
+
+  test("compara com o desejável já saneado: NFKC e aparo nos dois lados", () => {
+    const result = expectOk(inspectWith({ stackRequired: [" Ｒｅａｃｔ ", "Go"], stackNiceToHave: ["react "] }));
+    expect(result.facts.stackRequired).toStrictEqual(["Go"]);
+    expect(result.facts.stackNiceToHave).toStrictEqual(["react"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, stackOverlapsResolved: 1 });
+  });
+
+  test("tag do desejável que o saneamento removeu não tira nada do exigido", () => {
+    const result = expectOk(inspectWith({ stackRequired: ["Go"], stackNiceToHave: ["Go<x>", "Go!"] }));
+    expect(result.facts.stackRequired).toStrictEqual(["Go"]);
+    expect(result.facts.stackNiceToHave).toStrictEqual([]);
+    expect(result.sanitization).toStrictEqual({
+      ...CLEAN,
+      hiddenOrMarkupRemoved: 1,
+      malformedItemsRemoved: 1,
+      injectionSignal: true,
+    });
+  });
+
+  test("termo cortado do desejável continua no exigido: nunca some das duas listas", () => {
+    const nice = Array.from({ length: 31 }, (_, i) => `Nice${i}`);
+    const result = expectOk(inspectWith({ stackRequired: ["Nice30", "Nice0"], stackNiceToHave: nice }));
+    expect(result.facts.stackNiceToHave).toStrictEqual(nice.slice(0, ARRAY_MAX_ITEMS.stackNiceToHave));
+    expect(result.facts.stackRequired).toStrictEqual(["Nice30"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, stackOverlapsResolved: 1, itemsCut: 1 });
+  });
+
+  test("checagens de URL, marcação e formato vêm antes: cada uma conta no próprio contador", () => {
+    const result = expectOk(inspectWith({ stackRequired: ["go.com/x", "Go<x>", "Go!", "Go"], stackNiceToHave: ["go"] }));
+    expect(result.facts.stackRequired).toStrictEqual([]);
+    expect(result.sanitization).toStrictEqual({
+      ...CLEAN,
+      urlsRemoved: 1,
+      hiddenOrMarkupRemoved: 1,
+      malformedItemsRemoved: 1,
+      stackOverlapsResolved: 1,
+      injectionSignal: true,
+    });
+  });
+
+  test("a sobreposição vem antes da duplicata e do corte: o termo removido não ocupa vaga", () => {
+    const required = ["Go", "go", ...Array.from({ length: 30 }, (_, i) => `Req${i}`)];
+    const result = expectOk(inspectWith({ stackRequired: required, stackNiceToHave: ["GO"] }));
+    expect(result.facts.stackRequired).toStrictEqual(required.slice(2));
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, stackOverlapsResolved: 2 });
+  });
+
+  test("desejável que não é array não tira nada do exigido, e o Zod reprova o tipo", () => {
+    expectRejected(inspectWith({ stackRequired: ["Go"], stackNiceToHave: "Go" }), "schema_invalido");
+    expectRejected(inspectWith({ stackRequired: ["Go"], stackNiceToHave: { Go: 1 } }), "schema_invalido");
+    // Objeto sem conversão para primitivo: o guard nunca lança.
+    const hostile = { toString: 1, valueOf: 1 };
+    expectRejected(inspectWith({ stackRequired: ["Go"], stackNiceToHave: hostile }), "schema_invalido");
+  });
+
+  test("tag exigida malformada que só casa em minúsculas continua malformada, não sobreposição", () => {
+    // "İ".toLowerCase() é "i" + U+0307: a forma em minúsculas do termo válido reprova no TECH_TAG_PATTERN.
+    const result = expectOk(inspectWith({ stackRequired: ["i̇os", "Go"], stackNiceToHave: ["İOS"] }));
+    expect(result.facts.stackRequired).toStrictEqual(["Go"]);
+    expect(result.facts.stackNiceToHave).toStrictEqual(["İOS"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, malformedItemsRemoved: 1 });
+  });
+
+  test("item do desejável que não é string não entra na comparação, e o Zod reprova", () => {
+    expectRejected(inspectWith({ stackRequired: ["Go"], stackNiceToHave: ["Go", 1] }), "schema_invalido");
+  });
+
+  test("o desejável nunca perde item por causa do exigido", () => {
+    const result = expectOk(inspectWith({ stackRequired: ["Kotlin", "Java"], stackNiceToHave: ["JAVA", "Kotlin"] }));
+    expect(result.facts.stackNiceToHave).toStrictEqual(["JAVA", "Kotlin"]);
+    expect(result.facts.stackRequired).toStrictEqual([]);
+  });
+
+  test("nomes de propriedade do protótipo nas duas listas: comparação por Set, nada poluído", () => {
+    const result = expectOk(inspectWith({ stackRequired: ["constructor", "toString"], stackNiceToHave: ["toString"] }));
+    expect(result.facts.stackRequired).toStrictEqual(["constructor"]);
+    expect(result.sanitization).toStrictEqual({ ...CLEAN, stackOverlapsResolved: 1 });
+  });
+
+  test("o contador não acende o sinal de injection; URL no título continua acendendo", () => {
+    const loud = expectOk(inspectWith({ title: "Dev https://x.example", stackNiceToHave: ["TypeScript"] }));
+    expect(loud.sanitization).toStrictEqual({ ...CLEAN, urlsRemoved: 1, stackOverlapsResolved: 1, injectionSignal: true });
   });
 });
 

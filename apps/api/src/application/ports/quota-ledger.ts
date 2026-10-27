@@ -13,6 +13,14 @@ export type QuotaDecision = "permitido" | "provedor_esgotado" | "global_esgotado
 export interface QuotaLedger {
   /** Reserva uma chamada. Erro, valor desconhecido ou demora significam negado (T39). */
   reserve(provider: LlmProviderId, signal: AbortSignal): Promise<QuotaDecision>;
-  /** Tokens gastos numa chamada que respondeu. Melhor esforço: a falha não derruba a análise. */
+  /**
+   * Tokens gastos numa chamada que respondeu: ajusta a reserva pessimista ao uso real (ADR-022 D7.2). Melhor
+   * esforço: a falha não derruba a análise.
+   */
   recordUsage(provider: LlmProviderId, usage: TokenUsage): Promise<void>;
+  /**
+   * HTTP 429 do provedor: bloqueia o provedor pelo `Retry-After` (ou 60 s), entre instâncias e além de um restart
+   * (ADR-022 D7.3). Melhor esforço, nunca rejeita; o resfriamento por processo do router continua igual.
+   */
+  recordRateLimit(provider: LlmProviderId, retryAfterMs: number | null): Promise<void>;
 }

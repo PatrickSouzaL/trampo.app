@@ -14,6 +14,7 @@ import { systemClock } from "../src/infrastructure/time/system-clock.js";
 import { buildApp } from "../src/presentation/build-app.js";
 import { TEST_PRINCIPAL, TEST_TOKEN, fakeVerifier } from "./auth-fakes.js";
 import { startFakeUpstash, type FakeUpstash, type UpstashMode } from "./infrastructure/fakes/fake-upstash.js";
+import { HAPPY_PATH_TIMEOUT_MS } from "./support/socket-deadlines.js";
 import { plainIdentifierLeaks } from "./infrastructure/fakes/redis-store.js";
 
 const UPSTASH_TOKEN = "AXcanario_upstash-token.987";
@@ -35,18 +36,22 @@ afterEach(async () => {
   await upstash.close();
 });
 
-/** Igual ao main.ts: instâncias criadas uma vez, compartilhadas por todas as requisições. */
-function stackApp(token = UPSTASH_TOKEN) {
+/**
+ * Igual ao main.ts: instâncias criadas uma vez, compartilhadas por todas as requisições. Sem `timeoutMs`, valem os
+ * prazos de produção do cliente e dos guardas (os testes de falha fechado); com ele, o prazo folgado dos testes de
+ * fluxo (QA-02).
+ */
+function stackApp(token = UPSTASH_TOKEN, timeoutMs?: number) {
   const deps = {
-    redis: createUpstashRestClient({ url: upstash.url, token }),
+    redis: createUpstashRestClient({ url: upstash.url, token, ...(timeoutMs === undefined ? {} : { timeoutMs }) }),
     pseudonymizer: createHmacKeyPseudonymizer(PEPPER),
     now: () => NOON,
   };
   const instance = buildApp({
     accessTokenVerifier: fakeVerifier().verifier,
     limits: {
-      rateLimit: new RateLimitGuard(createRedisRateLimiter(deps), systemClock),
-      dailyQuota: new DailyQuotaGuard(createRedisDailyQuota(deps), systemClock),
+      rateLimit: new RateLimitGuard(createRedisRateLimiter(deps), systemClock, timeoutMs),
+      dailyQuota: new DailyQuotaGuard(createRedisDailyQuota(deps), systemClock, timeoutMs),
     },
     logger: { level: "trace", stream: { write: (l) => void lines.push(l) } },
   });
@@ -77,7 +82,7 @@ const commandLog = (): RedisCommand[][] => upstash.requests.map((r) => r.command
 
 describe("fluxo feliz e limites reais", () => {
   test("5 análises por minuto passam; a 6ª dá 429 LIMITE_DE_TAXA com Retry-After", async () => {
-    const { app } = stackApp();
+    const { app } = stackApp(UPSTASH_TOKEN, HAPPY_PATH_TIMEOUT_MS);
     for (let n = 1; n <= 5; n += 1) expect((await analyze(app, n)).statusCode).toBe(200);
     const res = await analyze(app, 6);
     expect(res.statusCode).toBe(429);
@@ -88,7 +93,7 @@ describe("fluxo feliz e limites reais", () => {
   });
 
   test("cota do dia esgotada: 429 COTA_DIARIA_ESGOTADA até a meia-noite de Brasília (9 h)", async () => {
-    const { app, pseudonymizer } = stackApp();
+    const { app, pseudonymizer } = stackApp(UPSTASH_TOKEN, HAPPY_PATH_TIMEOUT_MS);
     const key = `quota:${pseudonymizer.pseudonym("sub", TEST_PRINCIPAL.userId)}:2026-10-21`;
     upstash.store.values.set(key, new Set(Array.from({ length: 50 }, (_, i) => requestId(1_000 + i))));
     const res = await analyze(app, 1);
@@ -100,7 +105,7 @@ describe("fluxo feliz e limites reais", () => {
   });
 
   test("SR-17: nenhum argumento enviado ao Redis contém o IP ou o sub", async () => {
-    const { app } = stackApp();
+    const { app } = stackApp(UPSTASH_TOKEN, HAPPY_PATH_TIMEOUT_MS);
     for (let n = 1; n <= 7; n += 1) await analyze(app, n);
     await app.inject({ method: "GET", url: "/probe", remoteAddress: "2001:db8:aaaa:bbbb::1", headers: { authorization: `Bearer ${TEST_TOKEN}` } });
     expect(upstash.requests.length).toBeGreaterThan(10);
@@ -143,7 +148,7 @@ describe("falha fechado na pilha inteira (SR-06, T39): 503, nunca 200", () => {
   });
 
   test("a cota falha sozinha (WRONGTYPE no set do dia): 503 depois de o rate limit passar", async () => {
-    const { app, pseudonymizer } = stackApp();
+    const { app, pseudonymizer } = stackApp(UPSTASH_TOKEN, HAPPY_PATH_TIMEOUT_MS);
     upstash.store.values.set(`quota:${pseudonymizer.pseudonym("sub", TEST_PRINCIPAL.userId)}:2026-10-21`, "texto");
     const res = await analyze(app, 1);
     expect(res.statusCode).toBe(503);
@@ -154,7 +159,7 @@ describe("falha fechado na pilha inteira (SR-06, T39): 503, nunca 200", () => {
 
 describe("SR-12 na pilha inteira", () => {
   test("canário de IP, sub, requestId, token, token do Upstash, pepper, chave e HMAC fora de todas as linhas", async () => {
-    const { app, pseudonymizer } = stackApp();
+    const { app, pseudonymizer } = stackApp(UPSTASH_TOKEN, HAPPY_PATH_TIMEOUT_MS);
     for (let n = 1; n <= 6; n += 1) await analyze(app, n);
     upstash.mode = { kind: "status", status: 500 };
     await analyze(app, 7);

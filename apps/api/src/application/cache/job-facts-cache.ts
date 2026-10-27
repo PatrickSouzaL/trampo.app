@@ -41,6 +41,11 @@ export interface JobFactsCacheDeps {
   /** Pares provedor e modelo da cadeia atual. Os de dev (Ollama) nunca valem para o cache. */
   readonly acceptedModels: readonly AcceptedModel[];
   readonly guard?: LlmOutputGuard;
+  /**
+   * Prazos da leitura e da escrita. Só os testes de socket real passam um prazo maior (QA-02), como o `timeoutMs`
+   * dos guardas de limite; o composeApp não passa, e valem os do CACHE_POLICY.
+   */
+  readonly deadlines?: { readonly lookupMs: number; readonly storeMs: number };
 }
 
 export type CacheMissReason = "ausente" | "corrompido" | "obsoleto" | "indisponivel";
@@ -89,6 +94,8 @@ export class JobFactsCache {
   readonly #extractorVersion: string;
   readonly #accepted: ReadonlySet<string>;
   readonly #guard: LlmOutputGuard;
+  readonly #lookupTimeoutMs: number;
+  readonly #storeTimeoutMs: number;
 
   constructor(deps: JobFactsCacheDeps) {
     if (!JobFactsCacheEntrySchema.shape.extractorVersion.safeParse(deps.extractorVersion).success) {
@@ -102,6 +109,8 @@ export class JobFactsCache {
       deps.acceptedModels.filter(({ provider }) => PRODUCTION.has(provider)).map(({ provider, model }) => pairKey(provider, model)),
     );
     this.#guard = deps.guard ?? new LlmOutputGuard();
+    this.#lookupTimeoutMs = deps.deadlines?.lookupMs ?? CACHE_POLICY.lookupTimeoutMs;
+    this.#storeTimeoutMs = deps.deadlines?.storeMs ?? CACHE_POLICY.storeTimeoutMs;
   }
 
   /** A tag da chave (ADR-015 D2). O AnalyzeJob confere no boot que é a mesma que ele põe no relatório. */
@@ -119,7 +128,7 @@ export class JobFactsCache {
     const key = this.keyFor(textHash);
     return withDeadline(
       this.#clock,
-      CACHE_POLICY.lookupTimeoutMs,
+      this.#lookupTimeoutMs,
       async (signal) => {
         const read = await this.#store.read(key, signal);
         if (!read.ok) return MISS_UNAVAILABLE;
@@ -156,7 +165,7 @@ export class JobFactsCache {
     const key = this.keyFor(candidate.textHash);
     return withDeadline(
       this.#clock,
-      CACHE_POLICY.storeTimeoutMs,
+      this.#storeTimeoutMs,
       async (signal): Promise<CacheStoreOutcome> => {
         const result = await this.#store.writeIfAbsent(key, value, CACHE_POLICY.ttlSeconds, signal);
         if (result === "gravado") return { written: true };
