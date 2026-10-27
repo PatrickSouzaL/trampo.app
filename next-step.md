@@ -4,35 +4,34 @@
 
 ## O que acabou de ser entregue (2026-10-27)
 
-### Trilha B2: adapter do Groq (ADR-022 §4), 6 commits locais
-| # | Commit | O que entrou | Mutação |
-|---|---|---|---|
-| 1 | `4220bee` | `infrastructure/llm/llm-http.ts`: helpers HTTP compartilhados pela Workers AI e pelo Groq | 11/11 |
-| 2 | `5cc746d` | teto da tentativa por provedor no router (Groq 3 s; com o Groq travado, a Workers AI recebe 8,7 s) | 9/9 |
-| 3 | `1b07950` | reserva pessimista de 3.000 tokens no ledger, com reconciliação (inclusive negativa) | 17/17 |
-| 4 | `27aa181` | `recordRateLimit` e `llm:block` (bloqueio por `Retry-After` até 1 h, entre instâncias) | 16/16 |
-| 5 | `f6e2cb8` | `groq-extractor.ts` contra um Groq simulado em socket real (113 testes) | 33/33 |
-| 6 | `797c04b` | contadores do `g3`/`g4` na telemetria (`llm_guard_normalization_total`) | 14/14 |
-
-- **Prova:**
-  - os 10 critérios do ADR-022 §3 estão cobertos;
-  - API com 2.879 testes e 100%;
-  - turbo 19/19 em série;
-  - depcruise sem violações;
-  - typecheck do `@trampo/evals` verde.
-- **O que a B2 não fez:** não ligou o adapter no `main.ts` (um teste confere isso), não chamou o Groq real e não mudou `p3`/`g4`. `[APPSEC]` sem veto.
-- **Riscos residuais novos** (ADR-022 §5):
-  - a reconciliação que cruza a virada do minuto ou do dia desloca até (reserva − uso) para a janela nova;
-  - um 429 com `Retry-After` menor sobrescreve o bloqueio;
-  - `tool_calls: null` é tolerado como ausência.
-- **Instabilidade observada:** com a CPU em ~70% por carga externa, o SR-09 (QA-01) e o `edge-socket` 413 (QA-03) caíram em rodadas isoladas e passaram na suíte inteira em seguida. Os dois já estão no BACKLOG, e nada foi afrouxado.
+### Trilha D: S-2, parte sintética (ADR-023), commit local `9b867b7`
+- **Extrator genérico `ge1`** (`apps/extension/src/extraction/generic-extractor.ts`):
+  - função autocontida para o `executeScript`, no mundo ISOLATED, que lê só o `data` de nós de texto;
+  - descarte por técnica do T2, com 12 contadores;
+  - cor normalizada por canvas (o `getComputedStyle` devolve `oklch`/`lab` sem converter);
+  - invisíveis Unicode e Base64 preservados para o servidor contar;
+  - lint de só-leitura em `src/extraction`;
+  - **não está ligado no Service Worker.**
+- **Prova:** `pnpm --filter @trampo/extension test:browser` (Edge real, fora do CI):
+  - 23 fixtures sintéticas, cada uma com canário e controle visível;
+  - 52/52 testes, com 100% de cobertura de bloco do V8;
+  - mutação com 97 mutantes em 3 rodadas, sem sobrevivente;
+  - turbo 19/19 em série e depcruise sem violações;
+  - `[APPSEC]` sem veto.
+- **Achados corrigidos antes do commit:**
+  - o texto solto direto em `content-visibility:hidden` e em `<details>` fechado vazava;
+  - `display:contents` apagava texto legítimo;
+  - o transbordo para a esquerda ou para cima de um rolável não era cortado.
+- **HITL-030 aberto** (não bloqueia nada abaixo): salvar as páginas reais pelo runbook `fixtures-dom` do cofre.
+- Nenhuma versão de prompt ou guard mudou, e nada chamou a rede.
 
 ### Antes (ainda valendo)
-- `g4` (`90867d9`) e `p3` (`61474d0`), locais e sem push. O aceite dos dois espera a cota do Groq (Trilha A).
-- QA-02 fechado (`d03c9c7`). Os residuais estão no QA-03.
+- Adapter do Groq pronto (B2, `4220bee` a `797c04b`), sem ligar no `main.ts`.
+- `g4` (`90867d9`) e `p3` (`61474d0`), locais. O aceite dos dois espera a cota do Groq (Trilha A).
 
 ### Pendências do humano
-- Nenhum HITL aberto. O push continua não autorizado.
+- **HITL-030 (opcional, sem pressa):** de 3 a 5 vagas do LinkedIn e de 3 a 5 da Gupy, em janela anônima, **sem login**, salvas com Ctrl+S → "Página da Web, completa". Na pasta `_files`, apague tudo que não for `.css`, e guarde fora do repositório. Se já salvou como "somente HTML", os arquivos servem para os seletores, mas não para medir o descarte.
+- O push continua não autorizado.
 
 ---
 
@@ -40,28 +39,22 @@
 
 **Regra de ouro:** só a **Trilha A** espera a cota do Groq. As outras andam hoje, em qualquer ordem entre si.
 
-| Trilha | Sessão | Gasta cota do Groq? | Espera a Trilha A? |
+| Trilha | Sessão | Gasta cota do Groq? | Espera |
 |---|---|---|---|
-| **A** | Aceite do `p3`/`g4` e, se o gate passar, ligar a cadeia no `main.ts` | **sim, um dia inteiro** | — |
-| **D** | S-2 com fixtures sintéticas (extrator genérico e técnicas de ocultação do T2) | não | não |
-| **E** | DOC-01 (sincronizar o `contratos-zod` do cofre com o código) | não | não |
-
-**O que de fato espera a Trilha A:**
-- ligar a cadeia Groq → Workers AI → determinístico no `main.ts`. O adapter do Groq já está pronto (B2);
-- fechar o S-1 (modelo primário e gate por modelo do F1-EVL-01).
-
-Nada nas trilhas D e E depende do resultado do aceite.
+| **A** | Aceite do `p3`/`g4` e, se o gate passar, ligar a cadeia no `main.ts` | **sim, um dia inteiro** | a cota zerar |
+| **E** | DOC-01 (sincronizar o `contratos-zod` do cofre com o código) | não | nada |
+| **F** | F1-EXT-03 parte 1: ligar o extrator genérico no Service Worker e o fallback "colar o texto" | não | nada |
+| **D2** | S-2 real: anonimizar as fixtures, extratores do LinkedIn e da Gupy e a medição do §3 | não | **HITL-030** |
 
 **Cuidados para as trilhas não se atrapalharem:**
 1. **Uma sessão por vez nesta pasta.** Todas usam o mesmo branch e o mesmo `STATE.md`. A Trilha A entra entre duas sessões quaisquer, assim que a cota zerar.
-2. **Nenhuma sessão D ou E muda `EXTRACTION_PROMPT_VERSION` ou `LLM_OUTPUT_GUARD_VERSION`.** Se mudar, o aceite passa a medir outra coisa. Se uma sessão precisar mudar alguma das duas, ela para e registra no STATE.
-3. **Nenhuma sessão D ou E chama o Groq real.** Os testes usam *fakes*, e qualquer *smoke* com o provedor fica para a Trilha A.
-4. **Testes novos de socket real seguem o QA-02:** o prazo folgado (`test/support/socket-deadlines.ts`) vale para protocolo e fluxo, e o prazo curto, para os testes de prazo.
-5. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
+2. **Nenhuma sessão E, F ou D2 muda `EXTRACTION_PROMPT_VERSION` ou `LLM_OUTPUT_GUARD_VERSION`.** Se precisar mudar, ela para e registra no STATE.
+3. **Nenhuma sessão E, F ou D2 chama o Groq real.**
+4. **Testes novos de socket real seguem o QA-02**, com o prazo folgado de `test/support/socket-deadlines.ts` para protocolo e fluxo.
+5. **F e D2 mexem no extrator:** a regra de descarte é uma só (ADR-023 D4). Qualquer mudança nela passa pelo `test:browser` inteiro, com a cobertura de 100% e a mutação.
+6. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
 
-**Sugestão de ordem:** D → E (B1, B2 e C concluídas). A Trilha A entra quando a cota zerar. O humano estima 24 h depois da rodada do `p2`, feita em 2026-10-26.
-
-**Algo que o humano pode adiantar (opcional, sem bloquear nada):** para a parte real do S-2, salvar o HTML de 3 a 5 vagas do LinkedIn e da Gupy. Pela janela anônima, use "Salvar como → Página da Web, somente HTML", sem estar logado, e guarde **fora do repositório**. A Trilha D gera o runbook de anonimização antes de qualquer arquivo entrar no git.
+**Sugestão de ordem:** E → F. A Trilha A entra quando a cota zerar, e a D2 quando o HITL-030 fechar.
 
 ---
 
@@ -76,16 +69,25 @@ Equipe, sigam em ciclo estrito. Trilha A do next-step: aceite do p3/g4 (spike-me
 4. [SCRIBE]: spike-metrics §2.8, ADR-020 §8.6, STATE e SESSION-LOG. Se o gate passar, o próximo passo é ligar a cadeia no main.ts com o adapter do Groq (pronto na B2): o smoke de 1 chamada pelo adapter real, a forma da GROQ_API_KEY conferida com a chave real sem exibi-la (ADR-022 D8) e a reserva de 3.000 tokens do ADR-022 D7.2 recalibrada com o p95 medido. Se falhar, abram um HITL com as opções. Reescrevam o next-step mantendo as trilhas que faltam.
 ```
 
-### Trilha D: S-2 com fixtures sintéticas
-```text
-Equipe, sigam em ciclo estrito. Trilha D do next-step: S-2 (BACKLOG), só a parte que não precisa de página real.
-1. [ORCHESTRATOR]: leiam STATE.md, a entrada S-2 do BACKLOG, ADR-001 §5.0 e o threat-model T2 (técnicas de ocultação). Confirmem que F1-EXT-00 a 02 estão prontos.
-2. [ARCHITECT] + [APPSEC]: desenhem o extrator genérico autocontido (para scripting.executeScript, sem innerHTML, sem ler atributos, ignorando display:none, visibility:hidden, font-size:0 e as demais técnicas do T2) e o formato das fixtures de DOM anonimizadas. Escrevam o runbook de coleta e anonimização das fixtures reais (o humano salva as páginas) e abram o HITL correspondente, que não bloqueia esta trilha.
-3. [DEV] + [QA_EVALS]: extrator genérico e uma fixture adversarial sintética por técnica do T2, com o descarte provado, cobertura de 100% e mutação. Os extratores do LinkedIn e da Gupy esperam as fixtures reais.
-4. [SCRIBE]: spike-metrics §3 (parcial), STATE e SESSION-LOG, commit local. Reescrevam o next-step mantendo as trilhas.
-```
-
 ### Trilha E: DOC-01
 ```text
 Equipe, sigam em ciclo estrito. Trilha E do next-step: DOC-01 (BACKLOG). [SCRIBE] + [ARCHITECT]: sincronizem o contratos-zod do cofre com packages/contracts. A fonte da verdade é o código: veredito de 5 faixas, ARS, pressao_excessiva, summary, reportCatalogVersion, o prefixo @cf/ do model e o teto de 12.288 bytes dos critérios. Nenhum código muda. Atualizem STATE e SESSION-LOG e reescrevam o next-step mantendo as trilhas.
+```
+
+### Trilha F: F1-EXT-03 parte 1 (extrator genérico no Service Worker)
+```text
+Equipe, sigam em ciclo estrito. Trilha F do next-step: F1-EXT-03 parte 1 (BACKLOG), só o extrator genérico.
+1. [ORCHESTRATOR]: leiam STATE.md, ADR-023 (§2 e §4), ADR-001 §5.0 passos 1 a 5 e o código de apps/extension/src (background.ts, messaging/). Confirmem o commit 9b867b7 e o test:browser verde.
+2. [ARCHITECT] + [APPSEC]: desenhem a ligação. O Service Worker chama scripting.executeScript({ func: extractGenericJobText, args: [limites] }) no frame principal e no mundo ISOLATED. Ele valida o resultado (forma e tamanho, com Zod), remove os caracteres de controle e os surrogates órfãos, trunca em JOB_TEXT_MAX_CHARS por code point e guarda a última extração em storage.session. O fallback "colar o texto" vale para texto_insuficiente, para erro e para a falta de concessão do activeTab. Nenhum texto de vaga vai para log. Provem a autocontenção no bundle de PRODUÇÃO (o extrator minificado roda no E2E do Edge sem referências externas).
+3. [DEV] + [QA_EVALS]: implementem com testes de unidade e E2E (build de produção, página local com fixture adversarial, canário ausente no que o Service Worker guardou). Mantenham 100% de cobertura e rodem a mutação no código novo. O extrator não muda; se precisar mudar, o test:browser inteiro roda de novo.
+4. [SCRIBE]: ADR (emenda ou ADR novo), STATE, SESSION-LOG e commit local. Reescrevam o next-step mantendo as trilhas.
+```
+
+### Trilha D2: S-2 real (só depois do HITL-030)
+```text
+Equipe, sigam em ciclo estrito. Trilha D2 do next-step: S-2 com páginas reais (HITL-030 fechado).
+1. [ORCHESTRATOR]: leiam STATE.md, ADR-023, o runbook fixtures-dom e o HITL-030. Confirmem com o humano a pasta das páginas brutas e o modo de salvamento. Nenhum arquivo bruto entra no git.
+2. [APPSEC] + [DEV]: anonimizem pelo runbook §2 (por script, no scratchpad), gravem as fixtures no formato do §3 e rodem a varredura do §4 inteira antes de qualquer git add.
+3. [DEV] + [QA_EVALS]: extratores do LinkedIn e da Gupy (raiz por plataforma, reusando as regras de descarte do ADR-023 D4), extrator genérico também medido nas páginas reais, taxa de sucesso, estabilidade dos seletores e plano de monitoramento. Mantenham 100% de cobertura e rodem a mutação.
+4. [SCRIBE]: spike-metrics §3.3, ADR-023, STATE, SESSION-LOG e commits locais (as fixtures num commit próprio, com a contagem de marcadores na mensagem). Reescrevam o next-step mantendo as trilhas.
 ```
