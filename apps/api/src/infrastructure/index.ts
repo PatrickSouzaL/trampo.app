@@ -28,6 +28,15 @@ export {
   type WorkersAiConfigVariable,
   type WorkersAiExtractorConfig,
 } from "./llm/cloudflare-workers-ai-extractor.js";
+export {
+  GROQ_CHAT_COMPLETIONS_URL,
+  GROQ_MODEL,
+  GROQ_POLICY,
+  GroqConfigError,
+  createGroqExtractor,
+  type GroqConfigVariable,
+  type GroqExtractorConfig,
+} from "./llm/groq-extractor.js";
 export { parseRetryAfterMs } from "./llm/llm-http.js";
 export {
   USER_CRITERIA_SELECT,
