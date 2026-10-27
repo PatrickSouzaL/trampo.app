@@ -1,5 +1,6 @@
 // QuotaLedger em Redis (ADR-009 D6; ADR-014 D6; T7, T39) contra o Redis simulado em memória: folga de 15%
-// por provedor, breaker diário global, compensação na negação, falha fechado e recordUsage em melhor esforço.
+// por provedor, breaker diário global, compensação na negação, falha fechado, reserva pessimista de tokens com
+// reconciliação (ADR-022 D7.2) e recordUsage em melhor esforço.
 // No fim, o router real com este ledger: Redis fora do ar → `cota_esgotada`, sem chamada ao LLM.
 import type { LlmProviderId } from "@trampo/contracts";
 import { describe, expect, test } from "vitest";
@@ -31,9 +32,24 @@ function harness(now = NOW) {
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const RESERVED = 3_000;
 
 describe("reserve", () => {
-  test("permite e conta global, RPM e RPD numa transação de 8 comandos", async () => {
+  test("sem limite de tokens (Workers AI): só global, RPM e RPD, em 6 comandos", async () => {
+    const h = harness();
+    await expect(h.reserve("cloudflare_workers_ai")).resolves.toBe("permitido");
+    expect(h.log[0]).toEqual([
+      ["INCR", `llm:global:${DAY}`],
+      ["EXPIRE", `llm:global:${DAY}`, 172_800],
+      ["INCR", `llm:rpm:cloudflare_workers_ai:${MINUTE}`],
+      ["EXPIRE", `llm:rpm:cloudflare_workers_ai:${MINUTE}`, 120],
+      ["INCR", `llm:rpd:cloudflare_workers_ai:${DAY}`],
+      ["EXPIRE", `llm:rpd:cloudflare_workers_ai:${DAY}`, 172_800],
+    ]);
+    expect(h.store.counter(`llm:global:${DAY}`)).toBe(1);
+  });
+
+  test("Groq: a reserva de 3.000 tokens entra no TPM e no TPD na mesma transação de 10 comandos", async () => {
     const h = harness();
     await expect(h.reserve()).resolves.toBe("permitido");
     expect(h.log[0]).toEqual([
@@ -43,15 +59,23 @@ describe("reserve", () => {
       ["EXPIRE", `llm:rpm:groq:${MINUTE}`, 120],
       ["INCR", `llm:rpd:groq:${DAY}`],
       ["EXPIRE", `llm:rpd:groq:${DAY}`, 172_800],
-      ["GET", `llm:tpm:groq:${MINUTE}`],
-      ["GET", `llm:tpd:groq:${DAY}`],
+      ["INCRBY", `llm:tpm:groq:${MINUTE}`, RESERVED],
+      ["EXPIRE", `llm:tpm:groq:${MINUTE}`, 120],
+      ["INCRBY", `llm:tpd:groq:${DAY}`, RESERVED],
+      ["EXPIRE", `llm:tpd:groq:${DAY}`, 172_800],
     ]);
-    expect(h.store.counter(`llm:global:${DAY}`)).toBe(1);
+    expect(h.store.counter(`llm:tpm:groq:${MINUTE}`)).toBe(RESERVED);
+    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(RESERVED);
   });
 
   test("Groq: 25 por minuto (85% de 30); a 26ª é provedor_esgotado e é compensada", async () => {
     const h = harness();
-    for (let i = 0; i < 25; i += 1) await expect(h.reserve()).resolves.toBe("permitido");
+    // Cada reserva é reconciliada a zero: só o RPM decide aqui.
+    for (let i = 0; i < 25; i += 1) {
+      await expect(h.reserve()).resolves.toBe("permitido");
+      h.store.values.set(`llm:tpm:groq:${MINUTE}`, "0");
+      h.store.values.set(`llm:tpd:groq:${DAY}`, "0");
+    }
     await expect(h.reserve()).resolves.toBe("provedor_esgotado");
     await settle();
     expect(h.store.counter(`llm:rpm:groq:${MINUTE}`)).toBe(25);
@@ -72,12 +96,39 @@ describe("reserve", () => {
   test.each([
     ["tpm", `llm:tpm:groq:${MINUTE}`, 6_800],
     ["tpd", `llm:tpd:groq:${DAY}`, 170_000],
-  ])("Groq: tokens do %s no teto efetivo bloqueiam; um abaixo ainda passa", async (_name, key, cap) => {
+  ])("Groq: %s com a reserva chegando ao efetivo passa; 1 token acima é negado e compensado", async (_name, key, cap) => {
     const h = harness();
-    h.store.values.set(key, String(cap - 1));
+    h.store.values.set(key, String(cap - RESERVED));
     await expect(h.reserve()).resolves.toBe("permitido");
-    h.store.values.set(key, String(cap));
+    expect(h.store.counter(key)).toBe(cap);
+    h.store.values.set(key, String(cap - RESERVED + 1));
     await expect(h.reserve()).resolves.toBe("provedor_esgotado");
+    await settle();
+    expect(h.log.at(-1)).toEqual([
+      ["DECR", `llm:global:${DAY}`],
+      ["DECR", `llm:rpm:groq:${MINUTE}`],
+      ["DECR", `llm:rpd:groq:${DAY}`],
+      ["DECRBY", `llm:tpm:groq:${MINUTE}`, RESERVED],
+      ["DECRBY", `llm:tpd:groq:${DAY}`, RESERVED],
+    ]);
+    expect(h.store.counter(key)).toBe(cap - RESERVED + 1);
+  });
+
+  test("Groq: N reservas simultâneas não passam pelo mesmo saldo (a 3ª estoura os 6.800 do TPM)", async () => {
+    const h = harness();
+    const decisions = await Promise.all([h.reserve(), h.reserve(), h.reserve(), h.reserve()]);
+    expect(decisions).toEqual(["permitido", "permitido", "provedor_esgotado", "provedor_esgotado"]);
+    await settle();
+    expect(h.store.counter(`llm:tpm:groq:${MINUTE}`)).toBe(2 * RESERVED);
+    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(2 * RESERVED);
+    expect(h.store.counter(`llm:rpm:groq:${MINUTE}`)).toBe(2);
+  });
+
+  test("sem limite de tokens: gasto acumulado no TPM não nega, e nada é escrito nele", async () => {
+    const h = harness();
+    h.store.values.set(`llm:tpd:ollama:${DAY}`, "999999999");
+    await expect(h.reserve("ollama")).resolves.toBe("permitido");
+    expect(h.store.values.has(`llm:tpm:ollama:${MINUTE}`)).toBe(false);
   });
 
   test("Cloudflare: 51 por minuto e 45 por dia (neurons do ADR-020 D9), sem limite de tokens", async () => {
@@ -126,12 +177,12 @@ describe("reserve", () => {
     const h = harness();
     h.store.values.set(`llm:global:${DAY}`, "400");
     h.setMode({ kind: "normal" }, { kind: "rejeita" });
-    await expect(h.reserve()).resolves.toBe("global_esgotado");
+    await expect(h.reserve("cloudflare_workers_ai")).resolves.toBe("global_esgotado");
     await settle();
     expect(h.log.at(-1)).toEqual([
       ["DECR", `llm:global:${DAY}`],
-      ["DECR", `llm:rpm:groq:${MINUTE}`],
-      ["DECR", `llm:rpd:groq:${DAY}`],
+      ["DECR", `llm:rpm:cloudflare_workers_ai:${MINUTE}`],
+      ["DECR", `llm:rpd:cloudflare_workers_ai:${DAY}`],
     ]);
     expect(h.signals.at(-1)?.aborted).toBe(false);
     expect(h.store.counter(`llm:global:${DAY}`)).toBe(401);
@@ -150,20 +201,30 @@ describe("reserve falha fechado (T39)", () => {
   });
 
   const alter = (index: number, value: unknown) => (replies: RedisValue[]) => replies.map((r, i) => (i === index ? value : r));
-  test.each<[string, (replies: RedisValue[]) => unknown[]]>([
-    ["INCR global zerado", alter(0, 0)],
-    ["EXPIRE global falhou", alter(1, 0)],
-    ["INCR do RPM em texto", alter(2, "1")],
-    ["EXPIRE do RPM falhou", alter(3, 0)],
-    ["INCR do RPD nulo", alter(4, null)],
-    ["EXPIRE do RPD falhou", alter(5, 0)],
-    ["GET do TPM com lixo", alter(6, "x")],
-    ["GET do TPD numérico", alter(7, 5)],
-    ["resposta curta", (r) => r.slice(0, 7)],
-  ])("%s → global_esgotado", async (_name, change) => {
+  test.each<[string, LlmProviderId, (replies: RedisValue[]) => unknown[]]>([
+    ["INCR global zerado", "groq", alter(0, 0)],
+    ["EXPIRE global falhou", "groq", alter(1, 0)],
+    ["INCR do RPM em texto", "groq", alter(2, "1")],
+    ["EXPIRE do RPM falhou", "groq", alter(3, 0)],
+    ["INCR do RPD nulo", "groq", alter(4, null)],
+    ["EXPIRE do RPD falhou", "groq", alter(5, 0)],
+    ["INCRBY do TPM em texto", "groq", alter(6, "3000")],
+    ["EXPIRE do TPM falhou", "groq", alter(7, 0)],
+    ["INCRBY do TPD fracionário", "groq", alter(8, 3000.5)],
+    ["EXPIRE do TPD falhou", "groq", alter(9, 0)],
+    ["resposta curta (Groq)", "groq", (r) => r.slice(0, 9)],
+    ["resposta curta (Workers AI)", "cloudflare_workers_ai", (r) => r.slice(0, 5)],
+  ])("%s (%s) → global_esgotado", async (_name, provider, change) => {
     const h = harness();
     h.setMode({ kind: "altera", change });
-    await expect(h.reserve()).resolves.toBe("global_esgotado");
+    await expect(h.reserve(provider)).resolves.toBe("global_esgotado");
+  });
+
+  test("Groq: INCRBY negativo (reconciliação que cruzou a virada) é inteiro válido, não falha fechado", async () => {
+    const h = harness();
+    h.store.values.set(`llm:tpm:groq:${MINUTE}`, "-3600");
+    await expect(h.reserve()).resolves.toBe("permitido");
+    expect(h.store.counter(`llm:tpm:groq:${MINUTE}`)).toBe(-600);
   });
 
   test("relógio inválido → global_esgotado sem tocar no Redis", async () => {
@@ -181,25 +242,68 @@ describe("reserve falha fechado (T39)", () => {
 });
 
 describe("recordUsage (melhor esforço)", () => {
-  test("soma entrada e saída no minuto e no dia do provedor", async () => {
+  test("sem reserva (Workers AI): soma entrada e saída no minuto e no dia do provedor", async () => {
     const h = harness();
-    await h.ledger.recordUsage("groq", { inputTokens: 1_200, outputTokens: 300 });
-    await h.ledger.recordUsage("groq", { inputTokens: 100, outputTokens: 0 });
-    expect(h.store.counter(`llm:tpm:groq:${MINUTE}`)).toBe(1_600);
-    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(1_600);
+    await h.ledger.recordUsage("cloudflare_workers_ai", { inputTokens: 1_200, outputTokens: 300 });
+    await h.ledger.recordUsage("cloudflare_workers_ai", { inputTokens: 100, outputTokens: 0 });
+    expect(h.store.counter(`llm:tpm:cloudflare_workers_ai:${MINUTE}`)).toBe(1_600);
+    expect(h.store.counter(`llm:tpd:cloudflare_workers_ai:${DAY}`)).toBe(1_600);
     expect(h.log[0]).toEqual([
-      ["INCRBY", `llm:tpm:groq:${MINUTE}`, 1_500],
-      ["EXPIRE", `llm:tpm:groq:${MINUTE}`, 120],
-      ["INCRBY", `llm:tpd:groq:${DAY}`, 1_500],
-      ["EXPIRE", `llm:tpd:groq:${DAY}`, 172_800],
+      ["INCRBY", `llm:tpm:cloudflare_workers_ai:${MINUTE}`, 1_500],
+      ["EXPIRE", `llm:tpm:cloudflare_workers_ai:${MINUTE}`, 120],
+      ["INCRBY", `llm:tpd:cloudflare_workers_ai:${DAY}`, 1_500],
+      ["EXPIRE", `llm:tpd:cloudflare_workers_ai:${DAY}`, 172_800],
     ]);
     expect(h.signals[0]?.aborted).toBe(false);
   });
 
-  test("os tokens gastos alimentam o reserve seguinte", async () => {
+  test("Groq: reconciliação negativa ajusta a reserva ao uso real (2.400 de 3.000)", async () => {
     const h = harness();
-    await h.ledger.recordUsage("groq", { inputTokens: 6_000, outputTokens: 800 });
+    await h.reserve();
+    await h.ledger.recordUsage("groq", { inputTokens: 2_000, outputTokens: 400 });
+    expect(h.log[1]).toEqual([
+      ["INCRBY", `llm:tpm:groq:${MINUTE}`, -600],
+      ["EXPIRE", `llm:tpm:groq:${MINUTE}`, 120],
+      ["INCRBY", `llm:tpd:groq:${DAY}`, -600],
+      ["EXPIRE", `llm:tpd:groq:${DAY}`, 172_800],
+    ]);
+    expect(h.store.counter(`llm:tpm:groq:${MINUTE}`)).toBe(2_400);
+    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(2_400);
+  });
+
+  test("Groq: reconciliação positiva quando o uso passa da reserva", async () => {
+    const h = harness();
+    await h.reserve();
+    await h.ledger.recordUsage("groq", { inputTokens: 3_000, outputTokens: 704 });
+    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(3_704);
+  });
+
+  test("Groq: uso igual à reserva não manda comando", async () => {
+    const h = harness();
+    await h.ledger.recordUsage("groq", { inputTokens: 2_600, outputTokens: 400 });
+    expect(h.log).toHaveLength(0);
+  });
+
+  test("Groq: chamada sem 200 (sem recordUsage) e uso zero mantêm a reserva cheia", async () => {
+    const h = harness();
+    await h.reserve();
+    await h.ledger.recordUsage("groq", { inputTokens: 0, outputTokens: 0 });
+    expect(h.store.counter(`llm:tpm:groq:${MINUTE}`)).toBe(RESERVED);
+    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(RESERVED);
+  });
+
+  test("Groq: os tokens reconciliados alimentam o reserve seguinte", async () => {
+    const h = harness();
+    await h.reserve();
+    await h.ledger.recordUsage("groq", { inputTokens: 3_000, outputTokens: 900 });
+    // 3.900 reais + 3.000 da nova reserva = 6.900 > 6.800.
     await expect(h.reserve()).resolves.toBe("provedor_esgotado");
+  });
+
+  test("Gemini (fora da tabela): soma o uso inteiro, sem reserva", async () => {
+    const h = harness();
+    await h.ledger.recordUsage("google_ai_studio", { inputTokens: 10, outputTokens: 5 });
+    expect(h.store.counter(`llm:tpd:google_ai_studio:${DAY}`)).toBe(15);
   });
 
   test.each([
@@ -216,8 +320,8 @@ describe("recordUsage (melhor esforço)", () => {
 
   test("10⁶ ainda é aceito", async () => {
     const h = harness();
-    await h.ledger.recordUsage("groq", { inputTokens: 1_000_000, outputTokens: 1_000_000 });
-    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(2_000_000);
+    await h.ledger.recordUsage("ollama", { inputTokens: 1_000_000, outputTokens: 1_000_000 });
+    expect(h.store.counter(`llm:tpd:ollama:${DAY}`)).toBe(2_000_000);
   });
 
   test.each([[Number.NaN], [-5], [2.5]])("relógio inválido (%d): ignorado, sem comando", async (now) => {
@@ -257,12 +361,32 @@ describe("router real com o ledger em Redis (ADR-009 D6)", () => {
     return { memory, analyze, groq, cloudflare };
   }
 
-  test("Redis saudável: a chamada sai, e o uso é contabilizado", async () => {
+  test("Redis saudável: a chamada sai, e a reserva é reconciliada com o uso real", async () => {
     const h = routerWith({ kind: "normal" });
     const outcome = await h.analyze();
     expect(outcome.ok).toBe(true);
     await settle();
     expect(h.memory.store.counter(`llm:tpd:groq:${DAY}`)).toBe(1_500);
+  });
+
+  test("Groq que não volta 200 fica com a reserva cheia (o gasto que o ledger não via)", async () => {
+    const clock = new FakeClock();
+    const memory = memoryRedis();
+    const ledger = createRedisQuotaLedger({ redis: memory.redis, now: () => NOW });
+    const groq = new ScriptedExtractor("groq", clock, [{ kind: "erro_permanente", latencyMs: 100 }]);
+    const cloudflare = new ScriptedExtractor("cloudflare_workers_ai", clock, [{ kind: "ok", raw: VALID_RAW }]);
+    const router = new LlmProviderRouter({
+      chain: ["groq", "cloudflare_workers_ai"],
+      extractors: [groq, cloudflare],
+      clock,
+      random: { next: () => 0.5 },
+      ledger,
+      states: new InMemoryProviderStateStore(),
+    });
+    const outcome = await clock.run(router.extract(PAYLOAD, deadlineAfter(clock, ROUTER_POLICY.analysisDeadlineMs)));
+    expect(outcome).toMatchObject({ ok: true, provider: "cloudflare_workers_ai" });
+    await settle();
+    expect(memory.store.counter(`llm:tpd:groq:${DAY}`)).toBe(RESERVED);
   });
 
   test.each<[string, MemoryMode]>([

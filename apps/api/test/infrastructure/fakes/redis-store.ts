@@ -26,10 +26,11 @@ export class RedisStore {
     switch (name) {
       case "INCR":
       case "INCRBY":
-      case "DECR": {
+      case "DECR":
+      case "DECRBY": {
         const value = asString();
         if (value === null) return wrongType;
-        const delta = name === "INCR" ? 1 : name === "DECR" ? -1 : Number(arg);
+        const delta = name === "INCR" ? 1 : name === "DECR" ? -1 : name === "DECRBY" ? -Number(arg) : Number(arg);
         const next = value + delta;
         this.values.set(key, String(next));
         return { result: next };

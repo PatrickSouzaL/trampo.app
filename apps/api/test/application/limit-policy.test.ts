@@ -56,9 +56,10 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
       headroom: 0.85,
       globalCallsPerDay: 400,
       providers: {
-        groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000 },
-        cloudflare_workers_ai: { rpm: 60, rpd: 54, tpm: null, tpd: null },
-        ollama: { rpm: null, rpd: null, tpm: null, tpd: null },
+        // Reserva pessimista de 3.000 só no Groq (ADR-022 D7.2).
+        groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000, reservedTokensPerCall: 3_000 },
+        cloudflare_workers_ai: { rpm: 60, rpd: 54, tpm: null, tpd: null, reservedTokensPerCall: null },
+        ollama: { rpm: null, rpd: null, tpm: null, tpd: null, reservedTokensPerCall: null },
       },
       minuteTtlSeconds: 120,
       dayTtlSeconds: 172_800,
@@ -83,6 +84,12 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
     expect(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd).toBe(workersAiCallsPerDay());
     // Teto efetivo de 45 por dia, abaixo dos 10.000 × 0,85 ÷ 182 ≈ 46,7 do ADR: a folga não entra duas vezes.
     expect(effectiveLimit(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd)).toBe(45);
+  });
+
+  test("todo provedor com limite de tokens tem reserva (o ledger só conta tokens pela reserva, ADR-022 D7.2)", () => {
+    for (const limits of Object.values(LEDGER_POLICY.providers)) {
+      if (limits.tpm !== null || limits.tpd !== null) expect(limits.reservedTokensPerCall).not.toBeNull();
+    }
   });
 
   test("o Gemini não tem política (HITL-012): o ledger o trata como esgotado", () => {
