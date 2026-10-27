@@ -1,7 +1,7 @@
 // SR-10: o Service Worker rejeita porta ou mensagem de outra origem ou com forma inválida.
 import { describe, expect, test, vi } from "vitest";
 
-import { PANEL_PORT_NAME, PASTE_MAX_UTF16, PanelToWorkerSchema, WorkerToPanelSchema } from "../src/messaging/protocol";
+import { CONSENT_VERSION, PANEL_PORT_NAME, PASTE_MAX_UTF16, PanelToWorkerSchema, WorkerToPanelSchema } from "../src/messaging/protocol";
 import { checkPanelPort, handlePanelConnection, type PanelPort, type RejectReason } from "../src/messaging/worker-port";
 
 const ID = "oniojmpioahjchcadecjkmekigalfack";
@@ -25,7 +25,7 @@ function fakePort(name: string, sender: Sender) {
 }
 
 function hooks(logRejection: (r: RejectReason) => void) {
-  return { runtimeId: ID, extensionBaseUrl: BASE, logRejection, onReady: vi.fn(), onPaste: vi.fn() };
+  return { runtimeId: ID, extensionBaseUrl: BASE, logRejection, onReady: vi.fn(), onPaste: vi.fn(), onConsent: vi.fn(), onRevoke: vi.fn() };
 }
 
 function connect(name: string, sender: Sender) {
@@ -83,6 +83,20 @@ describe("handlePanelConnection", () => {
     expect(c.port.disconnect).not.toHaveBeenCalled();
   });
 
+  test("consentir (versão vigente) e revogar chegam ao Service Worker sem resposta direta", () => {
+    const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
+    c.deliver({ kind: "consentir", versao: CONSENT_VERSION });
+    expect(c.ctx.onConsent).toHaveBeenCalledOnce();
+    expect(c.ctx.onRevoke).not.toHaveBeenCalled();
+    c.deliver({ kind: "revogar" });
+    expect(c.ctx.onRevoke).toHaveBeenCalledOnce();
+    expect(c.ctx.onConsent).toHaveBeenCalledOnce();
+    expect(c.ctx.onPaste).not.toHaveBeenCalled();
+    expect(c.ctx.onReady).not.toHaveBeenCalled();
+    expect(c.port.postMessage).not.toHaveBeenCalled();
+    expect(c.port.disconnect).not.toHaveBeenCalled();
+  });
+
   test("porta não confiável nunca entrega texto colado", () => {
     const c = connect(PANEL_PORT_NAME, { id: ID, url: "https://evil.example/sidepanel.html" });
     expect(c.listeners).toHaveLength(0);
@@ -109,6 +123,11 @@ describe("handlePanelConnection", () => {
     ["colar com chave extra", { kind: "colar", texto: "x", tabId: 1 }],
     ["colar sem texto", { kind: "colar" }],
     ["colar com texto não string", { kind: "colar", texto: ["x"] }],
+    // Um aviso antigo (ou inventado) não vale como consentimento (ADR-025 D2).
+    ["consentir com outra versão", { kind: "consentir", versao: "aviso-0" }],
+    ["consentir sem versão", { kind: "consentir" }],
+    ["consentir com chave extra", { kind: "consentir", versao: CONSENT_VERSION, escopo: "tudo" }],
+    ["revogar com chave extra", { kind: "revogar", motivo: "x" }],
   ];
   test.each(invalid)("mensagem inválida (%s) derruba a porta sem resposta", (_label, msg) => {
     const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
@@ -118,6 +137,8 @@ describe("handlePanelConnection", () => {
     expect(c.rejections).toEqual(["forma_invalida"]);
     expect(c.ctx.onPaste).not.toHaveBeenCalled();
     expect(c.ctx.onReady).not.toHaveBeenCalled();
+    expect(c.ctx.onConsent).not.toHaveBeenCalled();
+    expect(c.ctx.onRevoke).not.toHaveBeenCalled();
   });
 
   test("o log de recusa recebe só o motivo, nunca o conteúdo", () => {
@@ -166,8 +187,11 @@ describe("WorkerToPanelSchema (revalidação no painel)", () => {
     for (const captura of bad) expect(WorkerToPanelSchema.safeParse({ kind: "captura", captura }).success).toBe(false);
   });
 
-  test("aceita ready e eventos de stream do contrato público", () => {
+  test("aceita ready, consentimento e eventos de stream do contrato público", () => {
     expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1 }).success).toBe(true);
+    expect(WorkerToPanelSchema.safeParse({ kind: "consentimento", dado: true }).success).toBe(true);
+    expect(WorkerToPanelSchema.safeParse({ kind: "consentimento", dado: "sim" }).success).toBe(false);
+    expect(WorkerToPanelSchema.safeParse({ kind: "consentimento", dado: false, versao: CONSENT_VERSION }).success).toBe(false);
     const stage = { type: "stage", stage: "extraindo_fatos", elapsedMs: 900 };
     expect(WorkerToPanelSchema.safeParse({ kind: "stream", event: stage }).success).toBe(true);
   });

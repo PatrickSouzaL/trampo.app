@@ -19,10 +19,19 @@ export const PROTOCOL_VERSION = 1 as const;
  */
 export const PASTE_MAX_UTF16 = 2 * JOB_TEXT_MAX_CHARS;
 
+/**
+ * Versão do aviso de envio (Limited Use; ADR-001 §5.0 passo 7). Mudou o texto do aviso, muda a versão:
+ * o consentimento guardado com a versão antiga deixa de valer (ADR-025 D2).
+ */
+export const CONSENT_VERSION = "aviso-1";
+
 export const PanelToWorkerSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("hello"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
   // Fallback "colar o texto" (ADR-001 D10; ADR-024 D5). O texto é dado, nunca comando.
   z.strictObject({ kind: z.literal("colar"), texto: z.string().max(PASTE_MAX_UTF16) }),
+  // Consentimento antes da 1ª transmissão (ADR-025 D2). Só a versão do aviso que o painel mostrou.
+  z.strictObject({ kind: z.literal("consentir"), versao: z.literal(CONSENT_VERSION) }),
+  z.strictObject({ kind: z.literal("revogar") }),
 ]);
 export type PanelToWorker = z.infer<typeof PanelToWorkerSchema>;
 
@@ -46,6 +55,7 @@ export type CaptureView = z.infer<typeof CaptureViewSchema>;
 export const WorkerToPanelSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ready"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
   z.strictObject({ kind: z.literal("captura"), captura: CaptureViewSchema }),
+  z.strictObject({ kind: z.literal("consentimento"), dado: z.boolean() }),
   // O que o painel renderiza vem do contrato público e é revalidado antes de qualquer render.
   z.strictObject({ kind: z.literal("stream"), event: AnalysisStreamEventSchema }),
 ]);

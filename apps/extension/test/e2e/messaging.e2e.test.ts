@@ -38,10 +38,11 @@ describe("porta do painel no navegador real", () => {
     await expect.poll(() => l!.panel.locator("[data-connection]").getAttribute("data-connection"), { timeout: 5000 }).toBe("pronto");
   });
 
-  test("hello válido recebe ready e o estado da captura, e a porta continua aberta", async () => {
+  test("hello válido recebe ready, o estado da captura e o do consentimento, nessa ordem, e a porta continua aberta", async () => {
     const out = await l!.panel.evaluate(openPort, [PANEL_PORT_NAME, [{ kind: "hello", protocolVersion: 1 }]] as [string, unknown[]]);
     const ready = { kind: "ready", protocolVersion: 1 };
-    expect(out).toEqual({ received: [ready, { kind: "captura", captura: { estado: "ocioso" } }], disconnected: false });
+    const captura = { kind: "captura", captura: { estado: "ocioso" } };
+    expect(out).toEqual({ received: [ready, captura, { kind: "consentimento", dado: false }], disconnected: false });
   });
 
   test("porta com nome errado é derrubada sem resposta", async () => {

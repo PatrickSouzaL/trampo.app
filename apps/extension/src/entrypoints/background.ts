@@ -4,6 +4,7 @@
 // onConnectExternal é registrado (SR-10).
 import { genericExtractorRunner } from "../capture/capture";
 import { CAPTURE_STORAGE_KEY, CaptureStateSchema, createCaptureService } from "../capture/capture-service";
+import { CONSENT_STORAGE_KEY, ConsentRecordSchema, createConsentService } from "../consent/consent-service";
 import { sessionStore } from "../messaging/session-store";
 import { handlePanelConnection } from "../messaging/worker-port";
 
@@ -24,6 +25,9 @@ export default defineBackground(() => {
     logFailure: (motivo) => console.warn("[trampo] captura falhou:", motivo),
   });
   const internalFailure = (): void => console.warn("[trampo] falha interna na captura");
+  // Consentimento antes da 1ª transmissão (ADR-025 D2). O envio à API (parte 2) consulta consent.isGranted().
+  const consent = createConsentService({ store: sessionStore(CONSENT_STORAGE_KEY, ConsentRecordSchema), now: Date.now });
+  const consentFailure = (): void => console.warn("[trampo] falha interna no consentimento");
 
   browser.action.onClicked.addListener((tab) => {
     if (tab.id === undefined) return;
@@ -41,11 +45,21 @@ export default defineBackground(() => {
     runtimeId: browser.runtime.id,
     extensionBaseUrl: browser.runtime.getURL("/"),
     logRejection: (reason: string) => console.warn("[trampo] porta ou mensagem recusada:", reason),
+    // Em sequência, para o painel receber sempre ready, captura e consentimento nesta ordem.
     onReady: (port: Parameters<typeof capture.attach>[0]) => {
-      capture.attach(port).catch(internalFailure);
+      capture
+        .attach(port)
+        .then(() => consent.attach(port))
+        .catch(internalFailure);
     },
     onPaste: (texto: string) => {
       capture.paste(texto).catch(internalFailure);
+    },
+    onConsent: () => {
+      consent.grant().catch(consentFailure);
+    },
+    onRevoke: () => {
+      consent.revoke().catch(consentFailure);
     },
   };
   browser.runtime.onConnect.addListener((port) => handlePanelConnection(port, ctx));

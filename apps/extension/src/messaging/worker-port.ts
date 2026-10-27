@@ -60,6 +60,10 @@ export interface PortContext {
   readonly onReady: (port: PanelPort) => void;
   /** Texto colado no painel, já com a forma validada (ADR-024 D5). */
   readonly onPaste: (texto: string) => void;
+  /** Aceite do aviso de envio, já com a versão vigente conferida pelo schema (ADR-025 D2). */
+  readonly onConsent: () => void;
+  /** O usuário retirou o consentimento. */
+  readonly onRevoke: () => void;
 }
 
 /** Valida a porta na conexão e cada mensagem recebida. Qualquer falha desconecta (fail closed). */
@@ -85,6 +89,12 @@ export function handlePanelConnection(port: PanelPort, ctx: PortContext): void {
         break;
       case "colar":
         ctx.onPaste(parsed.data.texto);
+        break;
+      case "consentir":
+        ctx.onConsent();
+        break;
+      case "revogar":
+        ctx.onRevoke();
         break;
     }
   });

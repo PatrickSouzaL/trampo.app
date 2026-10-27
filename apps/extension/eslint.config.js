@@ -26,6 +26,25 @@ const storageSelectors = [
   },
 ];
 
+// O painel não tem link nem recurso externo (ADR-025 D5; AnalysisReport D8): o texto do servidor nunca
+// vira navegação, e a CSP não precisa abrir nada além de 'self'.
+const NAVIGATING_ELEMENTS = "a|area|base|link|iframe|frame|embed|object|img|image|video|audio|source|track|portal";
+const NAVIGATING_ATTRIBUTES = "href|src|srcSet|action|formAction|xlinkHref|poster|data|ping|background|cite";
+const noLinkSelectors = [
+  {
+    selector: `JSXOpeningElement[name.name=/^(${NAVIGATING_ELEMENTS})$/]`,
+    message: "O painel não tem links nem recursos externos: renderize texto (ADR-025 D5).",
+  },
+  {
+    selector: `JSXAttribute[name.name=/^(${NAVIGATING_ATTRIBUTES})$/]`,
+    message: "Atributo que navega ou carrega recurso é proibido no painel (ADR-025 D5).",
+  },
+  {
+    selector: `JSXAttribute[name.namespace.name="xlink"]`,
+    message: "xlink:* é proibido no painel (ADR-025 D5).",
+  },
+];
+
 // Extrator de DOM só-leitura e autocontido (ADR-023 D3, D5 e D8; threat-model T2).
 const EXTRACTION_READS = "innerText|outerText|textContent|getAttribute|getAttributeNS|getAttributeNode|getAttributeNames|attributes|dataset";
 const DOM_WRITES =
@@ -76,7 +95,7 @@ export default defineConfig([
         },
       ],
       // A regra não se acumula entre configs: os seletores de HTML do preset são repetidos aqui.
-      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors],
+      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors],
     },
   },
   {

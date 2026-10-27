@@ -2,7 +2,8 @@
 // storage.session e avisa as portas do painel com uma VISÃO sem o texto da vaga.
 import { z } from "zod";
 
-import type { CaptureView, WorkerToPanel } from "../messaging/protocol";
+import { createPanelHub } from "../messaging/panel-hub";
+import type { CaptureView } from "../messaging/protocol";
 import type { SessionStore } from "../messaging/session-store";
 import type { PanelPort } from "../messaging/worker-port";
 import { CaptureFailureSchema, CapturedJobSchema, captureFromTab, capturePasted, type CaptureFailure, type CaptureOutcome, type ExtractorRunner } from "./capture";
@@ -60,21 +61,12 @@ export interface CaptureService {
 }
 
 export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
-  const ports = new Set<PanelPort>();
+  const hub = createPanelHub();
   // Dois cliques seguidos: só a captura mais recente grava o resultado.
   let generation = 0;
 
-  const send = (port: PanelPort, message: WorkerToPanel): void => {
-    try {
-      port.postMessage(message);
-    } catch {
-      // Porta desconectada entre o evento e o envio.
-      ports.delete(port);
-    }
-  };
   const broadcast = (state: CaptureState | undefined): void => {
-    const message: WorkerToPanel = { kind: "captura", captura: captureView(state) };
-    for (const port of ports) send(port, message);
+    hub.broadcast({ kind: "captura", captura: captureView(state) });
   };
   const publish = async (state: CaptureState): Promise<void> => {
     await deps.store.set(state);
@@ -103,10 +95,9 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
       await settle(capturePasted(texto, deps.now()), null);
     },
     async attach(port) {
-      ports.add(port);
-      port.onDisconnect.addListener(() => ports.delete(port));
+      hub.add(port);
       const state = await deps.store.get();
-      if (ports.has(port)) send(port, { kind: "captura", captura: captureView(state) });
+      if (hub.has(port)) hub.send(port, { kind: "captura", captura: captureView(state) });
     },
     async tabClosed(tabId) {
       const state = await deps.store.get();
