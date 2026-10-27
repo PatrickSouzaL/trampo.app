@@ -1,62 +1,118 @@
-# Próximo passo: desenho e implementação do `g4` e do `p3` (HITL-029: 1A, 2A, 3A, 4A)
+# Próximo passo: trilhas paralelas enquanto a cota do Groq não zera
 
-> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie este next-step.md.
+> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie **um** dos prompts abaixo.
 
 ## O que acabou de ser entregue (2026-10-26)
 
-### Avaliador do S-1 (commit `0a8bb23`, local, sem push)
-- A saída agora é separada por versão:
-  - um arquivo por prompt e guard, `out/s1-results.p2-g3.jsonl`;
-  - `promptVersion` e `guardVersion` em cada linha e na chave de retomada;
-  - a rodada do `p1` está arquivada em `out/s1-results.p1-g2.jsonl`, sem apagar nada.
-- O gate do `gd2` (golden-dataset-spec §8.2) está implementado:
-  - SR-04 sem `benefits`, H10 e moeda nula;
-  - o T4 dá `revisar` com os termos, porque o gabarito não lista os termos negados.
-- O relatório compara com o `p1` (tokens de entrada pareados por caso) e lê os contadores do `g3`.
-- `S1_BUDGETS=6000` limita os orçamentos.
+### `g4` (commit `90867d9`, local, sem push; ADR-008 §6)
+- Um termo que aparece nas duas listas de stack:
+  - sai do `stackRequired` e fica no `stackNiceToHave`;
+  - a comparação é em minúsculas, como no contrato, e contra o desejável final.
+- Contador `stackOverlapsResolved`, fora do `injectionSignal`. Isso resolve as 3 recusas do Groq no aceite do `p2`.
+- 13 testes e 2 propriedades novas. Mutação com 14 de 15 mortos (1 equivalente). A 1ª rodada achou 2 testes que faltavam, e eles foram escritos.
 
-### Rodada de aceite (spike-metrics §2.7)
-- **Gate de segurança do `gd2`: passa nos dois provedores.**
-  - 0 canário vazado e 0 fato atacável alterado em 7 casos de injection.
-  - 0 sinal de injection em controle negativo e 0 moeda nula.
-  - T4 real 0: o `linkedin-14` não tem negação; os termos extras são conceitos.
-- **Tokens do `p2`:** +307 no Groq e +350 na Workers AI, dentro do teto de +400.
-- **O Groq falha em 2 itens do §8.1:**
-  - precisão de stack de **0,70** (gate 0,85), uma queda de −6,9 pp contra o `p1`;
-  - JSON válido de **96,4%** (gate 98%). As 3 recusas são termos nas duas listas de stack.
-- **O que o `p2` melhorou no Groq:**
-  - contrato de 0,845 para 0,925;
-  - recall de stack de 0,745 para 0,81;
-  - recall de `benefits` de 0,77 para 0,897;
-  - `salario_omitido` de 41 saídas para 0.
-- **Causa da queda na precisão:** a regra de recall de stack puxa conceitos (ETL, MDM, "financial data"). Os falsos positivos de stack foram de 111 para 201.
-- **Workers AI:** p95 de 11,3 s, com falhas em senioridade, contrato, `location` e stack.
-- **Cota:** a rodada gastou 199K tokens do Groq, o TPD inteiro de um dia.
+### `p3` (commit `61474d0`, local, sem push; ADR-020 §8)
+- **Só a linha de stack mudou**, e um teste prova isso pelo hash do `p2`:
+  - só entra nome de tecnologia;
+  - conceito, prática e área ficam fora;
+  - "vence nos dois" sai do prompt, porque o `g4` já garante essa regra.
+- Nenhum falso positivo do aceite anterior (ETL, MDM...) virou exemplo no prompt.
+- **Teto de tokens:** a conta offline usa a pior razão medida no `p2` (3,2 caracteres por token) e dá 393 tokens. O teto real de +400 é conferido no aceite.
+- **Relatório do S-1:** o novo `previousComparisons` compara o `p3`/`g4` com o `p2`/`g3` nos mesmos casos e lista o que caiu mais de 2 pp. Foi provado sem gastar cota.
 
 ### Verificação
-- Turbo em série com 19 de 19 verdes no início da sessão; `@trampo/evals` com 4 de 4 depois das mudanças.
-- `[APPSEC]` sem veto:
-  - as 166 linhas gravadas não têm texto de vaga, canário nem saída bruta;
-  - nenhum pedido levou `tools` (SR-01).
+- API com 2.677 testes e cobertura de 100%.
+- Turbo inteiro com 21 de 21 tarefas verdes, em série; depcruise sem violações.
+- Mutação do prompt com 8 de 8 mortos.
+- `[APPSEC]` sem veto. Nenhum pedido a provedor foi feito.
 
 ### Pendências do humano
-- **HITL-029 fechado em 2026-10-26 com 1A, 2A, 3A, 4A**, todas as recomendações:
-  - `p3`: stack só com tecnologia nomeada;
-  - `g4`: sobreposição de stack fica em `stackNiceToHave`;
-  - adapter do Groq em paralelo;
-  - Workers AI mantida como fallback.
-- O push continua não autorizado.
+- Nenhum HITL aberto. O push continua não autorizado.
 
-## Prompt para enviar ao agente
+---
 
+## Como usar: trilhas
+
+**Regra de ouro:** só a **Trilha A** espera a cota do Groq. As outras andam hoje, em qualquer ordem entre si.
+
+| Trilha | Sessão | Gasta cota do Groq? | Espera a Trilha A? |
+|---|---|---|---|
+| **A** | Aceite do `p3`/`g4` | **sim, um dia inteiro** | — |
+| **B1** | Desenho do adapter do Groq (sem código) | não | não |
+| **B2** | Adapter do Groq, commits atômicos, **sem ligar no `main.ts`** | não | não (depende da B1) |
+| **C** | QA-02 (testes de socket instáveis) | não | não |
+| **D** | S-2 com fixtures sintéticas (extrator genérico e técnicas de ocultação do T2) | não | não |
+| **E** | DOC-01 (sincronizar o `contratos-zod` do cofre com o código) | não | não |
+
+**O que de fato espera a Trilha A:**
+- ligar a cadeia Groq → Workers AI → determinístico no `main.ts`;
+- fechar o S-1 (modelo primário e gate por modelo do F1-EVL-01).
+
+Nada nas trilhas B a E depende do resultado do aceite.
+
+**Cuidados para as trilhas não se atrapalharem:**
+1. **Uma sessão por vez nesta pasta.** Todas usam o mesmo branch e o mesmo `STATE.md`. A Trilha A entra entre duas sessões quaisquer, assim que a cota zerar.
+2. **Nenhuma sessão B a E muda `EXTRACTION_PROMPT_VERSION` ou `LLM_OUTPUT_GUARD_VERSION`.** Se mudar, o aceite passa a medir outra coisa. Se uma sessão precisar mudar alguma das duas, ela para e registra no STATE.
+3. **Nenhuma sessão B a E chama o Groq real.** Os testes usam *fakes*, e qualquer *smoke* com o provedor fica para a Trilha A.
+4. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
+
+**Sugestão de ordem para hoje:** B1 → C → B2 → D → E. A Trilha A entra quando a cota zerar. O humano estima 24 h depois da rodada do `p2`, feita em 2026-10-26.
+
+**Algo que o humano pode adiantar durante o dia (opcional, sem bloquear nada):** para a parte real do S-2, salvar o HTML de 3 a 5 vagas do LinkedIn e da Gupy. Pela janela anônima, use "Salvar como → Página da Web, somente HTML", sem estar logado, e guarde **fora do repositório**. A Trilha D gera o runbook de anonimização antes de qualquer arquivo entrar no git.
+
+---
+
+## Prompts
+
+### Trilha A: aceite do `p3`/`g4` (só com a cota do Groq zerada)
 ```text
-Equipe, sigam em ciclo estrito. HITL-029 fechado: 1A, 2A, 3A, 4A.
+Equipe, sigam em ciclo estrito. Trilha A do next-step: aceite do p3/g4 (spike-metrics §2.8, ADR-020 §8.4).
+1. [ORCHESTRATOR]: leiam STATE.md, spike-metrics §2.7 e §2.8 e ADR-020 §8. Confirmem pnpm, Node, o branch spike/s1-extraction e que os HEADs do p3 e do g4 (61474d0 e 90867d9) estão no histórico. Confirmem com o humano que a cota do Groq zerou antes de qualquer chamada.
+2. [QA_EVALS]: S1_MODE=plan (sem rede) e um smoke de 1 chamada por provedor. Depois, S1_MODE=run S1_BUDGETS=6000 S1_GROQ_VARIANT=nao_estrito, com saída em out/s1-results.p3-g4.jsonl, e S1_MODE=report.
+3. [QA_EVALS] + [APPSEC]: julguem pelo gate (precisão de stack ≥ 0,85, recall ≥ 0,80, JSON válido ≥ 98% no Groq, +400 tokens sobre o p1, gate de segurança do gd2, regressões do previousComparisons e contador do g4). Revisem o T4 à mão e confiram que as linhas gravadas não têm texto de vaga, canário nem saída bruta.
+4. [SCRIBE]: spike-metrics §2.8, ADR-020 §8.6, STATE e SESSION-LOG. Se o gate passar, o próximo passo é ligar a cadeia no main.ts (com o adapter do Groq, se a Trilha B2 já tiver terminado). Se falhar, abram um HITL com as opções. Reescrevam o next-step mantendo as trilhas que faltam.
+```
 
-1. [ORCHESTRATOR]: Leiam STATE.md, o HITL-029, spike-metrics §2.7, ADR-020 §7.6, ADR-008 D5 e ADR-009 §5. Confirmem pnpm 11.4.0, o Node conforme o engines e o branch spike/s1-extraction.
-2. [ARCHITECT] + [APPSEC]: desenhem as duas emendas, sem código ainda:
-   - o p3 no ADR-020 §8: a regra de stack só com tecnologia nomeada (linguagem, framework, banco, ferramenta, plataforma, produto), dentro do teto de +400 tokens sobre o p1;
-   - o g4 no ADR-008: o termo nas duas listas fica só em stackNiceToHave, contado e fora do injectionSignal.
-3. [DEV] + [QA_EVALS]: um commit atômico por vez (g4, depois p3), com testes, cobertura de 100% e mutação. O adapter do Groq (F1-LLM-01 parte 2, teto de 3 s do ADR-009 §5) vem na sessão seguinte, sem ligar no main.ts.
-4. [QA_EVALS]: a rodada de aceite do p3 gasta o TPD do Groq de um dia. Façam a rodada só numa sessão com a cota zerada: S1_MODE=run S1_BUDGETS=6000 S1_GROQ_VARIANT=nao_estrito.
-5. [SCRIBE]: atualizem STATE.md, SESSION-LOG.md e os ADRs, façam o commit local e gerem o novo ./next-step.md.
+### Trilha B1: desenho do adapter do Groq (sem código)
+```text
+Equipe, sigam em ciclo estrito. Trilha B1 do next-step: desenho do adapter do Groq (F1-LLM-01 parte 2, HITL-028 1A/2A e HITL-029 3A). Sem código nesta sessão, e sem chamar o Groq real.
+1. [ORCHESTRATOR]: leiam STATE.md, ADR-020 (D2 a D9, que é o molde do adapter da Workers AI), ADR-009 D4 e §5, ADR-010 D5 e G3-4/G4-2 do ADR-008, spike-metrics §2.5 e o providers.ts do spike S-1 (a chamada do Groq que já funcionou: json_schema sem strict, reasoning_effort low, sem tools).
+2. [ARCHITECT] + [APPSEC]: escrevam o ADR-022 (adapter do Groq) com critérios de aceite:
+   - URL fixa e conferida no boot;
+   - corpo de lista fechada sem tools (SR-01), com nao_estrito e o mesmo prompt compartilhado;
+   - tetos de envio e de leitura e a tabela de status, incluindo o 400 json_validate_failed;
+   - Retry-After e os limites do Groq (TPD de 200K, RPM e TPM) no QuotaLedger;
+   - o token só no closure;
+   - a emenda do teto de 3 s ao router (ADR-009 §5);
+   - a emenda ao ADR-010 para levar os contadores do g3 e do g4 à telemetria.
+   Façam a partição em commits atômicos. O adapter não é ligado no main.ts.
+3. [SCRIBE]: ADR-022, STATE e SESSION-LOG, commit local. Reescrevam o next-step mantendo as trilhas (a B2 passa a ter a partição de commits do ADR-022).
+```
+
+### Trilha B2: adapter do Groq (depois da B1)
+```text
+Equipe, sigam em ciclo estrito. Trilha B2 do next-step: implementar o ADR-022 (adapter do Groq), um commit atômico por vez, na partição do próprio ADR, com testes, cobertura de 100% e mutação. Não liguem no main.ts e não chamem o Groq real (só fakes). Não mudem EXTRACTION_PROMPT_VERSION nem LLM_OUTPUT_GUARD_VERSION. [SCRIBE] atualiza STATE e ADR a cada commit (AGENTS §4.2). Se a sessão ficar extensa, parem entre dois commits e reescrevam o next-step mantendo as trilhas.
+```
+
+### Trilha C: QA-02
+```text
+Equipe, sigam em ciclo estrito. Trilha C do next-step: QA-02 (BACKLOG). Os testes de socket real com prazo de relógio de parede (limits-stack, upstash-cache-stack, postgrest-user-client, postgrest-criteria-repository, upstash-rest-client) falham às vezes com a CPU disputada.
+1. [ORCHESTRATOR]: leiam STATE.md, a entrada QA-02 do BACKLOG e a decisão do QA-01 (o orçamento não é afrouxado). Reproduzam a falha com a suíte inteira, várias rodadas, e registrem a taxa.
+2. [ARCHITECT] + [QA_EVALS]: escolham entre prazo injetado só nos testes (com a política de produção ainda provada pelo FakeClock), um projeto do Vitest em série para esses arquivos ou a primeira conexão medida à parte. Os prazos de produção (150 e 250 ms) não mudam.
+3. [DEV] + [QA_EVALS]: implementem, provem com N rodadas da suíte inteira sem falha e rodem a mutação nos testes tocados.
+4. [SCRIBE]: BACKLOG (QA-02), STATE e SESSION-LOG, commit local. Reescrevam o next-step mantendo as trilhas.
+```
+
+### Trilha D: S-2 com fixtures sintéticas
+```text
+Equipe, sigam em ciclo estrito. Trilha D do next-step: S-2 (BACKLOG), só a parte que não precisa de página real.
+1. [ORCHESTRATOR]: leiam STATE.md, a entrada S-2 do BACKLOG, ADR-001 §5.0 e o threat-model T2 (técnicas de ocultação). Confirmem que F1-EXT-00 a 02 estão prontos.
+2. [ARCHITECT] + [APPSEC]: desenhem o extrator genérico autocontido (para scripting.executeScript, sem innerHTML, sem ler atributos, ignorando display:none, visibility:hidden, font-size:0 e as demais técnicas do T2) e o formato das fixtures de DOM anonimizadas. Escrevam o runbook de coleta e anonimização das fixtures reais (o humano salva as páginas) e abram o HITL correspondente, que não bloqueia esta trilha.
+3. [DEV] + [QA_EVALS]: extrator genérico e uma fixture adversarial sintética por técnica do T2, com o descarte provado, cobertura de 100% e mutação. Os extratores do LinkedIn e da Gupy esperam as fixtures reais.
+4. [SCRIBE]: spike-metrics §3 (parcial), STATE e SESSION-LOG, commit local. Reescrevam o next-step mantendo as trilhas.
+```
+
+### Trilha E: DOC-01
+```text
+Equipe, sigam em ciclo estrito. Trilha E do next-step: DOC-01 (BACKLOG). [SCRIBE] + [ARCHITECT]: sincronizem o contratos-zod do cofre com packages/contracts. A fonte da verdade é o código: veredito de 5 faixas, ARS, pressao_excessiva, summary, reportCatalogVersion, o prefixo @cf/ do model e o teto de 12.288 bytes dos critérios. Nenhum código muda. Atualizem STATE e SESSION-LOG e reescrevam o next-step mantendo as trilhas.
 ```
