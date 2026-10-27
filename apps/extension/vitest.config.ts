@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [WxtVitest()],
   test: {
     include: ["test/**/*.test.ts"],
-    // O E2E roda à parte (vitest.e2e.config.ts), porque precisa de navegador.
-    exclude: ["test/e2e/**"],
+    // O E2E e o extrator rodam à parte (vitest.e2e.config.ts e vitest.browser.config.ts): precisam de navegador.
+    exclude: ["test/e2e/**", "test/browser/**"],
   },
 });

@@ -10,7 +10,8 @@
     "typecheck": "wxt prepare && tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
     "lint": "wxt prepare && eslint",
     "test": "vitest run",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts"
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
     "@trampo/contracts": "workspace:*",
