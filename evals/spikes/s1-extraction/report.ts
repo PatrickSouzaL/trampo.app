@@ -207,6 +207,8 @@ function operations(rows: readonly ResultRow[], all: readonly ResultRow[]): Reco
       offEnumItemsRemoved: tally(rows, (s) => s.offEnumItemsRemoved),
       absentValuesNormalized: tally(rows, (s) => s.absentValuesNormalized),
     },
+    /** Contador do `g4` (ADR-008 §6): termos tirados do exigido por estarem no desejável. Linhas anteriores não têm. */
+    g4: { stackOverlapsResolved: tally(rows, (s) => s.stackOverlapsResolved) },
     failedGeneration: {
       cases: rows.filter((r) => r.failedGenerationIssuePaths !== null).length,
       guardWouldAccept: rows.filter((r) => r.failedGenerationGuardOk === true).length,

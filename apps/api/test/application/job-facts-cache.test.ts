@@ -45,6 +45,7 @@ const NO_SANITIZATION: LlmOutputSanitization = {
   malformedItemsRemoved: 0,
   offEnumItemsRemoved: 0,
   absentValuesNormalized: 0,
+  stackOverlapsResolved: 0,
   duplicatesRemoved: 0,
   itemsCut: 0,
   textTruncated: false,
@@ -266,9 +267,9 @@ describe("escrita (SR-08): todas as condições, cada uma isolada, sem comando n
     await expect(harness().save({ effectiveConfidence: 1, degraded: true })).resolves.toMatchObject({ written: false });
   });
 
-  test("remoções que não são de injection (duplicata, corte, fora do enum e ausência do g3) não impedem a escrita", async () => {
+  test("remoções que não são de injection (duplicata, corte, fora do enum, ausência do g3 e sobreposição do g4) não impedem a escrita", async () => {
     const h = harness();
-    const sanitization = { ...NO_SANITIZATION, duplicatesRemoved: 2, itemsCut: 1, textTruncated: true, offEnumItemsRemoved: 3, absentValuesNormalized: 2 };
+    const sanitization = { ...NO_SANITIZATION, duplicatesRemoved: 2, itemsCut: 1, textTruncated: true, offEnumItemsRemoved: 3, absentValuesNormalized: 2, stackOverlapsResolved: 1 };
     await expect(h.save({ sanitization })).resolves.toEqual({
       written: true,
     });
