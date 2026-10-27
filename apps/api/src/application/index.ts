@@ -138,6 +138,7 @@ export {
   AnalysisEventSchema,
   LlmExtractionEventSchema,
   TELEMETRY_LATENCY_MAX_MS,
+  TELEMETRY_GUARD_NORMALIZATION_MAX,
   TELEMETRY_STEPS_MAX,
   TelemetryEventSchema,
   type AnalysisCacheStatus,

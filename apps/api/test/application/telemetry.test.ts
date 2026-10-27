@@ -9,6 +9,7 @@ import {
   AnalysisEventSchema,
   LlmExtractionEventSchema,
   METRIC_CATALOG,
+  TELEMETRY_GUARD_NORMALIZATION_MAX,
   TELEMETRY_LATENCY_MAX_MS,
   TELEMETRY_STEPS_MAX,
   TelemetryEventSchema,
@@ -25,12 +26,32 @@ import {
 } from "../../src/application/index.js";
 
 const CANARY = "canario-texto-do-llm-q9";
-/** O evento nunca lê `facts`, `sanitization` nem `model`: os três carregam o canário. */
+/**
+ * O evento nunca lê `facts` nem `model`, e do `sanitization` só os três contadores do g3/g4 (ADR-022 D10): o resto
+ * carrega o canário.
+ */
 const FACTS = { title: CANARY, summary: CANARY } as unknown as JobFacts;
 const SANITIZATION = { urlsRemoved: 1, note: CANARY } as unknown as LlmOutputSanitization;
+const NO_NORMALIZATIONS = { offEnumItemsRemoved: 0, absentValuesNormalized: 0, stackOverlapsResolved: 0 };
 
-function okOutcome(trail: readonly RouterTrailEntry[], provider: LlmProviderId = "groq", usage = { inputTokens: 900, outputTokens: 120 }): ExtractionOutcome {
-  return { ok: true, facts: FACTS, sanitization: SANITIZATION, provider, model: CANARY, usage, trail };
+function okOutcome(
+  trail: readonly RouterTrailEntry[],
+  provider: LlmProviderId = "groq",
+  usage = { inputTokens: 900, outputTokens: 120 },
+  sanitization: LlmOutputSanitization = SANITIZATION,
+): ExtractionOutcome {
+  return { ok: true, facts: FACTS, sanitization, provider, model: CANARY, usage, trail };
+}
+
+function withCounters(offEnum: unknown, absent: unknown, overlaps: unknown): LlmOutputSanitization {
+  return {
+    urlsRemoved: 3,
+    note: CANARY,
+    tags: [CANARY],
+    offEnumItemsRemoved: offEnum,
+    absentValuesNormalized: absent,
+    stackOverlapsResolved: overlaps,
+  } as unknown as LlmOutputSanitization;
 }
 
 function failure(reason: ExtractionFailureReason, trail: readonly RouterTrailEntry[]): ExtractionOutcome {
@@ -61,6 +82,7 @@ describe("llmExtractionEvent", () => {
         { provider: "cloudflare_workers_ai", outcome: "circuito_aberto", called: false },
         { provider: "groq", outcome: "ok", called: true },
       ],
+      guardNormalizations: NO_NORMALIZATIONS,
     });
     // Sem a chave guardRejection quando a guarda não rejeitou (o schema estrito não aceita undefined solto).
     expect(Object.keys(event.steps[1] ?? {})).toEqual(["provider", "outcome", "called"]);
@@ -68,9 +90,44 @@ describe("llmExtractionEvent", () => {
     LlmExtractionEventSchema.parse(event);
   });
 
-  test("falha: provedor null, tokens 0 e o motivo do router", () => {
+  test("falha: provedor null, tokens 0, normalizações 0 e o motivo do router", () => {
     const event = llmExtractionEvent(failure("cota_esgotada", []), { platform: "linkedin", latencyMs: 3 });
     expect(event).toMatchObject({ outcome: "cota_esgotada", provider: null, llmCalls: 0, inputTokens: 0, outputTokens: 0, steps: [] });
+    expect(event.guardNormalizations).toEqual(NO_NORMALIZATIONS);
+  });
+
+  test("ok: copia só os três contadores do g3/g4, saturados em 8.192 (ADR-022 D10)", () => {
+    const event = llmExtractionEvent(okOutcome([{ provider: "groq", outcome: "ok", called: true }], "groq", undefined, withCounters(2, 1, 9_000)), {
+      platform: "gupy",
+      latencyMs: 1,
+    });
+    expect(event.guardNormalizations).toEqual({
+      offEnumItemsRemoved: 2,
+      absentValuesNormalized: 1,
+      stackOverlapsResolved: TELEMETRY_GUARD_NORMALIZATION_MAX,
+    });
+    expect(Object.keys(event.guardNormalizations)).toEqual(["offEnumItemsRemoved", "absentValuesNormalized", "stackOverlapsResolved"]);
+    expect(JSON.stringify(event)).not.toContain(CANARY);
+    expect(JSON.stringify(event)).not.toContain("urlsRemoved");
+    LlmExtractionEventSchema.parse(event);
+  });
+
+  test.each([
+    ["no teto", TELEMETRY_GUARD_NORMALIZATION_MAX, TELEMETRY_GUARD_NORMALIZATION_MAX],
+    ["1", 1, 1],
+    ["negativo", -1, 0],
+    ["fracionário", 1.5, 0],
+    ["NaN", Number.NaN, 0],
+    ["infinito", Number.POSITIVE_INFINITY, 0],
+    ["acima do inteiro seguro", Number.MAX_SAFE_INTEGER + 2, 0],
+    ["texto", "3", 0],
+  ])("contador %s vira %i", (_label, value, expected) => {
+    const event = llmExtractionEvent(okOutcome([], "groq", undefined, withCounters(value, value, value)), { platform: "gupy", latencyMs: 1 });
+    expect(event.guardNormalizations).toEqual({
+      offEnumItemsRemoved: expected,
+      absentValuesNormalized: expected,
+      stackOverlapsResolved: expected,
+    });
   });
 
   test("latência: arredonda e limita a [0, TELEMETRY_LATENCY_MAX_MS]; NaN e negativos viram 0", () => {
@@ -94,6 +151,7 @@ describe("TelemetryEventSchema (estrito)", () => {
   test("constantes do ADR-010 D5", () => {
     expect(TELEMETRY_LATENCY_MAX_MS).toBe(120_000);
     expect(TELEMETRY_STEPS_MAX).toBe(6);
+    expect(TELEMETRY_GUARD_NORMALIZATION_MAX).toBe(8_192);
     expect(TelemetryEventSchema.options).toEqual([LlmExtractionEventSchema, AnalysisEventSchema]);
   });
 
@@ -110,6 +168,12 @@ describe("TelemetryEventSchema (estrito)", () => {
     ["3 chamadas", { ...valid, llmCalls: 3 }],
     ["tokens negativos", { ...valid, inputTokens: -1 }],
     ["7 passos", { ...valid, steps: Array.from({ length: TELEMETRY_STEPS_MAX + 1 }, () => ({ provider: "groq", outcome: "timeout", called: false })) }],
+    ["sem guardNormalizations", (({ guardNormalizations: _omit, ...rest }) => rest)(valid)],
+    ["chave extra nas normalizações", { ...valid, guardNormalizations: { ...NO_NORMALIZATIONS, urlsRemoved: 1 } }],
+    ["texto nas normalizações", { ...valid, guardNormalizations: { ...NO_NORMALIZATIONS, tag: CANARY } }],
+    ["normalização acima do teto", { ...valid, guardNormalizations: { ...NO_NORMALIZATIONS, stackOverlapsResolved: TELEMETRY_GUARD_NORMALIZATION_MAX + 1 } }],
+    ["normalização negativa", { ...valid, guardNormalizations: { ...NO_NORMALIZATIONS, offEnumItemsRemoved: -1 } }],
+    ["normalização fracionária", { ...valid, guardNormalizations: { ...NO_NORMALIZATIONS, absentValuesNormalized: 0.5 } }],
   ])("recusa: %s", (_name, event) => {
     expect(TelemetryEventSchema.safeParse(event).success).toBe(false);
   });
@@ -134,10 +198,24 @@ const trailEntry = fc.record(
 );
 /** Trilhas que o router pode produzir: até 6 passos e no máximo 2 chamadas (ADR-009, provado lá). */
 const trail = fc.array(trailEntry, { maxLength: TELEMETRY_STEPS_MAX }).filter((t) => t.filter((s) => s.called).length <= 2);
+/** Contadores do `sanitization` como a guarda daria, e também fora da forma (o evento satura ou zera). */
+const counter = fc.oneof(
+  { weight: 4, arbitrary: fc.nat({ max: 20 }) },
+  fc.integer({ min: 8_000, max: 20_000 }),
+  fc.constantFrom(-1, 0.5, Number.NaN, Number.POSITIVE_INFINITY),
+);
 const outcome = fc.oneof(
-  fc.record({ trail, provider: fc.constantFrom(...providers), inputTokens: fc.nat(), outputTokens: fc.nat() }).map(
-    ({ trail: t, provider, inputTokens, outputTokens }) => okOutcome(t, provider, { inputTokens, outputTokens }),
-  ),
+  fc
+    .record({
+      trail,
+      provider: fc.constantFrom(...providers),
+      inputTokens: fc.nat(),
+      outputTokens: fc.nat(),
+      counters: fc.tuple(counter, counter, counter),
+    })
+    .map(({ trail: t, provider, inputTokens, outputTokens, counters }) =>
+      okOutcome(t, provider, { inputTokens, outputTokens }, withCounters(...counters)),
+    ),
   fc.record({ trail, reason: fc.constantFrom(...reasons) }).map(({ trail: t, reason }) => failure(reason, t)),
 );
 
@@ -167,6 +245,7 @@ describe("catálogo de métricas (ADR-010 D6)", () => {
       llm_provider_step_total: { type: "counter", labels: ["provider", "outcome", "called"] },
       llm_guard_rejection_total: { type: "counter", labels: ["provider", "rejection"] },
       llm_tokens_total: { type: "counter", labels: ["provider", "direction"] },
+      llm_guard_normalization_total: { type: "counter", labels: ["provider", "kind"] },
       analysis_total: { type: "counter", labels: ["platform", "mode", "rule", "decision_path"] },
       analysis_duration_ms: { type: "histogram", labels: ["decision_path"], buckets: [50, 250, 1_000, 2_000, 4_000, 8_000, 12_000] },
       analysis_cache_total: { type: "counter", labels: ["cache"] },
@@ -225,6 +304,42 @@ const ANALYSIS: AnalysisEvent = {
   warnings: ["possivel_prompt_injection", "texto_truncado"],
   durationMs: 1_800,
 };
+
+describe("llm_guard_normalization_total (ADR-022 D10)", () => {
+  test("um contador por tipo, só quando > 0, com o provedor que respondeu", () => {
+    const event = llmExtractionEvent(
+      okOutcome([{ provider: "groq", outcome: "ok", called: true }], "groq", undefined, withCounters(2, 0, 5)),
+      { platform: "gupy", latencyMs: 1 },
+    );
+    const samples = telemetryMetricSamples(event).filter((sample) => sample.name === "llm_guard_normalization_total");
+    expect(samples).toEqual([
+      { name: "llm_guard_normalization_total", labels: { provider: "groq", kind: "fora_do_enum" }, value: 2 },
+      { name: "llm_guard_normalization_total", labels: { provider: "groq", kind: "sobreposicao_de_stack" }, value: 5 },
+    ]);
+  });
+
+  test("todos 0: nenhuma série; falha: nenhuma série", () => {
+    const zero = llmExtractionEvent(okOutcome([], "groq", undefined, withCounters(0, 0, 0)), { platform: "gupy", latencyMs: 1 });
+    const failed = llmExtractionEvent(failure("timeout", []), { platform: "gupy", latencyMs: 1 });
+    for (const event of [zero, failed]) {
+      expect(telemetryMetricSamples(event).some((sample) => sample.name === "llm_guard_normalization_total")).toBe(false);
+    }
+  });
+
+  test("o rótulo kind tem cardinalidade fechada: ausência normalizada", () => {
+    const event = llmExtractionEvent(okOutcome([], "cloudflare_workers_ai", undefined, withCounters(0, 7, 0)), {
+      platform: "gupy",
+      latencyMs: 1,
+    });
+    expect(telemetryMetricSamples(event).filter((sample) => sample.name === "llm_guard_normalization_total")).toEqual([
+      {
+        name: "llm_guard_normalization_total",
+        labels: { provider: "cloudflare_workers_ai", kind: "ausencia_normalizada" },
+        value: 7,
+      },
+    ]);
+  });
+});
 
 describe("evento analysis (ADR-017 D5)", () => {
   test("válido na união e no schema próprio", () => {

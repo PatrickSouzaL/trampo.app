@@ -15,6 +15,7 @@ const okEvent = (): TelemetryEvent =>
       provider: "groq",
       model: "openai/gpt-oss-20b",
       usage: { inputTokens: 1_000, outputTokens: 200 },
+      sanitization: { offEnumItemsRemoved: 0, absentValuesNormalized: 0, stackOverlapsResolved: 0 },
       trail: [{ provider: "groq", outcome: "ok", called: true }],
     } as unknown as ExtractionOutcome,
     { platform: "linkedin", latencyMs: 800 },

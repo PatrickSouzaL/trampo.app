@@ -1,11 +1,12 @@
 // Telemetria da Camada 3 e da análise (ADR-010 D5 e D6; ADR-017 D5). A trilha do router (só enums, ADR-009 D3)
 // e o evento `analysis` do AnalyzeJob são as fontes de métrica. Funções puras: montam o evento e o traduzem no
-// catálogo de métricas, sem estado e sem I/O. Não há caminho para `facts`, `sanitization`, `model`, nota ou
-// veredito: só enums e números são copiados.
+// catálogo de métricas, sem estado e sem I/O. Não há caminho para `facts`, `model`, nota ou veredito: só enums e
+// números são copiados. Do `sanitization`, só os três contadores do g3/g4 (ADR-022 D10).
 import type { Platform } from "@trampo/contracts";
 
 import type { ExtractionOutcome } from "../llm/llm-provider-router.js";
 import {
+  TELEMETRY_GUARD_NORMALIZATION_MAX,
   TELEMETRY_LATENCY_MAX_MS,
   type AnalysisEvent,
   type LlmExtractionEvent,
@@ -24,6 +25,11 @@ export function telemetryMs(ms: number): number {
   return rounded > 0 ? Math.min(rounded, TELEMETRY_LATENCY_MAX_MS) : 0;
 }
 
+/** Inteiro seguro > 0 limitado a TELEMETRY_GUARD_NORMALIZATION_MAX; o resto vira 0. */
+function saturated(value: number): number {
+  return Number.isSafeInteger(value) && value > 0 ? Math.min(value, TELEMETRY_GUARD_NORMALIZATION_MAX) : 0;
+}
+
 export function llmExtractionEvent(outcome: ExtractionOutcome, context: ExtractionTelemetryContext): LlmExtractionEvent {
   return {
     kind: "llm_extraction",
@@ -40,8 +46,22 @@ export function llmExtractionEvent(outcome: ExtractionOutcome, context: Extracti
       called: step.called,
       ...(step.guardRejection === undefined ? {} : { guardRejection: step.guardRejection }),
     })),
+    guardNormalizations: outcome.ok
+      ? {
+          offEnumItemsRemoved: saturated(outcome.sanitization.offEnumItemsRemoved),
+          absentValuesNormalized: saturated(outcome.sanitization.absentValuesNormalized),
+          stackOverlapsResolved: saturated(outcome.sanitization.stackOverlapsResolved),
+        }
+      : { offEnumItemsRemoved: 0, absentValuesNormalized: 0, stackOverlapsResolved: 0 },
   };
 }
+
+/** Rótulo `kind` do `llm_guard_normalization_total` para cada contador do evento (ADR-022 D10). */
+const NORMALIZATION_KINDS = {
+  offEnumItemsRemoved: "fora_do_enum",
+  absentValuesNormalized: "ausencia_normalizada",
+  stackOverlapsResolved: "sobreposicao_de_stack",
+} as const satisfies Record<keyof LlmExtractionEvent["guardNormalizations"], string>;
 
 /** Catálogo de métricas do ADR-010 D6. Rótulos só com cardinalidade fechada. */
 export const METRIC_CATALOG = {
@@ -51,6 +71,8 @@ export const METRIC_CATALOG = {
   llm_provider_step_total: { type: "counter", labels: ["provider", "outcome", "called"] },
   llm_guard_rejection_total: { type: "counter", labels: ["provider", "rejection"] },
   llm_tokens_total: { type: "counter", labels: ["provider", "direction"] },
+  // ADR-022 D10: só quando o contador do evento é > 0.
+  llm_guard_normalization_total: { type: "counter", labels: ["provider", "kind"] },
   // ADR-017 D5: uma série por análise, sem nada derivado do perfil.
   analysis_total: { type: "counter", labels: ["platform", "mode", "rule", "decision_path"] },
   analysis_duration_ms: { type: "histogram", labels: ["decision_path"], buckets: [50, 250, 1_000, 2_000, 4_000, 8_000, 12_000] },
@@ -108,6 +130,10 @@ function extractionSamples(event: LlmExtractionEvent): MetricSample[] {
       { name: "llm_tokens_total", labels: { provider: event.provider, direction: "input" }, value: event.inputTokens },
       { name: "llm_tokens_total", labels: { provider: event.provider, direction: "output" }, value: event.outputTokens },
     );
+    for (const [field, kind] of Object.entries(NORMALIZATION_KINDS)) {
+      const value = event.guardNormalizations[field as keyof typeof NORMALIZATION_KINDS];
+      if (value > 0) samples.push({ name: "llm_guard_normalization_total", labels: { provider: event.provider, kind }, value });
+    }
   }
   return samples;
 }
