@@ -1,6 +1,7 @@
 // Propriedades do LlmProviderRouter (fast-check; ADR-009 §4): para qualquer cadeia, sequência de respostas
 // (inclusive exceções e chamadas que nunca respondem), latências, ledger, jitter, prazo inicial e estado de
-// breaker herdado de análises anteriores, o router nunca faz mais de 2 chamadas, nunca passa do prazo,
+// breaker herdado de análises anteriores, e tetos de tentativa por provedor sorteados (ADR-009 §5.5), o router
+// nunca faz mais de 2 chamadas, nunca passa do prazo, nunca dá a uma tentativa mais que o teto do provedor,
 // nunca lança, não deixa timer pendurado, e o resultado ok passou pelo contrato.
 import type { LlmProviderId } from "@trampo/contracts";
 import { JobFactsSchema } from "@trampo/contracts/job-facts";
@@ -62,6 +63,15 @@ const scenario = fc.record({
   }),
   ledger: fc.array(ledgerBehavior, { minLength: 1, maxLength: 10 }),
   random: fc.oneof(fc.double({ min: 0, max: 1, maxExcluded: true, noNaN: true }), fc.constant(Number.NaN)),
+  // `null`: a tabela de produção (ROUTER_POLICY). Senão, um teto sorteado por provedor.
+  ceilings: fc.option(
+    fc.record({
+      groq: fc.integer({ min: 1, max: 15_000 }),
+      cloudflare_workers_ai: fc.integer({ min: 1, max: 15_000 }),
+      ollama: fc.integer({ min: 1, max: 15_000 }),
+      google_ai_studio: fc.integer({ min: 1, max: 15_000 }),
+    }),
+  ),
   analyses: fc.array(
     fc.record({ remainingMs: fc.integer({ min: -1_000, max: 20_000 }), gapMs: fc.integer({ min: 0, max: 70_000 }) }),
     { minLength: 1, maxLength: 5 },
@@ -83,7 +93,9 @@ describe("propriedades do router", () => {
           scripts: s.scripts,
           random: () => s.random,
           ledger: (_provider, nth) => s.ledger[nth % s.ledger.length] ?? "permitido",
+          ...(s.ceilings === null ? {} : { attemptTimeoutMaxMs: s.ceilings }),
         });
+        const ceilings = s.ceilings ?? ROUTER_POLICY.attemptTimeoutMaxMs;
         for (const analysis of s.analyses) {
           await clock.run(clock.sleep(analysis.gapMs));
           const callsBefore = h.totalCalls;
@@ -104,6 +116,11 @@ describe("propriedades do router", () => {
             expect(JSON.stringify(outcome)).not.toContain("segredo");
           }
           expect(outcome.trail.filter((entry) => entry.called)).toHaveLength(h.totalCalls - callsBefore);
+        }
+        for (const provider of s.chain) {
+          for (const call of h.extractor(provider).calls) {
+            expect(call.timeoutMs).toBeLessThanOrEqual(ceilings[provider]);
+          }
         }
       }),
       { numRuns: 1_000 },

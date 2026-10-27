@@ -36,11 +36,12 @@ function succeeded(outcome: ExtractionOutcome): Extract<ExtractionOutcome, { ok:
   return outcome;
 }
 
-describe("política fixada no ADR-009 (D4 a D6)", () => {
+describe("política fixada no ADR-009 (D4 a D6 e §5)", () => {
   test("as constantes são as do ADR: mudar exige ADR novo depois do S-1", () => {
     expect(ROUTER_POLICY).toEqual({
       analysisDeadlineMs: 12_000,
-      attemptTimeoutMaxMs: 10_000,
+      // Tabela inteira do ADR-009 §5.2 (ADR-022 D9).
+      attemptTimeoutMaxMs: { groq: 3_000, cloudflare_workers_ai: 10_000, ollama: 10_000, google_ai_studio: 10_000 },
       deadlineReserveMs: 300,
       minAttemptMs: 2_500,
       maxLlmCallsPerAnalysis: 2,
@@ -50,6 +51,7 @@ describe("política fixada no ADR-009 (D4 a D6)", () => {
     });
     expect(BREAKER_POLICY).toEqual({ consecutiveFailuresToOpen: 3, window: 10, failureRatioToOpen: 0.5, openMs: 60_000 });
     expect(RATE_LIMIT_COOLDOWN).toEqual({ defaultMs: 60_000, minMs: 1_000, maxMs: 120_000 });
+    expect(Object.isFrozen(ROUTER_POLICY.attemptTimeoutMaxMs)).toBe(true);
   });
 });
 
@@ -72,13 +74,13 @@ describe("caminho feliz", () => {
     expect(h.clock.pendingTimers).toBe(0);
   });
 
-  test("o adapter recebe o MESMO payload (só o texto da vaga) e o teto de 10 s", async () => {
+  test("o adapter recebe o MESMO payload (só o texto da vaga) e o teto do provedor (Groq: 3 s)", async () => {
     const h = new Harness({ scripts: { groq: [OK] } });
     await h.analyze();
     const [call] = h.extractor("groq").calls;
     expect(call?.payload).toBe(PAYLOAD);
     expect(Object.keys(call?.payload ?? {})).toEqual(["text"]);
-    expect(call?.timeoutMs).toBe(ROUTER_POLICY.attemptTimeoutMaxMs);
+    expect(call?.timeoutMs).toBe(3_000);
     expect(call?.signal.aborted).toBe(true);
   });
 
@@ -296,28 +298,71 @@ describe("HTTP 429 e Retry-After", () => {
 });
 
 describe("prazo global (ADR-009 D4)", () => {
-  test("provedor que nunca responde: timeout de 10 s, abort do sinal, e o resto do prazo não dá outra chamada", async () => {
-    const h = new Harness({ scripts: { groq: [{ kind: "trava" }], cloudflare_workers_ai: [OK] } });
+  test("provedor de 10 s que nunca responde: timeout de 10 s, abort do sinal, e o resto do prazo não dá outra chamada", async () => {
+    const h = new Harness({
+      chain: ["cloudflare_workers_ai", "groq"],
+      scripts: { cloudflare_workers_ai: [{ kind: "trava" }], groq: [OK] },
+    });
     const { outcome, elapsedMs } = await h.analyze();
     expect(failed(outcome).reason).toBe("timeout");
-    expect(elapsedMs).toBe(ROUTER_POLICY.attemptTimeoutMaxMs);
-    expect(h.extractor("groq").calls[0]?.signal.aborted).toBe(true);
-    expect(h.extractor("cloudflare_workers_ai").calls).toHaveLength(0);
-    expect(failed(outcome).trail).toEqual([{ provider: "groq", outcome: "timeout", called: true }]);
+    expect(elapsedMs).toBe(ROUTER_POLICY.attemptTimeoutMaxMs.cloudflare_workers_ai);
+    expect(h.extractor("cloudflare_workers_ai").calls[0]?.signal.aborted).toBe(true);
+    expect(h.extractor("groq").calls).toHaveLength(0);
+    expect(failed(outcome).trail).toEqual([{ provider: "cloudflare_workers_ai", outcome: "timeout", called: true }]);
   });
 
-  test("tentativa recebe min(10 s, restante − 300 ms)", async () => {
+  test("Groq que nunca responde é abortado em 3 s, e a Workers AI recebe 8,7 s (ADR-009 §5.5)", async () => {
+    const h = new Harness({
+      scripts: { groq: [{ kind: "trava" }], cloudflare_workers_ai: [{ ...OK, latencyMs: 8_000 }] },
+    });
+    const { outcome, elapsedMs, deadlineAtMs } = await h.analyze();
+    expect(succeeded(outcome).provider).toBe("cloudflare_workers_ai");
+    expect(h.extractor("groq").calls[0]?.timeoutMs).toBe(3_000);
+    expect(h.extractor("groq").calls[0]?.signal.aborted).toBe(true);
+    expect(h.extractor("cloudflare_workers_ai").calls[0]?.timeoutMs).toBe(8_700);
+    expect(elapsedMs).toBe(11_000);
+    expect(h.clock.nowMs()).toBeLessThanOrEqual(deadlineAtMs);
+    expect(succeeded(outcome).trail).toEqual([
+      { provider: "groq", outcome: "timeout", called: true },
+      { provider: "cloudflare_workers_ai", outcome: "ok", called: true },
+    ]);
+  });
+
+  test("o retry do Groq por erro transitório usa o mesmo teto de 3 s", async () => {
+    const h = new Harness({ scripts: { groq: [{ ...TRANSIENT, latencyMs: 100 }, { kind: "trava" }] } });
+    const { outcome } = await h.analyze();
+    expect(failed(outcome).reason).toBe("timeout");
+    expect(h.extractor("groq").calls.map((call) => call.timeoutMs)).toEqual([3_000, 3_000]);
+  });
+
+  test("tentativa recebe min(teto do provedor, restante − 300 ms)", async () => {
     const h = new Harness({ scripts: { groq: [{ ...PERMANENT, latencyMs: 1_000 }], cloudflare_workers_ai: [OK] } });
     await h.analyze(8_000);
-    expect(h.extractor("groq").calls[0]?.timeoutMs).toBe(7_700);
+    expect(h.extractor("groq").calls[0]?.timeoutMs).toBe(3_000);
     expect(h.extractor("cloudflare_workers_ai").calls[0]?.timeoutMs).toBe(6_700);
+    const short = new Harness({ scripts: { groq: [OK] } });
+    await short.analyze(3_200);
+    expect(short.extractor("groq").calls[0]?.timeoutMs).toBe(2_900);
+  });
+
+  test("teto injetado substitui a tabela, por provedor", async () => {
+    const h = new Harness({
+      attemptTimeoutMaxMs: { groq: 4_000, cloudflare_workers_ai: 5_000, ollama: 6_000, google_ai_studio: 7_000 },
+      scripts: { groq: [{ ...PERMANENT, latencyMs: 100 }], cloudflare_workers_ai: [OK] },
+    });
+    await h.analyze();
+    expect(h.extractor("groq").calls[0]?.timeoutMs).toBe(4_000);
+    expect(h.extractor("cloudflare_workers_ai").calls[0]?.timeoutMs).toBe(5_000);
   });
 
   test("timeout no 1º provedor com prazo de sobra: a 2ª chamada vai ao próximo, com o que resta", async () => {
-    const h = new Harness({ scripts: { groq: [{ kind: "trava" }], cloudflare_workers_ai: [{ ...OK, latencyMs: 700 }] } });
-    const { outcome, elapsedMs, deadlineAtMs } = await h.analyze(15_000);
-    expect(succeeded(outcome).provider).toBe("cloudflare_workers_ai");
-    expect(h.extractor("cloudflare_workers_ai").calls[0]?.timeoutMs).toBe(4_700);
+    const h = new Harness({
+      chain: ["cloudflare_workers_ai", "groq"],
+      scripts: { cloudflare_workers_ai: [{ kind: "trava" }], groq: [{ ...OK, latencyMs: 700 }] },
+    });
+    const { outcome, elapsedMs, deadlineAtMs } = await h.analyze(13_000);
+    expect(succeeded(outcome).provider).toBe("groq");
+    expect(h.extractor("groq").calls[0]?.timeoutMs).toBe(2_700);
     expect(elapsedMs).toBe(10_700);
     expect(h.clock.nowMs()).toBeLessThanOrEqual(deadlineAtMs);
   });

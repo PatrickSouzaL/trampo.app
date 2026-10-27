@@ -92,6 +92,7 @@ export {
   RouterConfigError,
   type ExtractionFailureReason,
   type ExtractionOutcome,
+  type AttemptTimeoutMaxMs,
   type LlmProviderRouterDeps,
   type RouterTrailEntry,
 } from "./llm/llm-provider-router.js";
