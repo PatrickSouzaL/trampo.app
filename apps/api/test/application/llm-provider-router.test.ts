@@ -268,6 +268,37 @@ describe("HTTP 429 e Retry-After", () => {
     expect(h.states.get("groq").phase).toBe("fechado");
   });
 
+  test("429 grava o bloqueio compartilhado no ledger com o Retry-After cru (ADR-022 D7.3), sem esperar", async () => {
+    const h = new Harness({
+      scripts: {
+        groq: [{ kind: "limite_de_taxa", retryAfterMs: 887_000 }],
+        cloudflare_workers_ai: [{ kind: "limite_de_taxa", retryAfterMs: null }],
+      },
+    });
+    await h.analyze();
+    expect(h.ledger.rateLimits).toEqual([
+      { provider: "groq", retryAfterMs: 887_000 },
+      { provider: "cloudflare_workers_ai", retryAfterMs: null },
+    ]);
+    // O resfriamento por processo continua limitado a 120 s; o teto de 1 h é do ledger.
+    expect(h.states.get("groq").cooldownUntilMs - h.clock.nowMs()).toBeLessThanOrEqual(RATE_LIMIT_COOLDOWN.maxMs);
+  });
+
+  test("falha do recordRateLimit não derruba a troca de provedor", async () => {
+    const h = new Harness({
+      scripts: { groq: [{ kind: "limite_de_taxa", retryAfterMs: 30_000 }], cloudflare_workers_ai: [OK] },
+    });
+    h.ledger.failRateLimit = true;
+    expect(succeeded((await h.analyze()).outcome).provider).toBe("cloudflare_workers_ai");
+    expect(h.ledger.rateLimits).toHaveLength(1);
+  });
+
+  test("erro que não é 429 não grava bloqueio", async () => {
+    const h = new Harness({ scripts: { groq: [PERMANENT], cloudflare_workers_ai: [TRANSIENT, OK] } });
+    await h.analyze();
+    expect(h.ledger.rateLimits).toEqual([]);
+  });
+
   test("429 nos dois provedores: limite_de_taxa", async () => {
     const h = new Harness({
       scripts: {
@@ -588,7 +619,11 @@ describe("configuração do router (ADR-009 D7)", () => {
   const base = {
     clock,
     random: { next: () => 0.5 },
-    ledger: { reserve: () => Promise.resolve("permitido" as const), recordUsage: () => Promise.resolve() },
+    ledger: {
+      reserve: () => Promise.resolve("permitido" as const),
+      recordUsage: () => Promise.resolve(),
+      recordRateLimit: () => Promise.resolve(),
+    },
     states: new InMemoryProviderStateStore(),
   };
   const groq = new ScriptedExtractor("groq", clock, []);

@@ -58,7 +58,14 @@ export class RedisStore {
         return { result: name === "SADD" ? (had ? 0 : 1) : had ? 1 : 0 };
       }
       case "SET": {
-        // Só a forma que o cache usa: SET key value NX EX ttl.
+        // Só as formas que os adapters usam: SET key value NX EX ttl (cache) e SET key value PX ms (llm:block).
+        if (command.length === 5 && String(command[3]) === "PX") {
+          const ms = String(command[4]);
+          if (!/^[1-9]\d*$/.test(ms)) return { error: "ERR syntax error" };
+          this.values.set(key, String(arg));
+          this.ttlMs.set(key, Number(ms));
+          return { result: "OK" };
+        }
         const [, , value, nx, ex, ttl] = command.map(String);
         if (nx !== "NX" || ex !== "EX" || value === undefined || !/^[1-9]\d*$/.test(String(ttl))) return { error: "ERR syntax error" };
         if (current !== undefined) return { result: null };
@@ -72,6 +79,8 @@ export class RedisStore {
         this.ttlMs.delete(key);
         return { result: existed ? 1 : 0 };
       }
+      case "EXISTS":
+        return { result: current === undefined ? 0 : 1 };
       case "SCARD": {
         const set = asSet();
         return set === null ? wrongType : { result: set.size };

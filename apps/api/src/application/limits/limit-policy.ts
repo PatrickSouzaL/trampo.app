@@ -92,6 +92,11 @@ export const LEDGER_POLICY = {
   dayTtlSeconds: 172_800,
   /** Teto de tokens aceitos num `recordUsage` (acima disso o uso é ignorado como fora da forma). */
   maxTokensPerCall: 1_000_000,
+  /**
+   * Bloqueio compartilhado por `Retry-After` (ADR-022 D7.3): `null` ou inválido vira 60 s, e o valor fica em
+   * [1 s, 1 h]. O teto de 1 h passa dos 887 s medidos no TPD do Groq (S-1).
+   */
+  rateLimitBlock: { defaultMs: 60_000, minMs: 1_000, maxMs: 3_600_000 },
 } as const;
 
 /** Prazo do guarda em volta da porta (o cliente REST tem o próprio teto, menor). */

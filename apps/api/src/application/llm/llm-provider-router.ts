@@ -220,6 +220,7 @@ export class LlmProviderRouter {
 
       if (result.kind === "limite_de_taxa") {
         this.#states.set(provider, recordRateLimit(state, now, result.retryAfterMs));
+        this.#recordRateLimit(provider, result.retryAfterMs);
         trail.push({ provider, outcome: "limite_de_taxa", called: true });
         return { ok: false, reason: "limite_de_taxa", trail };
       }
@@ -275,6 +276,13 @@ export class LlmProviderRouter {
   #recordUsage(provider: LlmProviderId, usage: TokenUsage): void {
     Promise.resolve()
       .then(() => this.#ledger.recordUsage(provider, usage))
+      .catch(() => undefined);
+  }
+
+  /** Bloqueio compartilhado pelo `Retry-After` (ADR-022 D7.3). Melhor esforço, sem bloquear a troca de provedor. */
+  #recordRateLimit(provider: LlmProviderId, retryAfterMs: number | null): void {
+    Promise.resolve()
+      .then(() => this.#ledger.recordRateLimit(provider, retryAfterMs))
       .catch(() => undefined);
   }
 

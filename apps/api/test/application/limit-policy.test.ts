@@ -64,6 +64,8 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
       minuteTtlSeconds: 120,
       dayTtlSeconds: 172_800,
       maxTokensPerCall: 1_000_000,
+      // Bloqueio por Retry-After compartilhado (ADR-022 D7.3).
+      rateLimitBlock: { defaultMs: 60_000, minMs: 1_000, maxMs: 3_600_000 },
     });
     expect(LIMIT_GUARD_POLICY).toEqual({ timeoutMs: 250 });
   });

@@ -1,10 +1,13 @@
 // QuotaLedger em Redis (ADR-009 D6; ADR-014 D6): cota por provedor com 15% de folga e breaker diário global
-// de LLM. `reserve` conta a chamada numa transação (global do dia, RPM e RPD do provedor) e soma a reserva
-// pessimista de tokens no minuto e no dia (ADR-022 D7.2), só no provedor que tem limite de tokens (e, por isso,
-// reserva: invariante fixado no teste da política); a decisão é em TypeScript. Na negação, os contadores (e a reserva) voltam em melhor esforço. `recordUsage` reconcilia a
-// reserva com o uso real; a chamada que não volta 200 não o chama, e a reserva cheia fica.
+// de LLM. `reserve` conta a chamada numa transação (global do dia, RPM e RPD do provedor), lê o bloqueio por
+// `Retry-After` (ADR-022 D7.3) e soma a reserva pessimista de tokens no minuto e no dia (ADR-022 D7.2), só no
+// provedor que tem limite de tokens (e, por isso, reserva: invariante fixado no teste da política). A decisão é
+// em TypeScript. Na negação, os contadores (e a reserva) voltam em melhor esforço.
+// `recordUsage` reconcilia a reserva com o uso real; a chamada que não volta 200 não o chama, e a reserva cheia
+// fica. `recordRateLimit` grava `llm:block:{provider}` pelo `Retry-After`.
 // Redis com erro, lento ou fora do contrato → `global_esgotado` (encerra a cadeia com `cota_esgotada`).
-// `recordUsage` é melhor esforço. Nenhum dos dois rejeita. As chaves só levam o id do provedor (sem PII).
+// `recordUsage` e `recordRateLimit` são melhor esforço. Nenhum dos três rejeita. As chaves só levam o id do
+// provedor (sem PII).
 import type { LlmProviderId } from "@trampo/contracts";
 
 import {
@@ -27,16 +30,30 @@ export interface RedisQuotaLedgerDeps {
 
 interface LedgerKeys {
   readonly global: string;
+  readonly block: string;
   readonly rpm: string;
   readonly rpd: string;
   readonly tpm: string;
   readonly tpd: string;
 }
 
+function blockKey(provider: LlmProviderId): string {
+  return `llm:block:${provider}`;
+}
+
+/** `null`, não finito ou negativo vira 60 s; o resto fica em [1 s, 1 h], inteiro (o `PX` exige). */
+function blockMs(retryAfterMs: number | null): number {
+  const { defaultMs, minMs, maxMs } = LEDGER_POLICY.rateLimitBlock;
+  if (retryAfterMs === null || !Number.isFinite(retryAfterMs) || retryAfterMs < 0) return defaultMs;
+  return Math.min(maxMs, Math.max(minMs, Math.ceil(retryAfterMs)));
+}
+
 function ledgerKeys(provider: LlmProviderId, epochMs: number): LedgerKeys {
   const { day, minute } = utcDayAndMinute(epochMs);
   return {
     global: `llm:global:${day}`,
+    // O id do provedor é um enum fechado, sem dado de usuário: a chave não leva HMAC (o SR-17 é para usuário e IP).
+    block: blockKey(provider),
     rpm: `llm:rpm:${provider}:${minute}`,
     rpd: `llm:rpd:${provider}:${day}`,
     tpm: `llm:tpm:${provider}:${minute}`,
@@ -60,6 +77,11 @@ function asReservedCount(value: RedisValue | undefined): number | null {
 
 function isTokenCount(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 0 && value <= LEDGER_POLICY.maxTokensPerCall;
+}
+
+/** Resposta do `EXISTS` de uma chave: 0 ou 1; o resto é `null` (falha fechado). */
+function asFlag(value: RedisValue | undefined): boolean | null {
+  return value === 0 || value === 1 ? value === 1 : null;
 }
 
 /** Com reserva: `INCRBY`, `EXPIRE`, `INCRBY`, `EXPIRE`. `null` se alguma resposta está fora da forma. */
@@ -99,6 +121,7 @@ export function createRedisQuotaLedger(deps: RedisQuotaLedgerDeps): QuotaLedger 
             ["EXPIRE", keys.rpm, minuteTtlSeconds],
             ["INCR", keys.rpd],
             ["EXPIRE", keys.rpd, dayTtlSeconds],
+            ["EXISTS", keys.block],
             ...tokens,
           ],
           signal,
@@ -107,16 +130,17 @@ export function createRedisQuotaLedger(deps: RedisQuotaLedgerDeps): QuotaLedger 
         const global = asInteger(replies[0], 1);
         const rpm = asInteger(replies[2], 1);
         const rpd = asInteger(replies[4], 1);
+        const blocked = asFlag(replies[6]);
         const callsOk = isOne(replies[1]) && isOne(replies[3]) && isOne(replies[5]);
         // O contador de tokens já inclui esta reserva: estoura acima do efetivo, como as chamadas.
-        const tokensOver = reserved === null ? false : reservedTokens(replies.slice(6), limits);
-        if (global === null || rpm === null || rpd === null || tokensOver === null || !callsOk) {
+        const tokensOver = reserved === null ? false : reservedTokens(replies.slice(7), limits);
+        if (global === null || rpm === null || rpd === null || blocked === null || tokensOver === null || !callsOk) {
           return "global_esgotado";
         }
         const decision: QuotaDecision =
           global > LEDGER_POLICY.globalCallsPerDay
             ? "global_esgotado"
-            : exceeded(rpm, limits.rpm) || exceeded(rpd, limits.rpd) || tokensOver
+            : blocked || exceeded(rpm, limits.rpm) || exceeded(rpd, limits.rpd) || tokensOver
               ? "provedor_esgotado"
               : "permitido";
         if (decision !== "permitido") {
@@ -161,6 +185,14 @@ export function createRedisQuotaLedger(deps: RedisQuotaLedgerDeps): QuotaLedger 
         );
       } catch {
         // Melhor esforço (ADR-009 D6): a contabilidade não derruba uma análise que já deu certo.
+      }
+    },
+
+    async recordRateLimit(provider, retryAfterMs): Promise<void> {
+      try {
+        await deps.redis.exec([["SET", blockKey(provider), 1, "PX", blockMs(retryAfterMs)]], new AbortController().signal);
+      } catch {
+        // Melhor esforço (ADR-022 D7.3): o resfriamento por processo do router já cobre esta instância.
       }
     },
   };

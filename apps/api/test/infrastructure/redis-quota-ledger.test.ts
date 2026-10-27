@@ -1,6 +1,7 @@
 // QuotaLedger em Redis (ADR-009 D6; ADR-014 D6; T7, T39) contra o Redis simulado em memória: folga de 15%
 // por provedor, breaker diário global, compensação na negação, falha fechado, reserva pessimista de tokens com
-// reconciliação (ADR-022 D7.2) e recordUsage em melhor esforço.
+// reconciliação (ADR-022 D7.2), bloqueio por Retry-After (ADR-022 D7.3) e recordUsage/recordRateLimit em
+// melhor esforço.
 // No fim, o router real com este ledger: Redis fora do ar → `cota_esgotada`, sem chamada ao LLM.
 import type { LlmProviderId } from "@trampo/contracts";
 import { describe, expect, test } from "vitest";
@@ -16,7 +17,7 @@ import { createRedisQuotaLedger } from "../../src/infrastructure/limits/redis-qu
 import type { RedisValue } from "../../src/infrastructure/redis/upstash-rest-client.js";
 import { FakeClock } from "../application/fakes/fake-clock.js";
 import { PAYLOAD, VALID_RAW } from "../application/fakes/router-harness.js";
-import { ScriptedExtractor } from "../application/fakes/scripted-extractor.js";
+import { ScriptedExtractor, type Step } from "../application/fakes/scripted-extractor.js";
 import { memoryRedis, type MemoryMode } from "./fakes/redis-store.js";
 
 const NOW = Date.parse("2026-10-21T18:30:15.000Z");
@@ -35,7 +36,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const RESERVED = 3_000;
 
 describe("reserve", () => {
-  test("sem limite de tokens (Workers AI): só global, RPM e RPD, em 6 comandos", async () => {
+  test("sem limite de tokens (Workers AI): global, RPM, RPD e o bloqueio, em 7 comandos", async () => {
     const h = harness();
     await expect(h.reserve("cloudflare_workers_ai")).resolves.toBe("permitido");
     expect(h.log[0]).toEqual([
@@ -45,11 +46,12 @@ describe("reserve", () => {
       ["EXPIRE", `llm:rpm:cloudflare_workers_ai:${MINUTE}`, 120],
       ["INCR", `llm:rpd:cloudflare_workers_ai:${DAY}`],
       ["EXPIRE", `llm:rpd:cloudflare_workers_ai:${DAY}`, 172_800],
+      ["EXISTS", "llm:block:cloudflare_workers_ai"],
     ]);
     expect(h.store.counter(`llm:global:${DAY}`)).toBe(1);
   });
 
-  test("Groq: a reserva de 3.000 tokens entra no TPM e no TPD na mesma transação de 10 comandos", async () => {
+  test("Groq: o bloqueio e a reserva de 3.000 tokens no TPM e no TPD, na mesma transação de 11 comandos", async () => {
     const h = harness();
     await expect(h.reserve()).resolves.toBe("permitido");
     expect(h.log[0]).toEqual([
@@ -59,6 +61,7 @@ describe("reserve", () => {
       ["EXPIRE", `llm:rpm:groq:${MINUTE}`, 120],
       ["INCR", `llm:rpd:groq:${DAY}`],
       ["EXPIRE", `llm:rpd:groq:${DAY}`, 172_800],
+      ["EXISTS", "llm:block:groq"],
       ["INCRBY", `llm:tpm:groq:${MINUTE}`, RESERVED],
       ["EXPIRE", `llm:tpm:groq:${MINUTE}`, 120],
       ["INCRBY", `llm:tpd:groq:${DAY}`, RESERVED],
@@ -208,12 +211,15 @@ describe("reserve falha fechado (T39)", () => {
     ["EXPIRE do RPM falhou", "groq", alter(3, 0)],
     ["INCR do RPD nulo", "groq", alter(4, null)],
     ["EXPIRE do RPD falhou", "groq", alter(5, 0)],
-    ["INCRBY do TPM em texto", "groq", alter(6, "3000")],
-    ["EXPIRE do TPM falhou", "groq", alter(7, 0)],
-    ["INCRBY do TPD fracionário", "groq", alter(8, 3000.5)],
-    ["EXPIRE do TPD falhou", "groq", alter(9, 0)],
-    ["resposta curta (Groq)", "groq", (r) => r.slice(0, 9)],
-    ["resposta curta (Workers AI)", "cloudflare_workers_ai", (r) => r.slice(0, 5)],
+    ["EXISTS do bloqueio com 2", "groq", alter(6, 2)],
+    ["EXISTS do bloqueio em texto", "cloudflare_workers_ai", alter(6, "1")],
+    ["EXISTS do bloqueio nulo", "cloudflare_workers_ai", alter(6, null)],
+    ["INCRBY do TPM em texto", "groq", alter(7, "3000")],
+    ["EXPIRE do TPM falhou", "groq", alter(8, 0)],
+    ["INCRBY do TPD fracionário", "groq", alter(9, 3000.5)],
+    ["EXPIRE do TPD falhou", "groq", alter(10, 0)],
+    ["resposta curta (Groq)", "groq", (r) => r.slice(0, 10)],
+    ["resposta curta (Workers AI)", "cloudflare_workers_ai", (r) => r.slice(0, 6)],
   ])("%s (%s) → global_esgotado", async (_name, provider, change) => {
     const h = harness();
     h.setMode({ kind: "altera", change });
@@ -238,6 +244,80 @@ describe("reserve falha fechado (T39)", () => {
     const controller = new AbortController();
     await h.ledger.reserve("groq", controller.signal);
     expect(h.signals[0]).toBe(controller.signal);
+  });
+});
+
+describe("bloqueio por Retry-After (ADR-022 D7.3)", () => {
+  test.each<[number | null, number]>([
+    [887_000, 887_000],
+    [46_000, 46_000],
+    [null, 60_000],
+    [500, 1_000],
+    [0, 1_000],
+    [1_000.2, 1_001],
+    [3_600_000, 3_600_000],
+    [9_999_999, 3_600_000],
+    [-1, 60_000],
+    [Number.NaN, 60_000],
+    [Number.POSITIVE_INFINITY, 60_000],
+  ])("Retry-After %s ms → SET llm:block PX %i", async (retryAfterMs, ms) => {
+    const h = harness();
+    await h.ledger.recordRateLimit("groq", retryAfterMs);
+    expect(h.log).toEqual([[["SET", "llm:block:groq", 1, "PX", ms]]]);
+    expect(h.store.ttlMs.get("llm:block:groq")).toBe(ms);
+    expect(h.signals[0]?.aborted).toBe(false);
+  });
+
+  test("provedor bloqueado: provedor_esgotado, com a compensação das chamadas e da reserva", async () => {
+    const h = harness();
+    await h.ledger.recordRateLimit("groq", 417_000);
+    await expect(h.reserve()).resolves.toBe("provedor_esgotado");
+    await settle();
+    expect(h.log.at(-1)).toEqual([
+      ["DECR", `llm:global:${DAY}`],
+      ["DECR", `llm:rpm:groq:${MINUTE}`],
+      ["DECR", `llm:rpd:groq:${DAY}`],
+      ["DECRBY", `llm:tpm:groq:${MINUTE}`, RESERVED],
+      ["DECRBY", `llm:tpd:groq:${DAY}`, RESERVED],
+    ]);
+    expect(h.store.counter(`llm:global:${DAY}`)).toBe(0);
+    expect(h.store.counter(`llm:tpd:groq:${DAY}`)).toBe(0);
+  });
+
+  test("o bloqueio é por provedor: a Workers AI continua permitida", async () => {
+    const h = harness();
+    await h.ledger.recordRateLimit("groq", null);
+    await expect(h.reserve("cloudflare_workers_ai")).resolves.toBe("permitido");
+  });
+
+  test("o bloqueio vale para outra instância do ledger sobre o mesmo Redis (sobrevive a um restart)", async () => {
+    const h = harness();
+    await h.ledger.recordRateLimit("groq", 887_000);
+    const restarted = createRedisQuotaLedger({ redis: h.redis, now: () => NOW });
+    await expect(restarted.reserve("groq", new AbortController().signal)).resolves.toBe("provedor_esgotado");
+  });
+
+  test("a cota global esgotada continua sendo global_esgotado, mesmo bloqueado", async () => {
+    const h = harness();
+    h.store.values.set(`llm:global:${DAY}`, "400");
+    await h.ledger.recordRateLimit("groq", null);
+    await expect(h.reserve()).resolves.toBe("global_esgotado");
+  });
+
+  test("a chave só leva o id do provedor (enum fechado)", async () => {
+    const h = harness();
+    await h.ledger.recordRateLimit("cloudflare_workers_ai", 5_000);
+    expect(h.store.values.get("llm:block:cloudflare_workers_ai")).toBe("1");
+  });
+
+  test.each<[string, MemoryMode]>([
+    ["lança", { kind: "lanca" }],
+    ["rejeita", { kind: "rejeita" }],
+    ["nulo", { kind: "nulo" }],
+  ])("Redis que %s não derruba nada", async (_name, mode) => {
+    const h = harness();
+    h.setMode(mode);
+    await expect(h.ledger.recordRateLimit("groq", 1_000)).resolves.toBeUndefined();
   });
 });
 
@@ -399,6 +479,35 @@ describe("router real com o ledger em Redis (ADR-009 D6)", () => {
     expect(outcome).toMatchObject({ ok: false, reason: "cota_esgotada" });
     expect(h.groq.calls).toHaveLength(0);
     expect(h.cloudflare.calls).toHaveLength(0);
+  });
+
+  test("429 do Groq grava o bloqueio, e o router de outra instância pula o Groq sem chamada", async () => {
+    const memory = memoryRedis();
+    const build = (groqSteps: Step[]) => {
+      const clock = new FakeClock();
+      const groq = new ScriptedExtractor("groq", clock, groqSteps);
+      const cloudflare = new ScriptedExtractor("cloudflare_workers_ai", clock, [{ kind: "ok", raw: VALID_RAW }]);
+      const router = new LlmProviderRouter({
+        chain: ["groq", "cloudflare_workers_ai"],
+        extractors: [groq, cloudflare],
+        clock,
+        random: { next: () => 0.5 },
+        ledger: createRedisQuotaLedger({ redis: memory.redis, now: () => NOW }),
+        states: new InMemoryProviderStateStore(),
+      });
+      const analyze = () => clock.run(router.extract(PAYLOAD, deadlineAfter(clock, ROUTER_POLICY.analysisDeadlineMs)));
+      return { analyze, groq };
+    };
+    const first = build([{ kind: "limite_de_taxa", retryAfterMs: 887_000 }]);
+    expect(await first.analyze()).toMatchObject({ ok: true, provider: "cloudflare_workers_ai" });
+    await settle();
+    expect(memory.store.ttlMs.get("llm:block:groq")).toBe(887_000);
+
+    const second = build([{ kind: "ok", raw: VALID_RAW }]);
+    const outcome = await second.analyze();
+    expect(outcome).toMatchObject({ ok: true, provider: "cloudflare_workers_ai" });
+    expect(outcome.trail[0]).toEqual({ provider: "groq", outcome: "cota_esgotada", called: false });
+    expect(second.groq.calls).toHaveLength(0);
   });
 
   test("Groq esgotado no Redis: o router pula para o Cloudflare antes de tomar 429", async () => {
