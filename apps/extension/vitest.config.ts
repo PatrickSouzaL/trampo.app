@@ -8,5 +8,13 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     // O E2E e o extrator rodam à parte (vitest.e2e.config.ts e vitest.browser.config.ts): precisam de navegador.
     exclude: ["test/e2e/**", "test/browser/**"],
+    coverage: {
+      provider: "v8",
+      // A lógica do Service Worker vive aqui e é testada sem navegador. O extrator tem a cobertura de
+      // bloco do V8 no próprio navegador (test:browser), e background/painel são cola provada no E2E.
+      include: ["src/capture/**", "src/messaging/**"],
+      reporter: ["text"],
+      thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },
+    },
   },
 });
