@@ -84,7 +84,7 @@ function act<T>(mode: Mode, normal: () => T, unavailable: T): Promise<T> {
   }
 }
 
-function harness(options: { models?: readonly AcceptedModel[]; now?: number } = {}) {
+function harness(options: { models?: readonly AcceptedModel[]; now?: number; deadlines?: { lookupMs: number; storeMs: number } } = {}) {
   const clock = new FakeClock();
   const wall = { now: options.now ?? NOW };
   const values = new Map<string, string>();
@@ -122,6 +122,7 @@ function harness(options: { models?: readonly AcceptedModel[]; now?: number } = 
     now: () => wall.now,
     extractorVersion: VERSION,
     acceptedModels: options.models ?? [GROQ, CLOUDFLARE, OLLAMA],
+    ...(options.deadlines === undefined ? {} : { deadlines: options.deadlines }),
   });
   const lookup = (hash = HASH) => clock.run(cache.lookup(hash));
   const save = (candidate: Partial<CacheWriteCandidate> = {}) => clock.run(cache.store({ ...CANDIDATE, ...candidate }));
@@ -372,6 +373,18 @@ describe("leitura", () => {
     const start = h.clock.nowMs();
     await expect(h.lookup()).resolves.toEqual({ hit: false, reason: "indisponivel" });
     expect(h.clock.nowMs() - start).toBe(150);
+  });
+
+  test("prazos injetados (só os testes de socket, QA-02) valem na leitura e na escrita, cada um no seu", async () => {
+    const h = harness({ deadlines: { lookupMs: 1_700, storeMs: 2_900 } });
+    h.modes.read = { kind: "trava" };
+    h.modes.write = { kind: "trava" };
+    let start = h.clock.nowMs();
+    await expect(h.lookup()).resolves.toEqual({ hit: false, reason: "indisponivel" });
+    expect(h.clock.nowMs() - start).toBe(1_700);
+    start = h.clock.nowMs();
+    await expect(h.save()).resolves.toEqual({ written: false, reason: "indisponivel" });
+    expect(h.clock.nowMs() - start).toBe(2_900);
   });
 
   const FUTURE_LIMIT = NOW + CACHE_POLICY.clockSkewMs;
