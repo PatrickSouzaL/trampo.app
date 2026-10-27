@@ -1,4 +1,4 @@
-// Prompt de extração `p2` (ADR-020 D1, §3 e §7: SR-01, LGPD, T1, T2 e T29).
+// Prompt de extração `p3` (ADR-020 D1, §3, §7 e §8: SR-01, LGPD, T1, T2 e T29).
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -25,10 +25,17 @@ const NONCE = "0123456789abcdef0123456789abcdef";
 const TEXT = "Desenvolvedor Backend Pleno.\nRequisitos: Node.js e PostgreSQL.";
 
 /**
- * Hash do conteúdo do `p2`: sistema + schema enviado. Mudou o prompt ou o schema? Suba `EXTRACTION_PROMPT_VERSION` e
+ * Hash do conteúdo do `p3`: sistema + schema enviado. Mudou o prompt ou o schema? Suba `EXTRACTION_PROMPT_VERSION` e
  * troque o hash junto (ADR-015 D2: a versão do prompt entra na chave de cache).
  */
+const P3_CONTENT_SHA256 = "0ef5b5e7f1ab9ec50b83225c2436599a4eb416440d2fcf373d3a25eee140d2be";
+
+/** Hash do `p2` (ADR-020 §7.5) e a linha de stack dele: com ela de volta, o `p3` tem de dar exatamente o `p2` (§8.2). */
 const P2_CONTENT_SHA256 = "e406a783c5798f4eaac039d55b6c64a2b8289907ac5a4efc7c65ab6173219065";
+const P2_STACK_LINE =
+  "- stackRequired/stackNiceToHave: toda tecnologia nomeada em requisitos, responsabilidades e diferenciais; " +
+  "diferencial, desejável ou plus → stackNiceToHave (vence nos dois), o resto → stackRequired. " +
+  "Fora: metodologia, certificação, conceito genérico, tecnologia negada ou só na descrição da empresa.";
 
 /** As 6 linhas do sistema do `p1` (ADR-020 D1), que o `p2` mantém na frente (§7). */
 const P1_SYSTEM_LINES = [
@@ -41,11 +48,16 @@ const P1_SYSTEM_LINES = [
 ] as const;
 
 /**
- * Teto do §7: o sistema do `p2` cresce no máximo 400 tokens sobre o do `p1`. Sem tokenizador no repositório, a conta
- * usa 3 caracteres por token, mais pessimista que o tokenizador do Llama em português; a medição real é no aceite.
+ * Teto do §7.2: o sistema cresce no máximo 400 tokens sobre o do `p1`. Sem tokenizador no repositório, a conta usa a
+ * pior razão medida no aceite do `p2` (§7.6: 1.199 caracteres a mais deram no máximo +370 tokens na Workers AI, ou
+ * 3,24 caracteres por token), arredondada para baixo (§8.2). A medição real continua no aceite de cada versão.
  */
-const P2_EXTRA_TOKEN_BUDGET = 400;
-const CHARS_PER_TOKEN_FLOOR = 3;
+const EXTRA_TOKEN_BUDGET = 400;
+const CHARS_PER_TOKEN_FLOOR = 3.2;
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content, "utf8").digest("hex");
+}
 
 function ok(result: ExtractionMessagesResult) {
   if (!result.ok) throw new Error("esperava ok");
@@ -53,16 +65,24 @@ function ok(result: ExtractionMessagesResult) {
 }
 
 describe("versão e hash", () => {
-  test("versão p2", () => {
-    expect(EXTRACTION_PROMPT_VERSION).toBe("p2");
+  test("versão p3", () => {
+    expect(EXTRACTION_PROMPT_VERSION).toBe("p3");
   });
 
-  test("o conteúdo do prompt está fixado contra o p2", () => {
+  test("o conteúdo do prompt está fixado contra o p3", () => {
     const content = `${EXTRACTION_SYSTEM_PROMPT_TEMPLATE}\n${JSON.stringify(EXTRACTION_RESPONSE_SCHEMA)}`;
-    expect({ version: EXTRACTION_PROMPT_VERSION, sha256: createHash("sha256").update(content, "utf8").digest("hex") }).toEqual({
-      version: "p2",
-      sha256: P2_CONTENT_SHA256,
+    expect({ version: EXTRACTION_PROMPT_VERSION, sha256: sha256(content) }).toEqual({
+      version: "p3",
+      sha256: P3_CONTENT_SHA256,
     });
+  });
+
+  test("só a linha de stack mudou: com a linha do p2 de volta, o conteúdo é o p2 (aceite com uma variável só)", () => {
+    const lines = EXTRACTION_SYSTEM_PROMPT_TEMPLATE.split("\n");
+    const stack = lines.filter((line) => line.startsWith("- stackRequired/stackNiceToHave:"));
+    expect(stack).toHaveLength(1);
+    const p2 = lines.map((line) => (line === stack[0] ? P2_STACK_LINE : line)).join("\n");
+    expect(sha256(`${p2}\n${JSON.stringify(EXTRACTION_RESPONSE_SCHEMA)}`)).toBe(P2_CONTENT_SHA256);
   });
 
   test("o sistema não traz rubrica de nota nem pede avaliação (T29)", () => {
@@ -122,12 +142,32 @@ describe("regras por campo do p2 (ADR-020 §7)", () => {
     expect(contract).toContain("contrato estrangeiro → [].");
   });
 
-  test("stack: recall nas três seções, desejável vence e as exclusões do §5.1", () => {
+  test("stack (p3): só nome de tecnologia, nas três seções, com as categorias da spec §5.1", () => {
     const stack = rule("stackRequired/stackNiceToHave:");
-    expect(stack).toContain("toda tecnologia nomeada em requisitos, responsabilidades e diferenciais");
-    expect(stack).toContain("diferencial, desejável ou plus → stackNiceToHave (vence nos dois), o resto → stackRequired.");
-    for (const excluded of ["metodologia", "certificação", "conceito genérico", "tecnologia negada", "só na descrição da empresa"]) {
-      expect(stack).toContain(excluded);
+    expect(stack).toContain(
+      "só nome de tecnologia (linguagem, framework, biblioteca, banco, nuvem, ferramenta, software) " +
+        "em requisitos, responsabilidades e diferenciais;",
+    );
+    expect(stack).toContain("diferencial, desejável ou plus → stackNiceToHave, o resto → stackRequired.");
+    expect(stack).not.toContain("toda tecnologia");
+  });
+
+  test("stack (p3): conceito, prática e área ficam fora, com as exclusões do p2", () => {
+    const stack = rule("stackRequired/stackNiceToHave:");
+    const excluded = stack.slice(stack.indexOf("Fora: "));
+    expect(excluded).toBe(
+      "Fora: conceito, prática, área, metodologia, certificação, tecnologia negada ou só na descrição da empresa.",
+    );
+  });
+
+  test("stack (p3): quem vence nos dois lados é o guard g4, não o prompt", () => {
+    expect(rule("stackRequired/stackNiceToHave:")).not.toContain("vence nos dois");
+  });
+
+  test("stack (p3): nenhum falso positivo do aceite do p2 vira exemplo (o gate não vê o gabarito)", () => {
+    const prompt = EXTRACTION_SYSTEM_PROMPT_TEMPLATE.toLowerCase();
+    for (const term of ["etl", "mdm", "financial data", "observabilidade", "observability"]) {
+      expect(prompt).not.toMatch(new RegExp(`\\b${term}\\b`, "u"));
     }
   });
 
@@ -143,10 +183,10 @@ describe("regras por campo do p2 (ADR-020 §7)", () => {
     expect(absence).toContain("salary é null sem valor.");
   });
 
-  test(`o sistema cresce no máximo ${P2_EXTRA_TOKEN_BUDGET} tokens sobre o do p1 (conta pessimista)`, () => {
+  test(`o sistema cresce no máximo ${EXTRA_TOKEN_BUDGET} tokens sobre o do p1 (pior razão medida)`, () => {
     const extraChars = EXTRACTION_SYSTEM_PROMPT_TEMPLATE.length - P1_SYSTEM_LINES.join("\n").length;
     expect(extraChars).toBeGreaterThan(0);
-    expect(Math.ceil(extraChars / CHARS_PER_TOKEN_FLOOR)).toBeLessThanOrEqual(P2_EXTRA_TOKEN_BUDGET);
+    expect(Math.ceil(extraChars / CHARS_PER_TOKEN_FLOOR)).toBeLessThanOrEqual(EXTRA_TOKEN_BUDGET);
   });
 
   test("nenhuma linha de vaga do golden dataset entra no prompt (gate sem gabarito e sem vazar o dataset)", () => {

@@ -1,4 +1,4 @@
-// Prompt de extração `p2`, o mesmo para todo provedor (ADR-001 §5.5; ADR-020 D1 e §7).
+// Prompt de extração `p3`, o mesmo para todo provedor (ADR-001 §5.5; ADR-020 D1, §7 e §8).
 //
 // O texto da vaga é dado não confiável (threat-model T1 e T2): vai só dentro do envelope `<vaga id=NONCE>`, com um
 // nonce de 128 bits por chamada que o anunciante não consegue adivinhar para fechar o envelope antes. Nenhum outro
@@ -13,7 +13,7 @@ import type { LlmJobPayload } from "../ports/job-facts-extractor.js";
  * Entra no `extractorVersion` da chave de cache (ADR-015 D2). Mudar o texto do sistema ou o schema enviado obriga a
  * subir a versão: um teste fixa o hash dos dois contra esta constante.
  */
-export const EXTRACTION_PROMPT_VERSION = "p2";
+export const EXTRACTION_PROMPT_VERSION = "p3";
 
 /** 32 hex minúsculos: 128 bits (ADR-020 D1). */
 const NONCE_PATTERN = /^[0-9a-f]{32}$/;
@@ -53,7 +53,8 @@ const BENEFIT_TABLE = Object.entries(BENEFIT_PROMPT_TERMS)
 /**
  * Mensagem de sistema fixa (ADR-001 §5.5). Sem segredo, regra de autorização nem rubrica de nota (T29): o modelo
  * só extrai. `{NONCE}` é trocado pelo nonce da chamada. As 6 primeiras linhas são as do `p1`; o `p2` soma uma regra
- * curta por campo (ADR-020 §7), sem nenhum texto do golden dataset.
+ * curta por campo (ADR-020 §7), sem nenhum texto do golden dataset. O `p3` só troca a regra de stack (§8): só nome de
+ * tecnologia, e conceito, prática e área ficam fora. Quem vence nos dois lados é o guard (`g4`, ADR-008 §6).
  */
 export const EXTRACTION_SYSTEM_PROMPT_TEMPLATE = [
   "Você é um extrator de fatos de vagas de emprego.",
@@ -64,7 +65,7 @@ export const EXTRACTION_SYSTEM_PROMPT_TEMPLATE = [
   "Não avalie, não pontue e não recomende a vaga.",
   `- benefits: ${BENEFIT_TABLE}. Cartão flexível (Flash, Caju, iFood Benefícios) → os dois vales.`,
   "- contractTypes: só o regime declarado (efetivo → clt); jornada (tempo integral, full-time, meio período, carga horária) não é contrato; não deduza dos benefícios; contrato estrangeiro → [].",
-  "- stackRequired/stackNiceToHave: toda tecnologia nomeada em requisitos, responsabilidades e diferenciais; diferencial, desejável ou plus → stackNiceToHave (vence nos dois), o resto → stackRequired. Fora: metodologia, certificação, conceito genérico, tecnologia negada ou só na descrição da empresa.",
+  "- stackRequired/stackNiceToHave: só nome de tecnologia (linguagem, framework, biblioteca, banco, nuvem, ferramenta, software) em requisitos, responsabilidades e diferenciais; diferencial, desejável ou plus → stackNiceToHave, o resto → stackRequired. Fora: conceito, prática, área, metodologia, certificação, tecnologia negada ou só na descrição da empresa.",
   `- redFlagSignals: nunca ${API_ONLY_RED_FLAG}; demais só com evidência clara.`,
   "- Ausência: lista vazia é [], não null; location é null sem cidade, UF e país, não três nulos; salary é null sem valor.",
 ].join("\n");

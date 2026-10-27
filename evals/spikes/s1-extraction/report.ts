@@ -312,7 +312,64 @@ export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly 
     sweepCaseIds: [...sweepIds].sort(),
     providers,
     comparisons: compareVersions(groups, cases),
+    previousComparisons: compareWithPrevious(groups, cases),
   };
+}
+
+/** Versão aceita anterior, base do §8.3 (regressão de até 2 pp): o aceite do p3/g4 compara com o p2/g3 (ADR-020 §8.4). */
+const PREVIOUS_VERSIONS = "p2-g3";
+const REGRESSION_TOLERANCE = 0.02;
+/** Campos do §8.1 com o gate de cada um: só conta como regressão o campo que a versão anterior já passava. */
+const REGRESSION_GATES = {
+  seniorityLevels: GATES.setExact,
+  workModels: GATES.setExact,
+  contractTypes: GATES.setExact,
+  location: GATES.location,
+  salaryWithSalary: GATES.salary,
+  yearsExperienceMin: GATES.yearsExperienceMin,
+  stackPrecision: GATES.stackPrecision,
+  stackRecall: GATES.stackRecall,
+  stackRightList: GATES.stackRightList,
+  benefitsPrecision: GATES.benefitsPrecision,
+  benefitsRecall: GATES.benefitsRecall,
+  languageRequirements: GATES.languageRequirements,
+  redFlagsPrecision: GATES.redFlagsPrecision,
+} as const;
+
+/**
+ * Cada grupo mais novo que a versão anterior contra ela, nos mesmos casos do orçamento principal: JSON válido e os campos
+ * do §8.1 lado a lado, com a lista dos que caíram mais de 2 pp a partir de um valor que passava no gate.
+ */
+function compareWithPrevious(groups: ReadonlyMap<string, readonly ResultRow[]>, cases: ReadonlyMap<string, SpikeCase>): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const primary = (rs: readonly ResultRow[]): ResultRow[] => finalRows(rs).filter((r) => r.budget === PRIMARY_BUDGET);
+  for (const [key, rows] of groups) {
+    const [versions = "", provider = "", model = "", variant = ""] = key.split("|");
+    if (versions === "p1-g2" || versions === PREVIOUS_VERSIONS || variant === "composto") continue;
+    const baseKey = `${PREVIOUS_VERSIONS}|${provider}|${model}|${variant}`;
+    const baseRows = groups.get(baseKey);
+    if (baseRows === undefined) continue;
+    const now = primary(rows);
+    const ids = new Set(now.map((r) => r.caseId));
+    const base = primary(baseRows).filter((r) => ids.has(r.caseId));
+    const nowMetrics = (quality(now, cases) as { metrics: Record<string, unknown> }).metrics;
+    const baseMetrics = (quality(base, cases) as { metrics: Record<string, unknown> }).metrics;
+    const fields = Object.entries(REGRESSION_GATES).map(([metric, gateValue]) => {
+      const previous = typeof baseMetrics[metric] === "number" ? (baseMetrics[metric] as number) : null;
+      const current = typeof nowMetrics[metric] === "number" ? (nowMetrics[metric] as number) : null;
+      const regressed = previous !== null && previous >= gateValue && (current === null || current < previous - REGRESSION_TOLERANCE);
+      return { metric, previous, now: current, gate: gateValue, regressed };
+    });
+    out.push({
+      group: key,
+      baseline: baseKey,
+      cases: now.length,
+      validJsonAfterGuard: { previous: operations(base, [])["validJsonAfterGuard"], now: operations(now, [])["validJsonAfterGuard"] },
+      fields,
+      regressions: fields.filter((f) => f.regressed).map((f) => f.metric),
+    });
+  }
+  return out;
 }
 
 /** Linha de base do p1 para um grupo: o `composto` quando o p1 só tem parte da `nao_estrito`, senão a mesma variante. */

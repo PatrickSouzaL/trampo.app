@@ -17,8 +17,9 @@ S1_MODE=diag   pnpm --filter @trampo/evals spike:s1 --silent=false   # refaz em 
 
 `S1_PROVIDERS=groq` (ou `cloudflare_workers_ai`) limita a um provedor; `S1_MAX_ITEMS` limita as chamadas.
 `S1_GROQ_VARIANT=nao_estrito` manda o `json_schema` sem `strict`, e `S1_ONLY=json_validate_failed` roda só os itens que o
-Groq estrito recusou (no arquivo do p1). `S1_BUDGETS=6000` limita os orçamentos (a rodada de aceite do `p2` não refaz a
-varredura de 4k/8k). O relatório traz, além de cada variante, o Groq `composto`: a linha estrita aceita mais a
+Groq estrito recusou (no arquivo do p1). `S1_BUDGETS=6000` limita os orçamentos (as rodadas de aceite do `p2` e do `p3`
+não refazem a varredura de 4k/8k). Aceite do `p3`/`g4` (ADR-020 §8.4), numa sessão com a cota do Groq zerada:
+`S1_MODE=run S1_BUDGETS=6000 S1_GROQ_VARIANT=nao_estrito`, com saída em `out/s1-results.p3-g4.jsonl`. O relatório traz, além de cada variante, o Groq `composto`: a linha estrita aceita mais a
 `nao_estrito` onde o estrito foi recusado. As chaves
 saem só de `apps/api/.env` (`GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` e, opcional,
 `CLOUDFLARE_WORKERS_AI_MODEL`), sem passar pelo `process.env`.
@@ -32,7 +33,7 @@ saem só de `apps/api/.env` (`GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLAR
 | `providers.ts` | Groq com `json_schema` estrito, `reasoning_effort: low` e sem `tools`; Workers AI pelo adapter real com `fetch` instrumentado (status, cabeçalhos de lista fechada, código de erro). |
 | `runner.ts` | Percorre o plano, aplica o guard, mede o JSON cru, procura o canário e dá ritmo pelos cabeçalhos; para no teto diário. |
 | `score.ts` | Métricas por campo do golden-dataset-spec §8.1 e §8.2 (aliases do `td1`, dobra de cidade do ADR-002). |
-| `report.ts` | Agrega todas as versões em `out/s1-metrics.json`, inclusive o Groq `composto`, o gate do `gd2` (golden-dataset-spec §8.2) por grupo e a comparação com o `p1` (tokens de entrada pareados por caso e as métricas que o `p2` mira). |
+| `report.ts` | Agrega todas as versões em `out/s1-metrics.json`, inclusive o Groq `composto`, o gate do `gd2` (golden-dataset-spec §8.2) por grupo, a comparação com o `p1` (tokens de entrada pareados por caso, teto de +400) e, em `previousComparisons`, a comparação com o `p2`/`g3` nos mesmos casos (os campos do §8.1 e os que caíram mais de 2 pp a partir de um valor que passava, §8.3). Lê os contadores do `g3` e do `g4`. |
 | `diag.ts` | `S1_MODE=diag`: issues do Zod (caminho, código e valor só com forma de enum) e o guard simulado sem os itens fora do enum, em `out/s1-diag.json`; não grava linha no JSONL. |
 | `store.ts` | `out/s1-results.<prompt>-<guard>.jsonl` (um arquivo por versão, com `promptVersion` e `guardVersion` em cada linha), sem texto de vaga nem saída bruta. A rodada do `p1`/`g2` está arquivada em `s1-results.p1-g2.jsonl`. |
 

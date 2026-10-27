@@ -1,7 +1,7 @@
 // S-1: uma linha JSON por chamada em `out/s1-results.<prompt>-<guard>.jsonl` (ignorado pelo git). Retoma de onde parou: um item
 // do plano está feito quando tem linha com desfecho que não seja 429. Nunca guarda o texto da vaga nem a saída
 // bruta; guarda os fatos já saneados pelo `LlmOutputGuard` (para repontuar sem gastar cota). Um arquivo por versão de
-// prompt e guard (`s1-results.p2-g3.jsonl`); o da rodada do p1 foi arquivado como `s1-results.p1-g2.jsonl`.
+// prompt e guard (ex.: `s1-results.p3-g4.jsonl`); o da rodada do p1 foi arquivado como `s1-results.p1-g2.jsonl`.
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { JobFacts } from "@trampo/contracts";
