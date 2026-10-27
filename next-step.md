@@ -4,30 +4,35 @@
 
 ## O que acabou de ser entregue (2026-10-27)
 
-### Trilha F: F1-EXT-03 parte 1, o extrator genérico ligado no Service Worker (ADR-024)
-- **O que mudou:**
-  - o clique no ícone abre o painel e injeta o extrator `ge1` na aba, só no frame principal e no mundo ISOLATED;
-  - o Service Worker confere o retorno com Zod estrito;
-  - depois tira os surrogates órfãos e, em seguida, os caracteres de controle. Os invisíveis Unicode ficam para o servidor contar;
-  - corta em 15.000 code points e guarda a última captura em `storage.session`.
-- **O painel nunca recebe o texto da vaga**, só o estado, a contagem de caracteres e se o texto foi cortado.
-- **"Colar o texto"** aparece em 3 casos:
-  - `sem_acesso`: página restrita ou sem concessão. A mensagem do navegador não é lida, porque pode trazer a URL;
-  - `erro`;
-  - `texto_insuficiente`.
+### Trilha G: F1-EXT-04 parte 1, a UI do Side Panel (ADR-025)
+- **Commit:** `d15ee9b`, local, sem push.
+- **Consentimento antes da 1ª transmissão:**
+  - quem impõe é o Service Worker, e o painel só mostra o aviso;
+  - o registro fica só em `storage.session`, com a versão do aviso (`aviso-1`). Se o texto do aviso mudar, a versão muda e o consentimento antigo cai;
+  - dá para revogar;
+  - o envio da parte 2 precisa consultar o `isGranted()`.
+- **Painel:**
+  - o estado vem de um redutor puro, e todo evento é revalidado com o contrato;
+  - estágios ("Etapa N de 6") e relatório só em texto;
+  - erros pelo `code`, com o texto do catálogo; o `message` do servidor não aparece;
+  - "Analisar vaga" e "Reanalisar com IA" ficam desabilitados até a API.
+- **Nenhum link:** um lint novo proíbe `<a>`, `img`, `iframe` e `href`/`src`/`action` em JSX. A prova negativa barrou 7 de 7.
+- **Achado:** o E2E "de produção" usava o React de desenvolvimento, porque o vitest define `NODE_ENV=test`. O `global-setup` agora força `production`.
 - **Provas:**
-  - unidade: 110 testes, 100% em `src/capture` e `src/messaging`;
-  - E2E no **build de produção** com o clique real (`Extensions.triggerAction`): 15/15 em 3 rodadas, e nenhum dos 13 canários chegou ao storage ou ao painel;
-  - autocontenção: o extrator com uma referência ao módulo derruba o E2E;
-  - mutação: 66 de 66 mortos;
-  - `test:browser`: 52/52.
-- **O que não mudou:** contratos, manifesto, extrator, versões de prompt e guard. Nada chamou o Groq.
-- **Atualizados:** ADR-024 (novo), ADR-023 (nota), BACKLOG, STATE e SESSION-LOG.
+  - unidade: 140 testes, 100%;
+  - E2E no build de produção: 32/32 em 3 rodadas, com 10 relatórios hostis (HTML, URL, e-mail, Unicode Tag, texto longo…) que derrubam a porta sem render;
+  - mutação: 42 de 43, e o sobrevivente é equivalente;
+  - `test:browser`: 52/52, e depcruise sem violações.
+- **O que não mudou:** manifesto, CSP (`connect-src 'none'`), contratos, extrator, versões de prompt e guard. Nada chamou a rede.
+- **Atualizados:** ADR-025 (novo), ADR-024 (nota), BACKLOG, STATE e SESSION-LOG.
+
+### Trilha F: F1-EXT-03 parte 1 (`3ec75a5`, ADR-024)
+- O extrator genérico está ligado no Service Worker, com o fallback "colar o texto". O painel nunca recebe o texto da vaga.
 
 ### Antes (ainda valendo)
 - **Adapter do Groq** (B2, `4220bee` a `797c04b`): pronto, mas ainda não está ligado no `main.ts`.
 - **`g4` (`90867d9`) e `p3` (`61474d0`):** estão só locais. O aceite dos dois espera a cota do Groq (Trilha A).
-- **`contratos-zod` do cofre:** sincronizado com o `src/` (Trilha E). A Trilha F não mudou contrato.
+- **`contratos-zod` do cofre:** sincronizado com o `src/` (Trilha E). As trilhas F e G não mudaram contrato.
 
 ### Pendências do humano
 - **HITL-030 (opcional, sem pressa):** salvar de 3 a 5 vagas do LinkedIn e de 3 a 5 da Gupy.
@@ -40,25 +45,25 @@
 
 ## Como usar: trilhas
 
-**Regra de ouro:** só a **Trilha A** espera a cota do Groq. As outras andam hoje, em qualquer ordem entre si.
+**Regra de ouro:** só a **Trilha A** espera a cota do Groq. A D2 espera só o HITL-030.
 
 | Trilha | Sessão | Gasta cota do Groq? | Espera |
 |---|---|---|---|
 | **A** | Aceite do `p3`/`g4` e, se o gate passar, ligar a cadeia no `main.ts` | **sim, um dia inteiro** | a cota zerar |
-| **G** | F1-EXT-04 parte 1: UI do painel (consentimento, estágios do stream, relatório só em texto, erros), sem chamar a API | não | nada |
 | **D2** | S-2 real e F1-EXT-03 parte 2: anonimizar as fixtures, criar os extratores do LinkedIn e da Gupy, escolher o extrator pelo host e medir o §3 | não | **HITL-030** |
 
 **Cuidados para as trilhas não se atrapalharem:**
 1. **Uma sessão por vez nesta pasta.** Todas usam o mesmo branch e o mesmo `STATE.md`. A Trilha A entra entre duas sessões quaisquer, assim que a cota zerar.
-2. **Nenhuma sessão G ou D2 muda `EXTRACTION_PROMPT_VERSION` ou `LLM_OUTPUT_GUARD_VERSION`.** Se precisar mudar, a sessão para e registra no STATE.
-3. **Nenhuma sessão G ou D2 chama o Groq real.**
+2. **Nenhuma sessão D2 muda `EXTRACTION_PROMPT_VERSION` ou `LLM_OUTPUT_GUARD_VERSION`.** Se precisar mudar, a sessão para e registra no STATE.
+3. **Nenhuma sessão D2 chama o Groq real.**
 4. **Testes novos de socket real seguem o QA-02**, com o prazo folgado de `test/support/socket-deadlines.ts` para protocolo e fluxo.
 5. **A D2 mexe no extrator:** a regra de descarte é uma só (ADR-023 D4). Qualquer mudança nela passa pelo `test:browser` inteiro, com a cobertura de 100% e a mutação. A captura do Service Worker (ADR-024) é reaproveitada: a `platform` do `CapturedJob` ganha `linkedin` e `gupy`.
-6. **O texto da vaga não vai ao painel** (ADR-024 D4). A G renderiza só o que vem do contrato público, revalidado.
-7. **Mudança de contrato atualiza o cofre na mesma tarefa** (DOC-01): a §4 do `contratos-zod` é regerada do `src/`, e a §9 ganha uma linha.
-8. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
+6. **O texto da vaga não vai ao painel** (ADR-024 D4). O painel renderiza só o que vem do contrato público, revalidado (ADR-025). Link é proibido por lint, e erro sai do catálogo pelo `code`.
+7. **O envio à API (F1-EXT-04 parte 2) ainda não é trilha:** depende da Trilha A e do S-3/F1-EXT-05 (autenticação). Quando for, o Service Worker só envia com `consent.isGranted()`, e um teste prova isso.
+8. **Mudança de contrato atualiza o cofre na mesma tarefa** (DOC-01): a §4 do `contratos-zod` é regerada do `src/`, e a §9 ganha uma linha.
+9. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
 
-**Sugestão de ordem:** a G agora. A Trilha A entra quando a cota zerar, e a D2 quando o HITL-030 fechar.
+**Sugestão de ordem:** a Trilha A assim que a cota do Groq zerar. A D2 entra quando o HITL-030 fechar. Se as duas estiverem bloqueadas, as duas pendências são do humano: confirmar a cota ou salvar as páginas do HITL-030.
 
 ---
 
@@ -71,22 +76,6 @@ Equipe, sigam em ciclo estrito. Trilha A do next-step: aceite do p3/g4 (spike-me
 2. [QA_EVALS]: S1_MODE=plan (sem rede) e um smoke de 1 chamada por provedor. Depois, S1_MODE=run S1_BUDGETS=6000 S1_GROQ_VARIANT=nao_estrito, com saída em out/s1-results.p3-g4.jsonl, e S1_MODE=report.
 3. [QA_EVALS] + [APPSEC]: julguem pelo gate (precisão de stack ≥ 0,85, recall ≥ 0,80, JSON válido ≥ 98% no Groq, +400 tokens sobre o p1, gate de segurança do gd2, regressões do previousComparisons e contador do g4). Revisem o T4 à mão e confiram que as linhas gravadas não têm texto de vaga, canário nem saída bruta.
 4. [SCRIBE]: spike-metrics §2.8, ADR-020 §8.6, STATE e SESSION-LOG. Se o gate passar, o próximo passo é ligar a cadeia no main.ts com o adapter do Groq (pronto na B2): o smoke de 1 chamada pelo adapter real, a forma da GROQ_API_KEY conferida com a chave real sem exibi-la (ADR-022 D8) e a reserva de 3.000 tokens do ADR-022 D7.2 recalibrada com o p95 medido. Se falhar, abram um HITL com as opções. Reescrevam o next-step mantendo as trilhas que faltam.
-```
-
-### Trilha G: F1-EXT-04 parte 1 (UI do painel, sem API)
-```text
-Equipe, sigam em ciclo estrito. Trilha G do next-step: F1-EXT-04 parte 1 (BACKLOG), a UI do Side Panel sem chamar a API.
-1. [ORCHESTRATOR]: leiam STATE.md, ADR-024 (D4 e D5), ADR-001 §5.0 (passos 5 a 7) e §5.8, o contratos-zod (AnalysisStreamEvent, AnalysisReport, ApiError) e apps/extension/src (sidepanel/, messaging/, capture/). Confirmem o commit da Trilha F, os testes de unidade e o test:e2e verdes, e se o @trampo/ui-kit já tem algo utilizável.
-2. [ARCHITECT] + [APPSEC]: desenhem as telas:
-   - o consentimento antes da 1ª transmissão (passo 7, Limited Use), guardado em storage.session ou decidido com o humano se precisar persistir;
-   - o estado da captura e o "colar o texto" (já existem, a reorganizar);
-   - os estágios do stream;
-   - o relatório só em texto, sem nenhum link;
-   - os erros acionáveis por ApiErrorCode;
-   - o botão "Reanalisar com IA" desabilitado até a ligação com a API.
-   Tudo o que chega pela porta é revalidado com o contrato. O texto da vaga nunca vai ao painel (ADR-024 D4). Proibido innerHTML (SR-03). Decidam como testar o React (jsdom/testing-library só se já estiver no catálogo; senão, E2E no Edge com eventos de stream injetados pelo Service Worker de teste ou por fixture).
-3. [DEV] + [QA_EVALS]: implementem com testes (unidade com 100% no que for lógica e E2E no build de produção). Usem eventos de stream e relatórios de fixture do contrato, inclusive os hostis (HTML, URL e texto longo). Rodem a mutação no código novo. Nenhum fetch novo: a CSP de produção continua com connect-src 'none' sem TRAMPO_API_ORIGIN.
-4. [SCRIBE]: ADR (emenda ao ADR-024 ou ADR novo), STATE, SESSION-LOG e commit local. Reescrevam o next-step mantendo as trilhas.
 ```
 
 ### Trilha D2: S-2 real e F1-EXT-03 parte 2 (só depois do HITL-030)
