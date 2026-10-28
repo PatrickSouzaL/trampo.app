@@ -1,5 +1,5 @@
 // S-1: extração com provedores reais (BACKLOG S-1; plano estratificado de 2026-10-24).
-// S1_MODE=plan|smoke|run|report|diag; S1_PROVIDERS=groq,cloudflare_workers_ai; S1_MAX_ITEMS limita as chamadas por provedor.
+// S1_MODE=plan|smoke|run|report|diag|effect (effect: Trilha A3, efeito da stack na nota, sem rede); S1_PROVIDERS=groq,cloudflare_workers_ai; S1_MAX_ITEMS limita as chamadas por provedor.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,6 +11,9 @@ import { buildReport } from "./report.js";
 import { NAME_RULE_VOCABULARY, aliasKey, scoreCase, stackKey } from "./score.js";
 import { fold } from "../../../apps/api/src/domain/prefilter/folding.js";
 import { runProvider } from "./runner.js";
+import { BAND_CHANGE_GATE, ENGINE_VERSION, WORST_CASE_TERMS, falsePositiveRanking, scorePair, summarize, toUserCriteria, worstCasePersonas, type PairOutcome } from "./effect.js";
+import { PERSONAS } from "../s4-layer1/routing.js";
+import { ScoringEngine } from "../../../apps/api/src/domain/index.js";
 import { OUT_DIR, readAllRows, readRows, resultsPath, type ResultRow } from "./store.js";
 import { WORKERS_AI_DEFAULT_MODEL } from "../../../apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
 
@@ -171,6 +174,97 @@ describe(`S-1 (${mode})`, () => {
     mkdirSync(OUT_DIR, { recursive: true });
     writeFileSync(join(OUT_DIR, "s1-diag.json"), `${serialized}
 `, "utf8");
+  });
+
+  describe.runIf(mode === "effect")("A3: efeito da stack na nota (HITL-031 1A)", () => {
+    const engine = new ScoringEngine();
+    const personas = PERSONAS.map((p) => ({ id: p.id, criteria: toUserCriteria(p) }));
+    const p3 = readRows(resultsPath("p3", "g4")).filter((r) => r.provider === "groq" && r.variant === "nao_estrito" && r.budget === 6_000 && r.facts !== null);
+    const items = p3.map((r) => {
+      const c = byId.get(r.caseId);
+      if (c === undefined || r.facts === null) throw new Error(`linha sem caso: ${r.caseId}`);
+      return { golden: c.golden, got: r.facts };
+    });
+
+    it("usa o motor real `se1` e o gabarito contra ele mesmo não muda nenhuma faixa", () => {
+      expect(ENGINE_VERSION).toBe("se1");
+      const self = cases.flatMap((c) => personas.map((p) => scorePair(engine, c.golden, c.golden.expected, p.id, p.criteria)));
+      expect(summarize(self)).toMatchObject({ pairs: 83 * 8, bandChanged: 0, scoreChanged: 0, falseDealBreakers: 0, missedDealBreakers: 0 });
+    });
+
+    it("detecta um deal-breaker falso plantado (termo fictício)", () => {
+      const c = cases[0];
+      if (c === undefined) throw new Error("sem casos");
+      const base = PERSONAS.find((p) => p.id === "p8-so-ponderado");
+      if (base === undefined) throw new Error("sem p8");
+      const [breaker] = worstCasePersonas(base, ["Zorbletql"]);
+      if (breaker === undefined) throw new Error("sem persona");
+      const got = { stackRequired: [...c.golden.expected.stackRequired, "Zorbletql"], stackNiceToHave: c.golden.expected.stackNiceToHave };
+      const out = scorePair(engine, c.golden, got, breaker.id, toUserCriteria(breaker));
+      expect([out.falseDealBreaker, out.llmVerdict]).toEqual([true, "foge"]);
+    });
+
+    it("roda os 83 casos × 8 personas do S-4, mede o gate e o pior caso, e grava só ids, enums e números", () => {
+      expect(items).toHaveLength(83);
+      const pairs: PairOutcome[] = items.flatMap((it) => personas.map((p) => scorePair(engine, it.golden, it.got, p.id, p.criteria)));
+      const total = summarize(pairs);
+      const byPersona = Object.fromEntries(personas.map((p) => [p.id, summarize(pairs.filter((x) => x.personaId === p.id))]));
+
+      const ranking = falsePositiveRanking(items);
+      const top = ranking.slice(0, WORST_CASE_TERMS);
+      const base = PERSONAS.find((p) => p.id === "p8-so-ponderado");
+      if (base === undefined) throw new Error("sem p8");
+      const worst = worstCasePersonas(base, top.map((t) => t.surface)).map((p) => {
+        const criteria = toUserCriteria(p);
+        return [p.id, summarize(items.map((it) => scorePair(engine, it.golden, it.got, p.id, criteria)))] as const;
+      });
+
+      const report = {
+        spike: "S-1",
+        trilha: "A3",
+        generatedAt: new Date().toISOString(),
+        engineVersion: ENGINE_VERSION,
+        source: { versions: "p3-g4", provider: "groq", variant: "nao_estrito", budget: 6_000, cases: items.length },
+        method: {
+          isolation: "fatos do gabarito (expected) nos dois lados; só stackRequired e stackNiceToHave trocados pelos do LLM",
+          provenance: "llm em todos os campos, llmExtracted true",
+          personas: "S-4 (routing.ts) mapeadas para UserCriteria: ponderado com peso 3; localização, idiomas e benefícios nulos; red flags em alertar",
+          comparison: "a faixa do veredito contra a do expected (gate); contra as alternativas de stack do gabarito, à parte",
+        },
+        gate: { threshold: BAND_CHANGE_GATE, pairs: total.pairs, bandChanged: total.bandChanged, rate: total.bandChangedRate, passed: total.bandChangedRate <= BAND_CHANGE_GATE },
+        total,
+        byPersona,
+        worstCase: {
+          outsideGate: true,
+          rule: `os ${String(WORST_CASE_TERMS)} falsos positivos mais frequentes pela stackKey, sobre a persona p8-so-ponderado`,
+          falsePositiveKeys: ranking.length,
+          topCasesPerTerm: top.map((t) => t.cases),
+          personas: Object.fromEntries(worst),
+        },
+      };
+      const serialized = JSON.stringify(report, null, 2);
+      assertClean(serialized);
+      // [APPSEC]: nenhum termo de stack (persona, gabarito ou saída) no relatório; só ids, enums e números.
+      const terms = new Set([
+        ...PERSONAS.flatMap((p) => [...p.stack.mustHave, ...p.stack.dealBreakers]),
+        ...items.flatMap((it) => [...it.golden.expected.stackRequired, ...it.golden.expected.stackNiceToHave, ...it.got.stackRequired, ...it.got.stackNiceToHave]),
+      ].map((t) => t.toLowerCase()));
+      const strings = new Set<string>();
+      JSON.parse(serialized, (_k: string, v: unknown) => {
+        if (typeof v === "string") strings.add(v.toLowerCase());
+        return v;
+      });
+      expect([...strings].filter((s) => terms.has(s))).toEqual([]);
+      mkdirSync(OUT_DIR, { recursive: true });
+      writeFileSync(join(OUT_DIR, "s1-effect.json"), `${serialized}
+`, "utf8");
+
+      console.log(`A3: ${String(total.bandChanged)}/${String(total.pairs)} pares mudam de faixa (${(100 * total.bandChangedRate).toFixed(2)}%; gate ${String(100 * BAND_CHANGE_GATE)}%) → ${report.gate.passed ? "APROVADO" : "REPROVADO"}`);
+      console.log(`  com alternativas: ${String(total.bandChangedVsAlternatives)}; sobe ${String(total.up)}, desce ${String(total.down)}, >1 faixa ${String(total.multiBand)}; deal-breaker falso ${String(total.falseDealBreakers)}, perdido ${String(total.missedDealBreakers)}; |Δnota| média ${String(total.meanAbsScoreDelta)}, máx ${String(total.maxAbsScoreDelta)}`);
+      for (const [id, s] of Object.entries(byPersona)) console.log(`  ${id}: ${String(s.bandChanged)}/${String(s.pairs)} faixa, DB falso ${String(s.falseDealBreakers)}, DB perdido ${String(s.missedDealBreakers)}, stack mudou ${String(s.stackOutcomeChanged)}, ${JSON.stringify(s.transitions)} ${s.changedCases.join(",")}`);
+      for (const [id, s] of worst) console.log(`  [pior caso] ${id}: ${String(s.bandChanged)}/${String(s.pairs)} faixa, DB falso ${String(s.falseDealBreakers)}, ${JSON.stringify(s.transitions)}`);
+      console.log(`  falsos positivos (chaves): ${String(ranking.length)}; casos dos ${String(WORST_CASE_TERMS)} mais frequentes: ${top.map((t) => t.cases).join(",")}`);
+    });
   });
 
   it.runIf(mode === "report" || mode === "run" || mode === "smoke")("grava o relatório agregado", () => {
