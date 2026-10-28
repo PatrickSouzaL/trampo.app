@@ -8,7 +8,8 @@ import { readSpikeEnv, requireVar } from "./env.js";
 import { createGroqProvider, createWorkersAiProvider, type SpikeProvider } from "./providers.js";
 import { diagnose } from "./diag.js";
 import { buildReport } from "./report.js";
-import { scoreCase } from "./score.js";
+import { NAME_RULE_VOCABULARY, aliasKey, scoreCase, stackKey } from "./score.js";
+import { fold } from "../../../apps/api/src/domain/prefilter/folding.js";
 import { runProvider } from "./runner.js";
 import { OUT_DIR, readAllRows, readRows, resultsPath, type ResultRow } from "./store.js";
 import { WORKERS_AI_DEFAULT_MODEL } from "../../../apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
@@ -83,6 +84,57 @@ describe(`S-1 (${mode})`, () => {
       expect([s.stack.fp, s.stack.fn, s.benefits.fp, s.benefits.fn, s.redFlags.fp, s.redFlags.fn]).toEqual([0, 0, 0, 0, 0, 0]);
       expect(s.stackRightList.right).toBe(s.stackRightList.total);
     }
+  });
+
+  it("a equivalência de nome junta o mesmo produto e separa os distintos (HITL-031 3A, nomes fictícios)", () => {
+    const same: [string, string][] = [
+      ["AWS Zorblet", "Amazon Zorblet"],
+      ["Amazon Zorblet", "Zorblet"],
+      ["Microsoft Quillon", "Quillon"],
+      ["Google Cloud Quillon", "quillon"],
+      ["Apache-Quillon", "Quillon"],
+      ["Microsoft Azure Quillon", "Azure Quillon"],
+      ["Quillon 17", "Quillon"],
+      ["Quillon 3.x", "Quillon"],
+      ["Quillon v2.1+", "Quillon"],
+      ["Quillon On-Premises", "Quillon"],
+      ["Quillon Self-Hosted", "Quillon Cloud"],
+      ["Quillon Online", "QUILLON"],
+      ["AWS Zrb", "Amazon Zrb"],
+    ];
+    for (const [a, b] of same) expect([a, stackKey(a)]).toEqual([a, stackKey(b)]);
+    const distinct: [string, string][] = [
+      ["AWS Zrb", "Azure Zrb"], // sigla curta: o fornecedor fica
+      ["Azure Zrb", "Zrb"],
+      ["Oracle Database", "Database"], // o que sobra não nomeia produto
+      ["Azure DevOps", "DevOps"],
+      ["Google Cloud Platform", "Platform"],
+      ["Quillon 27001", "Quillon"], // número de norma não é versão
+      ["Oracle", "SAP"],
+    ];
+    for (const [a, b] of distinct) expect([a, stackKey(a)]).not.toEqual([a, stackKey(b)]);
+    expect(stackKey("Oracle")).toBe("oracle"); // o fornecedor sozinho fica
+  });
+
+  it("a equivalência não funde dois termos que o gabarito separa no mesmo caso", () => {
+    for (const c of cases) {
+      for (const field of ["stackRequired", "stackNiceToHave"] as const) {
+        const options = [c.golden.expected[field], ...((c.golden.alternatives[field] ?? []) as string[][])];
+        for (const list of options) {
+          const before = new Set(list.map(aliasKey));
+          expect([c.golden.id, field, new Set(list.map(stackKey)).size]).toEqual([c.golden.id, field, before.size]);
+        }
+      }
+    }
+  });
+
+  it("[APPSEC] o vocabulário da regra não traz termo do gd1 além dos fornecedores do HITL-031", () => {
+    const goldTerms = new Set(
+      cases.flatMap((c) => [...c.golden.expected.stackRequired, ...c.golden.expected.stackNiceToHave].map((t) => fold(t).text.trim().split(/\s+/u).join(" "))),
+    );
+    const outsideVendors = [...NAME_RULE_VOCABULARY.deployments, ...NAME_RULE_VOCABULARY.genericRemainders].filter((w) => goldTerms.has(w));
+    console.log(`vocabulário fora dos fornecedores que também é termo do gd1: ${String(outsideVendors.length)}`);
+    expect(outsideVendors).toEqual([]);
   });
 
   it.runIf(mode === "smoke" || mode === "run")("chama os provedores", async () => {

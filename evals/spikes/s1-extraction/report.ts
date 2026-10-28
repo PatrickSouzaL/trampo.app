@@ -316,8 +316,6 @@ export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly 
   };
 }
 
-/** Versão aceita anterior, base do §8.3 (regressão de até 2 pp): o aceite do p3/g4 compara com o p2/g3 (ADR-020 §8.4). */
-const PREVIOUS_VERSIONS = "p2-g3";
 const REGRESSION_TOLERANCE = 0.02;
 /** Campos do §8.1 com o gate de cada um: só conta como regressão o campo que a versão anterior já passava. */
 const REGRESSION_GATES = {
@@ -336,46 +334,136 @@ const REGRESSION_GATES = {
   redFlagsPrecision: GATES.redFlagsPrecision,
 } as const;
 
+type RegressionMetric = keyof typeof REGRESSION_GATES;
+
+/** A parte de cada caso na métrica, como (numerador, denominador); `null` quando o caso não entra nela. */
+const CASE_SHARE: Record<RegressionMetric, (s: CaseScore) => readonly [number, number] | null> = {
+  seniorityLevels: (s) => [Number(s.seniorityLevels), 1],
+  workModels: (s) => [Number(s.workModels), 1],
+  contractTypes: (s) => [Number(s.contractTypes), 1],
+  location: (s) => [Number(s.location), 1],
+  salaryWithSalary: (s) => (s.salary === null ? null : [Number(s.salary), 1]),
+  yearsExperienceMin: (s) => [Number(s.yearsExperienceMin), 1],
+  stackPrecision: (s) => [s.stack.tp, s.stack.tp + s.stack.fp],
+  stackRecall: (s) => [s.stack.tp, s.stack.tp + s.stack.fn],
+  stackRightList: (s) => [s.stackRightList.right, s.stackRightList.total],
+  benefitsPrecision: (s) => [s.benefits.tp, s.benefits.tp + s.benefits.fp],
+  benefitsRecall: (s) => [s.benefits.tp, s.benefits.tp + s.benefits.fn],
+  languageRequirements: (s) => [Number(s.languageRequirements), 1],
+  redFlagsPrecision: (s) => [s.redFlags.tp, s.redFlags.tp + s.redFlags.fp],
+};
+
+/** Os casos cuja parte na métrica mudou: piorou ou melhorou pela razão do caso, e `outros` quando a razão não existe num lado. */
+function changedCases(
+  metric: RegressionMetric,
+  ids: readonly string[],
+  before: ReadonlyMap<string, CaseScore>,
+  after: ReadonlyMap<string, CaseScore>,
+): { worsened: string[]; improved: string[]; other: string[] } {
+  const out = { worsened: [] as string[], improved: [] as string[], other: [] as string[] };
+  for (const id of ids) {
+    const b = before.get(id);
+    const a = after.get(id);
+    const sb = b === undefined ? null : CASE_SHARE[metric](b);
+    const sa = a === undefined ? null : CASE_SHARE[metric](a);
+    if (sb?.[0] === sa?.[0] && sb?.[1] === sa?.[1]) continue;
+    if (sb === null || sa === null || sb[1] === 0 || sa[1] === 0) out.other.push(id);
+    else if (sa[0] / sa[1] < sb[0] / sb[1]) out.worsened.push(id);
+    else if (sa[0] / sa[1] > sb[0] / sb[1]) out.improved.push(id);
+    else out.other.push(id);
+  }
+  return out;
+}
+
+/** Ordem das versões gravadas (`p<N>-g<M>`), pelo prompt e depois pelo guard. */
+function versionRank(versions: string): readonly [number, number] {
+  const m = /^p(\d+)-g(\d+)$/u.exec(versions);
+  return m === null ? [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY] : [Number(m[1]), Number(m[2])];
+}
+const byVersion = (a: string, b: string): number => {
+  const [pa, ga] = versionRank(a);
+  const [pb, gb] = versionRank(b);
+  return pa - pb || ga - gb;
+};
+
 /**
- * Cada grupo mais novo que a versão anterior contra ela, nos mesmos casos do orçamento principal: JSON válido e os campos
- * do §8.1 lado a lado, com a lista dos que caíram mais de 2 pp a partir de um valor que passava no gate.
+ * §8.3 pareado (HITL-031 2A): cada grupo contra a versão gravada imediatamente anterior, do mesmo provedor, modelo e
+ * variante, **só nos casos com fatos nas duas** (o denominador deixa de mudar a métrica). Por campo: os dois valores, a
+ * queda e os ids dos casos que trocaram, nos dois sentidos. A regressão vale acima de 2 pp **e** do ruído do provedor; até
+ * a A4 medir o ruído, `noise` fica vazio e o veredito do campo que cai é `provisorio_sem_ruido`.
  */
 function compareWithPrevious(groups: ReadonlyMap<string, readonly ResultRow[]>, cases: ReadonlyMap<string, SpikeCase>): Record<string, unknown>[] {
   const out: Record<string, unknown>[] = [];
   const primary = (rs: readonly ResultRow[]): ResultRow[] => finalRows(rs).filter((r) => r.budget === PRIMARY_BUDGET);
+  const allVersions = [...new Set([...groups.keys()].map((k) => k.split("|")[0] ?? ""))].sort(byVersion);
+  const scores = (rs: readonly ResultRow[]): Map<string, CaseScore> => {
+    const m = new Map<string, CaseScore>();
+    for (const r of rs) {
+      const c = cases.get(r.caseId);
+      if (c !== undefined && r.facts !== null) m.set(r.caseId, scoreCase(c.golden, r.facts));
+    }
+    return m;
+  };
   for (const [key, rows] of groups) {
     const [versions = "", provider = "", model = "", variant = ""] = key.split("|");
-    if (versions === "p1-g2" || versions === PREVIOUS_VERSIONS || variant === "composto") continue;
-    const baseKey = `${PREVIOUS_VERSIONS}|${provider}|${model}|${variant}`;
-    const baseRows = groups.get(baseKey);
-    if (baseRows === undefined) continue;
-    const now = primary(rows);
-    const ids = new Set(now.map((r) => r.caseId));
-    const base = primary(baseRows).filter((r) => ids.has(r.caseId));
+    if (variant === "composto") continue;
+    const previous = allVersions.filter((v) => byVersion(v, versions) < 0).at(-1);
+    if (previous === undefined) continue;
+    const baseKey = baselineKey(groups, previous, provider, model, variant);
+    if (baseKey === null) continue;
+    const nowAll = primary(rows);
+    const baseAll = primary(groups.get(baseKey) ?? []);
+    const nowScores = scores(nowAll);
+    const baseScores = scores(baseAll);
+    const paired = [...nowScores.keys()].filter((id) => baseScores.has(id)).sort();
+    const pairedSet = new Set(paired);
+    const now = nowAll.filter((r) => pairedSet.has(r.caseId));
+    const base = baseAll.filter((r) => pairedSet.has(r.caseId));
     const nowMetrics = (quality(now, cases) as { metrics: Record<string, unknown> }).metrics;
     const baseMetrics = (quality(base, cases) as { metrics: Record<string, unknown> }).metrics;
-    const fields = Object.entries(REGRESSION_GATES).map(([metric, gateValue]) => {
-      const previous = typeof baseMetrics[metric] === "number" ? (baseMetrics[metric] as number) : null;
-      const current = typeof nowMetrics[metric] === "number" ? (nowMetrics[metric] as number) : null;
-      const regressed = previous !== null && previous >= gateValue && (current === null || current < previous - REGRESSION_TOLERANCE);
-      return { metric, previous, now: current, gate: gateValue, regressed };
+    const fields = (Object.entries(REGRESSION_GATES) as [RegressionMetric, number][]).map(([metric, gateValue]) => {
+      const before = typeof baseMetrics[metric] === "number" ? (baseMetrics[metric] as number) : null;
+      const after = typeof nowMetrics[metric] === "number" ? (nowMetrics[metric] as number) : null;
+      const drop = before === null || after === null ? null : round(before - after);
+      const overTolerance = before !== null && before >= gateValue && (after === null || (drop ?? 0) > REGRESSION_TOLERANCE);
+      return {
+        metric,
+        previous: before,
+        now: after,
+        drop,
+        gate: gateValue,
+        regressed: overTolerance,
+        verdict: overTolerance ? "provisorio_sem_ruido" : "sem_regressao",
+        changed: changedCases(metric, paired, baseScores, nowScores),
+      };
     });
+    const regressed = fields.filter((f) => f.regressed);
     out.push({
       group: key,
       baseline: baseKey,
-      cases: now.length,
-      validJsonAfterGuard: { previous: operations(base, [])["validJsonAfterGuard"], now: operations(now, [])["validJsonAfterGuard"] },
+      pairedCases: paired.length,
+      unpaired: {
+        onlyPrevious: [...baseScores.keys()].filter((id) => !nowScores.has(id)).sort(),
+        onlyNow: [...nowScores.keys()].filter((id) => !baseScores.has(id)).sort(),
+        withoutFactsNow: nowAll.filter((r) => r.facts === null).map((r) => r.caseId).sort(),
+        withoutFactsPrevious: baseAll.filter((r) => r.facts === null).map((r) => r.caseId).sort(),
+      },
+      validJsonAfterGuard: { previous: operations(baseAll, [])["validJsonAfterGuard"], now: operations(nowAll, [])["validJsonAfterGuard"] },
       fields,
-      regressions: fields.filter((f) => f.regressed).map((f) => f.metric),
+      regressions: regressed.map((f) => f.metric),
+      /** Casos que trocaram nos campos marcados: a amostra da A4 para medir o ruído (o mesmo prompt repetido). */
+      regressionChangedCases: [...new Set(regressed.flatMap((f) => [...f.changed.worsened, ...f.changed.improved, ...f.changed.other]))].sort(),
+      /** Taxa de troca do provedor com a mesma versão repetida, por campo (HITL-031 2A): vazia até a A4. */
+      noise: { status: "pendente_A4", byMetric: null },
     });
   }
   return out;
 }
 
-/** Linha de base do p1 para um grupo: o `composto` quando o p1 só tem parte da `nao_estrito`, senão a mesma variante. */
-function baselineKey(groups: ReadonlyMap<string, readonly ResultRow[]>, provider: string, model: string, variant: string): string | null {
+/** Linha de base de uma versão para um grupo: o `composto` quando ela só tem parte da `nao_estrito` (o p1), senão a mesma variante. */
+function baselineKey(groups: ReadonlyMap<string, readonly ResultRow[]>, versions: string, provider: string, model: string, variant: string): string | null {
   const preferred = variant === "nao_estrito" ? ["composto", variant] : [variant];
-  for (const v of preferred) if (groups.has(`p1-g2|${provider}|${model}|${v}`)) return `p1-g2|${provider}|${model}|${v}`;
+  for (const v of preferred) if (groups.has(`${versions}|${provider}|${model}|${v}`)) return `${versions}|${provider}|${model}|${v}`;
   return null;
 }
 
@@ -404,7 +492,7 @@ function compareVersions(groups: ReadonlyMap<string, readonly ResultRow[]>, case
   for (const [key, rows] of groups) {
     const [versions = "", provider = "", model = "", variant = ""] = key.split("|");
     if (versions === "p1-g2" || variant === "composto") continue;
-    const baseKey = baselineKey(groups, provider, model, variant);
+    const baseKey = baselineKey(groups, "p1-g2", provider, model, variant);
     if (baseKey === null) continue;
     const now = primary(rows);
     const base = primary(groups.get(baseKey) ?? []);
