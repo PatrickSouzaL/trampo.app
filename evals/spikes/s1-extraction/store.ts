@@ -15,6 +15,9 @@ export const OUT_DIR = join(import.meta.dirname, "out");
 export const resultsPath = (promptVersion: string, guardVersion: string): string =>
   join(OUT_DIR, `s1-results.${promptVersion}-${guardVersion}.jsonl`);
 export const RESULTS_PATH = resultsPath(EXTRACTION_PROMPT_VERSION, LLM_OUTPUT_GUARD_VERSION);
+/** A4 (HITL-031 2A): a mesma versão repetida, à parte; o nome foge do padrão de `readAllRows`, então não entra no agregado. */
+export const noisePath = (promptVersion: string, guardVersion: string): string =>
+  join(OUT_DIR, `s1-noise.${promptVersion}-${guardVersion}.jsonl`);
 /** Linhas sem versão são da rodada do p1 (antes deste campo). */
 const LEGACY_VERSIONS = { promptVersion: "p1", guardVersion: "g2" } as const;
 

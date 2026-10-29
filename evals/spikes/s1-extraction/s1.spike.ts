@@ -1,5 +1,5 @@
 // S-1: extração com provedores reais (BACKLOG S-1; plano estratificado de 2026-10-24).
-// S1_MODE=plan|smoke|run|report|diag|effect (effect: Trilha A3, efeito da stack na nota, sem rede); S1_PROVIDERS=groq,cloudflare_workers_ai; S1_MAX_ITEMS limita as chamadas por provedor.
+// S1_MODE=plan|smoke|run|report|diag|effect|noise (effect: Trilha A3, efeito da stack na nota, sem rede; noise: Trilha A4, o p3 repetido); S1_PROVIDERS=groq,cloudflare_workers_ai; S1_MAX_ITEMS limita as chamadas por provedor.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -7,14 +7,16 @@ import { buildPlan, differs, loadSpikeCases, sweepCases } from "./cases.js";
 import { readSpikeEnv, requireVar } from "./env.js";
 import { createGroqProvider, createWorkersAiProvider, type SpikeProvider } from "./providers.js";
 import { diagnose } from "./diag.js";
-import { buildReport } from "./report.js";
+import { A3_EMPTY_STACK_CASES, buildReport } from "./report.js";
 import { NAME_RULE_VOCABULARY, aliasKey, scoreCase, stackKey } from "./score.js";
 import { fold } from "../../../apps/api/src/domain/prefilter/folding.js";
 import { runProvider } from "./runner.js";
 import { BAND_CHANGE_GATE, ENGINE_VERSION, WORST_CASE_TERMS, falsePositiveRanking, scorePair, summarize, toUserCriteria, worstCasePersonas, type PairOutcome } from "./effect.js";
 import { PERSONAS } from "../s4-layer1/routing.js";
 import { ScoringEngine } from "../../../apps/api/src/domain/index.js";
-import { OUT_DIR, readAllRows, readRows, resultsPath, type ResultRow } from "./store.js";
+import { OUT_DIR, noisePath, readAllRows, readRows, resultsPath, type ResultRow } from "./store.js";
+import { EXTRACTION_PROMPT_VERSION } from "../../../apps/api/src/application/llm/extraction-prompt.js";
+import { LLM_OUTPUT_GUARD_VERSION } from "../../../apps/api/src/application/llm/llm-output-guard.js";
 import { WORKERS_AI_DEFAULT_MODEL } from "../../../apps/api/src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
 
 const mode = process.env["S1_MODE"] ?? "plan";
@@ -267,8 +269,24 @@ describe(`S-1 (${mode})`, () => {
     });
   });
 
-  it.runIf(mode === "report" || mode === "run" || mode === "smoke")("grava o relatório agregado", () => {
-    const serialized = JSON.stringify(buildReport(readAllRows(), cases), null, 2);
+  it.runIf(mode === "noise")("A4: repete o p3 nos casos da regressão e nos de stack vazia, num arquivo próprio (HITL-031 2A)", async () => {
+    expect([EXTRACTION_PROMPT_VERSION, LLM_OUTPUT_GUARD_VERSION, groqVariant, wanted]).toEqual(["p3", "g4", "nao_estrito", ["groq"]]);
+    const comparison = (buildReport(readAllRows(), cases)["previousComparisons"] as { group: string; regressionChangedCases: string[] }[]).find(
+      (c) => c.group === "p3-g4|groq|openai/gpt-oss-20b|nao_estrito",
+    );
+    if (comparison === undefined) throw new Error("sem a comparação p3-g4 × p2-g3 do Groq");
+    expect(comparison.regressionChangedCases).toHaveLength(27);
+    const ids = new Set([...comparison.regressionChangedCases, ...A3_EMPTY_STACK_CASES]);
+    const noisePlan = fullPlan.filter((p) => p.budget === 6_000 && ids.has(p.caseId));
+    expect(noisePlan).toHaveLength(31);
+    const [groq] = providers();
+    if (groq === undefined) throw new Error("sem provedor");
+    const s = await runProvider(groq, noisePlan, byId, maxItems, (l) => console.log(l), noisePath("p3", "g4"));
+    console.log(`[${s.provider}] feitos=${String(s.done)} restantes=${String(s.remaining)} parada=${s.stoppedBy}`);
+  });
+
+  it.runIf(mode === "report" || mode === "run" || mode === "smoke" || mode === "noise")("grava o relatório agregado", () => {
+    const serialized = JSON.stringify(buildReport(readAllRows(), cases, readRows(noisePath("p3", "g4"))), null, 2);
     assertClean(serialized);
     mkdirSync(OUT_DIR, { recursive: true });
     writeFileSync(join(OUT_DIR, "s1-metrics.json"), `${serialized}\n`, "utf8");

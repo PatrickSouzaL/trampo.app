@@ -6,7 +6,7 @@ import type { Budget, PlanItem, SpikeCase } from "./cases.js";
 import type { CallRecord, SpikeProvider } from "./providers.js";
 import { EXTRACTION_PROMPT_VERSION } from "../../../apps/api/src/application/llm/extraction-prompt.js";
 import { LLM_OUTPUT_GUARD_VERSION } from "../../../apps/api/src/application/llm/llm-output-guard.js";
-import { appendRow, CURRENT_VERSIONS, doneKeys, readRows, rowKey, type ResultRow } from "./store.js";
+import { appendRow, CURRENT_VERSIONS, doneKeys, readRows, RESULTS_PATH, rowKey, type ResultRow } from "./store.js";
 
 /** Prazo do spike: acima do de produção (10 s) para medir a cauda; o relatório conta quantos passaram de 10 s. */
 export const SPIKE_TIMEOUT_MS = 30_000;
@@ -114,8 +114,9 @@ export async function runProvider(
   cases: ReadonlyMap<string, SpikeCase>,
   maxItems: number,
   log: (line: string) => void,
+  path: string = RESULTS_PATH,
 ): Promise<RunSummary> {
-  const done = doneKeys(readRows());
+  const done = doneKeys(readRows(path));
   const pending = plan.filter((p) => !done.has(rowKey(CURRENT_VERSIONS, provider.key, provider.model, provider.variant, p.caseId, p.budget)));
   let count = 0;
   let last: ResultRow | undefined;
@@ -127,7 +128,7 @@ export async function runProvider(
     for (;;) {
       const call = await provider.call(payload, SPIKE_TIMEOUT_MS);
       const row = toRow(provider, c, item.budget, payload, call);
-      appendRow(row);
+      appendRow(row, path);
       last = row;
       log(
         `[${provider.key}] ${item.caseId} ${String(item.budget)} → ${call.outcome} ${String(call.status)} ${String(row.latencyMs)}ms` +

@@ -259,7 +259,7 @@ function compositeGroups(groups: ReadonlyMap<string, readonly ResultRow[]>): Map
   return out;
 }
 
-export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly SpikeCase[]): Record<string, unknown> {
+export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly SpikeCase[], noiseRows: readonly ResultRow[] = []): Record<string, unknown> {
   const cases = new Map(spikeCases.map((c) => [c.golden.id, c] as const));
   const sweepIds = new Set(sweepCases(spikeCases).map((c) => c.golden.id));
   const groups = new Map<string, ResultRow[]>();
@@ -312,11 +312,13 @@ export function buildReport(allRows: readonly ResultRow[], spikeCases: readonly 
     sweepCaseIds: [...sweepIds].sort(),
     providers,
     comparisons: compareVersions(groups, cases),
-    previousComparisons: compareWithPrevious(groups, cases),
+    previousComparisons: compareWithPrevious(groups, cases, noiseRows),
   };
 }
 
 const REGRESSION_TOLERANCE = 0.02;
+/** A3: vagas em que o Groq `p3` devolveu stack vazia onde o gabarito tem; a A4 as repete à parte, fora da conta do ruído. */
+export const A3_EMPTY_STACK_CASES = ["99jobs-04", "linkedin-03", "linkedin-13", "linkedin-19"] as const;
 /** Campos do §8.1 com o gate de cada um: só conta como regressão o campo que a versão anterior já passava. */
 const REGRESSION_GATES = {
   seniorityLevels: GATES.setExact,
@@ -389,10 +391,18 @@ const byVersion = (a: string, b: string): number => {
 /**
  * §8.3 pareado (HITL-031 2A): cada grupo contra a versão gravada imediatamente anterior, do mesmo provedor, modelo e
  * variante, **só nos casos com fatos nas duas** (o denominador deixa de mudar a métrica). Por campo: os dois valores, a
- * queda e os ids dos casos que trocaram, nos dois sentidos. A regressão vale acima de 2 pp **e** do ruído do provedor; até
- * a A4 medir o ruído, `noise` fica vazio e o veredito do campo que cai é `provisorio_sem_ruido`.
+ * queda e os ids dos casos que trocaram, nos dois sentidos. A regressão vale acima de 2 pp **e** do ruído do provedor; sem
+ * a repetição da A4 (`noiseRows`), `noise` fica vazio e o veredito do campo que cai é `provisorio_sem_ruido`.
+ *
+ * Ruído (A4, HITL-031 2A), na mesma unidade da queda: a métrica pareada com a versão repetida no lugar da original nos
+ * casos da amostra (`regressionChangedCases`), contra a métrica pareada original. O campo que cai mais de 2 pp vira
+ * `ruido` quando a queda não passa do ruído, e `regressao` quando passa.
  */
-function compareWithPrevious(groups: ReadonlyMap<string, readonly ResultRow[]>, cases: ReadonlyMap<string, SpikeCase>): Record<string, unknown>[] {
+function compareWithPrevious(
+  groups: ReadonlyMap<string, readonly ResultRow[]>,
+  cases: ReadonlyMap<string, SpikeCase>,
+  noiseRows: readonly ResultRow[] = [],
+): Record<string, unknown>[] {
   const out: Record<string, unknown>[] = [];
   const primary = (rs: readonly ResultRow[]): ResultRow[] => finalRows(rs).filter((r) => r.budget === PRIMARY_BUDGET);
   const allVersions = [...new Set([...groups.keys()].map((k) => k.split("|")[0] ?? ""))].sort(byVersion);
@@ -438,6 +448,16 @@ function compareWithPrevious(groups: ReadonlyMap<string, readonly ResultRow[]>, 
       };
     });
     const regressed = fields.filter((f) => f.regressed);
+    const sample = [...new Set(regressed.flatMap((f) => [...f.changed.worsened, ...f.changed.improved, ...f.changed.other]))].sort();
+    const repeatAll = finalRows(noiseRows.filter((r) => `${versionsOf(r)}|${r.provider}|${r.model}|${r.variant}` === key)).filter(
+      (r) => r.budget === PRIMARY_BUDGET,
+    );
+    const noise = repeatAll.length === 0 ? { status: "pendente_A4", byMetric: null } : measureNoise(sample, now, nowScores, repeatAll, paired, cases);
+    const judged = fields.map((f) => {
+      const noisePp = noise.byMetric?.[f.metric]?.noisePp ?? null;
+      if (!f.regressed || noisePp === null) return f;
+      return { ...f, noisePp, verdict: (f.drop ?? Number.POSITIVE_INFINITY) > noisePp ? "regressao" : "ruido" };
+    });
     out.push({
       group: key,
       baseline: baseKey,
@@ -449,15 +469,100 @@ function compareWithPrevious(groups: ReadonlyMap<string, readonly ResultRow[]>, 
         withoutFactsPrevious: baseAll.filter((r) => r.facts === null).map((r) => r.caseId).sort(),
       },
       validJsonAfterGuard: { previous: operations(baseAll, [])["validJsonAfterGuard"], now: operations(nowAll, [])["validJsonAfterGuard"] },
-      fields,
+      fields: judged,
       regressions: regressed.map((f) => f.metric),
+      /** Os campos que seguem como regressão depois do ruído (`regressao` ou ainda `provisorio_sem_ruido`). */
+      confirmedRegressions: judged.filter((f) => f.verdict !== "sem_regressao" && f.verdict !== "ruido").map((f) => f.metric),
       /** Casos que trocaram nos campos marcados: a amostra da A4 para medir o ruído (o mesmo prompt repetido). */
-      regressionChangedCases: [...new Set(regressed.flatMap((f) => [...f.changed.worsened, ...f.changed.improved, ...f.changed.other]))].sort(),
+      regressionChangedCases: sample,
       /** Taxa de troca do provedor com a mesma versão repetida, por campo (HITL-031 2A): vazia até a A4. */
-      noise: { status: "pendente_A4", byMetric: null },
+      noise,
+      emptyStackRecheck: repeatAll.length === 0 ? null : emptyStackRecheck(nowAll, repeatAll, cases),
     });
   }
   return out;
+}
+
+interface NoiseMetric {
+  readonly sampleCases: number;
+  readonly changedInRepeat: number;
+  readonly changeRate: number | null;
+  readonly pairedOriginal: number | null;
+  readonly pairedWithRepeat: number | null;
+  readonly noisePp: number | null;
+  readonly changed: { worsened: string[]; improved: string[]; other: string[] };
+}
+
+interface Noise {
+  readonly status: "pendente_A4" | "incompleto" | "medido";
+  readonly byMetric: Partial<Record<RegressionMetric, NoiseMetric>> | null;
+  readonly repeated?: number;
+  readonly missingRepeat?: string[];
+  readonly withoutFactsRepeat?: string[];
+}
+
+/**
+ * A4: a mesma versão repetida nos casos da amostra. Por campo: quantos casos da amostra trocaram de parte (a taxa de
+ * troca), a métrica pareada com a repetição no lugar do original e o ruído em pp. Os casos de stack vazia da A3 não entram.
+ */
+function measureNoise(
+  sample: readonly string[],
+  now: readonly ResultRow[],
+  nowScores: ReadonlyMap<string, CaseScore>,
+  repeatAll: readonly ResultRow[],
+  paired: readonly string[],
+  cases: ReadonlyMap<string, SpikeCase>,
+): Noise {
+  const inSample = new Set(sample);
+  const repeat = repeatAll.filter((r) => inSample.has(r.caseId));
+  const repeatScores = new Map<string, CaseScore>();
+  for (const r of repeat) {
+    const c = cases.get(r.caseId);
+    if (c !== undefined && r.facts !== null) repeatScores.set(r.caseId, scoreCase(c.golden, r.facts));
+  }
+  const missingRepeat = sample.filter((id) => !repeat.some((r) => r.caseId === id));
+  const withoutFactsRepeat = repeat.filter((r) => r.facts === null).map((r) => r.caseId).sort();
+  if (missingRepeat.length > 0 || withoutFactsRepeat.length > 0) {
+    return { status: "incompleto", byMetric: null, repeated: repeat.length, missingRepeat, withoutFactsRepeat };
+  }
+  const repeatById = new Map(repeat.map((r) => [r.caseId, r] as const));
+  const hybrid = now.map((r) => repeatById.get(r.caseId) ?? r);
+  const nowMetrics = (quality(now, cases) as { metrics: Record<string, unknown> }).metrics;
+  const hybridMetrics = (quality(hybrid, cases) as { metrics: Record<string, unknown> }).metrics;
+  const pairedSample = sample.filter((id) => paired.includes(id));
+  const byMetric: Partial<Record<RegressionMetric, NoiseMetric>> = {};
+  for (const metric of Object.keys(REGRESSION_GATES) as RegressionMetric[]) {
+    const original = typeof nowMetrics[metric] === "number" ? (nowMetrics[metric] as number) : null;
+    const repeated = typeof hybridMetrics[metric] === "number" ? (hybridMetrics[metric] as number) : null;
+    const changed = changedCases(metric, pairedSample, nowScores, repeatScores);
+    const count = changed.worsened.length + changed.improved.length + changed.other.length;
+    byMetric[metric] = {
+      sampleCases: pairedSample.length,
+      changedInRepeat: count,
+      changeRate: pairedSample.length === 0 ? null : round(count / pairedSample.length),
+      pairedOriginal: original,
+      pairedWithRepeat: repeated,
+      noisePp: original === null || repeated === null ? null : round(Math.abs(original - repeated)),
+      changed,
+    };
+  }
+  return { status: "medido", byMetric, repeated: repeat.length, missingRepeat, withoutFactsRepeat };
+}
+
+/** A4: as vagas da A3 com stack vazia no original, e se a repetição também volta vazia (o gabarito tem stack nelas). */
+function emptyStackRecheck(now: readonly ResultRow[], repeatAll: readonly ResultRow[], cases: ReadonlyMap<string, SpikeCase>): Record<string, unknown> {
+  const empty = (r: ResultRow | undefined): boolean | null =>
+    r === undefined || r.facts === null ? null : r.facts.stackRequired.length + r.facts.stackNiceToHave.length === 0;
+  const rows = A3_EMPTY_STACK_CASES.map((id) => {
+    const gold = cases.get(id)?.golden.expected;
+    return {
+      caseId: id,
+      goldStackTerms: gold === undefined ? null : gold.stackRequired.length + gold.stackNiceToHave.length,
+      emptyOriginal: empty(now.find((r) => r.caseId === id)),
+      emptyRepeat: empty(repeatAll.find((r) => r.caseId === id)),
+    };
+  });
+  return { cases: rows, emptyAgain: rows.filter((r) => r.emptyOriginal === true && r.emptyRepeat === true).map((r) => r.caseId) };
 }
 
 /** Linha de base de uma versão para um grupo: o `composto` quando ela só tem parte da `nao_estrito` (o p1), senão a mesma variante. */
