@@ -48,29 +48,31 @@ export interface ProviderLimits {
 }
 
 /**
- * Estimativa de neurons por chamada da Workers AI com o modelo provisório (ADR-020 D9 e D10), no pior caso do
- * orçamento: 2.200 tokens de entrada a 26.668 neurons por milhão e 600 de saída a 204.805 por milhão, arredondado
- * para cima (≈ 58,7 + 122,9 = 181,6 → 182). A medida real é do S-1, e muda este valor por emenda ao ADR-020.
+ * Neurons por chamada da Workers AI medidos no aceite do p3/g4 (spike-metrics §2.8: 83 chamadas em 6k com o modelo
+ * do ADR-020 D10, pelos tokens de `usage` e o preço publicado por milhão). Calibram o `rpd` do ledger (emenda ao
+ * ADR-020 D9, Trilha W1) e mudam só com uma medida nova. A estimativa anterior, de 182 por chamada no pior caso do
+ * orçamento (2.200 tokens de entrada e 600 de saída), fica registrada no ADR.
  */
-export const WORKERS_AI_NEURON_BUDGET = {
+export const WORKERS_AI_NEURON_MEASUREMENT = {
+  /** Cota gratuita da Workers AI, que reinicia às 00:00 UTC. */
   neuronsPerDay: 10_000,
-  inputTokens: 2_200,
-  outputTokens: 600,
-  inputNeuronsPerMillion: 26_668,
-  outputNeuronsPerMillion: 204_805,
+  neuronsPerCallMean: 74,
+  neuronsPerCallP95: 101,
 } as const;
 
+/** O que entra na conta do `rpd` (a medida inteira, ou uma sintética nos testes da fórmula). */
+export interface NeuronBudgetBasis {
+  readonly neuronsPerDay: number;
+  readonly neuronsPerCallP95: number;
+}
+
 /**
- * Chamadas por dia que cabem nos neurons gratuitos, ANTES da folga: `floor(10.000 ÷ 182)` = 54. A tabela do ledger
- * guarda o limite publicado, e o `effectiveLimit` aplica os 15%: `floor(54 × 0,85)` = 45 por dia (emenda ao ADR-020
- * D9, que dava 46 já com a folga e, posto na tabela, teria a folga aplicada duas vezes).
+ * Chamadas por dia que cabem nos neurons gratuitos, ANTES da folga, pelo p95 medido: `floor(10.000 ÷ 101)` = 99. A
+ * tabela do ledger guarda o limite publicado, e o `effectiveLimit` aplica os 15% uma vez só: `floor(99 × 0,85)` = 84
+ * por dia. O p95, e não a média, para que um dia de vagas longas não estoure a cota antes do teto do ledger.
  */
-export function workersAiCallsPerDay(): number {
-  const budget = WORKERS_AI_NEURON_BUDGET;
-  const perCall = Math.ceil(
-    (budget.inputTokens * budget.inputNeuronsPerMillion + budget.outputTokens * budget.outputNeuronsPerMillion) / 1_000_000,
-  );
-  return Math.floor(budget.neuronsPerDay / perCall);
+export function workersAiCallsPerDay(measured: NeuronBudgetBasis = WORKERS_AI_NEURON_MEASUREMENT): number {
+  return Math.floor(measured.neuronsPerDay / measured.neuronsPerCallP95);
 }
 
 /**
@@ -112,8 +114,8 @@ export const LEDGER_POLICY = {
   providers: {
     // Reserva calibrada pela medida do aceite do p3 (`groqReservedTokensPerCall`, ADR-022 D7.2): 3.000 tokens.
     groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000, reservedTokensPerCall: groqReservedTokensPerCall() },
-    // O limite real é de 10.000 neurons por dia; o `rpd` vem da estimativa de neurons por chamada (ADR-020 D9), e a
-    // medida real é do S-1. O `rpm` fica bem abaixo dos 300 por minuto documentados.
+    // O limite real é de 10.000 neurons por dia; o `rpd` vem do p95 medido de neurons por chamada (S-1, emenda ao
+    // ADR-020 D9): 99 publicado, 84 efetivo. O `rpm` fica bem abaixo dos 300 por minuto documentados.
     cloudflare_workers_ai: { rpm: 60, rpd: workersAiCallsPerDay(), tpm: null, tpd: null, reservedTokensPerCall: null },
     ollama: { rpm: null, rpd: null, tpm: null, tpd: null, reservedTokensPerCall: null },
   } satisfies Partial<Record<LlmProviderId, ProviderLimits>>,

@@ -36,7 +36,7 @@ export {
   LIMIT_GUARD_POLICY,
   RATE_LIMIT_POLICY,
   STRICTEST_RATE_LIMIT_CLASS,
-  WORKERS_AI_NEURON_BUDGET,
+  WORKERS_AI_NEURON_MEASUREMENT,
   effectiveLimit,
   groqReservedTokensPerCall,
   providerLimits,

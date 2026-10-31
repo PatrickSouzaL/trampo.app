@@ -134,13 +134,13 @@ describe("reserve", () => {
     expect(h.store.values.has(`llm:tpm:ollama:${MINUTE}`)).toBe(false);
   });
 
-  test("Cloudflare: 51 por minuto e 45 por dia (neurons do ADR-020 D9), sem limite de tokens", async () => {
+  test("Cloudflare: 51 por minuto e 84 por dia (p95 de neurons do S-1, emenda ao ADR-020 D9), sem limite de tokens", async () => {
     const h = harness();
     h.store.values.set(`llm:tpd:cloudflare_workers_ai:${DAY}`, "999999999");
     for (let i = 0; i < 51; i += 1) await h.reserve("cloudflare_workers_ai");
     await expect(h.reserve("cloudflare_workers_ai")).resolves.toBe("provedor_esgotado");
     const day = harness();
-    day.store.values.set(`llm:rpd:cloudflare_workers_ai:${DAY}`, "44");
+    day.store.values.set(`llm:rpd:cloudflare_workers_ai:${DAY}`, "83");
     await expect(day.reserve("cloudflare_workers_ai")).resolves.toBe("permitido");
     await expect(day.reserve("cloudflare_workers_ai")).resolves.toBe("provedor_esgotado");
   });
