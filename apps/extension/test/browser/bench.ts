@@ -2,6 +2,9 @@
 // setContent → mundo isolado novo por CDP (o mesmo mecanismo do mundo ISOLATED do executeScript) →
 // Runtime.evaluate da função SERIALIZADA, sem o módulo. A rede da página fica bloqueada.
 // A cobertura de bloco do V8 de todas as execuções é unida para provar 100% do extrator.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { chromium, type Browser, type CDPSession, type Page } from "playwright-core";
 
 import { extractGenericJobText, type ExtractionLimits, type ExtractionResult } from "../../src/extraction/generic-extractor";
@@ -13,6 +16,9 @@ const DEFAULT_BROWSERS: Partial<Record<NodeJS.Platform, string>> = {
 };
 
 export const SOURCE = extractGenericJobText.toString();
+/** Fixtures reais anonimizadas (runbook fixtures-dom §3), servidas pela rota do Bench. */
+export const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
+const FIXTURE_ORIGIN = "https://fixtures.trampo.invalid";
 export const LIMITS: ExtractionLimits = { maxChars: 30_000, maxNodes: 50_000, minChars: 1 };
 
 /** Molde comum das fixtures: fundo branco, texto escuro, fonte de 16 px. */
@@ -46,8 +52,17 @@ export class Bench {
     if (executablePath === undefined) throw new Error("Defina TRAMPO_E2E_BROWSER com o caminho do Edge ou do Chrome.");
     this.browser = await chromium.launch({ executablePath, headless: true });
     this.page = await this.browser.newPage({ viewport: { width: 1280, height: 800 } });
-    // Fixture nunca sai para a rede: só o próprio documento (setContent) existe.
-    await this.page.route("**/*", (route) => route.abort());
+    // Fixture nunca sai para a rede: só o próprio documento (setContent) existe. As fixtures reais
+    // (D2a) vêm do disco, num host .invalid, com o .html e os .css locais; o resto é abortado.
+    await this.page.route("**/*", (route) => {
+      const url = new URL(route.request().url());
+      const name = url.pathname.slice(1);
+      if (url.origin !== FIXTURE_ORIGIN || !/^[a-z]+-[0-9a-z]+\.(html|css)$/.test(name)) return route.abort();
+      return route.fulfill({
+        body: readFileSync(join(FIXTURES_DIR, name)),
+        contentType: name.endsWith(".css") ? "text/css; charset=utf-8" : "text/html; charset=utf-8",
+      });
+    });
     this.cdp = await this.page.context().newCDPSession(this.page);
     await this.cdp.send("Profiler.enable");
     await this.cdp.send("Profiler.startPreciseCoverage", { callCount: true, detailed: true });
@@ -64,24 +79,37 @@ export class Bench {
   }
 
   async run(html: string, limits: unknown = LIMITS): Promise<ExtractionResult> {
+    await this.mainWorld.setContent(html, { waitUntil: "load" });
+    return (await this.extract(limits)).result;
+  }
+
+  /** Fixture real (`<plataforma>-<nn>`): abre a página servida do disco e mede só a extração. */
+  async runFixture(id: string, limits: unknown = LIMITS): Promise<{ result: ExtractionResult; ms: number; nodes: number }> {
+    await this.mainWorld.goto(`${FIXTURE_ORIGIN}/${id}.html`, { waitUntil: "load" });
+    const nodes = await this.mainWorld.evaluate(() => document.getElementsByTagName("*").length);
+    return { ...(await this.extract(limits)), nodes };
+  }
+
+  private async extract(limits: unknown): Promise<{ result: ExtractionResult; ms: number }> {
     const cdp = this.cdp;
     if (cdp === undefined) throw new Error("Bench.open() não foi chamado.");
-    await this.mainWorld.setContent(html, { waitUntil: "load" });
     const { frameTree } = await cdp.send("Page.getFrameTree");
     const { executionContextId } = await cdp.send("Page.createIsolatedWorld", {
       frameId: frameTree.frame.id,
       worldName: "trampo-extrator",
     });
+    const started = performance.now();
     const evaluated = await cdp.send("Runtime.evaluate", {
       expression: `(${SOURCE})(${JSON.stringify(limits)})`,
       contextId: executionContextId,
       returnByValue: true,
     });
+    const ms = performance.now() - started;
     if (evaluated.exceptionDetails !== undefined) {
       throw new Error(`O extrator lançou no navegador: ${evaluated.exceptionDetails.exception?.description ?? evaluated.exceptionDetails.text}`);
     }
     await this.collectCoverage();
-    return evaluated.result.value as ExtractionResult;
+    return { result: evaluated.result.value as ExtractionResult, ms };
   }
 
   private async collectCoverage(): Promise<void> {
