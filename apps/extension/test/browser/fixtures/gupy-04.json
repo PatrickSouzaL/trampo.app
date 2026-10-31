@@ -1,0 +1,18 @@
+{
+  "plataforma": "gupy",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "main",
+  "raizDaPlataforma": "main",
+  "trechosObrigatorios": [
+    "A Leega é uma empresa focada",
+    "(BigQuery, Cloud Storage, Dataflow ou similares)",
+    "Somos uma consultoria de tecnologia, agnóstica"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Ao clicar em “Aceitar todos os"
+  ],
+  "anonimizacao": {}
+}

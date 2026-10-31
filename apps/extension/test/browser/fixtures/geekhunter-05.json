@@ -1,0 +1,18 @@
+{
+  "plataforma": "geekhunter",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "main",
+  "raizDaPlataforma": "main",
+  "trechosObrigatorios": [
+    "2+ anos de experiência na carreira",
+    "Capacidade de validar evidências, discutir severidade",
+    "Ver todas as vagas da empresa"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Software de recrutamento"
+  ],
+  "anonimizacao": {}
+}

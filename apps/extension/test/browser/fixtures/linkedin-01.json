@@ -1,0 +1,18 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": false,
+  "raizEsperada": "main",
+  "raizDaPlataforma": ".details-pane__content",
+  "trechosObrigatorios": [
+    "Administrar e manter o ciclo de",
+    "Apoio Pass (serviço de apoio psicológico,",
+    "Nossas oportunidades são abertas para todos"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Analista de Infraestrutura TI | Exclusiva"
+  ],
+  "anonimizacao": {}
+}

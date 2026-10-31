@@ -1,0 +1,18 @@
+{
+  "plataforma": "gupy",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "main",
+  "raizDaPlataforma": "main",
+  "trechosObrigatorios": [
+    "Sua missão: Prestar suporte técnico de",
+    "Disponibilidade para trabalhar no período tarde/noite.",
+    "Afinal, nós existimos para proporcionar soluções"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Ao clicar em “Aceitar todos os"
+  ],
+  "anonimizacao": {}
+}

@@ -1,0 +1,20 @@
+{
+  "plataforma": "gupy",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "main",
+  "raizDaPlataforma": "main",
+  "trechosObrigatorios": [
+    "O Itaú é a marca mais",
+    "Vivência com arquiteturas distribuídas e microsserviços;",
+    "e eleitos, pela décima vez consecutiva,"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Ao clicar em “Aceitar todos os"
+  ],
+  "anonimizacao": {
+    "URL": 1
+  }
+}

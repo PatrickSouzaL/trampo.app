@@ -1,0 +1,18 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": false,
+  "raizEsperada": "main",
+  "raizDaPlataforma": ".details-pane__content",
+  "trechosObrigatorios": [
+    "Projete e evolua a infraestrutura da",
+    "Apaixonar-se por sair da zona de",
+    "Modelo de trabalho híbrido. Localidade: São"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Senior Software Engineer | GenAI Gateway"
+  ],
+  "anonimizacao": {}
+}

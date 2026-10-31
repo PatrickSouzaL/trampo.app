@@ -1,0 +1,20 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": false,
+  "raizEsperada": "main",
+  "raizDaPlataforma": ".details-pane__content",
+  "trechosObrigatorios": [
+    "pelo quarto ano consecutivo, sendo o",
+    "Apoiar controles internos, incluindo vigência de",
+    "Nosso compromisso é criar relacionamentos duradouros,"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Analista de Compliance Sênior"
+  ],
+  "anonimizacao": {
+    "EMPRESA": 1
+  }
+}

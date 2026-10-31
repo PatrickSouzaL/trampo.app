@@ -1,0 +1,21 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": false,
+  "raizEsperada": "main",
+  "raizDaPlataforma": ".details-pane__content",
+  "trechosObrigatorios": [
+    "para atuar na construção e manutenção",
+    "Domínio de Docker e ambientes Linux.",
+    "Experiência em boas práticas de segurança."
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Senior DevOps & AWS & Kubernetes"
+  ],
+  "anonimizacao": {
+    "EMPRESA": 6,
+    "URL": 1
+  }
+}

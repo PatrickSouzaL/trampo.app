@@ -1,0 +1,18 @@
+{
+  "plataforma": "geekhunter",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "main",
+  "raizDaPlataforma": "main",
+  "trechosObrigatorios": [
+    "5+ anos de experiência na carreira",
+    "Redes Cloud: VPC/VNet, Subnets, DNS, Load",
+    "Ver todas as vagas da empresa"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Software de recrutamento"
+  ],
+  "anonimizacao": {}
+}
