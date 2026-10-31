@@ -5,12 +5,14 @@ import { describe, expect, test } from "vitest";
 
 import {
   DAILY_QUOTA_POLICY,
+  GROQ_TOKEN_MEASUREMENT,
   LEDGER_POLICY,
   LIMIT_GUARD_POLICY,
   RATE_LIMIT_POLICY,
   STRICTEST_RATE_LIMIT_CLASS,
   WORKERS_AI_NEURON_BUDGET,
   effectiveLimit,
+  groqReservedTokensPerCall,
   isEpochMs,
   workersAiCallsPerDay,
   providerLimits,
@@ -86,6 +88,27 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
     expect(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd).toBe(workersAiCallsPerDay());
     // Teto efetivo de 45 por dia, abaixo dos 10.000 × 0,85 ÷ 182 ≈ 46,7 do ADR: a folga não entra duas vezes.
     expect(effectiveLimit(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd)).toBe(45);
+  });
+
+  test("reserva do Groq calibrada pela medida do aceite do p3 (ADR-022 D7.2; spike-metrics §2.8)", () => {
+    expect(GROQ_TOKEN_MEASUREMENT).toEqual({
+      inputTokensP95: 2_509,
+      outputTokensP50: 331,
+      totalTokensP95: 2_939,
+      totalTokensMax: 3_683,
+      roundingStep: 500,
+    });
+    // 2.509 + 331 = 2.840 → múltiplo de 500 seguinte: 3.000.
+    expect(groqReservedTokensPerCall()).toBe(3_000);
+    // A fórmula soma a saída e arredonda para cima; um múltiplo exato do passo não sobe.
+    expect(groqReservedTokensPerCall({ inputTokensP95: 2_400, outputTokensP50: 200, roundingStep: 500 })).toBe(3_000);
+    expect(groqReservedTokensPerCall({ inputTokensP95: 2_400, outputTokensP50: 100, roundingStep: 500 })).toBe(2_500);
+    expect(LEDGER_POLICY.providers.groq.reservedTokensPerCall).toBe(groqReservedTokensPerCall());
+    // A reserva cobre o total p95 medido; a cauda acima dela é reconciliada pelo recordUsage.
+    expect(groqReservedTokensPerCall()).toBeGreaterThanOrEqual(GROQ_TOKEN_MEASUREMENT.totalTokensP95);
+    expect(groqReservedTokensPerCall()).toBeLessThan(GROQ_TOKEN_MEASUREMENT.totalTokensMax);
+    // Efeito do D7.2 no TPM efetivo: 2 reservas cabem em 6.800, a 3ª não.
+    expect(Math.floor(effectiveLimit(8_000) / groqReservedTokensPerCall())).toBe(2);
   });
 
   test("todo provedor com limite de tokens tem reserva (o ledger só conta tokens pela reserva, ADR-022 D7.2)", () => {

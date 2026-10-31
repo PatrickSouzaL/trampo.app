@@ -31,12 +31,14 @@ export {
 export { DailyQuotaGuard, RateLimitGuard } from "./limits/limit-guards.js";
 export {
   DAILY_QUOTA_POLICY,
+  GROQ_TOKEN_MEASUREMENT,
   LEDGER_POLICY,
   LIMIT_GUARD_POLICY,
   RATE_LIMIT_POLICY,
   STRICTEST_RATE_LIMIT_CLASS,
   WORKERS_AI_NEURON_BUDGET,
   effectiveLimit,
+  groqReservedTokensPerCall,
   providerLimits,
   resolveRateLimitClass,
   workersAiCallsPerDay,

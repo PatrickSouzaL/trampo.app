@@ -4,21 +4,38 @@
 // cifrada) e a falha fechado do boot: sem a publishable, com chave secret ou legada, sem o anel da pretensão ou
 // com o ambiente do Redis ou do JWT inválido, nada sobe. Nenhum teste toca serviço real nem Docker.
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { AnalysisStreamEventSchema, ApiErrorSchema, type AnalysisStreamEvent } from "@trampo/contracts";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ZodError } from "zod";
 
-import { CacheConfigError, CriteriaGuard, ProviderChainConfigError, RouterConfigError } from "../src/application/index.js";
+import {
+  CacheConfigError,
+  CriteriaGuard,
+  EXTRACTION_PROMPT_VERSION,
+  ProviderChainConfigError,
+  RouterConfigError,
+} from "../src/application/index.js";
 import { NO_EXTRACTOR_PROMPT_VERSION, composeApp, type ComposedApp, type Environment } from "../src/composition/compose-app.js";
+import {
+  composeProductionApp,
+  createProductionExtractor,
+  productionLlmComposition,
+  type ProductionLlmTestHooks,
+} from "../src/composition/production-app.js";
 import { SalaryKeyringConfigError, createSalaryCipher, parseSalaryKeyring } from "../src/infrastructure/crypto/salary-cipher.js";
+import { WORKERS_AI_DEFAULT_MODEL, WorkersAiConfigError } from "../src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
+import { GROQ_MODEL as GROQ_ADAPTER_MODEL, GroqConfigError } from "../src/infrastructure/llm/groq-extractor.js";
 import { PostgrestClientConfigError } from "../src/infrastructure/supabase/postgrest-user-client.js";
 import { systemClock } from "../src/infrastructure/time/system-clock.js";
 import { CLEAN_RAW, CLEAN_TEXT, GROQ_MODEL, REQUEST_ID } from "./application/fakes/analyze-job-harness.js";
 import { ScriptedExtractor } from "./application/fakes/scripted-extractor.js";
 import { criteria, weighted } from "./domain/fakes/scoring-fixtures.js";
+import { completion, startFakeGroq } from "./infrastructure/fakes/fake-groq.js";
 import { startFakePostgrest, type FakePostgrest } from "./infrastructure/fakes/fake-postgrest.js";
 import { startFakeUpstash, type FakeUpstash } from "./infrastructure/fakes/fake-upstash.js";
+import { envelope, startFakeWorkersAi } from "./infrastructure/fakes/fake-workers-ai.js";
 import { signToken, signingKey, supabaseClaims, type SigningKey } from "./infrastructure/jwks-fixture.js";
 
 const PUBLISHABLE = "sb_publishable_boot-teste";
@@ -362,5 +379,172 @@ describe("com adapters de LLM (o F1-LLM-02 os entrega)", () => {
     ["versão de prompt fora do padrão", { LLM_PROVIDER_CHAIN: "groq" }, { ...llm(), promptVersion: "P 1" }, CacheConfigError],
   ])("%s: o boot falha", (_name, over, options, kind) => {
     expect(() => composeApp(environment(over), { logger: false, llm: options })).toThrow(kind);
+  });
+});
+
+describe("composição de produção: a cadeia de LLM do ambiente (Trilha L1; ADR-022 D8, ADR-020 D8)", () => {
+  const GROQ_KEY = `gsk_CANARIO_GROQ_${"a".repeat(24)}`;
+  const CF_ACCOUNT = "0123456789abcdef0123456789abcdef";
+  const CF_TOKEN = `CANARIO_CF_${"b".repeat(40)}`;
+  const BAD_KEY = `CANARIO_${"c".repeat(30)}`;
+  const SECRETS = [GROQ_KEY, CF_TOKEN, BAD_KEY, SALARY_KEY, PEPPER, UPSTASH_TOKEN];
+  const llmEnv = (over: Record<string, string | undefined> = {}): Record<string, string | undefined> => ({
+    LLM_PROVIDER_CHAIN: "groq,cloudflare_workers_ai",
+    GROQ_API_KEY: GROQ_KEY,
+    CLOUDFLARE_ACCOUNT_ID: CF_ACCOUNT,
+    CLOUDFLARE_API_TOKEN: CF_TOKEN,
+    CLOUDFLARE_WORKERS_AI_MODEL: "",
+    ...over,
+  });
+  const caught = (run: () => unknown): Error => {
+    try {
+      run();
+    } catch (error) {
+      return error as Error;
+    }
+    throw new Error("esperava falha no boot");
+  };
+
+  test("a cadeia completa: Groq e Workers AI na ordem da LLM_PROVIDER_CHAIN, com o prompt do código (p3)", () => {
+    const llm = productionLlmComposition(llmEnv());
+    expect(llm.extractors.map(({ provider, model }) => [provider, model])).toEqual([
+      ["groq", GROQ_ADAPTER_MODEL],
+      ["cloudflare_workers_ai", WORKERS_AI_DEFAULT_MODEL],
+    ]);
+    expect(llm.promptVersion).toBe(EXTRACTION_PROMPT_VERSION);
+    expect(EXTRACTION_PROMPT_VERSION).toBe("p3");
+    // Nenhuma credencial aparece no objeto montado (só no closure de cada adapter).
+    for (const secret of [GROQ_KEY, CF_TOKEN]) expect(JSON.stringify(llm)).not.toContain(secret);
+  });
+
+  test("a ordem segue a cadeia, e a credencial de provedor fora dela não é exigida", () => {
+    const inverted = productionLlmComposition(llmEnv({ LLM_PROVIDER_CHAIN: " cloudflare_workers_ai , groq " }));
+    expect(inverted.extractors.map(({ provider }) => provider)).toEqual(["cloudflare_workers_ai", "groq"]);
+    const groqOnly = productionLlmComposition(llmEnv({ LLM_PROVIDER_CHAIN: "groq", CLOUDFLARE_API_TOKEN: undefined }));
+    expect(groqOnly.extractors.map(({ provider }) => provider)).toEqual(["groq"]);
+    const workersOnly = productionLlmComposition(llmEnv({ LLM_PROVIDER_CHAIN: "cloudflare_workers_ai", GROQ_API_KEY: undefined }));
+    expect(workersOnly.extractors.map(({ provider }) => provider)).toEqual(["cloudflare_workers_ai"]);
+  });
+
+  test("CLOUDFLARE_WORKERS_AI_MODEL: ausente ou vazia dá o modelo medido no S-1; outra forma válida vale", () => {
+    const model = (value: string | undefined): string | undefined =>
+      productionLlmComposition(llmEnv({ CLOUDFLARE_WORKERS_AI_MODEL: value })).extractors[1]?.model;
+    expect(model(undefined)).toBe(WORKERS_AI_DEFAULT_MODEL);
+    expect(model("")).toBe(WORKERS_AI_DEFAULT_MODEL);
+    expect(model("@cf/meta/llama-3.1-8b-instruct")).toBe("@cf/meta/llama-3.1-8b-instruct");
+  });
+
+  test.each<[string, Record<string, string | undefined>, new (...args: never[]) => Error, string | null]>([
+    ["sem LLM_PROVIDER_CHAIN", { LLM_PROVIDER_CHAIN: undefined }, ProviderChainConfigError, null],
+    ["cadeia vazia", { LLM_PROVIDER_CHAIN: "" }, ProviderChainConfigError, null],
+    ["cadeia com o Ollama (só dev)", { LLM_PROVIDER_CHAIN: "groq,ollama" }, ProviderChainConfigError, null],
+    ["cadeia com o Gemini (HITL-012)", { LLM_PROVIDER_CHAIN: "google_ai_studio" }, ProviderChainConfigError, null],
+    ["cadeia com provedor repetido", { LLM_PROVIDER_CHAIN: "groq,groq" }, ProviderChainConfigError, null],
+    ["sem GROQ_API_KEY", { GROQ_API_KEY: undefined }, GroqConfigError, "GROQ_API_KEY"],
+    ["GROQ_API_KEY vazia", { GROQ_API_KEY: "" }, GroqConfigError, "GROQ_API_KEY"],
+    ["GROQ_API_KEY fora da forma (sem gsk_)", { GROQ_API_KEY: BAD_KEY }, GroqConfigError, "GROQ_API_KEY"],
+    ["sem CLOUDFLARE_ACCOUNT_ID", { CLOUDFLARE_ACCOUNT_ID: undefined }, WorkersAiConfigError, "CLOUDFLARE_ACCOUNT_ID"],
+    ["sem CLOUDFLARE_API_TOKEN", { CLOUDFLARE_API_TOKEN: undefined }, WorkersAiConfigError, "CLOUDFLARE_API_TOKEN"],
+    ["modelo da Workers AI fora da forma", { CLOUDFLARE_WORKERS_AI_MODEL: "@cf/../x" }, WorkersAiConfigError, "CLOUDFLARE_WORKERS_AI_MODEL"],
+  ])("%s: o boot de produção falha fechado, sem repetir segredo", (_name, over, kind, variable) => {
+    const error = caught(() => composeProductionApp(environment(llmEnv(over)), { logger: false }));
+    expect(error).toBeInstanceOf(kind);
+    if (variable !== null) expect((error as GroqConfigError | WorkersAiConfigError).variable).toBe(variable);
+    // A cadeia é recusada pela validação dela, não só pelo segundo cadeado (createProductionExtractor).
+    else expect(error.message).toContain("LLM_PROVIDER_CHAIN");
+    for (const secret of SECRETS) expect(String(error.message)).not.toContain(secret);
+  });
+
+  test("o boot de produção exige a cadeia: o mesmo ambiente sem as variáveis de LLM não sobe", () => {
+    // O composeApp sem a opção subiria só determinístico; o composeProductionApp, não.
+    expect(() => composeProductionApp(environment(), { logger: false })).toThrow(ProviderChainConfigError);
+  });
+
+  test.each(["ollama", "google_ai_studio"] as const)("%s não tem adapter de produção (segundo cadeado depois da cadeia)", (provider) => {
+    expect(() => createProductionExtractor(provider, llmEnv())).toThrow(ProviderChainConfigError);
+  });
+
+  test("o main.ts sobe pela composição de produção, sem ganchos de teste (T28)", () => {
+    const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+    expect(main).toContain("composeProductionApp(process.env);");
+    expect(main).not.toContain("composeApp(");
+    expect(main).not.toContain("baseUrl");
+  });
+
+  describe("de ponta a ponta, com o Groq e a Workers AI simulados em socket real", () => {
+    const servers = async () => {
+      const groq = await startFakeGroq();
+      const workers = await startFakeWorkersAi();
+      const hooks: ProductionLlmTestHooks = { baseUrls: { groq: groq.url, cloudflare_workers_ai: workers.url } };
+      return { groq, workers, hooks, close: () => Promise.all([groq.close(), workers.close()]) };
+    };
+    const bootProduction = (hooks: ProductionLlmTestHooks): ComposedApp => {
+      composed = composeProductionApp(environment(llmEnv()), { logger: false }, hooks);
+      return composed;
+    };
+    const reportOf = (raw: string) => {
+      const [result] = events(raw).filter((event) => event.type === "result");
+      if (result?.type !== "result") throw new Error("sem evento result");
+      return result.report;
+    };
+    const redisCommands = (): string => JSON.stringify(upstash.requests.map((request) => request.commands));
+
+    test("Groq responde: a análise sai da extração do Groq, a chave só no Authorization, e a Workers AI não é chamada", async () => {
+      const fake = await servers();
+      try {
+        fake.groq.mode = { kind: "responde", body: completion(CLEAN_RAW) };
+        const token = await storeOwnerCriteria();
+        const res = await analyze(bootProduction(fake.hooks), { authorization: `Bearer ${token}` }, "aprofundada");
+        expect(res.statusCode).toBe(200);
+        expect(reportOf(res.body).decisionPath).toBe("extracao_llm");
+        expect(fake.groq.requests).toHaveLength(1);
+        expect(fake.groq.requests[0]?.headers.authorization).toBe(`Bearer ${GROQ_KEY}`);
+        expect(JSON.parse(fake.groq.requests[0]?.body ?? "{}")).toMatchObject({ model: GROQ_ADAPTER_MODEL });
+        expect(fake.workers.requests).toHaveLength(0);
+        // O ledger reservou no Groq; nenhuma credencial de LLM foi ao Redis.
+        expect(redisCommands()).toContain("groq");
+        for (const secret of [GROQ_KEY, CF_TOKEN]) expect(redisCommands()).not.toContain(secret);
+      } finally {
+        await fake.close();
+      }
+    });
+
+    test("Groq em 429: troca imediata para a Workers AI, que responde (fallback da cadeia)", async () => {
+      const fake = await servers();
+      try {
+        fake.groq.mode = { kind: "responde", status: 429, body: "{}", headers: { "retry-after": "30" } };
+        fake.workers.mode = { kind: "responde", body: envelope(CLEAN_RAW) };
+        const token = await storeOwnerCriteria();
+        const res = await analyze(bootProduction(fake.hooks), { authorization: `Bearer ${token}` }, "aprofundada");
+        expect(res.statusCode).toBe(200);
+        expect(reportOf(res.body).decisionPath).toBe("extracao_llm");
+        expect(fake.groq.requests).toHaveLength(1);
+        expect(fake.workers.requests).toHaveLength(1);
+        expect(fake.workers.requests[0]?.headers.authorization).toBe(`Bearer ${CF_TOKEN}`);
+        // O 429 grava o bloqueio compartilhado do Groq (ADR-022 D7.3), sem esperar a resposta.
+        for (let tries = 0; tries < 50 && !redisCommands().includes("llm:block:groq"); tries += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        expect(redisCommands()).toContain("llm:block:groq");
+      } finally {
+        await fake.close();
+      }
+    });
+
+    test("os dois provedores recusam: a análise cai no determinístico (ADR-001 C5), sem erro para o usuário", async () => {
+      const fake = await servers();
+      try {
+        fake.groq.mode = { kind: "responde", status: 400, body: "{}" };
+        fake.workers.mode = { kind: "responde", status: 400, body: "{}" };
+        const token = await storeOwnerCriteria();
+        const res = await analyze(bootProduction(fake.hooks), { authorization: `Bearer ${token}` }, "aprofundada");
+        expect(res.statusCode).toBe(200);
+        expect(reportOf(res.body).decisionPath).toBe("fallback_deterministico");
+        expect(fake.groq.requests).toHaveLength(1);
+        expect(fake.workers.requests).toHaveLength(1);
+      } finally {
+        await fake.close();
+      }
+    });
   });
 });

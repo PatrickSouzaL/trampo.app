@@ -4,7 +4,8 @@
 // rejeita: toda falha vira um valor do enum da porta. O corpo de erro do provedor nunca é lido (SR-12): a Cloudflare
 // pode ecoar o id, a conta ou um trecho da entrada. O token só existe no objeto de cabeçalhos dentro do closure.
 //
-// Fora da cadeia de produção até o gate do S-1 (ADR-020 D10, T28): o main.ts ainda não liga este adapter.
+// Fallback da cadeia de produção desde a Trilha L1 (S-1 medido no spike-metrics §2.8, HITL-029 4A, T28): ligado pelo
+// composeProductionApp (composition/production-app.ts).
 import { randomBytes } from "node:crypto";
 
 import { JobFactsCacheEntrySchema } from "@trampo/contracts/job-facts";

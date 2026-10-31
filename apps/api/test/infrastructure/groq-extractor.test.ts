@@ -136,12 +136,12 @@ describe("prompt, modelo e política (D1, D4; critério 8)", () => {
     expect(GROQ_CHAT_COMPLETIONS_URL).toBe("https://api.groq.com/openai/v1/chat/completions");
   });
 
-  test("T28: o adapter não está ligado no main.ts nem na raiz de composição", () => {
-    for (const file of ["src/main.ts", "src/composition/compose-app.ts"]) {
-      const source = readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
-      expect(source).not.toContain("groq-extractor");
-      expect(source).not.toContain("createGroqExtractor");
-    }
+  test("T28: o adapter só entra pela composição de produção, com o p3/g4 aceitos (Trilha L1)", () => {
+    const read = (file: string): string => readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
+    // A raiz genérica continua sem conhecer provedor; só a composição de produção monta o adapter.
+    expect(read("src/composition/compose-app.ts")).not.toContain("createGroqExtractor");
+    expect(read("src/composition/production-app.ts")).toContain("createGroqExtractor");
+    expect(read("src/main.ts")).toContain("composeProductionApp");
   });
 });
 

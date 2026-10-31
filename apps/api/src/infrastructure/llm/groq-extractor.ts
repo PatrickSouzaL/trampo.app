@@ -5,7 +5,8 @@
 // o `400 json_validate_failed` traz em `error.failed_generation` a saída do modelo sobre o texto da vaga, e ela
 // nunca é lida. A chave de API só existe no objeto de cabeçalhos dentro do closure.
 //
-// Fora da cadeia de produção até o aceite do p3/g4 (spike-metrics §2.8, T28): o main.ts ainda não liga este adapter.
+// Primário da cadeia de produção desde a Trilha L1 (aceite do p3/g4 pela A3 e pelo HITL-032, T28): ligado pelo
+// composeProductionApp (composition/production-app.ts).
 import { randomBytes } from "node:crypto";
 
 import { z } from "zod";
