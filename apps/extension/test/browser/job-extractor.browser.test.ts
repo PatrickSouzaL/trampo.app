@@ -5,7 +5,7 @@
 // execução); cobertura de bloco de 100% medida pelo V8 (8, último teste do arquivo).
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import type { ExtractionResult } from "../../src/extraction/generic-extractor";
+import type { ExtractionResult } from "../../src/extraction/job-extractor";
 
 import { Bench, LIMITS, page } from "./bench";
 import { ALL_REASONS, SYNTHETIC_CASES } from "./synthetic-cases";
@@ -122,6 +122,64 @@ describe("escolha da raiz (ADR-023 D7)", () => {
     expect(r.texto).toBe("VISIVEL-topo");
     expect(r.descartes.foraDaTela).toBe(0);
   });
+});
+
+describe("raiz da plataforma (ADR-023 D11)", () => {
+  const LIST = "<main><ul><li>CANARIO-lista vaga A</li><li>CANARIO-lista vaga B</li></ul></main>";
+  const PANE = '<div class="details-pane__content"><h2>Vaga aberta</h2><p>descrição da vaga</p></div>';
+
+  test("LinkedIn: a vaga aberta, irmã do main que é a lista", async () => {
+    const r = ok(await bench.run(page(LIST + PANE), LIMITS, "linkedin"));
+    expect([r.versao, r.raiz, r.texto]).toEqual(["li1", "plataforma", "Vaga aberta\n\ndescrição da vaga"]);
+  });
+
+  test("LinkedIn: o primeiro painel visível vence", async () => {
+    const html = page(`${LIST}<div class="details-pane__content" hidden>CANARIO-painel-oculto</div>${PANE}`);
+    const r = ok(await bench.run(html, LIMITS, "linkedin"));
+    expect([r.versao, r.texto]).toEqual(["li1", "Vaga aberta\n\ndescrição da vaga"]);
+  });
+
+  test("LinkedIn: sem painel visível, o genérico roda (ge1) e a raiz diz qual", async () => {
+    const hidden = ok(await bench.run(page(`<main>lista</main><div class="details-pane__content" style="display:none">CANARIO</div>`), LIMITS, "linkedin"));
+    expect([hidden.versao, hidden.raiz, hidden.texto]).toEqual(["ge1", "main", "lista"]);
+    const absent = ok(await bench.run(page("<article>só o artigo</article>"), LIMITS, "linkedin"));
+    expect([absent.versao, absent.raiz, absent.texto]).toEqual(["ge1", "article", "só o artigo"]);
+  });
+
+  test("LinkedIn: o painel achado decide mesmo com pouco texto (a lista não entra no lugar)", async () => {
+    const html = page(`<main>${"lista longa ".repeat(30)}</main><div class="details-pane__content">curto</div>`);
+    expect(await bench.run(html, { ...LIMITS, minChars: 10 }, "linkedin")).toEqual({ ok: false, versao: "li1", motivo: "texto_insuficiente" });
+  });
+
+  test("LinkedIn: as regras de descarte valem dentro do painel", async () => {
+    const html = page(`${LIST}<div class="details-pane__content"><p>visível</p><p style="opacity:0">CANARIO-opaco</p><nav>CANARIO-nav</nav></div>`);
+    const r = ok(await bench.run(html, LIMITS, "linkedin"));
+    expect(r.texto).toBe("visível");
+    expect([r.descartes.opacidade, r.descartes.ruido]).toEqual([1, 1]);
+  });
+
+  test("Gupy: o main#main, mesmo que não seja o primeiro main", async () => {
+    const r = ok(await bench.run(page('<main>CANARIO-outro-main</main><main id="main">vaga da Gupy</main>'), LIMITS, "gupy"));
+    expect([r.versao, r.raiz, r.texto]).toEqual(["gu1", "plataforma", "vaga da Gupy"]);
+  });
+
+  test("genérico ignora os seletores das plataformas", async () => {
+    const r = ok(await bench.run(page(`<main>lista</main>${PANE}`), LIMITS, "generico"));
+    expect([r.versao, r.raiz, r.texto]).toEqual(["ge1", "main", "lista"]);
+  });
+
+  const invalid: [string, unknown][] = [
+    ["desconhecida", "indeed"],
+    ["protótipo", "__proto__"],
+    ["construtor", "constructor"],
+    ["número", 5],
+    ["nula", null],
+  ];
+  for (const [name, platform] of invalid) {
+    test(`plataforma inválida (${name}) não lê o DOM`, async () => {
+      expect(await bench.run(page(`<main>texto</main>${PANE}`), LIMITS, platform)).toEqual({ ok: false, versao: "ge1", motivo: "limites_invalidos" });
+    });
+  }
 });
 
 describe("limites (ADR-023 D1 e D7)", () => {

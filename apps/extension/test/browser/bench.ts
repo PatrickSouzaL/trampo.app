@@ -7,7 +7,7 @@ import { join } from "node:path";
 
 import { chromium, type Browser, type CDPSession, type Page } from "playwright-core";
 
-import { extractGenericJobText, type ExtractionLimits, type ExtractionResult } from "../../src/extraction/generic-extractor";
+import { extractJobText, type ExtractionLimits, type ExtractionResult, type ExtractorPlatform } from "../../src/extraction/job-extractor";
 
 const DEFAULT_BROWSERS: Partial<Record<NodeJS.Platform, string>> = {
   win32: "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
@@ -15,7 +15,7 @@ const DEFAULT_BROWSERS: Partial<Record<NodeJS.Platform, string>> = {
   darwin: "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
 };
 
-export const SOURCE = extractGenericJobText.toString();
+export const SOURCE = extractJobText.toString();
 /** Fixtures reais anonimizadas (runbook fixtures-dom §3), servidas pela rota do Bench. */
 export const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 const FIXTURE_ORIGIN = "https://fixtures.trampo.invalid";
@@ -44,6 +44,8 @@ export class Bench {
   private browser: Browser | undefined;
   private page: Page | undefined;
   private cdp: CDPSession | undefined;
+  /** Tempo da última extração (só o Runtime.evaluate), em ms. */
+  lastMs = 0;
   /** covered[i] diz se o caractere i de SOURCE rodou em alguma execução. */
   readonly covered: boolean[] = new Array<boolean>(SOURCE.length).fill(false);
 
@@ -78,19 +80,34 @@ export class Bench {
     return this.page;
   }
 
-  async run(html: string, limits: unknown = LIMITS): Promise<ExtractionResult> {
+  async run(html: string, limits: unknown = LIMITS, platform: unknown = "generico"): Promise<ExtractionResult> {
     await this.mainWorld.setContent(html, { waitUntil: "load" });
-    return (await this.extract(limits)).result;
+    return (await this.extract(limits, platform)).result;
   }
 
   /** Fixture real (`<plataforma>-<nn>`): abre a página servida do disco e mede só a extração. */
-  async runFixture(id: string, limits: unknown = LIMITS): Promise<{ result: ExtractionResult; ms: number; nodes: number }> {
+  async runFixture(
+    id: string,
+    platform: ExtractorPlatform = "generico",
+    limits: unknown = LIMITS,
+  ): Promise<{ result: ExtractionResult; ms: number; nodes: number; allNodes: number }> {
     await this.mainWorld.goto(`${FIXTURE_ORIGIN}/${id}.html`, { waitUntil: "load" });
-    const nodes = await this.mainWorld.evaluate(() => document.getElementsByTagName("*").length);
-    return { ...(await this.extract(limits)), nodes };
+    // `nodes`: elementos; `allNodes`: todos os nós (texto e comentário também), a unidade do maxNodes.
+    const [nodes, allNodes] = await this.mainWorld.evaluate(() => {
+      let all = 0;
+      const walker = document.createTreeWalker(document, NodeFilter.SHOW_ALL);
+      while (walker.nextNode() !== null) all += 1;
+      return [document.getElementsByTagName("*").length, all];
+    });
+    return { ...(await this.extract(limits, platform)), nodes, allNodes };
   }
 
-  private async extract(limits: unknown): Promise<{ result: ExtractionResult; ms: number }> {
+  /** Página aberta já tem o texto? Prova que um trecho proibido existe fora da raiz (não é gate vazio). */
+  async pageHas(snippet: string): Promise<boolean> {
+    return this.mainWorld.evaluate((s) => document.body.textContent?.includes(s) ?? false, snippet);
+  }
+
+  private async extract(limits: unknown, platform: unknown): Promise<{ result: ExtractionResult; ms: number }> {
     const cdp = this.cdp;
     if (cdp === undefined) throw new Error("Bench.open() não foi chamado.");
     const { frameTree } = await cdp.send("Page.getFrameTree");
@@ -100,11 +117,12 @@ export class Bench {
     });
     const started = performance.now();
     const evaluated = await cdp.send("Runtime.evaluate", {
-      expression: `(${SOURCE})(${JSON.stringify(limits)})`,
+      expression: `(${SOURCE})(${JSON.stringify(limits)}, ${JSON.stringify(platform)})`,
       contextId: executionContextId,
       returnByValue: true,
     });
     const ms = performance.now() - started;
+    this.lastMs = ms;
     if (evaluated.exceptionDetails !== undefined) {
       throw new Error(`O extrator lançou no navegador: ${evaluated.exceptionDetails.exception?.description ?? evaluated.exceptionDetails.text}`);
     }
@@ -114,7 +132,7 @@ export class Bench {
 
   private async collectCoverage(): Promise<void> {
     const { result } = (await this.cdp?.send("Profiler.takePreciseCoverage")) as { result: { functions: FunctionCoverage[] }[] };
-    const script = result.find((s) => s.functions.some((f) => f.functionName === "extractGenericJobText"));
+    const script = result.find((s) => s.functions.some((f) => f.functionName === "extractJobText"));
     if (script === undefined) return;
     // A expressão é `(${SOURCE})(...)`: o extrator começa no deslocamento 1. Pinta do maior intervalo
     // para o menor, para que cada caractere fique com a contagem do bloco mais interno.

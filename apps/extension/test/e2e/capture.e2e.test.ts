@@ -3,14 +3,18 @@
 // extrator MINIFICADO na aba. Se a minificação deixasse alguma referência fora da função, o
 // executeScript devolveria null e a captura falharia. A página é hostil: troca as APIs no mundo
 // principal e esconde canários pelas técnicas do T2. Nada sai da máquina (servidor local).
+import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
 
 import { CAPTURE_STORAGE_KEY, type CaptureState } from "../../src/capture/capture-service";
 import { clickAction, loadExtension, unload, type Loaded } from "./browser";
 
 const cfg = inject("e2e");
+/** Fixtures reais anonimizadas do S-2 (runbook fixtures-dom §3). */
+const FIXTURES_DIR = join(import.meta.dirname, "../browser/fixtures");
 
 declare const chrome: (typeof import("wxt/browser"))["browser"];
 
@@ -113,6 +117,39 @@ describe("captura no build de produção", () => {
     expect(panelText).not.toContain("CANARIO");
     await page.close();
   });
+
+  // ADR-023 D11: o Service Worker escolhe o extrator pelo host da aba. As fixtures reais do S-2 são
+  // servidas no host da plataforma por rota do navegador: a URL da aba é a de verdade, nada sai da máquina.
+  const platforms = [
+    { host: "https://www.linkedin.com", path: "/jobs/search/", fixture: "linkedin-03", platform: "linkedin", version: "li1" },
+    { host: "https://empresa.gupy.io", path: "/jobs/1", fixture: "gupy-01", platform: "gupy", version: "gu1" },
+  ] as const;
+  for (const p of platforms) {
+    test(`${p.platform}: o host da aba escolhe o extrator ${p.version} no build de produção`, async () => {
+      const meta = JSON.parse(readFileSync(join(FIXTURES_DIR, `${p.fixture}.json`), "utf8")) as { trechosObrigatorios: string[]; trechosProibidos: string[] };
+      await l!.ctx.route(`${p.host}/**`, (route) => {
+        const name = new URL(route.request().url()).pathname.slice(1);
+        if (route.request().url() === `${p.host}${p.path}`) {
+          return route.fulfill({ body: readFileSync(join(FIXTURES_DIR, `${p.fixture}.html`)), contentType: "text/html; charset=utf-8" });
+        }
+        if (/^[a-z]+-[0-9a-f]+\.css$/.test(name)) return route.fulfill({ body: readFileSync(join(FIXTURES_DIR, name)), contentType: "text/css; charset=utf-8" });
+        return route.abort();
+      });
+      const page = await l!.ctx.newPage();
+      await page.goto(`${p.host}${p.path}`);
+      await clickAction(l!, `${p.host}${p.path}`);
+      const state = await settledState(l!);
+      expect(state.estado).toBe("pronto");
+      if (state.estado !== "pronto") return;
+      expect(state.vaga).toMatchObject({ platform: p.platform, extractorVersion: p.version, truncated: false });
+      for (const s of meta.trechosObrigatorios) expect(state.vaga.text).toContain(s);
+      for (const s of meta.trechosProibidos) expect(state.vaga.text).not.toContain(s);
+      // A URL da aba não vai para o storage: só a plataforma.
+      expect(JSON.stringify(state)).not.toContain(p.host.slice("https://".length));
+      await page.close();
+      await l!.ctx.unroute(`${p.host}/**`);
+    });
+  }
 
   test("fechar a aba apaga a captura dela", async () => {
     const page = await l!.ctx.newPage();

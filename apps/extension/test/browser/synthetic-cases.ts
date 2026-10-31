@@ -1,7 +1,7 @@
 // Fixtures adversariais sintéticas do S-2 (ADR-023 D9; threat-model T2). Uma por técnica de ocultação.
 // Cada caso põe um CANÁRIO só no conteúdo oculto e um controle VISÍVEL da mesma técnica (por exemplo,
 // opacity 0,5 ao lado de opacity 0), que mata o mutante que descarta demais. Nenhum texto de vaga real.
-import type { DiscardCounts, DiscardReason } from "../../src/extraction/generic-extractor";
+import type { DiscardCounts, DiscardReason } from "../../src/extraction/job-extractor";
 
 import { page } from "./bench";
 

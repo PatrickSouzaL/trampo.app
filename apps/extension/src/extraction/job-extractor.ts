@@ -1,4 +1,5 @@
-// Extrator genérico de texto de vaga (S-2; ADR-023; ADR-001 §5.0 passos 2 a 4; threat-model T2).
+// Extrator de texto de vaga (S-2; ADR-023; ADR-001 §5.0 passos 2 a 4; threat-model T2): o genérico
+// e os do LinkedIn e da Gupy, que só escolhem outra raiz e reusam as mesmas regras de descarte (D4).
 // AUTOCONTIDO: o Chrome serializa esta função (scripting.executeScript) e a roda no mundo ISOLATED
 // da aba. Nada do escopo do módulo pode ser usado aqui dentro: auxiliares e constantes são internos.
 // Só lê o `data` de nós de texto que o usuário vê; nunca atributo como conteúdo, nunca decodifica,
@@ -29,19 +30,32 @@ export type DiscardReason =
 
 export type DiscardCounts = Record<DiscardReason, number>;
 
+/** Plataforma escolhida pelo Service Worker a partir do host da aba (ADR-023 D11). */
+export type ExtractorPlatform = "generico" | "linkedin" | "gupy";
+
+/** `ge1` é o genérico; `li1` e `gu1`, a raiz da plataforma encontrada. Sem ela, roda o `ge1`. */
+export type ExtractorVersion = "ge1" | "li1" | "gu1";
+
 export type ExtractionResult =
   | {
       ok: true;
-      versao: "ge1";
-      raiz: "main" | "article" | "body";
+      versao: ExtractorVersion;
+      raiz: "plataforma" | "main" | "article" | "body";
       texto: string;
       truncado: boolean;
       descartes: DiscardCounts;
     }
-  | { ok: false; versao: "ge1"; motivo: "limites_invalidos" | "texto_insuficiente" };
+  | { ok: false; versao: ExtractorVersion; motivo: "limites_invalidos" | "texto_insuficiente" };
 
-export function extractGenericJobText(limites: ExtractionLimits): ExtractionResult {
-  const versao = "ge1";
+export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorPlatform): ExtractionResult {
+  // Seletores da raiz de cada plataforma, conferidos nas fixtures reais (fixtures-dom §6). O primeiro
+  // elemento visível vence. Map, e não objeto, para "__proto__" e afins não acharem nada.
+  const PLATAFORMAS = new Map<string, { versao: ExtractorVersion; seletores: string[] }>([
+    // Busca em dois painéis: a vaga aberta é irmã do `main`, que é a lista de vagas.
+    ["linkedin", { versao: "li1", seletores: [".details-pane__content"] }],
+    ["gupy", { versao: "gu1", seletores: ["main#main"] }],
+  ]);
+  let versao: ExtractorVersion = "ge1";
   const inteiroEm = (v: unknown, min: number, max: number): boolean =>
     Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
   if (
@@ -49,7 +63,8 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     limites === null ||
     !inteiroEm(limites.maxChars, 1, 1_000_000) ||
     !inteiroEm(limites.maxNodes, 1, 10_000_000) ||
-    !inteiroEm(limites.minChars, 0, limites.maxChars)
+    !inteiroEm(limites.minChars, 0, limites.maxChars) ||
+    (plataforma !== "generico" && !PLATAFORMAS.has(plataforma))
   ) {
     return { ok: false, versao, motivo: "limites_invalidos" };
   }
@@ -274,10 +289,23 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     return { texto: aparar(linhas.join("\n").replace(/\n{3,}/g, "\n\n"), "\n"), truncado, descartes };
   };
 
-  type Raiz = "main" | "article" | "body";
-  let raiz: Raiz = "main";
-  const principal = Array.from(document.getElementsByTagName("main")).find((m) => m.checkVisibility());
-  let melhor = principal === undefined ? undefined : extrair(principal);
+  type Raiz = "plataforma" | "main" | "article" | "body";
+  let raiz: Raiz = "plataforma";
+  let melhor: ReturnType<typeof extrair> | undefined;
+  const alvo = PLATAFORMAS.get(plataforma);
+  if (alvo !== undefined) {
+    const doAlvo = alvo.seletores.flatMap((s) => Array.from(document.querySelectorAll(s))).find((e) => e.checkVisibility());
+    // Raiz da plataforma achada: ela decide, mesmo com pouco texto (no LinkedIn, o `main` é a lista).
+    if (doAlvo !== undefined) {
+      versao = alvo.versao;
+      melhor = extrair(doAlvo);
+    }
+  }
+  if (melhor === undefined) {
+    raiz = "main";
+    const principal = Array.from(document.getElementsByTagName("main")).find((m) => m.checkVisibility());
+    melhor = principal === undefined ? undefined : extrair(principal);
+  }
   if (melhor === undefined) {
     raiz = "article";
     for (const artigo of Array.from(document.getElementsByTagName("article"))) {
