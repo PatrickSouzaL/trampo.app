@@ -1,62 +1,47 @@
-# Próximo passo: Trilha D2a (fixtures reais anonimizadas), numa sessão nova
+# Próximo passo: Trilha D2b (extratores do LinkedIn e da Gupy), numa sessão nova
 
-> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt da D2a abaixo. Nenhuma trilha espera o humano agora.
+> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt da D2b abaixo. Nenhuma trilha espera o humano agora.
 
 ## O que acabou de ser entregue (2026-10-30)
 
-### HITLs fechados
-- **HITL-032: 1A, 2A.**
-  - O `0` no lugar de `null` em `yearsExperienceMin` fica como achado sem efeito na nota.
-  - A queda do recall de `benefits` é ruído.
-  - A cadeia foi ligada com o `p3`/`g4`.
-- **HITL-030:** 7 páginas do LinkedIn, 7 da Gupy e 7 da GeekHunter em `..\trampo-fixtures-brutas`, no modo "completa" ou "somente HTML", conferido arquivo a arquivo na D2a. A GeekHunter veio a mais.
-
-### Trilha L1: cadeia de LLM ligada no `main.ts` (F1-LLM-01 parte 2 e F1-LLM-02; ADR-022 §6)
-- **Commit `adb392d`**, local e sem push. O prompt e o guard continuam `p3`/`g4`.
-- **Ligação:** `apps/api/src/composition/production-app.ts`, com o `composeProductionApp`, que o `main.ts` chama.
-  - Monta um adapter por provedor da `LLM_PROVIDER_CHAIN`, na ordem dela: Groq → Workers AI → determinístico.
-  - **Falha fechado no boot** sem a cadeia, com Ollama ou Gemini, ou sem a credencial de um provedor dela. As mensagens citam só o nome da variável.
-  - A credencial de provedor fora da cadeia não é lida. Se o modelo da Workers AI estiver vazio, vale o medido no S-1.
-  - O `composeApp` continua genérico (os testes de borda sobem sem LLM).
-- **Reserva do Groq (ADR-022 D7.2):** continua em 3.000 tokens, mas agora vem da medida no código: 2.509 + 331 = 2.840, arredondado no passo de 500. Ela cobre o total p95 de 2.939.
-- **Smoke de 1 chamada real** pelo adapter de produção, com uma vaga sintética:
-  - `ok` em 884 ms, com 1.880 tokens;
-  - aceito pelo `g4`, com os fatos certos;
-  - a forma da `GROQ_API_KEY` e das credenciais da Workers AI foi conferida com os valores reais, sem exibi-los.
-- **Prova:** 2.901 testes na API com 100%, mutação 13/13, depcruise sem violação e turbo 21/21 em série. Testes de ponta a ponta com os dois provedores simulados:
-  - Groq ok;
-  - 429 → Workers AI;
-  - os dois recusam → determinístico.
-- **`[APPSEC]`:** sem veto. Riscos residuais:
-  - a variável do modelo da Workers AI troca o fallback sem gate (herdado do ADR-020 D8);
-  - o `rpd` da Workers AI continua conservador;
-  - o "0 anos" pode aparecer no relatório (HITL-032 1A).
-- **Pendência do próximo prompt:** acrescentar "`null` quando a vaga não declara experiência" na linha de `yearsExperienceMin` (spike-metrics §2.11).
-- **Atualizados:**
-  - ADR-022 §6, ADR-020 §9 e ADR-017 §3.4;
-  - spike-metrics §2.11;
-  - BACKLOG (F1-LLM-01 e F1-LLM-02) e HITL-QUEUE (030 e 032);
-  - STATE e SESSION-LOG.
+### Trilha D2a: fixtures reais anonimizadas (S-2, parte 1)
+- **Commits `994d782`** (só as fixtures, com a contagem de marcadores) **e `f7eac1f`** (bancada), locais e sem push. Nenhum extrator, prompt ou guard mudou.
+- **Fixtures:** 21 páginas (7 LinkedIn, 7 Gupy, 7 GeekHunter) em `apps/extension/test/browser/fixtures/`.
+  - Cada uma tem o `.html` e o `.json` do runbook §3, este com dois campos novos: `cssDaPlataforma` e `raizDaPlataforma`.
+  - São 6 `.css`, deduplicados por plataforma.
+- **Anonimização** por script Python (`-I`) no scratchpad. Os brutos não entraram no git.
+  - Marcadores: `[PESSOA]` 2, `[EMPRESA]` 8 e `[URL]` 5.
+  - Varredura do §4 com 0 ocorrências. O gitleaks não está na estação; o job `secrets` do CI confere no push.
+- **Achados** (runbook fixtures-dom §6):
+  - **A vaga do LinkedIn fica fora do `main`.** As páginas são a busca em dois painéis: o `main` é a lista de cerca de 60 vagas, e a vaga aberta é a irmã `.details-pane__content`. O `ge1` acerta 0 de 3 trechos nas 7.
+  - **O LinkedIn veio sem o CSS da plataforma.** O arquivo não tinha extensão `.css` e foi apagado na limpeza do `_files`. Essas páginas medem os seletores, mas não o descarte. O runbook ganhou a correção para a próxima coleta.
+  - **Gupy e GeekHunter:** 14/14 com 3 de 3 trechos e nenhum proibido, só com o `ge1`.
+  - **Tamanho:** a maior página tem 1.901 nós (o `maxNodes` é 50.000), e a extração leva de 7 a 39 ms.
+  - **Pessoas:** nenhum cartão de recrutador; 1 nome numa citação dentro da descrição e 3 empresas com nome de pessoa na lista do LinkedIn.
+- **Prova:** `test:browser` 74/74 (52 sintéticos e 22 reais), com a cobertura de 100% mantida. Lint, typecheck, depcruise e turbo 19/19 em série.
+- **`[APPSEC]`:** sem veto.
+- **Atualizados:** runbook fixtures-dom (emenda ao §2 e §6 novo), spike-metrics §3.3, STATE e SESSION-LOG.
 
 ### Antes (ainda valendo)
-- **Trilha A4** (`56f79cb`): ruído do Groq medido; decidida pelo HITL-032.
-- **Trilha A3** (`cc81b9d`): efeito da stack na nota aprovado (2,11%, gate 5%).
+- **Trilha L1** (`adb392d`): cadeia Groq → Workers AI → determinístico ligada no `main.ts`.
+  - Pendência do próximo prompt (`p4`): "`null` quando a vaga não declara experiência" em `yearsExperienceMin` (spike-metrics §2.11).
+- **Trilhas A3/A4** (`cc81b9d`, `56f79cb`): efeito da stack na nota e ruído do Groq.
 - **Trilhas F e G** (`3ec75a5`, `d15ee9b`): captura no Service Worker e UI do Side Panel, ainda sem enviar à API.
 
 ### Pendências do humano
 - Nenhuma bloqueia trilha.
-- O push continua não autorizado. Já são vários commits locais no `spike/s1-extraction`. Quando quiser, autorize o push e o PR.
+- **Opcional:** salvar de novo de 2 a 3 vagas do LinkedIn mantendo o CSS sem extensão (runbook §6). Isso só serve para medir o "ver mais" fechado.
+- O push continua não autorizado, e já são vários commits locais no `spike/s1-extraction`. Quando quiser, autorize o push e o PR.
 
 ---
 
 ## Como usar: trilhas
 
-**Regra de ouro:** nenhuma trilha da tabela gasta cota de LLM. A API agora chama o Groq de verdade quando sobe, então quem subir a API localmente para testar à mão gasta cota real.
+**Regra de ouro:** nenhuma trilha da tabela gasta cota de LLM. A API chama o Groq de verdade quando sobe, então quem subir a API localmente para testar à mão gasta cota real.
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **D2a** | S-2 real, parte 1: anonimizar as 21 páginas pelo runbook fixtures-dom §2 (script no scratchpad), gravar as fixtures no formato do §3 e rodar a varredura do §4 antes do commit próprio delas | não | nada |
-| **D2b** | S-2 real, parte 2 (F1-EXT-03 parte 2): extratores do LinkedIn e da Gupy, o genérico medido nas três plataformas, a escolha do extrator pelo host no Service Worker, o `maxNodes` calibrado e o §3.3 do spike-metrics | não | D2a |
+| **D2b** | S-2 real, parte 2 (F1-EXT-03 parte 2): extratores do LinkedIn e da Gupy, o genérico medido nas três plataformas, a escolha do extrator pelo host no Service Worker, o `maxNodes` calibrado e o §3.3 do spike-metrics | não | nada (D2a concluída) |
 | **W1** | Calibrar o `rpd` da Workers AI pelos neurônios medidos (74 de média, 101 de p95 → 99 publicado e 84 efetivo; emenda ao ADR-020 D9, com teste da fórmula) | não | nada (sem pressa, do lado seguro) |
 
 **O que vem depois:**
@@ -72,12 +57,7 @@
 5. **O critério de stack é o efeito na nota** (golden-dataset-spec §8.1), e o **§8.3 tem o ruído**. Cada aceite novo de prompt ou guard roda o `S1_MODE=effect` e, se cair mais de 2 pp, o `S1_MODE=noise`. Hoje este último está preso ao `p3`/`g4`; uma versão nova ajusta a trava na mesma tarefa.
 6. **A cadeia de produção passa pelo `composeProductionApp`.** Provedor novo ou troca de modelo exige o gate do golden dataset antes (T28), e o teste do `main.ts` confere que ele não recebe ganchos de teste.
 7. **Testes novos de socket real seguem o QA-02**, com o prazo folgado de `test/support/socket-deadlines.ts` para protocolo e fluxo.
-8. **A D2a mexe com páginas reais:**
-   - nenhum arquivo bruto entra no git;
-   - a anonimização é por script, no scratchpad (runbook fixtures-dom §2);
-   - a varredura do §4 inteira roda antes de qualquer `git add`;
-   - as fixtures vão num commit próprio, com a contagem de marcadores na mensagem;
-   - o modo de salvamento é conferido página a página. As salvas como "somente HTML" servem para os seletores, mas não para o descarte (runbook §1).
+8. **As fixtures reais já estão no git** (`994d782`). Qualquer fixture nova ou alterada passa de novo pelo runbook fixtures-dom §2 a §4 (script no scratchpad, varredura antes do `git add`, commit próprio). Nenhum arquivo bruto entra no git, e o `.json` diz se a página serve para medir o descarte (`cssDaPlataforma`).
 9. **A D2b mexe no extrator:**
    - a regra de descarte é uma só (ADR-023 D4), e qualquer mudança nela passa pelo `test:browser` inteiro, com a cobertura de 100% e a mutação;
    - a captura do Service Worker (ADR-024) é reaproveitada: a `platform` do `CapturedJob` ganha `linkedin` e `gupy`;
@@ -86,28 +66,19 @@
 11. **Mudança de contrato atualiza o cofre na mesma tarefa** (DOC-01): a §4 do `contratos-zod` é regerada do `src/`, e a §9 ganha uma linha.
 12. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
 
-**Sugestão de ordem:** D2a, depois D2b. A W1 entra quando sobrar uma sessão curta.
+**Sugestão de ordem:** a D2b. A W1 entra quando sobrar uma sessão curta.
 
 ---
 
 ## Prompts
 
-### Trilha D2a: fixtures reais anonimizadas (S-2 real, parte 1)
-```text
-Equipe, sigam em ciclo estrito. Trilha D2a do next-step: fixtures reais do S-2 (HITL-030 fechado: 7 LinkedIn, 7 Gupy e 7 GeekHunter em ..\trampo-fixtures-brutas).
-1. [ORCHESTRATOR]: leiam STATE.md, HITL-030, o runbook fixtures-dom (§1 a §4), ADR-023 e ADR-024. Inventariem as 21 páginas sem abrir o conteúdo no chat: modo de salvamento (completa com _files só de .css, ou somente HTML), tamanho e contagem de nós. Nenhum arquivo bruto entra no git, e nenhum trecho de página bruta vai para o chat ou para o cofre.
-2. [APPSEC] + [DEV]: anonimizem pelo runbook §2, por script no scratchpad (scripts num diretório separado dos dados, Python com -I), gravem as fixtures no formato do §3 e rodem a varredura do §4 inteira. Qualquer marcador remanescente bloqueia o commit.
-3. [QA_EVALS]: confiram que as fixtures carregam no harness do test:browser e que o extrator genérico atual roda nelas sem erro (só a medição inicial; os extratores novos são da D2b).
-4. [SCRIBE]: runbook fixtures-dom (achados), spike-metrics §3.3 (inventário), STATE, SESSION-LOG e o commit próprio das fixtures, com a contagem de marcadores na mensagem. Reescrevam o next-step mantendo as trilhas.
-```
-
-### Trilha D2b: extratores reais (S-2 real, parte 2, e F1-EXT-03 parte 2; só depois da D2a)
+### Trilha D2b: extratores reais (S-2 real, parte 2, e F1-EXT-03 parte 2)
 ```text
 Equipe, sigam em ciclo estrito. Trilha D2b do next-step: extratores do LinkedIn e da Gupy sobre as fixtures reais da D2a (F1-EXT-03 parte 2).
-1. [ORCHESTRATOR]: leiam STATE.md, ADR-023, ADR-024, ADR-025, o runbook fixtures-dom e o spike-metrics §3. Confirmem que as fixtures da D2a estão commitadas e passaram na varredura.
-2. [ARCHITECT] + [APPSEC]: desenho dos extratores por plataforma (raiz por plataforma, reusando as regras de descarte do ADR-023 D4), da escolha pelo host da aba no Service Worker com fallback para o genérico, e da platform do CapturedJob ampliada. Sem host_permissions novos (activeTab + scripting sob clique).
+1. [ORCHESTRATOR]: leiam STATE.md, ADR-023, ADR-024, ADR-025, o runbook fixtures-dom (§6, achados da D2a) e o spike-metrics §3.3. As fixtures estão commitadas (994d782) e passaram na varredura; a medição inicial do ge1 está no test/browser/real-fixtures.browser.test.ts.
+2. [ARCHITECT] + [APPSEC]: desenho dos extratores por plataforma (raiz por plataforma, reusando as regras de descarte do ADR-023 D4; no LinkedIn a vaga é irmã do main, em .details-pane__content, e o ge1 hoje pega a lista de vagas), da escolha pelo host da aba no Service Worker com fallback para o genérico, e da platform do CapturedJob ampliada. Sem host_permissions novos (activeTab + scripting sob clique).
 3. [DEV] + [QA_EVALS]:
-   - extratores do LinkedIn e da Gupy, com teste contra as fixtures reais;
+   - extratores do LinkedIn e da Gupy, com teste contra as fixtures reais (trechosObrigatorios e trechosProibidos do .json viram gate; descarte só onde cssDaPlataforma é true);
    - o genérico medido nas três plataformas (inclusive a GeekHunter): taxa de sucesso, estabilidade dos seletores e plano de monitoramento;
    - o maxNodes de 50.000 calibrado com as páginas reais;
    - 100% de cobertura mantida, a mutação rodada e o test:browser inteiro.
