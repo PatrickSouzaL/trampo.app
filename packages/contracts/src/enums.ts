@@ -76,8 +76,8 @@ export const BrazilUfSchema = z.enum([
 ]);
 export type BrazilUf = z.infer<typeof BrazilUfSchema>;
 
-/** Origem da captura. `texto_colado` = fallback manual (Blueprint §3, D10). */
-export const PlatformSchema = z.enum(['linkedin', 'gupy', 'generico', 'texto_colado']);
+/** Origem da captura. `texto_colado` = fallback manual (Blueprint §3, D10). `solides`: ADR-023 D12. */
+export const PlatformSchema = z.enum(['linkedin', 'gupy', 'solides', 'generico', 'texto_colado']);
 export type Platform = z.infer<typeof PlatformSchema>;
 
 /**

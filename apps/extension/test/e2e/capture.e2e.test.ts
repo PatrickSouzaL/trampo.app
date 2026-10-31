@@ -122,7 +122,10 @@ describe("captura no build de produção", () => {
   // servidas no host da plataforma por rota do navegador: a URL da aba é a de verdade, nada sai da máquina.
   const platforms = [
     { host: "https://www.linkedin.com", path: "/jobs/search/", fixture: "linkedin-03", platform: "linkedin", version: "li1" },
+    // ADR-023 D12: o LinkedIn logado (só a descrição, sem a lista nem os blocos do perfil) e a Solides.
+    { host: "https://www.linkedin.com", path: "/jobs/search-results/", fixture: "linkedin-09", platform: "linkedin", version: "li2" },
     { host: "https://empresa.gupy.io", path: "/jobs/1", fixture: "gupy-01", platform: "gupy", version: "gu1" },
+    { host: "https://vagas.solides.com.br", path: "/vagas/devops", fixture: "solides-04", platform: "solides", version: "so1" },
   ] as const;
   for (const p of platforms) {
     test(`${p.platform}: o host da aba escolhe o extrator ${p.version} no build de produção`, async () => {
@@ -150,6 +153,22 @@ describe("captura no build de produção", () => {
       await l!.ctx.unroute(`${p.host}/**`);
     });
   }
+
+  test("LinkedIn logado sem a descrição: texto_insuficiente, e a lista não entra no lugar da vaga (ADR-023 D12)", async () => {
+    const host = "https://www.linkedin.com";
+    const list = `<li>CANARIO-LISTA ${"Analista de dados em Belo Horizonte, híbrido, 2 conexões trabalham aqui. ".repeat(10)}</li>`;
+    const logged = `<!doctype html><html><head><meta charset="utf-8"><title>Vagas</title></head><body><main id="workspace"><ul>${list}</ul></main></body></html>`;
+    await l!.ctx.route(`${host}/**`, (route) =>
+      route.request().url() === `${host}/jobs/collections/` ? route.fulfill({ body: logged, contentType: "text/html; charset=utf-8" }) : route.abort(),
+    );
+    const page = await l!.ctx.newPage();
+    await page.goto(`${host}/jobs/collections/`);
+    await clickAction(l!, `${host}/jobs/collections/`);
+    expect(await settledState(l!)).toMatchObject({ estado: "falhou", motivo: "texto_insuficiente" });
+    await expect.poll(() => l!.panel.locator("textarea").count()).toBe(1);
+    await page.close();
+    await l!.ctx.unroute(`${host}/**`);
+  });
 
   test("fechar a aba apaga a captura dela", async () => {
     const page = await l!.ctx.newPage();

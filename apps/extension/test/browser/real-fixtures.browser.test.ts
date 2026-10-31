@@ -1,11 +1,12 @@
-// S-2 real (Trilhas D2a e D2b): as 21 páginas reais anonimizadas (runbook fixtures-dom §3) carregam
-// na bancada, com o CSS local servido e a rede bloqueada.
-// - Gate do extrator da plataforma (D2b, ADR-023 D11): o LinkedIn e a Gupy acham a raiz deles, e a
-//   GeekHunter usa o genérico. Os trechos obrigatórios aparecem, os proibidos não, e cada proibido
-//   existe na página fora da raiz (o gate não é vazio).
+// S-2 real (Trilhas D2a, D2b e D2c): as 28 páginas reais anonimizadas (runbook fixtures-dom §3)
+// carregam na bancada, com o CSS local servido e a rede bloqueada.
+// - Gate do extrator da plataforma (ADR-023 D11 e D12): o LinkedIn (logado e público), a Gupy e a
+//   Solides acham a raiz deles, e a GeekHunter usa o genérico. Os trechos obrigatórios aparecem, os
+//   proibidos não, e cada proibido existe na página fora da raiz (o gate não é vazio). Com o "ver
+//   mais" fechado, os trechos recolhidos existem na página e ficam de fora (D4, `cortado`).
 // - Descarte, só onde a página trouxe o CSS da plataforma (`cssDaPlataforma`): nenhuma linha do texto
 //   fica fora do `innerText` da raiz, que o navegador monta só com o que renderiza.
-// - O genérico medido nas três plataformas, para o spike-metrics §3.3.
+// - O genérico medido nas quatro plataformas, para o spike-metrics §3.3 a §3.5.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -16,14 +17,19 @@ import type { ExtractionResult, ExtractorPlatform } from "../../src/extraction/j
 import { Bench, FIXTURES_DIR, LIMITS } from "./bench";
 
 interface FixtureMeta {
-  plataforma: "linkedin" | "gupy" | "geekhunter";
+  plataforma: "linkedin" | "gupy" | "geekhunter" | "solides";
   coletadoEm: string;
   modoDeSalvamento: "completa" | "somente-html";
   cssDaPlataforma: boolean;
+  /** Só no LinkedIn da D2c; sem o campo, a página é a pública. */
+  sessao?: "publica" | "logada";
+  verMais?: "aberto" | "fechado";
   raizEsperada: string;
   raizDaPlataforma: string;
   trechosObrigatorios: string[];
   trechosProibidos: string[];
+  /** Com o "ver mais" fechado: texto da vaga escondido pelo clamp, que fica de fora. */
+  trechosRecolhidos?: string[];
   anonimizacao: Record<string, number>;
 }
 
@@ -36,11 +42,18 @@ const FIXTURES = readdirSync(FIXTURES_DIR)
   }));
 
 /** O extrator que o Service Worker escolhe pelo host de cada plataforma (platformForUrl). */
-const EXTRACTOR: Record<FixtureMeta["plataforma"], { platform: ExtractorPlatform; versao: string; raiz: string }> = {
-  linkedin: { platform: "linkedin", versao: "li1", raiz: "plataforma" },
-  gupy: { platform: "gupy", versao: "gu1", raiz: "plataforma" },
-  geekhunter: { platform: "generico", versao: "ge1", raiz: "main" },
-};
+function extractorFor(meta: FixtureMeta): { platform: ExtractorPlatform; versao: string; raiz: string } {
+  switch (meta.plataforma) {
+    case "linkedin":
+      return { platform: "linkedin", versao: meta.sessao === "logada" ? "li2" : "li1", raiz: "plataforma" };
+    case "gupy":
+      return { platform: "gupy", versao: "gu1", raiz: "plataforma" };
+    case "solides":
+      return { platform: "solides", versao: "so1", raiz: "plataforma" };
+    case "geekhunter":
+      return { platform: "generico", versao: "ge1", raiz: "main" };
+  }
+}
 
 const bench = new Bench();
 const rows: string[] = [];
@@ -65,15 +78,19 @@ const discardsOf = (r: Extract<ExtractionResult, { ok: true }>): string =>
     .map(([k, n]) => `${k}=${n}`)
     .join(" ");
 
-test("inventário: 7 páginas por plataforma, todas no modo completo", () => {
-  const count = (p: string): number => FIXTURES.filter((f) => f.meta.plataforma === p).length;
-  expect([count("linkedin"), count("gupy"), count("geekhunter")]).toEqual([7, 7, 7]);
+test("inventário: LinkedIn 7 públicas e 3 logadas, Gupy e GeekHunter 7, Solides 4, todas no modo completo", () => {
+  const count = (p: string, sessao?: string): number =>
+    FIXTURES.filter((f) => f.meta.plataforma === p && (sessao === undefined || (f.meta.sessao ?? "publica") === sessao)).length;
+  expect([count("linkedin", "publica"), count("linkedin", "logada"), count("gupy"), count("geekhunter"), count("solides")]).toEqual([7, 3, 7, 7, 4]);
   for (const { meta } of FIXTURES) expect(meta.modoDeSalvamento).toBe("completa");
+  // O "ver mais" fechado foi medido em pelo menos uma página logada, e só ela tem trechos recolhidos.
+  for (const { meta } of FIXTURES) expect(meta.trechosRecolhidos !== undefined).toBe(meta.verMais === "fechado");
+  expect(FIXTURES.some((f) => f.meta.verMais === "fechado")).toBe(true);
 });
 
 describe("extrator da plataforma nas fixtures reais (gate)", () => {
   for (const { id, meta } of FIXTURES) {
-    const expected = EXTRACTOR[meta.plataforma];
+    const expected = extractorFor(meta);
     test(`${id}: ${expected.versao} acha a vaga, com os obrigatórios e sem os proibidos`, async () => {
       const { result, ms, nodes, allNodes } = await bench.runFixture(id, expected.platform);
       const r = ok(result);
@@ -84,6 +101,12 @@ describe("extrator da plataforma nas fixtures reais (gate)", () => {
         // O proibido existe na página (o cartão da lista, o banner, o menu): o gate não é vazio.
         if (s !== "[PESSOA]") expect(await bench.pageHas(s), `proibido inexistente na página: ${s}`).toBe(true);
       }
+      // "Ver mais" fechado: o texto que o clamp esconde existe na página e fica de fora (D4, cortado).
+      for (const s of meta.trechosRecolhidos ?? []) {
+        expect(r.texto, `recolhido presente: ${s}`).not.toContain(s);
+        expect(await bench.pageHas(s), `recolhido inexistente na página: ${s}`).toBe(true);
+      }
+      if (meta.verMais === "fechado") expect(r.descartes.cortado).toBeGreaterThan(0);
 
       if (meta.cssDaPlataforma) {
         // O descarte nunca devolve mais do que o navegador renderiza. O innerText aplica o
@@ -101,7 +124,7 @@ describe("extrator da plataforma nas fixtures reais (gate)", () => {
   }
 });
 
-describe("genérico nas três plataformas (medição do ge1)", () => {
+describe("genérico nas quatro plataformas (medição do ge1)", () => {
   for (const { id, meta } of FIXTURES) {
     test(`${id}: ge1`, async () => {
       const { result, ms } = await bench.runFixture(id, "generico");
@@ -110,9 +133,13 @@ describe("genérico nas três plataformas (medição do ge1)", () => {
       const required = meta.trechosObrigatorios.filter(has).length;
       const forbidden = meta.trechosProibidos.filter(has).length;
       expect([r.versao, r.raiz]).toEqual(["ge1", meta.raizEsperada]);
-      if (meta.plataforma === "linkedin") {
-        // A busca em dois painéis: o main é a lista. Por isso o LinkedIn tem extrator próprio.
+      if (meta.plataforma === "linkedin" && meta.sessao !== "logada") {
+        // A busca pública em dois painéis: o main é a lista. Por isso o LinkedIn tem extrator próprio.
         expect([required, forbidden]).toEqual([0, 1]);
+      } else if (meta.plataforma === "linkedin" || meta.plataforma === "solides") {
+        // O main#workspace do LinkedIn logado junta a lista, a vaga e os blocos do perfil; a Solides não
+        // tem main e cai no body, com a lista inteira. O genérico traz proibidos: daí a raiz própria.
+        expect(forbidden).toBeGreaterThan(0);
       } else {
         expect([required, forbidden]).toEqual([meta.trechosObrigatorios.length, 0]);
       }

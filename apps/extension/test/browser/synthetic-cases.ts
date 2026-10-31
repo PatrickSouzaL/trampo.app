@@ -173,6 +173,91 @@ export const SYNTHETIC_CASES: SyntheticCase[] = [
     ],
   },
   {
+    id: "rolavel-interno",
+    technique: "rolável dentro de um corte (app shell do LinkedIn logado; ADR-023 D12): vale o que a rolagem alcança",
+    // O script de rolagem fica fora do `main`, para não contar como `naoTexto`.
+    html: page(
+      `<main>${BASE}` +
+        // O texto abaixo da dobra de um rolável dentro de um corte hidden é alcançado rolando.
+        `<div style="height:60px;overflow:hidden"><div style="height:60px;overflow-x:hidden;overflow-y:auto"><p style="margin:200px 0 0">VISIVEL-shell</p></div></div>` +
+        // Ataque: o "rolável" de dentro cabe na própria caixa e não rola, então o corte de fora vale.
+        `<div style="height:60px;overflow:hidden"><div style="height:600px;overflow-y:auto"><p style="margin:300px 0 0">${payload("rolavel-1")}</p></div></div>` +
+        // Rolável sem parte visível: inteiro abaixo do corte de fora.
+        `<div style="height:40px;overflow:hidden"><div style="margin-top:100px;height:60px;overflow-y:auto"><p style="margin:0">${payload("rolavel-2")}</p></div></div>` +
+        // Já rolado para baixo: o que ficou acima volta rolando.
+        `<div id="ja-rolado" style="height:60px;overflow-y:auto"><p style="margin:0">VISIVEL-ja-rolado</p><div style="height:600px"></div></div>` +
+        // hidden rolado por script: o usuário não volta.
+        `<div id="hidden-rolado" style="height:60px;overflow:hidden"><p style="margin:0">${payload("rolavel-3")}</p><div style="height:600px"></div></div>` +
+        // Eixo x: rolável horizontal dentro de corte; alcançável, e sem parte visível.
+        `<div style="width:200px;overflow:hidden"><div style="width:200px;height:60px;overflow-x:auto;overflow-y:hidden"><p style="margin:0 0 0 500px;white-space:nowrap">VISIVEL-shell-x</p></div></div>` +
+        `<div style="width:100px;overflow:hidden"><div style="margin-left:300px;width:100px;height:60px;overflow-x:auto;overflow-y:hidden"><p style="margin:0;white-space:nowrap">${payload("rolavel-4")}</p></div></div>` +
+        // Ataque em x: o "rolável" de dentro cabe na própria caixa, então o corte de fora vale.
+        `<div style="width:100px;overflow:hidden"><div style="width:2000px;height:60px;overflow-x:auto;overflow-y:hidden"><p style="margin:0 0 0 500px;white-space:nowrap">${payload("rolavel-5")}</p></div></div>` +
+        // Já rolado dentro de um corte, em y e em x: o que passou do corte de fora volta rolando.
+        `<div style="height:60px;overflow:hidden"><div id="ja-rolado-dentro" style="height:60px;overflow-x:hidden;overflow-y:auto"><p style="margin:0">VISIVEL-ja-rolado-dentro</p><div style="height:600px"></div></div></div>` +
+        `<div style="width:200px;overflow:hidden"><div id="ja-rolado-x" style="width:200px;height:60px;overflow-x:auto;overflow-y:hidden"><p style="margin:0;white-space:nowrap">VISIVEL-ja-rolado-x</p><div style="width:2000px;height:1px"></div></div></div>` +
+        // RTL rolado (scrollLeft negativo): o que está visível agora continua.
+        `<div id="rtl-rolado" dir="rtl" style="width:200px;height:60px;overflow-x:auto;overflow-y:hidden"><div style="width:2000px"><span style="padding-right:500px;white-space:nowrap">VISIVEL-rtl-rolado</span></div></div>` +
+        // Rolável dentro de rolável: o de dentro alcança o que está abaixo da dobra dele.
+        `<div style="width:300px;height:60px;overflow:auto"><div style="width:200px;height:40px;overflow:auto"><p style="margin:100px 0 0">VISIVEL-aninhado</p></div><div style="height:300px"></div></div>` +
+        // Rolável dentro de rolável que já levou o de dentro para antes da origem do documento: volta rolando o de fora.
+        `<div id="fora-rolado" style="width:200px;height:120px;overflow:auto"><div style="width:150px;height:60px;overflow:auto"><p style="margin:0">VISIVEL-aninhado-rolado</p></div><div style="width:2000px;height:4000px"></div></div>` +
+        // hidden dentro de hidden: o de dentro não rola, então o corte de fora continua valendo (x e y).
+        `<div style="width:100px;overflow:hidden"><div style="width:300px;overflow:hidden"><p style="margin:0 0 0 200px;white-space:nowrap">${payload("rolavel-8")}</p></div></div>` +
+        `<div style="height:40px;overflow:hidden"><div style="height:200px;overflow:hidden"><p style="margin:100px 0 0">${payload("rolavel-9")}</p></div></div>` +
+        // Rolável que começa antes do corte de fora e ainda não rolou: o que está antes do corte não volta.
+        `<div style="margin-left:100px;width:200px;overflow:hidden"><div style="margin-left:-100px;width:400px;height:60px;overflow-x:auto;overflow-y:hidden"><p style="margin:0 0 0 20px;width:60px;word-break:break-all">${payload("rolavel-10")}</p></div></div>` +
+        `<div style="margin-top:100px;height:200px;overflow:hidden"><div style="margin-top:-100px;height:400px;overflow-x:hidden;overflow-y:auto"><p style="margin:20px 0 0;height:40px">${payload("rolavel-11")}</p></div></div>` +
+        // hidden inteiro antes da origem do documento: não rola, então a origem continua cortando.
+        `<div style="position:absolute;left:-9999px;width:100px;overflow:hidden"><p style="margin:0">${payload("rolavel-12")}</p></div>` +
+        // Rolável inteiro antes da origem do documento: nenhuma rolagem o traz de volta.
+        `<div style="position:absolute;left:-9999px;width:100px;height:60px;overflow:auto"><p style="margin:0">${payload("rolavel-6")}</p></div>` +
+        `<div style="position:absolute;top:-9999px;width:100px;height:60px;overflow:auto"><p style="margin:0">${payload("rolavel-7")}</p></div>` +
+        "</main>" +
+        "<script>" +
+        'document.getElementById("ja-rolado").scrollTop = 300; document.getElementById("hidden-rolado").scrollTop = 300;' +
+        'document.getElementById("ja-rolado-dentro").scrollTop = 300; document.getElementById("ja-rolado-x").scrollLeft = 500;' +
+        'document.getElementById("rtl-rolado").scrollLeft = -500;' +
+        'const fora = document.getElementById("fora-rolado"); fora.scrollLeft = 1000; fora.scrollTop = 3000;' +
+        "</script>",
+    ),
+    discards: { cortado: 11, foraDaTela: 1 },
+    visible: [
+      "VISIVEL-shell",
+      "VISIVEL-ja-rolado",
+      "VISIVEL-shell-x",
+      "VISIVEL-ja-rolado-dentro",
+      "VISIVEL-ja-rolado-x",
+      "VISIVEL-rtl-rolado",
+      "VISIVEL-aninhado",
+      "VISIVEL-aninhado-rolado",
+    ],
+  },
+  {
+    id: "pagina-rolavel",
+    technique: "html e body roláveis: a página rola junto com a caixa deles, e a origem do documento continua cortando (foraDaTela)",
+    html: page(
+      `<main>${BASE}` +
+        `<p style="position:absolute;top:-3000px">${payload("pagina-1")}</p>` +
+        `<p style="position:absolute;left:-3000px">${payload("pagina-2")}</p>` +
+        '<div style="height:4000px"></div></main>' +
+        "<script>window.scrollTo(0, 2000);</script>",
+      "<style>html{overflow-y:scroll}body{overflow-x:auto}</style>",
+    ),
+    discards: { foraDaTela: 2 },
+    visible: [],
+  },
+  {
+    id: "pagina-travada",
+    technique: "html com overflow:hidden (página que não rola): o que passa da caixa dele fica de fora",
+    html: inMain(
+      `<p style="position:absolute;top:10000px">${payload("pagina-travada-y")}</p><p style="position:absolute;left:10000px;top:0">${payload("pagina-travada-x")}</p>`,
+      "<style>html{overflow:hidden}</style>",
+    ),
+    discards: { cortado: 2 },
+    visible: [],
+  },
+  {
     id: "aria-hidden",
     technique: "aria-hidden=true",
     html: inMain(`<div aria-hidden="true"><p>${payload("aria")}</p></div><div aria-hidden="false"><p>VISIVEL-aria-false</p></div>`),

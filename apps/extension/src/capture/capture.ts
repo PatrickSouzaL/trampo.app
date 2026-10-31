@@ -28,8 +28,12 @@ export const EXTRACTION_LIMITS = {
   minChars: JOB_TEXT_MIN_CHARS,
 } as const satisfies ExtractionLimits;
 
-/** Versão que cada extrator de plataforma devolve quando acha a raiz dela (ADR-023 D11). */
-const PLATFORM_VERSION = { linkedin: "li1", gupy: "gu1" } as const satisfies Record<Exclude<ExtractorPlatform, "generico">, ExtractorVersion>;
+/** Versões que cada extrator de plataforma devolve quando acha uma raiz dela (ADR-023 D11 e D12). */
+const PLATFORM_VERSIONS = {
+  linkedin: ["li2", "li1"],
+  gupy: ["gu1"],
+  solides: ["so1"],
+} as const satisfies Record<Exclude<ExtractorPlatform, "generico">, readonly ExtractorVersion[]>;
 
 /**
  * Plataforma pelo host da URL da aba, que o activeTab entrega no clique (ADR-023 D11). Só o host é
@@ -48,6 +52,7 @@ export function platformForUrl(url: string | undefined): ExtractorPlatform {
   }
   if (host === "linkedin.com" || host.endsWith(".linkedin.com")) return "linkedin";
   if (host.endsWith(".gupy.io")) return "gupy";
+  if (host === "vagas.solides.com.br" || host.endsWith(".vagas.solides.com.br")) return "solides";
   return "generico";
 }
 
@@ -73,7 +78,7 @@ type MissingReason = Exclude<DiscardReason, (typeof DISCARD_REASONS)[number]>;
 export const DISCARD_REASONS_EXHAUSTIVE: [MissingReason] extends [never] ? true : MissingReason = true;
 
 const discardCount = z.int().min(0).max(EXTRACTION_LIMITS.maxNodes);
-const ExtractorVersionSchema = z.enum(["ge1", "li1", "gu1"] satisfies ExtractorVersion[]);
+const ExtractorVersionSchema = z.enum(["ge1", "li1", "li2", "gu1", "so1"] satisfies ExtractorVersion[]);
 
 /** Retorno do extrator: vem da aba, então é validado como entrada hostil (forma e tamanho, estrito). */
 export const ExtractorResultSchema = z.discriminatedUnion("ok", [
@@ -91,12 +96,12 @@ type ExtractorResult = z.infer<typeof ExtractorResultSchema>;
 
 /**
  * A versão tem de bater com a plataforma pedida: o genérico (`ge1`, raiz `main`/`article`/`body`)
- * vale para todas; a versão da plataforma, só para ela e só com a raiz `plataforma`.
+ * vale para todas; as versões da plataforma, só para ela e só com a raiz `plataforma`.
  */
 function matchesPlatform(result: ExtractorResult, platform: ExtractorPlatform): boolean {
   if (result.versao === "ge1") return !result.ok || result.raiz !== "plataforma";
-  const own = platform === "generico" ? null : PLATFORM_VERSION[platform];
-  return result.versao === own && (!result.ok || result.raiz === "plataforma");
+  const own: readonly ExtractorVersion[] = platform === "generico" ? [] : PLATFORM_VERSIONS[platform];
+  return own.includes(result.versao) && (!result.ok || result.raiz === "plataforma");
 }
 
 /** Só o frame principal: exatamente um resultado, do frame 0. As outras chaves do Chrome não importam. */
@@ -107,7 +112,7 @@ export const CapturedJobSchema = z.strictObject({
   /** Aba de origem; `null` no texto colado. */
   tabId: z.int().min(0).nullable(),
   capturedAt: z.int().min(0),
-  platform: z.enum(["generico", "linkedin", "gupy", "texto_colado"] satisfies Platform[]),
+  platform: z.enum(["generico", "linkedin", "gupy", "solides", "texto_colado"] satisfies Platform[]),
   extractorVersion: VersionTagSchema,
   text: z.string().refine((t) => {
     const n = countCodePoints(t);

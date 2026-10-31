@@ -123,6 +123,9 @@ describe("platformForUrl", () => {
     ["https://WWW.LinkedIn.COM/jobs", "linkedin"],
     ["https://empresa.gupy.io/jobs/123", "gupy"],
     ["https://portal.gupy.io/job-search", "gupy"],
+    ["https://vagas.solides.com.br/vagas/devops", "solides"],
+    ["https://empresa.vagas.solides.com.br/vaga/123", "solides"],
+    ["https://VAGAS.Solides.COM.BR/vagas", "solides"],
   ])("%s → %s", (url, platform) => {
     expect(platformForUrl(url)).toBe(platform);
   });
@@ -137,6 +140,9 @@ describe("platformForUrl", () => {
     ["domínio como subdomínio de outro", "https://www.linkedin.com.evil.example/"],
     ["gupy.io sem subdomínio", "https://gupy.io/"],
     ["sufixo parecido da gupy", "https://empresagupy.io/jobs"],
+    ["solides.com.br sem o vagas", "https://app.solides.com.br/vagas"],
+    ["sufixo parecido da solides", "https://xvagas.solides.com.br/vagas"],
+    ["solides em http", "http://vagas.solides.com.br/vagas"],
     ["página local", "file:///C:/vaga.html"],
     ["outro site", "https://vagas.example/123"],
   ])("cai no genérico: %s", (_label, url) => {
@@ -160,6 +166,15 @@ describe("captureFromTab", () => {
     expect(li.ok && [li.job.platform, li.job.extractorVersion]).toEqual(["linkedin", "li1"]);
     const gu = await captureFromTab(3, "gupy", run([frame(okResult(body(MIN), { versao: "gu1", raiz: "plataforma" }))]), 0);
     expect(gu.ok && [gu.job.platform, gu.job.extractorVersion]).toEqual(["gupy", "gu1"]);
+    const so = await captureFromTab(3, "solides", run([frame(okResult(body(MIN), { versao: "so1", raiz: "plataforma" }))]), 0);
+    expect(so.ok && [so.job.platform, so.job.extractorVersion]).toEqual(["solides", "so1"]);
+  });
+
+  test("LinkedIn: o logado (li2) e o público (li1) valem, e o layout logado sem a vaga recusa (ADR-023 D12)", async () => {
+    const logged = await captureFromTab(3, "linkedin", run([frame(okResult(body(MIN), { versao: "li2", raiz: "plataforma" }))]), 0);
+    expect(logged.ok && [logged.job.platform, logged.job.extractorVersion]).toEqual(["linkedin", "li2"]);
+    const closed = await captureFromTab(3, "linkedin", run([frame({ ok: false, versao: "li2", motivo: "texto_insuficiente" })]), 0);
+    expect(closed).toEqual({ ok: false, motivo: "texto_insuficiente" });
   });
 
   test("sem a raiz da plataforma, o genérico roda: a plataforma fica e a versão diz ge1 (sinal de seletor quebrado)", async () => {
@@ -176,6 +191,11 @@ describe("captureFromTab", () => {
     ["ge1 com raiz de plataforma", "linkedin", okResult(body(MIN), { raiz: "plataforma" })],
     ["ok:false com versão de outra plataforma", "linkedin", { ok: false, versao: "gu1", motivo: "texto_insuficiente" }],
     ["ok:false com versão de plataforma no genérico", "generico", { ok: false, versao: "li1", motivo: "texto_insuficiente" }],
+    ["li2 na Gupy", "gupy", okResult(body(MIN), { versao: "li2", raiz: "plataforma" })],
+    ["so1 no LinkedIn", "linkedin", okResult(body(MIN), { versao: "so1", raiz: "plataforma" })],
+    ["li1 na Solides", "solides", okResult(body(MIN), { versao: "li1", raiz: "plataforma" })],
+    ["so1 com raiz genérica", "solides", okResult(body(MIN), { versao: "so1", raiz: "body" })],
+    ["li2 no genérico", "generico", okResult(body(MIN), { versao: "li2", raiz: "plataforma" })],
   ];
   test.each(mismatched)("versão incoerente com a plataforma pedida vira erro: %s", async (_label, platform, result) => {
     expect(await captureFromTab(1, platform, run([frame(result)]), 0)).toEqual({ ok: false, motivo: "erro" });
@@ -279,6 +299,8 @@ describe("CapturedJobSchema", () => {
     expect(CapturedJobSchema.safeParse({ ...job, tabId: null, platform: "texto_colado" }).success).toBe(true);
     expect(CapturedJobSchema.safeParse({ ...job, platform: "linkedin", extractorVersion: "li1" }).success).toBe(true);
     expect(CapturedJobSchema.safeParse({ ...job, platform: "gupy", extractorVersion: "gu1" }).success).toBe(true);
+    expect(CapturedJobSchema.safeParse({ ...job, platform: "solides", extractorVersion: "so1" }).success).toBe(true);
+    expect(CapturedJobSchema.safeParse({ ...job, platform: "linkedin", extractorVersion: "li2" }).success).toBe(true);
   });
   test.each([
     ["texto curto", { text: body(MIN - 1) }],

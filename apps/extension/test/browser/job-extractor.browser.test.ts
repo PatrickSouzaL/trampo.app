@@ -163,6 +163,14 @@ describe("raiz da plataforma (ADR-023 D11)", () => {
     expect([r.versao, r.raiz, r.texto]).toEqual(["gu1", "plataforma", "vaga da Gupy"]);
   });
 
+  test("Solides: a vaga aberta ao lado da lista de cartões", async () => {
+    const html = page('<div><ul><li>CANARIO-cartao outra vaga</li></ul><div id="vacancy-box-details">vaga da Solides</div></div>');
+    const r = ok(await bench.run(html, LIMITS, "solides"));
+    expect([r.versao, r.raiz, r.texto]).toEqual(["so1", "plataforma", "vaga da Solides"]);
+    const sem = ok(await bench.run(page('<div>lista</div><div id="vacancy-box-details" hidden>CANARIO</div>'), LIMITS, "solides"));
+    expect([sem.versao, sem.raiz, sem.texto]).toEqual(["ge1", "body", "lista"]);
+  });
+
   test("genérico ignora os seletores das plataformas", async () => {
     const r = ok(await bench.run(page(`<main>lista</main>${PANE}`), LIMITS, "generico"));
     expect([r.versao, r.raiz, r.texto]).toEqual(["ge1", "main", "lista"]);
@@ -180,6 +188,69 @@ describe("raiz da plataforma (ADR-023 D11)", () => {
       expect(await bench.run(page(`<main>texto</main>${PANE}`), LIMITS, platform)).toEqual({ ok: false, versao: "ge1", motivo: "limites_invalidos" });
     });
   }
+});
+
+// LinkedIn logado (ADR-023 D12): o `main#workspace` junta a lista e o painel da vaga, e o painel traz
+// blocos tirados do perfil e da rede do usuário. Só a descrição entra.
+describe("LinkedIn logado (ADR-023 D12)", () => {
+  const SCREEN = "com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails";
+  const DESC = '<span data-testid="expandable-text-box">descrição da vaga logada</span>';
+  const logged = (pane: string, screen = SCREEN): string =>
+    page(
+      '<main id="workspace"><ul><li>CANARIO-lista outra vaga</li></ul>' +
+        `<div data-sdui-screen="${screen}"><p>CANARIO-perfil: algumas qualificações não constam do seu perfil</p>${pane}</div></main>`,
+    );
+
+  test("só a descrição do painel (li2): nem a lista nem os blocos do perfil", async () => {
+    const r = ok(await bench.run(logged(DESC), LIMITS, "linkedin"));
+    expect([r.versao, r.raiz, r.texto]).toEqual(["li2", "plataforma", "descrição da vaga logada"]);
+  });
+
+  test("a primeira descrição visível vence (a da empresa vem depois)", async () => {
+    const pane = '<span data-testid="expandable-text-box" hidden>CANARIO-oculta</span>' + DESC + '<span data-testid="expandable-text-box">CANARIO-sobre a empresa</span>';
+    const r = ok(await bench.run(logged(pane), LIMITS, "linkedin"));
+    expect(r.texto).toBe("descrição da vaga logada");
+  });
+
+  test("o painel é reconhecido pelo sufixo do nome da tela", async () => {
+    const r = ok(await bench.run(logged(DESC, "x.SemanticJobDetails"), LIMITS, "linkedin"));
+    expect(r.versao).toBe("li2");
+  });
+
+  const closed: [string, string][] = [
+    ["sem a descrição", logged("")],
+    ["descrição fora do painel da vaga", page(`<main id="workspace"><ul><li>CANARIO-lista</li></ul>${DESC}</main>`)],
+    ["outra tela", logged(DESC, "x.SemanticJobDetailsV2")],
+  ];
+  for (const [name, html] of closed) {
+    test(`layout logado ${name}: nada é lido (o genérico pegaria a lista e o perfil)`, async () => {
+      expect(await bench.run(html, LIMITS, "linkedin")).toEqual({ ok: false, versao: "li2", motivo: "texto_insuficiente" });
+    });
+  }
+
+  test("layout logado oculto não fecha: o genérico roda", async () => {
+    const r = ok(await bench.run(page('<main id="workspace" hidden>CANARIO</main><main>lista</main>'), LIMITS, "linkedin"));
+    expect([r.versao, r.raiz, r.texto]).toEqual(["ge1", "main", "lista"]);
+  });
+
+  test("a raiz pública achada vence o layout logado sem descrição", async () => {
+    const html = page('<main id="workspace">CANARIO-lista</main><div class="details-pane__content">vaga pública</div>');
+    const r = ok(await bench.run(html, LIMITS, "linkedin"));
+    expect([r.versao, r.texto]).toEqual(["li1", "vaga pública"]);
+  });
+
+  test("com as duas raízes, a logada (li2) vem primeiro", async () => {
+    const html = page(`<div class="details-pane__content">CANARIO-publica</div><div data-sdui-screen="${SCREEN}">${DESC}</div>`);
+    const r = ok(await bench.run(html, LIMITS, "linkedin"));
+    expect([r.versao, r.texto]).toEqual(["li2", "descrição da vaga logada"]);
+  });
+
+  test('"ver mais" fechado: o que o clamp esconde fica de fora (cortado)', async () => {
+    const clamp = "display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden";
+    const pane = `<span data-testid="expandable-text-box" style="${clamp}">linha 1<br>linha 2<br>CANARIO-recolhido linha 3</span>`;
+    const r = ok(await bench.run(logged(pane), LIMITS, "linkedin"));
+    expect([r.versao, r.texto, r.descartes.cortado]).toEqual(["li2", "linha 1\nlinha 2", 1]);
+  });
 });
 
 describe("limites (ADR-023 D1 e D7)", () => {
