@@ -1,14 +1,16 @@
 // Raiz de composição da API (F1-API-04b; ADR-017 D7, ADR-018 D5 e D6). Lê o ambiente, monta cada adapter UMA vez
 // no boot e entrega ao buildApp a rota POST /v1/analyze com os critérios do Supabase e as rotas GET e PUT
-// /v1/criteria (F1-API-05, ADR-021 §4) com o MESMO CriteriaGuard. O main.ts só sobe a porta.
+// /v1/criteria (F1-API-05, ADR-021 §4) com o MESMO CriteriaGuard. O main.ts só sobe a porta, pelo
+// composeProductionApp (production-app.ts), que monta a cadeia de LLM do ambiente e chama esta função.
 //
 // Falha fechado no boot: ambiente da borda, do JWT ou do Redis inválido (ZodError), chave do Supabase que não é
 // publishable (PostgrestClientConfigError) e anel da pretensão inválido ou ausente (SalaryKeyringConfigError)
 // derrubam a subida antes de abrir a porta. Nenhuma mensagem repete valor de variável.
 //
-// A extração por LLM é opcional: sem adapters (os da Groq e da Workers AI chegam no F1-LLM-02), a análise segue
+// A extração por LLM é opcional AQUI (os testes de borda e de critérios sobem sem ela): sem adapters, a análise segue
 // só pelo caminho determinístico, sem router e sem cache. Com adapters, entram o router (QuotaLedger em Redis e
-// systemClock) e o JobFactsCache numa instância própria do cliente REST (CACHE_CLIENT_LIMITS).
+// systemClock) e o JobFactsCache numa instância própria do cliente REST (CACHE_CLIENT_LIMITS). Em produção a cadeia é
+// obrigatória: o composeProductionApp não sobe sem ela (Trilha L1).
 import { JOB_TITLE_MAX_CHARS } from "@trampo/contracts/limits";
 import { safeText, truncateCodePoints } from "@trampo/contracts/primitives";
 import { z } from "zod";
@@ -78,7 +80,7 @@ export interface LlmComposition {
 }
 
 export interface ComposeOptions {
-  /** Sem a opção: análise só determinística (até o F1-LLM-02). */
+  /** Sem a opção: análise só determinística (testes). Produção passa pelo composeProductionApp, que sempre a dá. */
   readonly llm?: LlmComposition;
   /** Só para os testes capturarem ou calarem o log. */
   readonly logger?: BuildAppOptions["logger"];

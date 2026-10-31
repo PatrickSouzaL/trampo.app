@@ -10,10 +10,60 @@ type Facts = ResolvedJobFacts | JobFacts;
 
 const ALIAS = new Map<string, string>(DICTIONARY_ALIASES.map((a) => [a.alias, a.canonical.toLowerCase()]));
 
-/** Termo de stack comparável: dobrado, espaços colapsados e levado ao canônico do `td1` quando houver alias. */
-export function stackKey(term: string): string {
+/**
+ * Equivalência de nome genérica (HITL-031 3A): o mesmo produto escrito com outro nome. Só regras de forma, sem nenhum
+ * termo do `gd1`: prefixo de fornecedor, versão no fim e sufixo de implantação. Vale nos dois lados (gabarito e saída).
+ */
+export const NAME_RULE_VOCABULARY = {
+  /** Os fornecedores do HITL-031 3A, já dobrados. */
+  vendors: ["google cloud", "microsoft", "amazon", "apache", "oracle", "azure", "aws", "sap"],
+  /** Sufixos de implantação: onde o produto roda, não qual produto é. */
+  deployments: ["on-premises", "on-premise", "on-prem", "on premises", "on premise", "on prem", "self-hosted", "self hosted", "self-managed", "self managed", "cloud", "online", "saas"],
+  /** O que sobra do corte e não nomeia produto sozinho: aí o nome fica inteiro ("Oracle Database" não vira "database"). */
+  genericRemainders: ["cloud", "platform", "services", "web services", "database", "db", "server", "functions", "storage", "devops", "data", "analytics"],
+} as const;
+
+const alternation = (words: readonly string[]): string =>
+  [...words].sort((a, b) => b.length - a.length).map((w) => w.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")).join("|");
+const VENDOR_PREFIX = new RegExp(`^(?:${alternation(NAME_RULE_VOCABULARY.vendors)})[\\s-]+(?=\\S)`, "u");
+// Os espaços já chegam colapsados (`aliasKey`): um separador só, sem quantificador que dê tempo quadrático.
+/** Versão: major de 1 ou 2 dígitos ("Java 17", "Python 3.x", "Angular 2+"); número de norma ("ISO 27001") fica. */
+const VERSION_SUFFIX = / v?\d{1,2}(?:\.(?:\d+|x))*\+?$/u;
+const DEPLOYMENT_SUFFIX = new RegExp(`[ -](?:${alternation(NAME_RULE_VOCABULARY.deployments)})$`, "u");
+/** AWS e Amazon são o mesmo fornecedor: troca, não corte ("Amazon VPC" e "AWS VPC" ficam iguais sem virar "vpc"). */
+const SAME_VENDOR = /^amazon(?=[\s-])/u;
+const GENERIC_REMAINDER: ReadonlySet<string> = new Set(NAME_RULE_VOCABULARY.genericRemainders);
+/**
+ * O prefixo só sai se sobrar um nome de 4 ou mais caracteres: a sigla curta é ambígua entre fornecedores ("AWS CLI" e
+ * "Azure CLI" são produtos distintos, e "Azure SQL" não é a linguagem SQL).
+ */
+const MIN_REMAINDER_AFTER_VENDOR = 4;
+
+function cut(term: string, pattern: RegExp, minRest = 1): string {
+  const rest = term.replace(pattern, "").trim();
+  return [...rest].length < minRest || GENERIC_REMAINDER.has(rest) ? term : rest;
+}
+
+/** Aplica as regras até o ponto fixo ("Microsoft Azure Functions 4" e "Azure Functions" chegam ao mesmo nome). */
+export function sameProductName(folded: string): string {
+  let current = folded;
+  for (;;) {
+    const next = cut(cut(cut(current, VERSION_SUFFIX), DEPLOYMENT_SUFFIX), VENDOR_PREFIX, MIN_REMAINDER_AFTER_VENDOR).replace(SAME_VENDOR, "aws");
+    if (next === current) return current;
+    current = next;
+  }
+}
+
+/** A chave de antes da A2: dobrada, espaços colapsados e levada ao canônico do `td1` quando houver alias. */
+export function aliasKey(term: string): string {
   const folded = fold(term).text.trim().split(/\s+/u).join(" ");
   return ALIAS.get(folded) ?? folded;
+}
+
+/** Termo de stack comparável: a chave do `td1` mais a equivalência de nome (e o `td1` de novo no nome que sobra). */
+export function stackKey(term: string): string {
+  const named = sameProductName(aliasKey(term));
+  return ALIAS.get(named) ?? named;
 }
 
 function sameSet<T>(a: readonly T[], b: readonly T[], key: (x: T) => string = String): boolean {

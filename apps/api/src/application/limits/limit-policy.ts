@@ -73,6 +73,36 @@ export function workersAiCallsPerDay(): number {
   return Math.floor(budget.neuronsPerDay / perCall);
 }
 
+/**
+ * Tokens por chamada do Groq medidos no aceite do p3/g4 (spike-metrics §2.8: 83 chamadas `ok` em 6k, `usage` do
+ * provedor). Calibram a reserva pessimista do ledger (ADR-022 D7.2) e mudam só com uma medida nova.
+ */
+export const GROQ_TOKEN_MEASUREMENT = {
+  inputTokensP95: 2_509,
+  outputTokensP50: 331,
+  totalTokensP95: 2_939,
+  totalTokensMax: 3_683,
+  /** A reserva sobe para o múltiplo seguinte deste passo: folga para a variação do provedor sem reserva fracionada. */
+  roundingStep: 500,
+} as const;
+
+/** O que entra na conta da reserva (a medida inteira, ou uma sintética nos testes da fórmula). */
+export interface TokenReserveBasis {
+  readonly inputTokensP95: number;
+  readonly outputTokensP50: number;
+  readonly roundingStep: number;
+}
+
+/**
+ * Reserva do Groq (ADR-022 D7.2, recalibrada na Trilha L1): entrada p95 mais saída p50 (2.509 + 331 = 2.840),
+ * arredondada para cima no passo de 500, dá 3.000, que também cobre o total p95 medido (2.939). A cauda (máx.
+ * 3.683) passa da reserva e é reconciliada pelo `recordUsage` com o uso real.
+ */
+export function groqReservedTokensPerCall(measured: TokenReserveBasis = GROQ_TOKEN_MEASUREMENT): number {
+  const base = measured.inputTokensP95 + measured.outputTokensP50;
+  return Math.ceil(base / measured.roundingStep) * measured.roundingStep;
+}
+
 export const LEDGER_POLICY = {
   /** Folga de 15% abaixo do limite publicado (ADR-001 §5.5). */
   headroom: 0.85,
@@ -80,9 +110,8 @@ export const LEDGER_POLICY = {
   globalCallsPerDay: 400,
   /** Provedor fora desta tabela (o Gemini, HITL-012) é sempre `provedor_esgotado`. */
   providers: {
-    // Reserva de 3.000: entrada p95 de ~2,5k mais a saída p50 de ~0,4k (S-1), arredondada para cima. Recalibrada
-    // com o p95 do aceite do p3 (ADR-022 D7.2).
-    groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000, reservedTokensPerCall: 3_000 },
+    // Reserva calibrada pela medida do aceite do p3 (`groqReservedTokensPerCall`, ADR-022 D7.2): 3.000 tokens.
+    groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000, reservedTokensPerCall: groqReservedTokensPerCall() },
     // O limite real é de 10.000 neurons por dia; o `rpd` vem da estimativa de neurons por chamada (ADR-020 D9), e a
     // medida real é do S-1. O `rpm` fica bem abaixo dos 300 por minuto documentados.
     cloudflare_workers_ai: { rpm: 60, rpd: workersAiCallsPerDay(), tpm: null, tpd: null, reservedTokensPerCall: null },
