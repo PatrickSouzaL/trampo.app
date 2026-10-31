@@ -1,0 +1,21 @@
+{
+  "plataforma": "solides",
+  "coletadoEm": "2026-10-31",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "body",
+  "raizDaPlataforma": "#vacancy-box-details",
+  "trechosObrigatorios": [
+    "FUTURA CLIMATIZACAO E ENERGIA RENOVAVEL DISTRIBUIDORA",
+    "Experiência comprovada em design gráfico on",
+    "Conhecimento em marketing online e atualização"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Qual vaga de emprego procura?",
+    "analista de marketing pleno - presencial rio de janeiro"
+  ],
+  "anonimizacao": {
+    "ENDERECO": 1
+  }
+}

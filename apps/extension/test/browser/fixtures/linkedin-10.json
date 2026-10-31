@@ -1,0 +1,27 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-31",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "sessao": "logada",
+  "verMais": "aberto",
+  "raizEsperada": "main",
+  "raizDaPlataforma": "[data-sdui-screen$=\".SemanticJobDetails\"] [data-testid=\"expandable-text-box\"]",
+  "trechosObrigatorios": [
+    "A Proative Technology é especialista em",
+    "Boa capacidade analítica e organização;",
+    "Interesse em observabilidade, automação e confiabilidade"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Como é feita a classificação das vagas promovidas",
+    "4 ex-alunos da instituição trabalham aqui",
+    "Seu perfil e currículo",
+    "Concluiu sua candidatura?"
+  ],
+  "anonimizacao": {},
+  "ajustes": {
+    "pViraDiv": 1,
+    "tituloExtraRemovido": 2
+  }
+}

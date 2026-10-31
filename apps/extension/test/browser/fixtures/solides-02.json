@@ -1,0 +1,21 @@
+{
+  "plataforma": "solides",
+  "coletadoEm": "2026-10-31",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "body",
+  "raizDaPlataforma": "#vacancy-box-details",
+  "trechosObrigatorios": [
+    "analista de infraestrutura de ti (pj)",
+    "Experiência com criação e administração de",
+    "Vontade de aprender e de se"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Qual vaga de emprego procura?",
+    "COOPERATIVA AGRO PECUARIA DE BOA ESPERANCA LTDA"
+  ],
+  "anonimizacao": {
+    "ENDERECO": 1
+  }
+}
