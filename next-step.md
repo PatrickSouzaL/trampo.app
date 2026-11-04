@@ -1,29 +1,28 @@
-# Próximo passo: a Trilha S3b (abrir o HITL-035), numa sessão nova
+# Próximo passo: responder o HITL-035 (ação externa), depois a F1-AUTH-00 numa sessão nova
 
 ## O que acabou de ser entregue (2026-11-04)
 
-### HITL-034 fechado: desenho da autenticação aprovado
-- "HITL-034: aprovado com as recomendações": valem as 14 respostas recomendadas do ADR-004 §7 (BFF, 24 h, 4 h, logout `global`, limitador local, falha fechada etc.).
-- O ADR-004 continua `proposto` até o HITL-035, o pré-spike manual (P4 a P8) e o spike (§6.2). Nenhum código de autenticação ainda.
-
-### Trilha D2d: "ver mais" fechado no LinkedIn logado (ADR-023 D13)
-- **Decisão:** opção (b). O *clamp* de linhas da própria descrição do `li2` não corta mais; o resto da regra de descarte (D4) continua valendo dentro dela, e o *clamp* em qualquer outro lugar continua cortando. Sem clicar no "ver mais" e sem mudar a página. A opção (a), aviso no painel, foi descartada, e o painel não mudou.
-- **Resultado:** `linkedin-08` de 382 para 3.324 caracteres, com os 3 trechos recolhidos. Nas 3 páginas logadas, toda linha da descrição está no texto.
-- **Clone com `innerText`: vetado pelo `[APPSEC]`.** No Edge, o `innerText` de um clone fora do documento ignora o CSS e trouxe o canário com `display:none`. Inserir o clone na página seria mutação do DOM.
-- **DOM Clobbering:** um `<form>` que sombreia `scrollHeight` faz a conta dar `NaN`, e tudo vira `cortado` (o lado seguro, com teste). Nenhum nó novo, e o teto de 50.000 nós não muda.
-- **Bancada E2E corrigida:** o CSS das fixtures com `href` relativo era abortado sob `/jobs/...`. Os E2E do LinkedIn logado, da Gupy e da Solides rodavam sem o CSS da plataforma.
-- **Prova:** unidade 180/180 com 100%; `test:browser` 145/145 com a cobertura de bloco de 100%; E2E 38/38 no build de produção, e a prova negativa derruba o teste novo; mutação 13/13; depcruise e turbo 21/21 em série. Nenhuma chamada a provedor.
-- **Intermitência do E2E:** 3 falhas `sem_acesso` em 12 rodadas, depois 14 rodadas seguidas sem falha. A causa não foi provada e está no BACKLOG como QA-04.
+### Trilha S3b: HITL-035 aberto, com o runbook `auth-extensao`
+- **Runbook novo** `base/03-infra-runbook/auth-extensao.md`, sem nenhum valor de segredo e sem código de produto:
+  - **parte 1, credenciais:** par RSA da extensão gerado pelo Node fora do repositório (a privada vai para o gerenciador de senhas e o `.pem` é apagado), `TRAMPO_EXTENSION_KEY` só com a pública, ID derivado, `chrome-extension://<id>` no `CORS_ALLOWED_ORIGINS`, anel da selagem separado do anel da pretensão;
+  - **parte 2, painel do Supabase (D15):** Redirect URL única e exata, Email, Phone e Anonymous desligados, ES256 e 900 s, novos cadastros desligados depois da conta do autor, limites de taxa (P19) e o hook (P18);
+  - **parte 3, pré-spike P4 a P8:** 8 casos (A a H) num perfil descartável, com funções de PowerShell que só imprimem nomes, status e booleanos, e logout `global` em cada sessão aberta.
+- **QA do runbook, offline:** vetor do RFC 7636, derivação do ID conferida contra o Node, URL do `authorize` e leitura do retorno. O par de teste foi apagado.
+- **Errata no ADR-004 §4.1:** o challenge do vetor do RFC 7636 estava errado (`E9Melhoe2…`). O certo é `E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM`. Sem a correção, o teste do `pkce.ts` falharia.
+- **P18 pela documentação:** o Custom Access Token Hook aparece como "Free, Pro" e recusa a emissão com `http_code`. Falta só confirmar no painel.
 
 ### Antes (ainda valendo)
-- **Trilhas D2a a D2c:** fixtures reais e extratores `li1`, `li2`, `gu1` e `so1`.
+- **HITL-034 fechado:** valem as 14 recomendações do ADR-004 §7. O ADR continua `proposto` até o HITL-035, o pré-spike e o spike.
+- **Trilhas D2a a D2d:** extratores `li1`, `li2`, `gu1` e `so1`, com o "ver mais" fechado no `li2` (ADR-023 D13). A intermitência do E2E está no QA-04.
 - **Trilha W1:** `rpd` da Workers AI pelo p95 medido.
 - **Trilha L1:** cadeia Groq → Workers AI → determinístico ligada no `main.ts`. Pendência do próximo prompt (`p4`): "`null` quando a vaga não declara experiência" em `yearsExperienceMin` (spike-metrics §2.11).
 - **Trilhas F e G:** captura no Service Worker e UI do Side Panel, ainda sem enviar à API.
 
 ### Pendências do humano
-- Nenhuma aberta agora. A S3b abre o HITL-035 (ação externa: par de chaves, anel da selagem e painel do Supabase). Nenhum segredo vai para o cofre.
-- **Inconsistência do cofre a esclarecer no HITL-035:** os runbooks `supabase-setup`, `upstash-redis` e `regiao-custo-zero` não existem em `base/03-infra-runbook/`.
+- **HITL-035 (aberto):** siga o runbook `auth-extensao.md`. Partes 1 e 2 (cerca de 35 min) e o pré-spike (40 a 60 min). Responda também as 2 perguntas:
+  1. Site URL até o S-5: (A) recomendada, `https://<id>.chromiumapp.org/`; (B) página estática numa origem nossa; (C) manter a atual, se não for `localhost`.
+  2. Os runbooks `supabase-setup`, `upstash-redis` e `regiao-custo-zero` foram movidos, apagados de propósito, ou a equipe deve reescrevê-los?
+- Nunca cole no chat código, token, chave ou URL de retorno. Só a saída das funções.
 - O push continua não autorizado. Já são vários commits locais no `spike/s1-extraction`. Quando quiser, autorize o push e o PR.
 
 ---
@@ -34,11 +33,12 @@
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **S3b** | Abrir o HITL-035 (par de chaves da extensão, anel de chaves da selagem, configuração do Auth no painel do Supabase) e escrever o runbook `base/03-infra-runbook/auth-extensao.md`, sem nenhum valor de segredo, mais o roteiro do pré-spike manual (P4 a P8). Sem código de produto | não | nada (termina num HITL) |
-| **F1-AUTH-00 → F1-API-07 → F1-EXT-05a/b/c → F1-SEC-01** | Implementação do ADR-004, uma trilha por vez (contratos, BFF na API, Service Worker e manifesto, painel, E2E com IdP falso, threat model v2) | não | HITL-034, HITL-035 e o pré-spike manual (P4 a P8) |
+| **F1-AUTH-00** | Contratos do ADR-004 D7 em `packages/contracts/src/auth.ts`, export `./auth`, `ACCESS_TOKEN_MAX_CHARS` em `limits.ts` (fonte única), com os ajustes que o pré-spike pedir (nome do campo do código, `AuthCodeSchema` como UUID ou não, com ou sem `state`). Cobertura de 100% e DOC-01 | não | HITL-035 fechado, com o P4 e o P8 aprovados |
+| **F1-API-07 → F1-EXT-05a/b/c → F1-SEC-01** | Resto da implementação do ADR-004, uma trilha por vez (BFF na API, Service Worker e manifesto, painel, E2E com IdP falso, threat model v2) | não | a trilha anterior |
 
 **O que vem depois:**
-- **HITL-035 fechado e pré-spike feito:** começa a F1-AUTH-00 (contratos), a primeira trilha de implementação do ADR-004.
+- **HITL-035 fechado e pré-spike aprovado:** começa a F1-AUTH-00 (contratos), a primeira trilha de implementação do ADR-004. Se o P4, o P7 ou o P8 falharem, vale o recuo do D14 (o ADR volta a desenho, com HITL novo), e nenhuma trilha de implementação começa.
+- **Site URL (pergunta 1 do HITL-035):** com a opção A, a F1-AUTH-00 aplica a emenda ao D15 do ADR-004.
 - **F1-EXT-05a concluída:** o envio à API (F1-EXT-04 parte 2) vira trilha.
 
 **Cuidados para as trilhas não se atrapalharem:**
@@ -64,11 +64,12 @@
 
 ---
 
-## Próximo prompt (sessão nova)
+## Próximo prompt (sessão nova, depois do HITL-035)
 
 ```text
-Equipe, sigam em ciclo estrito. Trilha S3b do next-step: abrir o HITL-035 do ADR-004 (HITL-034 aprovado com as recomendações).
-1. [ORCHESTRATOR]: leiam STATE.md, HITL-QUEUE (HITL-034), ADR-004 §1.2, §1.4 (P4 a P8, P18), §6.2, D15 e a Q9/Q10 aprovadas.
-2. [ARCHITECT] + [APPSEC]: escrevam o runbook base/03-infra-runbook/auth-extensao.md (parte 1: par RSA da extensão fora do repositório, TRAMPO_EXTENSION_KEY só com a pública, CORS_ALLOWED_ORIGINS, anel de chaves da selagem; parte 2: itens do D15 no painel do Supabase, desligar novos cadastros depois da conta do autor, conferir o Custom Access Token Hook no Free) e o roteiro do pré-spike manual (P4 a P8), sem nenhum valor de segredo e sem código de produto.
-3. [SCRIBE]: abram o HITL-035 na HITL-QUEUE (com a pergunta sobre os runbooks supabase-setup, upstash-redis e regiao-custo-zero), atualizem BACKLOG, STATE e SESSION-LOG, e reescrevam o next-step mantendo as trilhas. Commit local só do next-step. Parada obrigatória no HITL-035.
+Equipe, sigam em ciclo estrito. HITL-035: <cole aqui a resposta das partes 1, 2 e 3 e das 2 perguntas, sem nenhum valor de segredo>.
+1. [ORCHESTRATOR]: leiam STATE.md, HITL-QUEUE (HITL-035), o runbook auth-extensao §3.2 e o ADR-004 (§1.4, §3, D7, D14, D15).
+2. [QA_EVALS] + [APPSEC]: registrem P4 a P8, P18 e P19 no spike-metrics §4, com o veredito de cada ponto pelo critério do §1.4. Se o P4, o P7 ou o P8 falharem: parem, apliquem o recuo do D14 e abram um HITL novo, sem código.
+3. Se passarem: [ARCHITECT] ajusta o D7 ao que o pré-spike mostrou (nome do campo do código, AuthCodeSchema, state ou Q6) e, com a opção A da pergunta 1, emenda o D15; [DEV] + [QA_EVALS] fazem a F1-AUTH-00 (packages/contracts/src/auth.ts, export ./auth, ACCESS_TOKEN_MAX_CHARS em limits.ts, 100% de cobertura, contratos-zod §4 e §9).
+4. [SCRIBE]: fechem o HITL-035, atualizem BACKLOG, STATE e SESSION-LOG e reescrevam o next-step mantendo as trilhas. Commit local, sem push.
 ```
