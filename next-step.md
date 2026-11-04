@@ -1,42 +1,29 @@
-# Próximo passo: o HITL-034 (aprovar o ADR-004); sem esperar por ele, a Trilha D2d numa sessão nova
+# Próximo passo: a Trilha S3b (abrir o HITL-035), numa sessão nova
 
-> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. A esteira principal (login na extensão e envio à API) espera o HITL-034.
+## O que acabou de ser entregue (2026-11-04)
 
-## O que acabou de ser entregue (2026-10-31): batelada D2c → W1 → S3a
+### HITL-034 fechado: desenho da autenticação aprovado
+- "HITL-034: aprovado com as recomendações": valem as 14 respostas recomendadas do ADR-004 §7 (BFF, 24 h, 4 h, logout `global`, limitador local, falha fechada etc.).
+- O ADR-004 continua `proposto` até o HITL-035, o pré-spike manual (P4 a P8) e o spike (§6.2). Nenhum código de autenticação ainda.
 
-### Trilha D2c: LinkedIn logado e Solides (HITL-033 fechado; S-2 e F1-EXT-03 parte 3)
-- **Commits `08a8fd4`** (só as fixtures) **e `1a0dcb8`** (código), locais e sem push.
-- **Fixtures:** 3 buscas do LinkedIn logado e 4 da Solides, com o CSS da plataforma. Marcadores: `[PESSOA]` 2, `[EMPRESA]` 2, `[ENDERECO]` 2 e `[URL]` 1. Revisão de PII por 7 revisores independentes, sem achado bloqueante.
-  - O gitleaks local **não rodou**: a execução do binário oficial (versão e SHA-256 conferidos contra o CI) foi negada pela política de permissões. As regras de segredo dele foram refeitas em script, com 0 ocorrências. O job `secrets` do CI confere no push.
-- **`li2`** (LinkedIn logado): só a descrição do painel da vaga. O painel também traz blocos tirados do perfil e da rede do usuário, que ficam de fora.
-  - **Falha fechada:** no layout logado (`main#workspace`) sem a descrição, nada é lido (`texto_insuficiente`), e o painel oferece colar o texto.
-  - O `li1` continua na página pública, e o `ge1` fica como último caso fora dos layouts reconhecidos.
-- **`so1`** (Solides): `#vacancy-box-details`. Sem `main`, o `ge1` caía no `body` com a lista inteira. O `platformForUrl` reconhece `vagas.solides.com.br`, e o `PlatformSchema` do contrato ganhou `solides`.
-- **Emenda ao D4 (ADR-023 D12):** num rolável interno, vale o que a rolagem alcança. Sem isso, o *app shell* do LinkedIn logado cortava a descrição inteira. As 21 fixtures antigas dão o mesmo resultado.
-- **"Ver mais" fechado:** o `li2` lê só as 6 primeiras linhas (382 caracteres no `linkedin-08`). A decisão é a Trilha D2d.
-- **Prova:** unidade 180/180 com 100%; contratos 91/91; `test:browser` 136/136 com a cobertura de bloco de 100%; E2E 37/37 no build de produção (a prova negativa derruba os 3 testes novos); mutação 66/66; depcruise e turbo 21/21 em série.
-
-### Trilha W1: `rpd` da Workers AI pelo p95 medido (emenda ao ADR-020 D9)
-- **Commit `42977c9`**, local e sem push. Nenhuma chamada a provedor.
-- `floor(10.000 ÷ 101)` = 99 publicado e 84 efetivo por dia (antes, 54 e 45). A medida fica em `WORKERS_AI_NEURON_MEASUREMENT`, no padrão do `GROQ_TOKEN_MEASUREMENT`.
-- Um teste prova que o breaker global (400 por dia) e o TPD do Groq (56 por dia com a reserva cheia) continuam mandando.
-- **Prova:** API com 2.903 testes e 100%; mutação 12/12; turbo 21/21 em série.
-
-### Trilha S3a: desenho da autenticação da extensão (S-3 itens 3 e 4, F1-EXT-05), sem código
-- **ADR-004** (`base/02-arquitetura/ADRs/ADR-004-extension-auth.md`) com `status: proposto`. A aprovação é o **HITL-034**, com 14 perguntas e uma recomendação para cada.
-- **Desenho:** `chrome.identity.launchWebAuthFlow` com PKCE S256 aberto pelo Service Worker; troca, renovação e logout por um BFF sem estado na API; refresh selado num envelope que só a API abre, com idade máxima e inatividade; tokens só em `storage.session`, manipulados só pelo Service Worker; o painel vê só `{ autenticado, erro }` com os códigos do ADR-025; manifesto com só `identity` e a `key` a mais.
-- **Como foi feito:** 3 propostas independentes, 3 juízes (unanimidade no BFF) e revisão adversarial em três lentes (AppSec, QA e consistência), com 51 achados aplicados.
-- **Honesto sobre o limite:** o Chrome deixa o painel ler o `storage.session`. A separação é por código (lint, depcruise, grep do build e meta CSP no painel), provada por canários e heap snapshot no E2E.
+### Trilha D2d: "ver mais" fechado no LinkedIn logado (ADR-023 D13)
+- **Decisão:** opção (b). O *clamp* de linhas da própria descrição do `li2` não corta mais; o resto da regra de descarte (D4) continua valendo dentro dela, e o *clamp* em qualquer outro lugar continua cortando. Sem clicar no "ver mais" e sem mudar a página. A opção (a), aviso no painel, foi descartada, e o painel não mudou.
+- **Resultado:** `linkedin-08` de 382 para 3.324 caracteres, com os 3 trechos recolhidos. Nas 3 páginas logadas, toda linha da descrição está no texto.
+- **Clone com `innerText`: vetado pelo `[APPSEC]`.** No Edge, o `innerText` de um clone fora do documento ignora o CSS e trouxe o canário com `display:none`. Inserir o clone na página seria mutação do DOM.
+- **DOM Clobbering:** um `<form>` que sombreia `scrollHeight` faz a conta dar `NaN`, e tudo vira `cortado` (o lado seguro, com teste). Nenhum nó novo, e o teto de 50.000 nós não muda.
+- **Bancada E2E corrigida:** o CSS das fixtures com `href` relativo era abortado sob `/jobs/...`. Os E2E do LinkedIn logado, da Gupy e da Solides rodavam sem o CSS da plataforma.
+- **Prova:** unidade 180/180 com 100%; `test:browser` 145/145 com a cobertura de bloco de 100%; E2E 38/38 no build de produção, e a prova negativa derruba o teste novo; mutação 13/13; depcruise e turbo 21/21 em série. Nenhuma chamada a provedor.
+- **Intermitência do E2E:** 3 falhas `sem_acesso` em 12 rodadas, depois 14 rodadas seguidas sem falha. A causa não foi provada e está no BACKLOG como QA-04.
 
 ### Antes (ainda valendo)
-- **Trilhas D2a e D2b:** fixtures reais e extratores `li1` e `gu1`.
+- **Trilhas D2a a D2c:** fixtures reais e extratores `li1`, `li2`, `gu1` e `so1`.
+- **Trilha W1:** `rpd` da Workers AI pelo p95 medido.
 - **Trilha L1:** cadeia Groq → Workers AI → determinístico ligada no `main.ts`. Pendência do próximo prompt (`p4`): "`null` quando a vaga não declara experiência" em `yearsExperienceMin` (spike-metrics §2.11).
 - **Trilhas F e G:** captura no Service Worker e UI do Side Panel, ainda sem enviar à API.
 
 ### Pendências do humano
-- **HITL-034:** aprovar o ADR-004 e responder as 14 perguntas do §7 ("HITL-034: aprovado com as recomendações", ou só as perguntas que mudarem). Bloqueia o login na extensão (F1-EXT-05) e, por tabela, o envio à API.
-- **Depois do HITL-034:** a equipe abre o HITL-035 (par de chaves da extensão, anel de chaves da selagem e configuração do Auth no painel do Supabase). Nenhum segredo vai para o cofre.
-- **Inconsistência do cofre a esclarecer:** o HITL-004 diz que o runbook `supabase-setup` foi mantido, mas ele não existe em `base/03-infra-runbook/` (também faltam `upstash-redis` e `regiao-custo-zero`). O HITL-035 vai perguntar se foram movidos ou apagados.
+- Nenhuma aberta agora. A S3b abre o HITL-035 (ação externa: par de chaves, anel da selagem e painel do Supabase). Nenhum segredo vai para o cofre.
+- **Inconsistência do cofre a esclarecer no HITL-035:** os runbooks `supabase-setup`, `upstash-redis` e `regiao-custo-zero` não existem em `base/03-infra-runbook/`.
 - O push continua não autorizado. Já são vários commits locais no `spike/s1-extraction`. Quando quiser, autorize o push e o PR.
 
 ---
@@ -47,11 +34,11 @@
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **D2d** | "Ver mais" fechado no LinkedIn logado: hoje o `li2` lê só as 6 primeiras linhas. Opções: (a) o painel avisa para abrir o "ver mais" e capturar de novo, sem mudar o D4; (b) exceção do *clamp* só para a caixa da descrição, com emenda ao ADR-023 e auditoria do `[APPSEC]`. Recomendação: (a) | não | nada |
+| **S3b** | Abrir o HITL-035 (par de chaves da extensão, anel de chaves da selagem, configuração do Auth no painel do Supabase) e escrever o runbook `base/03-infra-runbook/auth-extensao.md`, sem nenhum valor de segredo, mais o roteiro do pré-spike manual (P4 a P8). Sem código de produto | não | nada (termina num HITL) |
 | **F1-AUTH-00 → F1-API-07 → F1-EXT-05a/b/c → F1-SEC-01** | Implementação do ADR-004, uma trilha por vez (contratos, BFF na API, Service Worker e manifesto, painel, E2E com IdP falso, threat model v2) | não | HITL-034, HITL-035 e o pré-spike manual (P4 a P8) |
 
 **O que vem depois:**
-- **HITL-034 aprovado:** o `[SCRIBE]` abre o HITL-035 e o roteiro do pré-spike manual (sem código de produto).
+- **HITL-035 fechado e pré-spike feito:** começa a F1-AUTH-00 (contratos), a primeira trilha de implementação do ADR-004.
 - **F1-EXT-05a concluída:** o envio à API (F1-EXT-04 parte 2) vira trilha.
 
 **Cuidados para as trilhas não se atrapalharem:**
@@ -62,25 +49,26 @@
 5. **O critério de stack é o efeito na nota** (golden-dataset-spec §8.1), e o **§8.3 tem o ruído**. Cada aceite novo de prompt ou guard roda o `S1_MODE=effect` e, se cair mais de 2 pp, o `S1_MODE=noise`.
 6. **A cadeia de produção passa pelo `composeProductionApp`.** Provedor novo ou troca de modelo exige o gate do golden dataset antes (T28).
 7. **Testes novos de socket real seguem o QA-02**, com o prazo folgado de `test/support/socket-deadlines.ts`.
-8. **Fixtures reais:** qualquer fixture nova ou alterada passa de novo pelo runbook fixtures-dom §2 a §4 e pelas emendas do §8 (script fora do repositório, varredura antes do `git add`, commit próprio). O trecho proibido precisa existir na página e não pode aparecer na raiz da vaga; o recolhido (com "ver mais" fechado) também precisa existir na página.
+8. **Fixtures reais:** qualquer fixture nova ou alterada passa de novo pelo runbook fixtures-dom §2 a §4 e pelas emendas do §8 (script fora do repositório, varredura antes do `git add`, commit próprio). O trecho proibido precisa existir na página e não pode aparecer na raiz da vaga; o recolhido (com "ver mais" fechado) precisa entrar no texto (ADR-023 D13).
 9. **O extrator é um só** (`job-extractor.ts`, ADR-023 D11 e D12):
    - a regra de descarte (D4) vale para todas as plataformas, e qualquer mudança nela passa pelo `test:browser` inteiro, com a cobertura de 100% e a mutação;
    - cada seletor de plataforma tem a sua versão (`li2` logado, `li1` público, `gu1`, `so1`); seletor novo ganha versão nova e precisa de fixture real no gate;
+   - o *clamp* só deixa de cortar na própria raiz de uma versão com `verMais` (hoje só o `li2`, D13); estender isso a outra raiz passa pelo `[APPSEC]`;
    - **depois que o envio à API existir, qualquer mudança no D4 muda todas as versões**;
    - o texto da vaga não vai ao painel (ADR-024 D4), link é proibido por lint, e erro sai do catálogo pelo `code` (ADR-025).
-10. **A autenticação segue o ADR-004 aprovado:** o token só no Service Worker; o painel nunca lê `storage` nem recebe token; o extrator nunca recebe nada da sessão.
+10. **A autenticação segue o ADR-004 (desenho aprovado no HITL-034, com as 14 recomendações):** o token só no Service Worker; o painel nunca lê `storage` nem recebe token; o extrator nunca recebe nada da sessão.
     - **O envio à API (F1-EXT-04 parte 2)**, quando virar trilha, só envia com `consent.isGranted()` e com sessão, e um teste prova isso. O `source` leva `platform` e `extractorVersion`, a base do monitoramento dos seletores (spike-metrics §3.4 e §3.5).
 11. **Mudança de contrato atualiza o cofre na mesma tarefa** (DOC-01): a §4 do `contratos-zod` é regerada do `src/`, e a §9 ganha uma linha.
-12. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
+12. **E2E com fixture real:** cada teste de plataforma usa uma URL própria (o `clickAction` acha a aba pela URL), e a rota serve o CSS pelo nome do arquivo. Intermitência de `sem_acesso` vai para o QA-04.
+13. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
 
 ---
 
-## Próximo prompt (sessão nova, sem esperar o HITL-034)
+## Próximo prompt (sessão nova)
 
 ```text
-Equipe, sigam em ciclo estrito. Trilha D2d do next-step: "ver mais" fechado no LinkedIn logado (ADR-023 D12).
-1. [ORCHESTRATOR]: leiam STATE.md, ADR-023 (D4 e D12), ADR-024, ADR-025 e spike-metrics §3.5.
-2. [ARCHITECT] + [APPSEC]: decidam entre (a) aviso no painel para abrir o "ver mais" e capturar de novo, sem mudar o D4, e (b) exceção do clamp só para a caixa da descrição da plataforma. Registrem a decisão no ADR-023.
-3. [DEV] + [QA_EVALS]: implementem com 100% de unidade, test:browser (fixture linkedin-08), E2E no build de produção, mutação e turbo em série. Nenhuma chamada a provedor.
-4. [SCRIBE]: ADR-023, ADR-025 (se mexer no painel), BACKLOG, STATE, SESSION-LOG e commit local. Reescrevam o next-step mantendo as trilhas.
+Equipe, sigam em ciclo estrito. Trilha S3b do next-step: abrir o HITL-035 do ADR-004 (HITL-034 aprovado com as recomendações).
+1. [ORCHESTRATOR]: leiam STATE.md, HITL-QUEUE (HITL-034), ADR-004 §1.2, §1.4 (P4 a P8, P18), §6.2, D15 e a Q9/Q10 aprovadas.
+2. [ARCHITECT] + [APPSEC]: escrevam o runbook base/03-infra-runbook/auth-extensao.md (parte 1: par RSA da extensão fora do repositório, TRAMPO_EXTENSION_KEY só com a pública, CORS_ALLOWED_ORIGINS, anel de chaves da selagem; parte 2: itens do D15 no painel do Supabase, desligar novos cadastros depois da conta do autor, conferir o Custom Access Token Hook no Free) e o roteiro do pré-spike manual (P4 a P8), sem nenhum valor de segredo e sem código de produto.
+3. [SCRIBE]: abram o HITL-035 na HITL-QUEUE (com a pergunta sobre os runbooks supabase-setup, upstash-redis e regiao-custo-zero), atualizem BACKLOG, STATE e SESSION-LOG, e reescrevam o next-step mantendo as trilhas. Commit local só do next-step. Parada obrigatória no HITL-035.
 ```
