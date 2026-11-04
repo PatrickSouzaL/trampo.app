@@ -3,7 +3,8 @@
 // - Gate do extrator da plataforma (ADR-023 D11 e D12): o LinkedIn (logado e público), a Gupy e a
 //   Solides acham a raiz deles, e a GeekHunter usa o genérico. Os trechos obrigatórios aparecem, os
 //   proibidos não, e cada proibido existe na página fora da raiz (o gate não é vazio). Com o "ver
-//   mais" fechado, os trechos recolhidos existem na página e ficam de fora (D4, `cortado`).
+//   mais" fechado, os trechos recolhidos entram (D13), e no LinkedIn logado toda linha da descrição
+//   está no texto.
 // - Descarte, só onde a página trouxe o CSS da plataforma (`cssDaPlataforma`): nenhuma linha do texto
 //   fica fora do `innerText` da raiz, que o navegador monta só com o que renderiza.
 // - O genérico medido nas quatro plataformas, para o spike-metrics §3.3 a §3.5.
@@ -28,7 +29,7 @@ interface FixtureMeta {
   raizDaPlataforma: string;
   trechosObrigatorios: string[];
   trechosProibidos: string[];
-  /** Com o "ver mais" fechado: texto da vaga escondido pelo clamp, que fica de fora. */
+  /** Com o "ver mais" fechado: texto da vaga recolhido pelo clamp, que entra (ADR-023 D13). */
   trechosRecolhidos?: string[];
   anonimizacao: Record<string, number>;
 }
@@ -101,12 +102,10 @@ describe("extrator da plataforma nas fixtures reais (gate)", () => {
         // O proibido existe na página (o cartão da lista, o banner, o menu): o gate não é vazio.
         if (s !== "[PESSOA]") expect(await bench.pageHas(s), `proibido inexistente na página: ${s}`).toBe(true);
       }
-      // "Ver mais" fechado: o texto que o clamp esconde existe na página e fica de fora (D4, cortado).
-      for (const s of meta.trechosRecolhidos ?? []) {
-        expect(r.texto, `recolhido presente: ${s}`).not.toContain(s);
-        expect(await bench.pageHas(s), `recolhido inexistente na página: ${s}`).toBe(true);
-      }
-      if (meta.verMais === "fechado") expect(r.descartes.cortado).toBeGreaterThan(0);
+      // "Ver mais" fechado: o texto que o clamp da descrição recolhe entra (ADR-023 D13), e nada da
+      // descrição fica de fora por corte.
+      for (const s of meta.trechosRecolhidos ?? []) expect(r.texto, `recolhido ausente: ${s}`).toContain(s);
+      if (meta.verMais === "fechado") expect(r.descartes.cortado).toBe(0);
 
       if (meta.cssDaPlataforma) {
         // O descarte nunca devolve mais do que o navegador renderiza. O innerText aplica o
@@ -114,6 +113,18 @@ describe("extrator da plataforma nas fixtures reais (gate)", () => {
         const rendered = collapse(await bench.mainWorld.evaluate((sel) => (document.querySelector(sel) as HTMLElement).innerText, meta.raizDaPlataforma));
         const outside = r.texto.split("\n").map(collapse).filter((line) => line !== "" && !rendered.includes(line));
         expect(outside).toEqual([]);
+        if (meta.sessao === "logada") {
+          // Completude no LinkedIn logado (D13): toda linha da descrição, aberta ou recolhida, entra. O
+          // innerText ignora o corte do clamp, então traz as linhas recolhidas também; o texto do botão
+          // "… mais" fica de fora (BUTTON é naoTexto).
+          const lines = await bench.mainWorld.evaluate((sel) => {
+            const root = document.querySelector(sel) as HTMLElement;
+            const buttons = new Set(Array.from(root.querySelectorAll("button"), (b) => b.innerText.trim()));
+            return root.innerText.split("\n").filter((line) => !buttons.has(line.trim()));
+          }, meta.raizDaPlataforma);
+          const text = collapse(r.texto);
+          expect(lines.map(collapse).filter((line) => line !== "" && !text.includes(line))).toEqual([]);
+        }
       }
 
       rows.push(

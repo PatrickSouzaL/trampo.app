@@ -54,23 +54,29 @@ export type ExtractionResult =
 export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorPlatform): ExtractionResult {
   // Raiz de cada plataforma, conferida nas fixtures reais (fixtures-dom §6 e §8), em ordem: a primeira
   // com um elemento visível vence, e o resultado leva a versão dela. `layout` reconhece uma página da
-  // plataforma onde o genérico pegaria o que não é a vaga: achado sem a raiz, nada é lido.
+  // plataforma onde o genérico pegaria o que não é a vaga: achado sem a raiz, nada é lido. `verMais`:
+  // o clamp de linhas da própria raiz não corta (o "ver mais" fechado, D13).
   // Map, e não objeto, para "__proto__" e afins não acharem nada.
-  const PLATAFORMAS = new Map<string, { versao: ExtractorVersion; raiz: string; layout: string | null }[]>([
+  const PLATAFORMAS = new Map<string, { versao: ExtractorVersion; raiz: string; layout: string | null; verMais: boolean }[]>([
     [
       "linkedin",
       [
         // Logado: só a descrição. O painel da vaga também traz blocos tirados do perfil e da rede do
         // usuário ("qualificações que não constam do seu perfil", "pessoas que você pode contatar"), e o
         // `main#workspace` junta a lista e o painel.
-        { versao: "li2", raiz: '[data-sdui-screen$=".SemanticJobDetails"] [data-testid="expandable-text-box"]', layout: "main#workspace" },
+        {
+          versao: "li2",
+          raiz: '[data-sdui-screen$=".SemanticJobDetails"] [data-testid="expandable-text-box"]',
+          layout: "main#workspace",
+          verMais: true,
+        },
         // Público: busca em dois painéis; a vaga aberta é irmã do `main`, que é a lista de vagas.
-        { versao: "li1", raiz: ".details-pane__content", layout: null },
+        { versao: "li1", raiz: ".details-pane__content", layout: null, verMais: false },
       ],
     ],
-    ["gupy", [{ versao: "gu1", raiz: "main#main", layout: null }]],
+    ["gupy", [{ versao: "gu1", raiz: "main#main", layout: null, verMais: false }]],
     // Busca em dois painéis: a lista de cartões e, ao lado, a vaga aberta.
-    ["solides", [{ versao: "so1", raiz: "#vacancy-box-details", layout: null }]],
+    ["solides", [{ versao: "so1", raiz: "#vacancy-box-details", layout: null, verMais: false }]],
   ]);
   let versao: ExtractorVersion = "ge1";
   const inteiroEm = (v: unknown, min: number, max: number): boolean =>
@@ -146,8 +152,11 @@ export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorP
     return vFim > vIni ? [vIni - rolado, vFim + resto] : [Infinity, -Infinity];
   };
 
-  /** Contexto do elemento a partir do pai, ou o motivo do descarte da subárvore inteira (ADR-023 D4). */
-  const entrar = (el: Element, pai: Contexto, abaixoDaRaiz: boolean): Contexto | DiscardReason => {
+  /**
+   * Contexto do elemento a partir do pai, ou o motivo do descarte da subárvore inteira (ADR-023 D4).
+   * `abreClamp`: só na raiz da plataforma com `verMais` (D13).
+   */
+  const entrar = (el: Element, pai: Contexto, abaixoDaRaiz: boolean, abreClamp = false): Contexto | DiscardReason => {
     if (el.namespaceURI !== HTML_NS || SEM_TEXTO.has(el.tagName)) return "naoTexto";
     if (abaixoDaRaiz && RUIDO.has(el.tagName)) return "ruido";
     const st = getComputedStyle(el);
@@ -184,7 +193,14 @@ export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorP
       const sy = el.scrollTop;
       const [l, r] = intervalo(mx, caixa.left, caixa.right, vl, vr, sx, el.scrollWidth - el.clientWidth - sx);
       const [t, b] = intervalo(my, caixa.top, caixa.bottom, vt, vb, sy, el.scrollHeight - el.clientHeight - sy);
-      cortes = [...cortes.map((c) => ({ l: rolaX ? -Infinity : c.l, r: rolaX ? Infinity : c.r, t: rolaY ? -Infinity : c.t, b: rolaY ? Infinity : c.b })), { l, r, t, b }];
+      // "Ver mais" fechado (D13): o clamp de linhas da raiz com corte vertical não corta. O que ele
+      // recolhe fica abaixo da caixa, e abrir o "ver mais" empurra a caixa e os de fora para baixo na
+      // mesma medida. Propriedade sombreada por <form> (DOM Clobbering) dá NaN, que corta tudo.
+      const abre = abreClamp && st.webkitLineClamp !== "none" && CORTA.test(oy) ? el.scrollHeight - el.clientHeight : 0;
+      cortes = [
+        ...cortes.map((c) => ({ l: rolaX ? -Infinity : c.l, r: rolaX ? Infinity : c.r, t: rolaY ? -Infinity : c.t, b: (rolaY ? Infinity : c.b) + abre })),
+        { l, r, t, b: b + abre },
+      ];
       origemX = origemX && !rolaX;
       origemY = origemY && !rolaY;
     }
@@ -230,7 +246,7 @@ export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorP
     return s.slice(i, j);
   };
 
-  const extrair = (raiz: Element): { texto: string; truncado: boolean; descartes: DiscardCounts } => {
+  const extrair = (raiz: Element, verMais = false): { texto: string; truncado: boolean; descartes: DiscardCounts } => {
     const descartes: DiscardCounts = {
       naoTexto: 0,
       ruido: 0,
@@ -323,7 +339,7 @@ export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorP
       origemY: true,
     };
     for (const e of cadeia) {
-      ctx = entrar(e, ctx, false);
+      ctx = entrar(e, ctx, false, verMais && e === raiz);
       // Ancestral da raiz descartado: nada é lido, e o resultado vira texto_insuficiente.
       if (typeof ctx === "string") return { texto: "", truncado, descartes };
     }
@@ -343,7 +359,7 @@ export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorP
     // Raiz da plataforma achada: ela decide, mesmo com pouco texto (no LinkedIn, o `main` é a lista).
     if (doAlvo !== undefined) {
       versao = alvo.versao;
-      melhor = extrair(doAlvo);
+      melhor = extrair(doAlvo, alvo.verMais);
       break;
     }
   }

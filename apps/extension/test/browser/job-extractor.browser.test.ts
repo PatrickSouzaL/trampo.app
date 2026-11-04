@@ -245,11 +245,79 @@ describe("LinkedIn logado (ADR-023 D12)", () => {
     expect([r.versao, r.texto]).toEqual(["li2", "descrição da vaga logada"]);
   });
 
-  test('"ver mais" fechado: o que o clamp esconde fica de fora (cortado)', async () => {
-    const clamp = "display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden";
-    const pane = `<span data-testid="expandable-text-box" style="${clamp}">linha 1<br>linha 2<br>CANARIO-recolhido linha 3</span>`;
+  // ADR-023 D13: o clamp de linhas da própria descrição não corta. As outras regras do D4 continuam
+  // valendo dentro dela, e o clamp em qualquer outro lugar continua cortando.
+  const CLAMP = "display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden";
+  const box = (inner: string, style = CLAMP): string => `<span data-testid="expandable-text-box" style="${style}">${inner}</span>`;
+
+  test('"ver mais" fechado: o que o clamp da descrição recolhe entra (D13)', async () => {
+    const r = ok(await bench.run(logged(box("linha 1<br>linha 2<br>recolhida linha 3<br>recolhida linha 4")), LIMITS, "linkedin"));
+    expect([r.versao, r.texto, r.descartes.cortado]).toEqual(["li2", "linha 1\nlinha 2\nrecolhida linha 3\nrecolhida linha 4", 0]);
+  });
+
+  test('"ver mais" fechado: o oculto dentro do recolhido continua de fora', async () => {
+    const hidden =
+      '<span style="display:none">CANARIO-none</span><span style="color:#fff">CANARIO-branco</span>' +
+      '<span style="font-size:0">CANARIO-zero</span><span style="opacity:0">CANARIO-opaco</span>' +
+      '<span style="position:relative;left:-9999px">CANARIO-esquerda</span>';
+    const r = ok(await bench.run(logged(box(`linha 1<br>linha 2<br>recolhida ${hidden}linha 3`)), LIMITS, "linkedin"));
+    expect(r.texto).toBe("linha 1\nlinha 2\nrecolhida linha 3");
+    expect(r.descartes).toMatchObject({ naoRenderizado: 1, corDoFundo: 1, fonteMinuscula: 1, opacidade: 1, foraDaTela: 1, cortado: 0 });
+  });
+
+  test('"ver mais" fechado: o clamp aninhado na descrição continua cortando', async () => {
+    const r = ok(await bench.run(logged(box(`linha 1<br><span style="${CLAMP}">aninhada 1<br>aninhada 2<br>CANARIO-aninhada 3</span>`)), LIMITS, "linkedin"));
+    expect([r.texto, r.descartes.cortado]).toEqual(["linha 1\n\naninhada 1\naninhada 2", 1]);
+  });
+
+  test("a descrição com corte de altura sem clamp continua cortando", async () => {
+    const r = ok(await bench.run(logged(box("linha 1<br>CANARIO-altura linha 2", "display:block;height:1.4em;overflow:hidden")), LIMITS, "linkedin"));
+    expect([r.texto, r.descartes.cortado]).toEqual(["linha 1", 1]);
+  });
+
+  test("o clamp de um ancestral da descrição continua cortando: só a própria raiz abre", async () => {
+    const pane = `<div style="${CLAMP}">${box("linha 1<br>linha 2<br>CANARIO-ancestral linha 3", "display:block")}</div>`;
     const r = ok(await bench.run(logged(pane), LIMITS, "linkedin"));
-    expect([r.versao, r.texto, r.descartes.cortado]).toEqual(["li2", "linha 1\nlinha 2", 1]);
+    expect([r.texto, r.descartes.cortado]).toEqual(["linha 1\nlinha 2", 1]);
+  });
+
+  test("clamp sem corte vertical na descrição: as linhas transbordam, e o corte de fora continua valendo", async () => {
+    // overflow-x: clip deixa o eixo vertical visível: nada a abrir, e o corte de altura de fora vale.
+    const style = "display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-x:clip";
+    const pane = `<div style="height:2.8em;overflow:hidden">${box("linha 1<br>linha 2<br>CANARIO-transbordo linha 3", style)}</div>`;
+    const r = ok(await bench.run(logged(pane), LIMITS, "linkedin"));
+    expect([r.texto, r.descartes.cortado]).toEqual(["linha 1\nlinha 2", 1]);
+  });
+
+  test("a descrição com clamp rolável não estende duas vezes: o rolável já alcança o resto", async () => {
+    const style = "display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:auto;height:2.8em";
+    const r = ok(await bench.run(logged(box("linha 1<br>linha 2<br>linha 3", style)), LIMITS, "linkedin"));
+    expect([r.texto, r.descartes.cortado]).toEqual(["linha 1\nlinha 2\nlinha 3", 0]);
+  });
+
+  test('"ver mais" fechado num rolável: abrir empurra o fim da rolagem, e o recolhido além dele entra', async () => {
+    // O rolável (100 px) só alcança o que está nele; as 40 linhas recolhidas (~900 px) ficam além do
+    // fim da rolagem até o "ver mais" abrir. O que vem depois da descrição no rolável não é lido.
+    const lines = Array.from({ length: 40 }, (_, i) => `recolhida ${i + 3}`).join("<br>");
+    const pane = `<div style="height:100px;overflow:auto">${box(`linha 1<br>linha 2<br>${lines}`)}<p>CANARIO-depois</p></div>`;
+    const r = ok(await bench.run(logged(pane), LIMITS, "linkedin"));
+    expect(r.texto.split("\n")).toHaveLength(42);
+    expect(r.texto.endsWith("recolhida 42")).toBe(true);
+  });
+
+  test("o clamp da raiz de outra plataforma e do genérico continua cortando (T2)", async () => {
+    const inner = "linha 1<br>linha 2<br>CANARIO-recolhido linha 3";
+    const linkedinPublic = ok(await bench.run(page(`<div class="details-pane__content" style="${CLAMP}">${inner}</div>`), LIMITS, "linkedin"));
+    const generic = ok(await bench.run(logged(box(inner)), LIMITS, "generico"));
+    expect([linkedinPublic.versao, linkedinPublic.texto]).toEqual(["li1", "linha 1\nlinha 2"]);
+    expect(generic.versao).toBe("ge1");
+    expect(generic.texto).not.toContain("CANARIO-recolhido");
+  });
+
+  test("DOM Clobbering: <form> que sombreia scrollHeight não estende o clamp (NaN corta tudo)", async () => {
+    const form = `<form data-testid="expandable-text-box" style="${CLAMP}">linha 1<br>linha 2<br>CANARIO-recolhido<input name="scrollHeight"><input name="clientHeight"></form>`;
+    const r = await bench.run(logged(form), LIMITS, "linkedin");
+    expect(r).toEqual({ ok: false, versao: "li2", motivo: "texto_insuficiente" });
   });
 });
 

@@ -124,14 +124,22 @@ describe("captura no build de produção", () => {
     { host: "https://www.linkedin.com", path: "/jobs/search/", fixture: "linkedin-03", platform: "linkedin", version: "li1" },
     // ADR-023 D12: o LinkedIn logado (só a descrição, sem a lista nem os blocos do perfil) e a Solides.
     { host: "https://www.linkedin.com", path: "/jobs/search-results/", fixture: "linkedin-09", platform: "linkedin", version: "li2" },
+    // ADR-023 D13: o "ver mais" fechado; o que o clamp da descrição recolhe entra. Caminho próprio: o
+    // clickAction acha a aba pela URL, e a do teste anterior pode ainda estar fechando.
+    { host: "https://www.linkedin.com", path: "/jobs/collections/recommended/", fixture: "linkedin-08", platform: "linkedin", version: "li2" },
     { host: "https://empresa.gupy.io", path: "/jobs/1", fixture: "gupy-01", platform: "gupy", version: "gu1" },
     { host: "https://vagas.solides.com.br", path: "/vagas/devops", fixture: "solides-04", platform: "solides", version: "so1" },
   ] as const;
   for (const p of platforms) {
-    test(`${p.platform}: o host da aba escolhe o extrator ${p.version} no build de produção`, async () => {
-      const meta = JSON.parse(readFileSync(join(FIXTURES_DIR, `${p.fixture}.json`), "utf8")) as { trechosObrigatorios: string[]; trechosProibidos: string[] };
+    test(`${p.platform} (${p.fixture}): o host da aba escolhe o extrator ${p.version} no build de produção`, async () => {
+      const meta = JSON.parse(readFileSync(join(FIXTURES_DIR, `${p.fixture}.json`), "utf8")) as {
+        trechosObrigatorios: string[];
+        trechosProibidos: string[];
+        trechosRecolhidos?: string[];
+      };
       await l!.ctx.route(`${p.host}/**`, (route) => {
-        const name = new URL(route.request().url()).pathname.slice(1);
+        // O CSS da fixture tem href relativo: sob /jobs/search-results/, o caminho traz a pasta da página.
+        const name = new URL(route.request().url()).pathname.split("/").pop() ?? "";
         if (route.request().url() === `${p.host}${p.path}`) {
           return route.fulfill({ body: readFileSync(join(FIXTURES_DIR, `${p.fixture}.html`)), contentType: "text/html; charset=utf-8" });
         }
@@ -147,6 +155,7 @@ describe("captura no build de produção", () => {
       expect(state.vaga).toMatchObject({ platform: p.platform, extractorVersion: p.version, truncated: false });
       for (const s of meta.trechosObrigatorios) expect(state.vaga.text).toContain(s);
       for (const s of meta.trechosProibidos) expect(state.vaga.text).not.toContain(s);
+      for (const s of meta.trechosRecolhidos ?? []) expect(state.vaga.text).toContain(s);
       // A URL da aba não vai para o storage: só a plataforma.
       expect(JSON.stringify(state)).not.toContain(p.host.slice("https://".length));
       await page.close();
