@@ -67,7 +67,28 @@
 ## Próximo prompt (sessão nova, depois do HITL-035)
 
 ```text
-Equipe, sigam em ciclo estrito. HITL-035: <cole aqui a resposta das partes 1, 2 e 3 e das 2 perguntas, sem nenhum valor de segredo>.
+Equipe, sigam em ciclo estrito. HITL-035: 
+HITL-035 parte 1 concluída.
+
+HITL-035 parte 2 concluída:
+- Site URL = A
+- P18: disponível no painel
+- P19: Token Refresh = 150 requests/5 min per IP; Sign-up/sign-in = 30 requests/5 min per IP.
+- Pergunta 2 (Runbooks): Apagados de propósito (arquitetura BFF no Edge os tornou obsoletos).
+
+HITL-035 parte 3 concluída (pré-spike validado, nenhum recuo da Etapa 6 acionado):
+- Caso A: st_volta_igual True, code na query. 1ª troca HTTP 200 (access_token retornado). 2ª troca falhou (HTTP 404, flow_state_not_found). P4, P5, P7 e P8 aprovados.
+- Caso B (Sem verifier): status ≠ 200. P8 aprovado.
+- Caso C (Verifier errado): status ≠ 200. P8 aprovado.
+- Caso D (Código vencido): status ≠ 200 (minutos_do_code > 5). P8 aprovado.
+- Caso E (Fora da lista): host_igual Falso. P6 aprovado.
+- Caso F (Caminho arbitrário): bloqueado/não resolveu via Site URL raiz. P6 aprovado.
+- Caso G (Negação): code_presente Falso, error_code e error_description presentes. P4 aprovado.
+- Caso H (Google feliz): Fluxo completo com sucesso. P4 e P7 aprovados.
+
+Todos os portões do AppSec (P4 a P8) foram integralmente aprovados. Pode iniciar a F1-AUTH-00 imediatamente: 
+
+
 1. [ORCHESTRATOR]: leiam STATE.md, HITL-QUEUE (HITL-035), o runbook auth-extensao §3.2 e o ADR-004 (§1.4, §3, D7, D14, D15).
 2. [QA_EVALS] + [APPSEC]: registrem P4 a P8, P18 e P19 no spike-metrics §4, com o veredito de cada ponto pelo critério do §1.4. Se o P4, o P7 ou o P8 falharem: parem, apliquem o recuo do D14 e abram um HITL novo, sem código.
 3. Se passarem: [ARCHITECT] ajusta o D7 ao que o pré-spike mostrou (nome do campo do código, AuthCodeSchema, state ou Q6) e, com a opção A da pergunta 1, emenda o D15; [DEV] + [QA_EVALS] fazem a F1-AUTH-00 (packages/contracts/src/auth.ts, export ./auth, ACCESS_TOKEN_MAX_CHARS em limits.ts, 100% de cobertura, contratos-zod §4 e §9).
