@@ -5,3 +5,4 @@ export * from './job-facts.js';
 export * from './user-criteria.js';
 export * from './analysis-report.js';
 export * from './api.js';
+export * from './auth.js';
