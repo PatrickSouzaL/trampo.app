@@ -9,6 +9,30 @@ export {
   type JwksTimings,
 } from "./auth/jose-access-token-verifier.js";
 export {
+  AUTH_SESSION_LIMITS,
+  AuthSessionConfigError,
+  readAuthSessionEnv,
+  type AuthSessionConfig,
+  type AuthSessionVariable,
+} from "./auth/auth-session-env.js";
+export {
+  AEAD_KEY_ID_PATTERN,
+  AEAD_POLICY,
+  createAeadEnvelope,
+  decodeCanonical,
+  parseAeadKeyring,
+  type AeadEnvelope,
+  type AeadEnvelopeFormat,
+  type AeadKeyring,
+} from "./crypto/aead-envelope.js";
+export {
+  REFRESH_ENVELOPE_VERSION,
+  REFRESH_SEALER_POLICY,
+  RefreshKeyringConfigError,
+  createAeadRefreshSealer,
+  parseRefreshKeyring,
+} from "./crypto/aead-refresh-sealer.js";
+export {
   SALARY_CIPHER_POLICY,
   SALARY_ENVELOPE_VERSION,
   SalaryKeyringConfigError,
