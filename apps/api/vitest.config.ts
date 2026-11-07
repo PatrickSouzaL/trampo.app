@@ -24,6 +24,7 @@ export default defineConfig({
           // PostgREST simulado em socket real (F1-DB-01 parte 2), como o Upstash: grupo da presentation.
           // Workers AI simulada em socket real (F1-LLM-02), idem.
           // AnalyzeJob (F1-API-04): o funil inteiro com o motor real e propriedades de 1.000 execuções, no grupo do motor.
+          // GoTrue simulado em socket real (F1-API-07 07c, ADR-004 §4.2), como o PostgREST: grupo da presentation.
           exclude: [
             "test/domain/scoring-*.test.ts",
             "test/domain/report-*.test.ts",
@@ -35,6 +36,7 @@ export default defineConfig({
             "test/infrastructure/upstash-*.test.ts",
             "test/infrastructure/postgrest-*.test.ts",
             "test/infrastructure/cloudflare-*.test.ts",
+            "test/infrastructure/gotrue-*.test.ts",
           ],
           sequence: { groupOrder: 0 },
           testTimeout: 30_000,
@@ -50,7 +52,7 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts", "test/infrastructure/postgrest-*.test.ts", "test/infrastructure/cloudflare-*.test.ts"], sequence: { groupOrder: 3 } },
+        test: { name: "presentation", include: ["test/*.test.ts", "test/infrastructure/jose-*.test.ts", "test/infrastructure/upstash-*.test.ts", "test/infrastructure/postgrest-*.test.ts", "test/infrastructure/cloudflare-*.test.ts", "test/infrastructure/gotrue-*.test.ts"], sequence: { groupOrder: 3 } },
       },
     ],
     coverage: {
