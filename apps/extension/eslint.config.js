@@ -50,6 +50,24 @@ const storageSelectors = [
   },
 ];
 
+// Saída de rede (ADR-004 D10 B2): o `fetch` existe só em src/api/api-client.ts, que fixa a origem, a lista
+// de caminhos e o Bearer. Os outros canais (XHR, WebSocket, EventSource, sendBeacon) não têm uso na extensão.
+const API_CLIENT_FILE = "src/api/api-client.ts";
+const OTHER_EGRESS_GLOBALS = ["XMLHttpRequest", "WebSocket", "EventSource"].map((name) => ({
+  name,
+  message: "Canal de rede proibido na extensão: tudo sai pelo api-client (ADR-004 D10 B2).",
+}));
+const FETCH_ONLY_IN_CLIENT = "fetch só em src/api/api-client.ts, que fixa a origem, os caminhos e o Bearer (ADR-004 D10 B2).";
+const egressRules = (allowFetch) => ({
+  "no-restricted-globals": ["error", ...OTHER_EGRESS_GLOBALS, ...(allowFetch ? [] : [{ name: "fetch", message: FETCH_ONLY_IN_CLIENT }])],
+  // Pega `globalThis.fetch`, `self["fetch"]` e `const { fetch } = globalThis`, que a regra de globais não vê.
+  "no-restricted-properties": [
+    "error",
+    { property: "sendBeacon", message: "Canal de rede proibido na extensão: tudo sai pelo api-client (ADR-004 D10 B2)." },
+    ...(allowFetch ? [] : [{ property: "fetch", message: FETCH_ONLY_IN_CLIENT }]),
+  ],
+});
+
 // O painel não tem link nem recurso externo (ADR-025 D5; AnalysisReport D8): o texto do servidor nunca
 // vira navegação, e a CSP não precisa abrir nada além de 'self'.
 const NAVIGATING_ELEMENTS = "a|area|base|link|iframe|frame|embed|object|img|image|video|audio|source|track|portal";
@@ -105,6 +123,16 @@ export default defineConfig([
       // A regra não se acumula entre configs: os seletores de HTML do preset são repetidos aqui.
       "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors],
     },
+  },
+  {
+    name: "@trampo/extension/egress",
+    files: ["src/**/*.{ts,tsx}"],
+    rules: egressRules(false),
+  },
+  {
+    name: "@trampo/extension/egress-api-client",
+    files: [API_CLIENT_FILE],
+    rules: egressRules(true),
   },
   {
     name: "@trampo/extension/worker-auth",
