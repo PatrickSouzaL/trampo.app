@@ -1,37 +1,34 @@
-# Próximo passo: F1-EXT-05a, commit 05a-2 (sessão guardada e api-client) numa sessão nova
+# Próximo passo: F1-EXT-05a, commit 05a-3 (auth-service) numa sessão nova
 
 > **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. Não há HITL aberto para a trilha.
 
-## O que acabou de ser entregue (2026-11-07, sessão 8)
+## O que acabou de ser entregue (2026-11-07, sessão 9)
 
-### F1-EXT-05a: partição e commit 05a-1 (`78be3f2`)
-- **Partição** (ADR-004 §6.3 item 3), um commit por vez:
-  - **05a-1** (feito): funções puras do fluxo e fronteiras de import;
-  - **05a-2:** `session-schema.ts` e `src/api/api-client.ts` (B9), com a regra "`fetch` só no `api-client`";
-  - **05a-3:** `auth-service.ts` (login do D3, renovação com *single-flight* e geração, logout local primeiro, linhas do D12 como testes nomeados);
-  - **05a-4:** `web-auth-flow-source.ts`, ligação no `background.ts`, `wxt.config.ts` (`identity`, `key`, `TRAMPO_SUPABASE_ORIGIN`) e `manifest.test.ts` (CA-01).
-- **P3:** a prova em runtime (login completo com o manifesto do D13) exige o IdP falso e vai para o primeiro E2E da F1-EXT-05c. O 05a-4 prova a parte estática (CA-01). A condição do veto do ADR-004 §3 não muda.
-- **O 05a-1** (`apps/extension/src/auth/`):
-  - `pkce.ts`: verifier de 32 bytes e `state` de 16, em base64url; S256 por `crypto.subtle`, que, se faltar, faz o login lançar (nunca `plain`); entropia injetável;
-  - `authorize-url.ts`: os 4 parâmetros exatos e codificados, `s256`, `redirect_to` com `?st=<state>`, nenhum `response_type`, origem https exata ou lança;
-  - `redirect.ts`: `parseAuthRedirect` em falha fechada (`ok`, `cancelado` ou `recusado`). A base é comparada byte a byte, o que recusa também a raiz do Site URL da opção A; o fragmento só aceita o erro do IdP; o `error` nunca é ecoado; a query só aceita `code` e `st`.
-- **Fronteiras:**
-  - `AUTH_PROVIDERS` no `protocol.ts`, só a constante;
-  - `@trampo/contracts/auth` só em `src/auth`, `src/api` e `test/`, com o lint provado por fixtures negativas;
-  - 4 regras novas no depcruise (`extension-panel-no-auth`, `extension-capture-no-auth`, `extension-auth-only-from-worker`, `extension-contracts-auth-only-auth-and-api`), provadas por 9 fixtures temporárias (13 violações).
+### F1-EXT-05a: commit 05a-2 (`ec9c915`)
+- **Partição** (ADR-004 §6.3 item 3): 05a-1 ✅ (`78be3f2`) → **05a-2 ✅** (`ec9c915`) → 05a-3 `auth-service.ts` → 05a-4 `web-auth-flow-source.ts`, `background.ts`, `wxt.config.ts` e `manifest.test.ts` (CA-01). A prova do P3 em runtime segue para o 1º E2E da F1-EXT-05c.
+- **`src/auth/session-schema.ts`:**
+  - `SESSION_STORAGE_KEY` (`trampo/sessao/v1`), `StoredSessionSchema` estrito do D9 e `authSessionStore(area?)` sobre o `sessionStore`, que apaga valor adulterado;
+  - endurecimento: `accessExpiresAt − obtainedAt` entre 1.000 e 900.000 ms (o `expiresIn` do contrato). O `.positive()` do `accessExpiresAt` saiu por ser redundante (mutante equivalente).
+- **`src/api/api-client.ts`** (`createApiClient({ apiOrigin, fetch? })`), o único `fetch` da extensão:
+  - origem https exata, ou lança; `Map` de 4 caminhos exatos, cada um com o Bearer, o schema do corpo e o teto;
+  - Bearer só em `/v1/analyze` e `/v1/auth/logout`; um token oferecido a uma rota pública é recusado sem rede;
+  - a chamada é lida uma vez só, e o corpo enviado é o JSON validado (sem TOCTOU por *getter*); cabeçalhos só `content-type` e `authorization`;
+  - `credentials: "omit"`, `redirect: "error"`, `cache: "no-store"` e `referrerPolicy: "no-referrer"`; prazo de 10 s que cobre a leitura do corpo; teto de 16 KiB na auth e de 64 KiB, provisório, na análise, em UTF-8 estrito;
+  - nunca rejeita: `{ ok: true, status, body }` (qualquer status, corpo em texto), `pedido_recusado` (nada saiu), `sem_resposta` (rede, redirecionamento ou prazo antes do status) e `resposta_ilegivel` (depois do status).
+- **Lint B2:** `fetch` (global e propriedade) só no `api-client`; `XMLHttpRequest`, `WebSocket`, `EventSource` e `sendBeacon` proibidos em todo o `src/`, com fixtures negativas.
 - **Prova local:**
-  - extensão de 180 para 257 testes, 100% nas 4 métricas com `src/auth/**` e `src/api/**` na cobertura;
-  - mutação 29/29 (`mut05a1.py`, catálogo no SESSION-LOG). Dois equivalentes da 1ª rodada viraram simplificação do código;
-  - turbo 21/21 em série na 1ª rodada, sem cache; depcruise sem violações (486 módulos).
-- **Cofre:** ADR-004 §6.3 item 3 (partição e P3), STATE (bloco novo da F1-EXT-05a), BACKLOG (F1-EXT-05) e SESSION-LOG, com backups no scratchpad.
-- **Remoto:** o PR #17 foi mergeado no `master` (`ac4e517`). Os commits desta sessão foram ao `origin/spike/s1-extraction` e pedem um **PR novo** para o `master`.
+  - extensão de 257 para 430 testes, 100% nas 4 métricas;
+  - mutação 55/55 na 2ª rodada (`mut05a2.py`, catálogo no SESSION-LOG). Na 1ª, o M-07a e uma fração aceita eram lacunas de teste (corrigidas), e o `.positive()` era equivalente (saiu);
+  - turbo 21/21 em série, sem cache; depcruise sem violações (491 módulos).
+- **Ponto aberto para a F1-EXT-04 parte 2:** os 10 s do B9 não cobrem a análise com o fallback do LLM (Groq 3 s + Workers AI até 10 s) nem o SSE lido aos poucos. O prazo, o teto e o leitor do `/v1/analyze` se decidem lá (ADR-004 D10 B9, "Emenda do 05a-2").
+- **Cofre:** ADR-004 D9, D10 B9 e §6.3 item 3; STATE, BACKLOG (F1-EXT-05) e SESSION-LOG, com backups no scratchpad.
 - Nada chamou o Supabase real nem provedor de LLM.
 
 ### Pendências do humano
 - Nenhum HITL aberto para as trilhas.
+- **Push não autorizado nesta sessão:** o `ec9c915` e o commit deste arquivo estão só no local. Para subir, autorize no prompt da próxima sessão. **Abrir o PR novo** do `spike/s1-extraction` para o `master` continua com o humano (o PR #17 já foi mergeado).
 - **Vale desde o 07h:** quem rodar `supabase start` na estação precisa gerar a chave antes, com `node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json` na raiz do `trampo.app` (runbook `auth-extensao` §1.6). Sem o arquivo, o `start` não sobe.
 - **Vale desde o 07g:** fora de `NODE_ENV=test`, a API só sobe com `API_BEHIND_PROXY=false` (junto com `TRUST_PROXY=false`) e o anel `AUTH_REFRESH_SEAL_KEYS` e `AUTH_REFRESH_SEAL_ACTIVE_KEY` no `apps/api/.env` (runbook `auth-extensao` §1.5).
-- Push autorizado nesta sessão e feito: o `spike/s1-extraction` está no `origin` com o `78be3f2` e este arquivo. **Abrir o PR novo** do `spike/s1-extraction` para o `master` fica com o humano (ou com uma sessão em que ele o peça): o PR #17 já foi mergeado.
 - **Antes de cada push:** `git fetch` e confira `HEAD..origin/spike/s1-extraction`. O branch pode receber commits no GitHub entre sessões.
 
 ---
@@ -42,7 +39,7 @@
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **F1-EXT-05a → F1-EXT-05b → F1-EXT-05c → F1-SEC-01** (**em andamento: F1-EXT-05a, próximo commit 05a-2**) | Resto do ADR-004, uma trilha por vez: Service Worker e manifesto (partição 05a-1 a 05a-4 no ADR-004 §6.3 item 3; 05a-1 feito em `78be3f2`), painel, E2E com IdP falso (com a prova em runtime do P3) e threat model v2 | não | nada para o 05a-2; as trilhas seguintes esperam a anterior |
+| **F1-EXT-05a → F1-EXT-05b → F1-EXT-05c → F1-SEC-01** (**em andamento: F1-EXT-05a, próximo commit 05a-3**) | Resto do ADR-004, uma trilha por vez: Service Worker e manifesto (partição 05a-1 a 05a-4 no ADR-004 §6.3 item 3; 05a-1 feito em `78be3f2` e 05a-2 em `ec9c915`), painel, E2E com IdP falso (com a prova em runtime do P3) e threat model v2 | não | nada para o 05a-3; as trilhas seguintes esperam a anterior |
 | **F1-API-07 (07i e 07j)** | BFF do ADR-004 (D4 a D8), na partição do ADR-004 §6.3. Feitos: 07a (`c51b809`), 07b (`905d85f`), 07c (`86fe1ef`), 07d (`7e6c5d5`), 07e (`ac3c2c7`), 07f (`e1af5d0`), 07g (`b516fd0`) e 07h (`4efd96c`). Faltam, um commit por vez: **07i** métricas `auth_*_total` do D8 item 7 na porta `Telemetry`; **07j** teto de rajada de 15 (reposição de 0,25 por segundo) no `GotrueEgress`, somado às janelas de hoje (o balde `Token` do GoTrue tem rajada fixa de 30; ADR-004 D8 item 5, "Emenda do 07h") | não | nada; nenhum dos dois bloqueia a F1-EXT-05a |
 | **F1-DB-02** | Custom Access Token Hook por migration (ADR-004 D5): recusa com 403 a sessão com mais de 24 h, grants mínimos e `test:db` da recusa na emissão e na renovação. Depois, HITL de aplicação no projeto real (molde do HITL-023) | não | nada; o P18 (CA-15) depende dela, mesmo com o ADR-004 aceito por sobreposição do veto |
 
@@ -101,16 +98,21 @@
     - o `@trampo/contracts/auth` só entra em `src/auth`, `src/api` e `test/` (lint e depcruise). O `background.ts` também fica de fora: ele só importa `src/auth`. Constante que o painel precisa (como `AUTH_PROVIDERS`) vai para o `protocol.ts`, nunca para `src/auth`;
     - quem mexer no `parseAuthRedirect`, no `pkce.ts` ou no `authorize-url.ts` roda de novo o `mut05a1.py` (scratchpad da sessão 8; catálogo no SESSION-LOG). O retorno é dado hostil: nenhum texto dele vai a log ou ao painel;
     - regra nova de depcruise na extensão ganha prova negativa por fixture temporária, com o hash dos arquivos restaurados conferido.
+16. **Sessão guardada e `api-client` (05a-2):**
+    - a sessão só é lida e gravada pelo `authSessionStore` (`src/auth/session-schema.ts`). Quem mexer no `StoredSessionSchema` ou no `api-client` roda de novo o `mut05a2.py` (scratchpad da sessão 9; catálogo no SESSION-LOG);
+    - toda chamada à API sai pelo `createApiClient(...).post`, que nunca rejeita. Rota nova entra no `Map` do `api-client` com o Bearer, o schema e o teto, e ganha teste de "caminho fora" com os corpos válidos das outras rotas (o M-07a da 1ª rodada só morreu assim);
+    - no 05a-3, o D11.3 lê `sem_resposta` como "sem resposta HTTP" (uma nova tentativa sequencial em 2 s) e `resposta_ilegivel` como resposta HTTP (sem nova tentativa). O corpo volta em texto: o `auth-service` valida com o `AuthSessionResponseSchema` e o `ApiErrorSchema`;
+    - `fetch` fora do `api-client` derruba o lint, inclusive por `globalThis.fetch` e por desestruturação.
 
 ---
 
 ## Próximo prompt (sessão nova)
 
 ```text
-Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05a, commit 05a-2 (sessão guardada e api-client, ADR-004 §6.3 item 3), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt.
+Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05a, commit 05a-3 (auth-service, ADR-004 §6.3 item 3), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt.
 
-1. [ORCHESTRATOR]: leiam o STATE.md (bloco "Trilha F1-EXT-05a em andamento", com a partição e o 05a-1 em 78be3f2) e rodem git fetch para ver se o branch recebeu commits no GitHub. Leiam o ADR-004: §6.3 item 3 (partição), D9 (StoredSessionSchema e onde cada segredo vive), D10 B2 e B9 (api-client), D11.1 e §4.1 (session-schema e api-client), e o §4.7 (M-07).
-2. [ARCHITECT] + [APPSEC]: desenhem o 05a-2: apps/extension/src/auth/session-schema.ts (SESSION_STORAGE_KEY "trampo/sessao/v1" e StoredSessionSchema estrito, revalidado pelo sessionStore, que apaga valor adulterado) e apps/extension/src/api/api-client.ts (o único fetch da extensão: origem igual a TRAMPO_API_ORIGIN, caminhos de lista fechada, Bearer só em POST /v1/analyze e POST /v1/auth/logout, credentials "omit", redirect "error", cache "no-store", referrerPolicy "no-referrer", prazo de 10 s e teto de resposta), com a regra do lint B2 "fetch só no api-client" e fixture negativa. Nada de auth-service nem de manifesto neste commit.
-3. [DEV] + [QA_EVALS]: TDD com 100% de cobertura em apps/extension/src/{auth,api}/**, mutação dirigida (M-07 e os operadores próprios, hashes restaurados), turbo em série e depcruise. Ao fim, avaliem o peso da sessão: se leve, sigam para o 05a-3 (auth-service); se pesada, parem e reciclem (AGENTS §4.4).
+1. [ORCHESTRATOR]: leiam o STATE.md (bloco "Trilha F1-EXT-05a em andamento", com o 05a-1 em 78be3f2 e o 05a-2 em ec9c915) e rodem git fetch para ver se o branch recebeu commits no GitHub. Leiam o ADR-004: §6.3 item 3 (partição), D3 (porta AuthCodeSource e passos do login), D9 e D10 B9 (com as "Emendas do 05a-2"), D11 inteiro, D12 (tabela do SW), §4.1 (auth-service) e §4.7 (M-03 a M-06).
+2. [ARCHITECT] + [APPSEC]: desenhem o 05a-3: apps/extension/src/auth/auth-code-source.ts (porta que nunca rejeita) e apps/extension/src/auth/auth-service.ts (login do D3 com um fluxo por vez, prazo de 5 min e verifier apagado depois do envio; renovação preguiçosa com limiar de 60 s, single-flight e geração; 401 apaga, 503/429/rede mantém, uma nova tentativa só em sem_resposta; logout local primeiro; onUnauthorized(); emissão da SessaoView por callback; logs só da lista fechada do D3), sobre o api-client e o authSessionStore do 05a-2, com relógio, store, api-client e AuthCodeSource falsos. Nada de browser.identity, background.ts nem manifesto neste commit.
+3. [DEV] + [QA_EVALS]: TDD com 100% de cobertura em apps/extension/src/{auth,api}/**, cada linha do SW na tabela do D12 como teste nomeado (CA-14), mutação dirigida (M-03 a M-06, hashes restaurados), turbo em série e depcruise. Ao fim, avaliem o peso da sessão: se leve, sigam para o 05a-4; se pesada, parem e reciclem (AGENTS §4.4).
 4. [SCRIBE]: atualizem o STATE a cada commit. No fim, SESSION-LOG, BACKLOG e o next-step mantendo a tabela de trilhas. Commit atômico; push só se autorizado.
 ```
