@@ -8,6 +8,8 @@
 // o corpo enviado tem teto de 32 KiB e só as colunas declaradas, e só os status de sucesso fixados valem; o corpo da
 // resposta nunca é lido (o erro de `check` do Postgres ecoa a linha recusada). Nunca rejeita. Nada da chave, do
 // token, da URL, do corpo enviado ou da resposta vai para log ou mensagem de erro.
+import { ACCESS_TOKEN_MAX_CHARS } from "@trampo/contracts/limits";
+
 import { parseJsonWithoutPrototypeKeys } from "../../application/llm/llm-output-guard.js";
 
 export const POSTGREST_CLIENT_POLICY = {
@@ -21,8 +23,8 @@ export const POSTGREST_CLIENT_POLICY = {
    * D5 e §5.6): 201 quando a linha é inserida e 200 quando a linha em conflito é atualizada. Nenhum outro vale.
    */
   upsertSuccessStatuses: Object.freeze([201, 200] as const),
-  /** O mesmo teto da borda (ADR-013 D3) e do CriteriaGuard. */
-  accessTokenMaxChars: 8_192,
+  /** O mesmo teto da borda (ADR-013 D3) e do CriteriaGuard, da fonte única do contrato. */
+  accessTokenMaxChars: ACCESS_TOKEN_MAX_CHARS,
 } as const;
 
 /** Tabelas que o cliente de usuário pode ler e gravar. Cresce com o F1-API-06. */

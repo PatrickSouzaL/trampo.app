@@ -4,6 +4,7 @@
 // liberam a análise. Na escrita, os critérios são reparseados antes de tocar na porta, e qualquer desvio também
 // é `unavailable`. É um decorador da própria porta, então as rotas não mudam. Nunca rejeita.
 import { type UserCriteria, UserCriteriaSchema } from "@trampo/contracts";
+import { ACCESS_TOKEN_MAX_CHARS } from "@trampo/contracts/limits";
 import { z } from "zod";
 
 import type { Clock } from "../ports/clock.js";
@@ -19,8 +20,8 @@ import { withDeadline } from "../shared/with-deadline.js";
 /** Hipótese da Fase 1 (PostgREST na mesma região), calibrada no S-5. Muda só por ADR. */
 export const CRITERIA_GUARD_POLICY = {
   timeoutMs: 1_000,
-  /** O mesmo teto da borda (ADR-013 D3). */
-  accessTokenMaxChars: 8_192,
+  /** O mesmo teto da borda (ADR-013 D3), da fonte única do contrato. */
+  accessTokenMaxChars: ACCESS_TOKEN_MAX_CHARS,
 } as const;
 
 const CriteriaSubjectSchema = z.strictObject({

@@ -3,14 +3,14 @@
 import { Readable } from "node:stream";
 
 import { ApiErrorSchema } from "@trampo/contracts/api";
-import { HTTP_BODY_MAX_BYTES } from "@trampo/contracts/limits";
+import { ACCESS_TOKEN_MAX_CHARS, HTTP_BODY_MAX_BYTES } from "@trampo/contracts/limits";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import type { AccessTokenVerifier } from "../src/application/ports/access-token-verifier.js";
 import { createJoseAccessTokenVerifier } from "../src/infrastructure/auth/jose-access-token-verifier.js";
 import { buildApp, type BuildAppOptions } from "../src/presentation/build-app.js";
-import { ACCESS_TOKEN_MAX_CHARS, PUBLIC_ROUTES, bearerToken } from "../src/presentation/edge/auth.js";
+import { PUBLIC_ROUTES, bearerToken } from "../src/presentation/edge/auth.js";
 import { TEST_PRINCIPAL, TEST_TOKEN, fakeVerifier } from "./auth-fakes.js";
 import { openLimits } from "./limit-fakes.js";
 import { signToken, signingKey, startJwksServer, supabaseClaims, type JwksServer, type SigningKey } from "./infrastructure/jwks-fixture.js";
