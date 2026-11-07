@@ -74,8 +74,16 @@ interface Flow {
 }
 
 const b64 = (bytes: number): string => randomBytes(bytes).toString("base64url");
-/** Forma de JWS compacto (3 partes); a assinatura de verdade entra quando o verificador entrar no simulado (07f). */
+/** Forma de JWS compacto (3 partes), sem assinatura de verdade: o padrão quando o teste não passa `accessToken`. */
 const fakeAccessToken = (): string => `${b64(24)}.${b64(48)}.${b64(32)}`;
+
+export interface FakeGotrueOptions {
+  /**
+   * Emite o access token de cada resposta 200. Os casos de uso do BFF (07f) passam um JWS assinado com a chave do
+   * JWKS local, para o verificador real (`jose`) conferir o token antes de repassar.
+   */
+  readonly accessToken?: () => string;
+}
 
 function gotrueError(status: number, errorCode: string): string {
   return JSON.stringify({ code: status, error_code: errorCode, msg: "simulado" });
@@ -101,7 +109,8 @@ function exactStrings(body: string, keys: readonly string[]): Record<string, str
   return keys.every((key) => typeof record[key] === "string") ? (record as Record<string, string>) : null;
 }
 
-export async function startFakeGotrue(publishableKey: string): Promise<FakeGotrue> {
+export async function startFakeGotrue(publishableKey: string, options: FakeGotrueOptions = {}): Promise<FakeGotrue> {
+  const mintAccessToken = options.accessToken ?? fakeAccessToken;
   const requests: GotrueRequest[] = [];
   const flows = new Map<string, Flow>();
   const activeRefreshTokens = new Set<string>();
@@ -111,7 +120,7 @@ export async function startFakeGotrue(publishableKey: string): Promise<FakeGotru
   const state = { mode: { kind: "normal" } as GotrueMode, rejectStatus: 400 as GotrueRejectStatus, expiresIn: 900 };
 
   const issue = (): { status: number; body: string; accessToken: string; refreshToken: string } => {
-    const accessToken = fakeAccessToken();
+    const accessToken = mintAccessToken();
     const refreshToken = b64(9);
     activeRefreshTokens.add(refreshToken);
     liveAccessTokens.add(accessToken);

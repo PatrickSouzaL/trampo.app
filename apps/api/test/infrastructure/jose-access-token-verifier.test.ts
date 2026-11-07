@@ -58,18 +58,24 @@ function verifier(jwks: Partial<JwksTimings> = {}, allowedAmr = OAUTH_ONLY): Acc
 const claims = (overrides: Claims = {}): Claims => supabaseClaims(server.issuer, overrides);
 
 describe("token válido do Supabase", () => {
-  test("aceita e devolve só userId e sessionId (nenhuma outra claim sai do adapter)", async () => {
-    const result = await verifier().verify(await signToken(keyA, claims()));
+  test("aceita e devolve só userId e sessionId, mais iat e exp no lifetime (nenhuma outra claim sai do adapter)", async () => {
+    const now = nowSeconds();
+    const result = await verifier().verify(await signToken(keyA, claims({ iat: now - 30, exp: now + 870 })));
     expect(result).toEqual({
       ok: true,
       principal: { userId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f", sessionId: "0b1c2d3e-4f50-4a6b-9c7d-8e9fa0b1c2d3" },
+      lifetime: { issuedAt: now - 30, expiresAt: now + 870 },
     });
     expect(JSON.stringify(result)).not.toContain("canario");
   });
 
   test("sem session_id: sessionId null", async () => {
     const result = await verifier().verify(await signToken(keyA, claims({ session_id: undefined })));
-    expect(result).toEqual({ ok: true, principal: { userId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f", sessionId: null } });
+    expect(result).toEqual({
+      ok: true,
+      principal: { userId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f", sessionId: null },
+      lifetime: { issuedAt: expect.any(Number), expiresAt: expect.any(Number) },
+    });
   });
 
   test("expirado há 5 s (dentro da tolerância de 10 s): aceito", async () => {

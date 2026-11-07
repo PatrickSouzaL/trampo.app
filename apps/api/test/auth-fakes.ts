@@ -11,6 +11,9 @@ export const TEST_PRINCIPAL: Principal = {
   sessionId: "0b1c2d3e-4f50-4a6b-9c7d-8e9fa0b1c2d3",
 };
 
+/** `iat` e `exp` de um token de 900 s; a presentation não os lê (são do BFF, ADR-004 D4). */
+export const TEST_LIFETIME = { issuedAt: 1_700_000_000, expiresAt: 1_700_000_900 } as const;
+
 /** Token de forma válida (três partes base64url). Só o fake o aceita. */
 export const TEST_TOKEN = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ0ZXN0ZSJ9.c2lnbmF0dXJh";
 export const TEST_AUTHORIZATION = `Bearer ${TEST_TOKEN}`;
@@ -19,7 +22,7 @@ export const TEST_AUTHORIZATION = `Bearer ${TEST_TOKEN}`;
  * Verificador que registra os tokens recebidos e responde o resultado configurado. `keysReady` responde `true`
  * (ninguém na presentation o chama: é do BFF, ADR-004 D6).
  */
-export function fakeVerifier(result: AccessTokenVerification = { ok: true, principal: TEST_PRINCIPAL }) {
+export function fakeVerifier(result: AccessTokenVerification = { ok: true, principal: TEST_PRINCIPAL, lifetime: TEST_LIFETIME }) {
   const calls: string[] = [];
   const verifier: AccessTokenVerifier = {
     async verify(token) {

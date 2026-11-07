@@ -10,13 +10,23 @@ export interface Principal {
 }
 
 /**
+ * `iat` e `exp` do token verificado, em epoch de segundos, como vieram no JWT (o adapter já os conferiu). Fora do
+ * `Principal` porque não dizem quem é o usuário: servem ao BFF para conferir `exp − iat` e descontar a idade do
+ * token no `expiresIn` (ADR-004 D4, troca, passos 6 e 8; emenda do 07f no D6).
+ */
+export interface TokenLifetime {
+  readonly issuedAt: number;
+  readonly expiresAt: number;
+}
+
+/**
  * - `token_invalido`: assinatura, algoritmo, `kid` ou claim (inclusive `amr` fora da lista) recusados → 401.
  * - `chaves_indisponiveis`: JWKS inacessível, vazio ou sem chave ES256 → 503 (threat-model T30).
  */
 export type AccessTokenRejection = "token_invalido" | "chaves_indisponiveis";
 
 export type AccessTokenVerification =
-  | { readonly ok: true; readonly principal: Principal }
+  | { readonly ok: true; readonly principal: Principal; readonly lifetime: TokenLifetime }
   | { readonly ok: false; readonly reason: AccessTokenRejection };
 
 export interface AccessTokenVerifier {

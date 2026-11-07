@@ -1,6 +1,6 @@
 // Adapter da porta AccessTokenVerifier (ADR-013): jose com o JWKS remoto do Supabase Auth, ES256 fixo, e
-// falha fechado. Único módulo da API que importa jose. Nenhuma claim além de `sub` e `session_id` sai daqui,
-// e nada é logado (SR-12).
+// falha fechado. Único módulo da API que importa jose. Nenhuma claim além de `sub` e `session_id` (no `Principal`)
+// e de `iat` e `exp` (no `lifetime`, para o BFF; emenda do 07f no ADR-004 D6) sai daqui, e nada é logado (SR-12).
 import {
   createRemoteJWKSet,
   customFetch,
@@ -73,6 +73,9 @@ function claimsSchema(allowedAmr: readonly [AmrMethod, ...AmrMethod[]]) {
     is_anonymous: z.literal(false),
     session_id: z.uuid().optional(),
     amr: z.array(z.object({ method: z.enum(allowedAmr) })).min(1),
+    // O jose já exige os dois numéricos (`maxTokenAge` e `requiredClaims`); aqui só saem tipados para o `lifetime`.
+    iat: z.number(),
+    exp: z.number(),
   });
 }
 
@@ -155,7 +158,11 @@ export function createJoseAccessTokenVerifier(config: JoseAccessTokenVerifierCon
         });
         const claims = ClaimsSchema.safeParse(payload);
         if (!claims.success) return INVALID;
-        return { ok: true, principal: { userId: claims.data.sub, sessionId: claims.data.session_id ?? null } };
+        return {
+          ok: true,
+          principal: { userId: claims.data.sub, sessionId: claims.data.session_id ?? null },
+          lifetime: { issuedAt: claims.data.iat, expiresAt: claims.data.exp },
+        };
       } catch (error) {
         return error instanceof KeysUnavailableError ? UNAVAILABLE : INVALID;
       }
