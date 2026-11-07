@@ -1,51 +1,35 @@
-# Próximo passo: F1-API-07, commit 07d (`keysReady()` e `amr`) numa sessão nova
+# Próximo passo: F1-API-07, commit 07e (limitador local, orçamento de saída e *bulkhead*) numa sessão nova
 
 > **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. Não há HITL aberto para a trilha.
 
-## O que acabou de ser entregue (2026-11-07, sessão 2)
+## O que acabou de ser entregue (2026-11-07, sessão 3)
 
-### Veto do ADR-004 sobreposto (decisão do humano)
-- O [[ADR-004-extension-auth]] passou a `aceito` antes do P3 e do P18. O `[APPSEC]` registrou a sobreposição no frontmatter, no aviso do topo e no §3, e o STATE, o BACKLOG e o HITL-036 (adendo) acompanham.
-- **O que não mudou:**
-  - o P3 (manifesto sem `host_permissions`, F1-EXT-05a, CA-01) e o P18 (hook, F1-DB-02, CA-15) seguem obrigatórios para fechar essas trilhas e o F1-EXT-05;
-  - se um deles falhar, abre-se HITL para o status e a contingência (D14);
-  - até a F1-DB-02 ser aplicada, seguem os residuais que dependem do hook: T48, sessão órfã e chave vazada junto com o `storage.session`.
-
-### F1-API-07, commit 07c (`86fe1ef`): porta e adapter do GoTrue
-- **Porta** `application/ports/auth-token-gateway.ts`:
-  - métodos `exchangePkce`, `refresh` e `logout`, com `signal` opcional;
-  - resultado `{ ok: true, tokens }` ou `{ ok: false, reason: "recusado" | "nao_recebido" | "pode_ter_rotacionado" }`;
-  - nunca rejeita.
-- **Adapter** `infrastructure/supabase/gotrue-token-client.ts`, sem SDK:
-  - recusa `sb_secret_` e `eyJ`; URL fixa de `SUPABASE_URL`; `redirect: "error"`, 5 s, 32 KiB, sem retry;
-  - corpo `{ auth_code, code_verifier }`;
-  - projeção de 4 campos, um a um, sem *spread*;
-  - o 404 só é `recusado` com o corpo JSON do GoTrue e `error_code` string, e o `error_code` nunca sai do adapter;
-  - **lista fechada de cabeçalhos:** `apikey`, `content-type` e `accept` no `/token`; `apikey`, `authorization` e `accept` no `/logout`.
-- **GoTrue simulado** `test/support/fake-gotrue.ts`, em socket real (QA-02):
-  - registra os cabeçalhos recebidos e aceita só `{ auth_code, code_verifier }` (400 para `code`);
-  - responde 404 `flow_state_not_found` no reuso, e as recusas são parametrizadas em 400/401/403/404/422;
-  - rotaciona o refresh;
-  - nos modos `lento` e `corta`, processa o pedido antes de perder a resposta.
-- **Decisões de implementação**, registradas no ADR-004 D4 ("Emenda do 07c"):
-  - entrada fora da forma dá `nao_recebido` sem rede;
-  - entre as falhas do `fetch`, só a conexão que nem abriu e o redirecionamento são `nao_recebido`;
-  - prazo e socket cortado são `pode_ter_rotacionado`;
-  - o logout dá `ok` com 2xx ou 401.
+### F1-API-07, commit 07d (`7e6c5d5`): `keysReady()` e `amr` exigido
+- **Porta** `application/ports/access-token-verifier.ts`: `keysReady(): Promise<boolean>`, que nunca rejeita. É a pré-checagem sem token do ADR-004 D6, que o BFF chama antes do GoTrue (07f).
+- **Adapter `jose`** (`infrastructure/auth/jose-access-token-verifier.ts`):
+  - **P15 respondido:** o `RemoteJWKSet` do `jose` 6.2.12 expõe `fresh`, `reload()` e `jwks()`. O `keysReady()` confere a chave ES256 no cache fresco e, com o cache vencido, recarrega antes. Usa o mesmo cache e o mesmo cooldown do `verify`; qualquer falha é `false`;
+  - **`amr`:** lista não vazia de `{ method }` no formato do GoTrue, com **todo** método na lista permitida. `[oauth, password]`, `[]`, ausente e a forma de strings do RFC 8176 são recusados (esta, até o P9);
+  - a recusa é `token_invalido` (401 nas rotas protegidas), sem motivo novo na porta. O 503 do BFF é o mapa do 07f.
+- **`AUTH_ALLOWED_AMR`** (`infrastructure/auth/allowed-amr-env.ts`):
+  - padrão `oauth`; `password` só com `NODE_ENV` exatamente `test`;
+  - sem espaço, caixa diferente ou duplicata; o erro não ecoa o valor;
+  - lido no `composeApp`, porque o verificador já é montado ali: **vale para `/v1/analyze` e `/v1/criteria`**. O 07g fica com o anel, as idades e o `API_BEHIND_PROXY`.
+- **Fixtures:** o `supabaseClaims` passou a trazer `amr` oauth, e os verificadores falsos ganharam `keysReady`. O `test:db` não passa pelo verificador da API e não mudou.
 - **Prova:**
-  - API de 2.991 para 3.147 testes, 100% nas 4 métricas;
-  - mutação 38/38: o M-13 em 8 operadores, mais 30 dirigidos (cabeçalho repassado, projeção por *spread*, redirect seguido ou `manual`, retry no adapter, `code` no corpo…);
-  - turbo 21/21 em série e depcruise sem violações (440 módulos);
+  - API de 3.147 para 3.220 testes, 100% nas 4 métricas;
+  - mutação 24/24: o M-17 e 23 dirigidos (`keysReady` que rejeita, `password` fora de test, padrão diferente de `oauth`, `amr` vazio aceito, `some` no lugar de `every`, decisão pelo `coolingDown`…). O do `coolingDown` sobreviveu na primeira rodada e virou teste;
+  - turbo 21/21 em série e depcruise sem violações (443 módulos);
   - o gitleaks não está instalado, e a revisão dos literais novos foi manual.
 - **Cofre:**
-  - emenda do ADR-018 D5 (cliente do GoTrue na tabela), marcada no ADR-004 §6.1;
-  - STATE, BACKLOG, HITL-QUEUE e SESSION-LOG atualizados;
+  - ADR-013 D1 e D4 emendados, com a marca no ADR-004 §6.1;
+  - "Emenda do 07d" no ADR-004 D6;
+  - STATE, BACKLOG e SESSION-LOG atualizados;
   - backups no scratchpad.
-- Nada chamou o Supabase real nem provedor de LLM, e o comportamento da API não mudou (nenhuma rota nova).
+- Nada chamou o Supabase real nem provedor de LLM, e nenhuma rota nova existe. A única mudança de comportamento é a esperada: token sem `amr` oauth dá 401 nas rotas protegidas.
 
 ### Pendências do humano
 - Nenhum HITL aberto para as trilhas.
-- Push autorizado nesta sessão: o `spike/s1-extraction` foi enviado ao `origin` com os commits locais (07a, 07b, 07c e os do `next-step.md`).
+- Push autorizado nesta sessão: o `spike/s1-extraction` foi enviado ao `origin` com o 07d e o commit deste arquivo.
 
 ---
 
@@ -55,7 +39,7 @@
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **F1-API-07 (07d → 07h)** | BFF do ADR-004 (D4 a D8), na partição do ADR-004 §6.3. Feitos: 07a (`c51b809`), 07b (`905d85f`) e 07c (`86fe1ef`). Faltam, um commit por vez: **07d** `keysReady()` e `amr` (ADR-013); **07e** limitador local pré-JWT, orçamento de saída e *bulkhead* (ADR-014 D10); **07f** `ExchangeSession`, `RefreshSession` e `EndSession`; **07g** rotas e borda, com a leitura do anel no boot; **07h** contrato no job `db` (§4.3) e regra do gitleaks | não | nada |
+| **F1-API-07 (07e → 07h)** | BFF do ADR-004 (D4 a D8), na partição do ADR-004 §6.3. Feitos: 07a (`c51b809`), 07b (`905d85f`), 07c (`86fe1ef`) e 07d (`7e6c5d5`). Faltam, um commit por vez: **07e** limitador local pré-JWT, orçamento de saída e *bulkhead* (ADR-014 D10); **07f** `ExchangeSession`, `RefreshSession` e `EndSession`; **07g** rotas e borda, com a leitura do anel no boot; **07h** contrato no job `db` (§4.3) e regra do gitleaks | não | nada |
 | **F1-DB-02** | Custom Access Token Hook por migration (ADR-004 D5): recusa com 403 a sessão com mais de 24 h, grants mínimos e `test:db` da recusa na emissão e na renovação. Depois, HITL de aplicação no projeto real (molde do HITL-023) | não | nada; o P18 (CA-15) depende dela, mesmo com o ADR-004 aceito por sobreposição do veto |
 | **F1-EXT-05a → F1-EXT-05b → F1-EXT-05c → F1-SEC-01** | Resto do ADR-004, uma trilha por vez: Service Worker e manifesto (com `auth` no `CONTRACTS_ALLOWED` e o painel proibido de importá-lo), painel, E2E com IdP falso e threat model v2 | não | a trilha anterior (a F1-EXT-05a espera a F1-API-07) |
 
@@ -64,7 +48,7 @@
 - **F1-EXT-05a concluída:** o envio à API (F1-EXT-04 parte 2) vira trilha.
 - **HITL-036:** fechado em 2026-11-07 (P6 aprovado). O spike S-3 não depende mais dele.
 - **F1-DB-02 concluída:** abre o HITL de aplicação do hook.
-- **Spike S-3 completo (P1 a P20):** depois das F1-EXT-05x e da F1-DB-02. Depois dele, o fechamento do F1-EXT-05 pelos CAs do §4.10. O ADR-004 já está `aceito` por sobreposição do veto, mas o P3 e o P18 seguem obrigatórios.
+- **Spike S-3 completo (P1 a P20):** depois das F1-EXT-05x e da F1-DB-02. Depois dele, o fechamento do F1-EXT-05 pelos CAs do §4.10. O ADR-004 já está `aceito` por sobreposição do veto, mas o P3 e o P18 seguem obrigatórios. O **P9** confirma o formato real do `amr` (hoje só a lista de objetos do GoTrue passa).
 - **S-5 (troca do Site URL, ADR-004 D15):** a página estática fica pronta antes, numa origem própria. Depois, o humano refaz pelo runbook `auth-extensao` §3 os casos A com `-ComState` (P5), E, F (anotando o `caminho`) e G. Se o `st` deixar de voltar, vale a Q6; se um código chegar a host fora da lista, vale o veto do `[APPSEC]`.
 
 **Cuidados para as trilhas não se atrapalharem:**
@@ -89,7 +73,8 @@
     - **no envelope (feito no 07b):** `aead-envelope` por finalidade, com o prefixo de AAD terminando em `:<versão>:`; base64url canônica no `open`; `kid` em `[a-z0-9]{1,16}` preso à regex do contrato; texto claro até 768 **bytes**, e o excesso não é selado. O formato `s1` da pretensão é provado por vetor gravado: quem mexer no `aead-envelope` roda o `salary-cipher.test.ts`. O `expiresIn` é inteiro, e menor que 1 dá 503 (07f);
     - **cabeçalhos de saída ao GoTrue (feito no 07c):** lista fechada em `GOTRUE_CLIENT_POLICY.outboundHeaders` (`apikey`, `content-type`, `accept` e, só no logout, `authorization`). A interface do adapter não recebe cabeçalho; nunca `X-Forwarded-For`, `X-Real-IP`, `Forwarded` nem cabeçalho do cliente, e o simulado prova isso. Quem mexer no adapter roda a mutação dirigida de novo;
     - **porta do GoTrue (07c):** nunca rejeita; o `signal` opcional serve para o `RefreshSession` (07f) limitar a nova tentativa a cerca de 2 s. O mapa dos motivos para 401, 503 ou 204 é dos casos de uso (07f), não do adapter;
-    - **boot (07g):** o anel do refresh, as idades, o `amr` e o `API_BEHIND_PROXY` são lidos em falha fechada, e o boot recusa chave repetida entre o anel da pretensão e o do refresh;
+    - **verificador (feito no 07d):** o `keysReady()` usa só o cache do `RemoteJWKSet` (a validade do cache decide a nova busca, não o cooldown). O `amr` exige todo método na lista, e a lista é parâmetro obrigatório do adapter. Quem assinar token de teste usa o `supabaseClaims`, que já traz `amr` oauth. **Os casos de uso (07f) tratam qualquer `ok: false` do `verify` depois do GoTrue como 503 `auth_token_fora_da_politica`**, inclusive o `amr`, e chamam o `keysReady()` antes do orçamento e do GoTrue (M-10);
+    - **boot (07g):** o anel do refresh, as idades e o `API_BEHIND_PROXY` são lidos em falha fechada (o `amr` já é lido desde o 07d), e o boot recusa chave repetida entre o anel da pretensão e o do refresh;
     - **envio à API (F1-EXT-04 parte 2):** quando virar trilha, só envia com `consent.isGranted()` e com sessão, e um teste prova isso. O `source` leva `platform` e `extractorVersion`, a base do monitoramento dos seletores (spike-metrics §3.4 e §3.5).
 11. **Mudança de contrato atualiza o cofre na mesma tarefa** (DOC-01): a §4 do `contratos-zod` é regerada do `src/` por script (o `auth.ts` é a §4.8 e o `index.ts` a §4.9), e a §9 ganha uma linha.
 12. **E2E com fixture real:** cada teste de plataforma usa uma URL própria (o `clickAction` acha a aba pela URL), e a rota serve o CSS pelo nome do arquivo. Intermitência de `sem_acesso` vai para o QA-04.
@@ -100,10 +85,10 @@
 ## Próximo prompt (sessão nova)
 
 ```text
-Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-API-07, commit 07d (keysReady() e amr), sem gastar cota e sem chamar o Supabase real. O push do branch está autorizado ao fim do escopo.
+Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-API-07, commit 07e (limitador local pré-JWT, orçamento de saída e bulkhead), sem gastar cota e sem chamar o Supabase real. O push do branch está autorizado ao fim do escopo.
 
-1. [ORCHESTRATOR]: leiam STATE.md (bloco "HITL-036 fechado e Trilha F1-API-07 em andamento", com o 07c e a sobreposição do veto), o ADR-004 D6 (verificação antes de repassar e JWKS em falha fechada), D4 (troca passo 2 e 6, renovação passo 4 e 7), §4.2 ("Verificação antes de repassar" e "JWKS"), §4.7 (M-17), §6.1 (ADR-013) e §6.3 (07d), e o ADR-013 D1 e D4. Confiram que 07a (c51b809), 07b (905d85f) e 07c (86fe1ef) estão no branch.
-2. [ARCHITECT] + [APPSEC]: 07d = keysReady() na porta application/ports/access-token-verifier.ts e no adapter jose (nunca rejeita; sem chaves, false sem lançar; P15) e o amr exigido (AUTH_ALLOWED_AMR, padrão oauth; password só com NODE_ENV=test e recusado no boot de produção; leitura em falha fechada sem ecoar valor). Atenção: o amr vale para todas as rotas protegidas já existentes (/v1/analyze e /v1/criteria), então é o único commit da partição que muda comportamento antes do 07g. Revejam os testes e fixtures de JWT que hoje não trazem amr. Nenhuma rota nova (condição 1 do §6.3).
-3. [DEV] + [QA_EVALS]: TDD, 100% de cobertura, mutação M-17 (amr ignorado) e mutantes dirigidos (keysReady que rejeita, password aceito fora de test, padrão diferente de oauth, amr vazio aceito), turbo em série e depcruise. Emendas do ADR-013 D1 e D4 marcadas no ADR-004 §6.1. Se a sessão ainda estiver leve depois do commit, sigam para o 07e (limitador local, orçamento de saída e bulkhead); senão, parem e reciclem (AGENTS §4.4).
+1. [ORCHESTRATOR]: leiam STATE.md (bloco "HITL-036 fechado e Trilha F1-API-07 em andamento", com o 07d), o ADR-004 D4 ("Ordem na borda" e passos 3 e 5), D8 (itens 4 e 5, com os tetos do P19), §4.2 ("Limitador local", "Proxy", "Orçamento de saída" e "Bulkhead"), §4.7 (M-16), §6.1 (ADR-014) e §6.3 (07e), e o ADR-014 (D4, D8 e §3, decisão de 2026-10-21). Confiram que 07a (c51b809), 07b (905d85f), 07c (86fe1ef) e 07d (7e6c5d5) estão no branch.
+2. [ARCHITECT] + [APPSEC]: 07e = limitador local pré-JWT em memória (presentation/edge/pre-auth-limit.ts: janela deslizante, chave HMAC com o RATE_KEY_PEPPER, IPv6 por /64, auth_troca 10/min e auth_renovacao 30/min, 10.000 baldes com transbordo sem despejo, API_BEHIND_PROXY); orçamento de saída em janela deslizante de 300 s (application/auth/gotrue-egress.ts: troca até 14, total no /token até 74, renovacao com reserva mínima de 50%, consumido só depois do Zod e do open) e bulkhead de 4 com retryAfterSeconds 5. Os tetos do P19 (150 e 30 por 5 min por IP) ficam presos por teste. Nada disso fica ligado a rota antes do 07g (condição 1 do §6.3): o hook nasce testado com rota de prova, como o auth.test.ts faz com /probe. O limitador não substitui o Redis e falha para o lado restritivo (não é o ephemeral cache do T39).
+3. [DEV] + [QA_EVALS]: TDD, 100% de cobertura, mutação M-16 (limiares +1, chave sem HMAC, transbordo que despeja, orçamento antes do open, bulkhead 5) e dirigidos (IPv6 fora do /64, X-Forwarded-For de IP não confiável aceito, reserva da renovação ignorada, janela fixa no lugar da deslizante), turbo em série e depcruise. Emenda do ADR-014 (D10 novo, D8 com a nova ordem dos hooks) marcada no ADR-004 §6.1. Se a sessão ainda estiver leve depois do commit, sigam para o 07f (casos de uso); senão, parem e reciclem (AGENTS §4.4).
 4. [SCRIBE]: STATE a cada commit; no fim, SESSION-LOG, BACKLOG e o next-step reescrito mantendo as trilhas. Commit e push do spike/s1-extraction.
 ```
