@@ -103,6 +103,9 @@ export default defineConfig({
         // Guarda do test:db (F1-OPS-01 parte 2, ADR-019 D8): só 127.0.0.1 e a publishable local. A suíte do banco
         // roda à parte (vitest.db.config.ts), mas os casos negativos do guarda rodam aqui, sem Docker.
         "test/db/support/local-stack-env.ts",
+        // A contagem da sonda do limite por IP do GoTrue local (F1-API-07 07h, ADR-004 D8 item 5): o job db roda só um
+        // dos ramos dela, então a cobertura fecha aqui.
+        "test/db/support/rate-limit-probe.ts",
       ],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

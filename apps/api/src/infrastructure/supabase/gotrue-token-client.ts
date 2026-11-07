@@ -9,7 +9,8 @@
 // IP forjado faria o limite por IP do Supabase contar contra outro balde (T43, *Egress Budget Drain*).
 //
 // Classificação (D7, com a emenda do HITL-035): 400, 401, 403 e 422 são `recusado`; o 404 só é `recusado` com o
-// corpo JSON do GoTrue e um `error_code` string, que é conferido e descartado (nunca sai daqui nem vai a log);
+// corpo JSON do GoTrue e um `error_code` string, que é conferido e descartado (nunca sai daqui nem vai a log); no
+// logout, o 403 com `error_code` exato `session_not_found` é sessão já encerrada (contrato do 07h);
 // conexão recusada, redirecionamento, 429, 5xx e os demais status são `nao_recebido`; prazo, socket cortado depois
 // do envio e 200 fora da forma são `pode_ter_rotacionado`. Do 200, só os 4 campos do D4 passo 5 são projetados,
 // um a um. Nunca rejeita, e nada da chave, dos tokens, do código, do verifier ou da resposta vai para mensagem.
@@ -71,6 +72,11 @@ const TokenResponseSchema = z.object({
 });
 /** O corpo de erro do GoTrue que transforma um 404 em recusa. O valor do `error_code` nunca é guardado. */
 const GotrueErrorSchema = z.object({ error_code: z.string() });
+/**
+ * O 403 do logout com JWT válido de sessão que já não existe (`requireAuthentication` do GoTrue; conferido no
+ * contrato do 07h, que trocou a hipótese do 401). Só este código, exato: o `bad_jwt` e o resto do 403 seguem recusa.
+ */
+const SessionGoneSchema = z.object({ error_code: z.literal("session_not_found") });
 
 const RECUSADO: AuthTokenFailure = Object.freeze({ ok: false, reason: "recusado" });
 const NAO_RECEBIDO: AuthTokenFailure = Object.freeze({ ok: false, reason: "nao_recebido" });
@@ -132,7 +138,16 @@ async function classify404(response: Response): Promise<AuthTokenFailure> {
   }
 }
 
-/** Status que não é sucesso. O corpo só é lido no 404. */
+/** Logout com 403: a sessão já não existe (`session_not_found`, D7 idempotente) ou recusa. */
+async function logoutFor403(response: Response): Promise<AuthLogoutResult> {
+  try {
+    return SessionGoneSchema.safeParse(await readJson(response)).success ? LOGGED_OUT : RECUSADO;
+  } catch {
+    return RECUSADO;
+  }
+}
+
+/** Status que não é sucesso. O corpo só é lido no 404 (e no 403 do logout, à parte). */
 async function failureForStatus(response: Response): Promise<AuthTokenFailure> {
   if (response.status === 404) return classify404(response);
   await discard(response);
@@ -226,6 +241,8 @@ export function createGotrueTokenClient(config: GotrueTokenClientConfig): AuthTo
         await discard(response);
         return LOGGED_OUT;
       }
+      // O GoTrue real responde 403 `session_not_found` ao logout repetido (contrato do 07h): também encerrada.
+      if (response.status === 403) return logoutFor403(response);
       return failureForStatus(response);
     },
   };

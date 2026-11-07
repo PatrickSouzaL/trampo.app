@@ -167,11 +167,15 @@ site_url = "http://127.0.0.1:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = ["https://127.0.0.1:3000"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
-jwt_expiry = 3600
+# Trampo: 900, o mesmo do projeto real (HITL-004; ADR-013 D4 maxTokenAge; ADR-004 §4.3).
+jwt_expiry = 900
 # JWT issuer URL. If not set, defaults to auth.external_url.
 # jwt_issuer = ""
 # Path to JWT signing key. DO NOT commit your signing keys file to git.
-# signing_keys_path = "./signing_keys.json"
+# Trampo (ADR-004 §4.3): chave ES256 gerada no próprio job db por apps/api/test/db/support/write-signing-key.ts,
+# nunca versionada (.gitignore e a regra trampo-auth-seal-keys-files do gitleaks). Na estação, gere antes do start
+# (runbook supabase-local).
+signing_keys_path = "./signing_keys.json"
 # If disabled, the refresh token will never expire.
 enable_refresh_token_rotation = true
 # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.

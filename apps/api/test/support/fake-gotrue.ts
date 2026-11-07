@@ -179,7 +179,9 @@ export async function startFakeGotrue(publishableKey: string, options: FakeGotru
 
     if (url.pathname === "/auth/v1/logout" && url.search === "?scope=global") {
       const bearer = /^Bearer (.+)$/.exec(headers.authorization ?? "")?.[1];
-      if (bearer === undefined || !liveAccessTokens.has(bearer)) return { status: 401, body: gotrueError(401, "no_authorization") };
+      if (bearer === undefined) return { status: 401, body: gotrueError(401, "no_authorization") };
+      // Como o GoTrue real (requireAuthentication, 07h): JWT válido de sessão que já não existe é 403 session_not_found.
+      if (!liveAccessTokens.has(bearer)) return { status: 403, body: gotrueError(403, "session_not_found") };
       for (const [refresh, access] of sessionOf) {
         if (access === bearer) {
           activeRefreshTokens.delete(refresh);

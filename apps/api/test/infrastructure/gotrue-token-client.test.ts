@@ -509,20 +509,47 @@ describe("logout (scope=global)", () => {
     expect(gotrue.activeRefreshTokens.has(session.refreshToken)).toBe(false);
   });
 
-  test("sessão já revogada (401): ok, idempotente", async () => {
+  test("sessão já apagada (403 session_not_found, como o GoTrue real responde; 07h): ok, idempotente", async () => {
     const session = gotrue.addSession();
     await client.logout(session.accessToken);
     await expect(client.logout(session.accessToken)).resolves.toEqual({ ok: true });
     expect(gotrue.requests).toHaveLength(2);
   });
 
-  test.each([[200], [204]])("%d: ok", async (status) => {
+  test.each([[200], [204], [401]])("%d: ok (o 401 vale sem corpo)", async (status) => {
     gotrue.mode = { kind: "responde", status, body: "" };
     await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual({ ok: true });
   });
 
-  test.each([[400], [403], [422]])("%d: recusado", async (status) => {
-    gotrue.mode = { kind: "responde", status, body: "{}" };
+  test("403 com o corpo JSON do GoTrue e error_code session_not_found: ok, e o corpo não sai do adapter", async () => {
+    gotrue.mode = { kind: "responde", status: 403, body: JSON.stringify({ code: 403, error_code: "session_not_found", msg: "x" }) };
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual({ ok: true });
+    gotrue.mode = { kind: "responde", status: 403, body: JSON.stringify({ error_code: "session_not_found" }), contentType: "application/json; charset=utf-8" };
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual({ ok: true });
+  });
+
+  test.each([
+    ["sem corpo", "", "application/json"],
+    ["corpo vazio de JSON", "{}", "application/json"],
+    ["bad_jwt (assinatura recusada pelo GoTrue)", JSON.stringify({ error_code: "bad_jwt" }), "application/json"],
+    ["session_not_found em outra caixa", JSON.stringify({ error_code: "SESSION_NOT_FOUND" }), "application/json"],
+    ["session_not_found fora de JSON", JSON.stringify({ error_code: "session_not_found" }), "text/html"],
+    ["session_not_found sem content-type", JSON.stringify({ error_code: "session_not_found" }), null],
+    ["JSON quebrado", '{"error_code":"session_not_found"', "application/json"],
+    ["session_not_found com __proto__", '{"error_code":"session_not_found","__proto__":{"x":1}}', "application/json"],
+  ] as const)("403 %s: recusado", async (_name, body, contentType) => {
+    gotrue.mode = { kind: "responde", status: 403, body, contentType };
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
+  });
+
+  test("403 com session_not_found acima do teto de 32 KiB: recusado", async () => {
+    const body = JSON.stringify({ error_code: "session_not_found", pad: "x".repeat(GOTRUE_CLIENT_POLICY.maxResponseBytes) });
+    gotrue.mode = { kind: "responde", status: 403, body };
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
+  });
+
+  test.each([[400], [422]])("%d: recusado", async (status) => {
+    gotrue.mode = { kind: "responde", status, body: JSON.stringify({ error_code: "session_not_found" }) };
     await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
   });
 
@@ -604,6 +631,7 @@ describe("classificação dos erros do fetch (fetch substituído)", () => {
     ["202 da troca", 202, "troca", PODE_TER_ROTACIONADO],
     ["200 do logout", 200, "logout", { ok: true }],
     ["503 do logout", 503, "logout", NAO_RECEBIDO],
+    ["403 do logout (o session_not_found nunca chega)", 403, "logout", RECUSADO],
   ] as const)("%s com o stream do corpo já em erro: classifica sem rejeitar", async (_name, status, call, expected) => {
     const broken = new ReadableStream<Uint8Array>({ start: (controller) => controller.error(new Error("socket")) });
     vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response(broken, { status, headers: { "content-type": "application/json" } })));

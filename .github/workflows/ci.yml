@@ -110,6 +110,10 @@ jobs:
           supabase telemetry disable
           supabase --version
       - run: pnpm install --frozen-lockfile
+      # ADR-004 §4.3: o GoTrue local assina com ES256, como o projeto real, com uma chave que nasce e morre nesta VM.
+      # O config.toml aponta o signing_keys_path para ela; o .gitignore e o gitleaks barram o arquivo no git.
+      - name: Gerar a chave ES256 do GoTrue local
+        run: node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json
       - name: Subir só Postgres, Auth, PostgREST e o gateway
         run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       # O test:db roda fora do turbo, então o ^build não dispara: sem isso, o dist/ do @trampo/contracts não existe.
