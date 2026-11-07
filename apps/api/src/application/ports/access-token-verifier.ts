@@ -10,7 +10,7 @@ export interface Principal {
 }
 
 /**
- * - `token_invalido`: assinatura, algoritmo, `kid` ou claim recusados → 401.
+ * - `token_invalido`: assinatura, algoritmo, `kid` ou claim (inclusive `amr` fora da lista) recusados → 401.
  * - `chaves_indisponiveis`: JWKS inacessível, vazio ou sem chave ES256 → 503 (threat-model T30).
  */
 export type AccessTokenRejection = "token_invalido" | "chaves_indisponiveis";
@@ -22,4 +22,9 @@ export type AccessTokenVerification =
 export interface AccessTokenVerifier {
   /** Nunca rejeita: toda falha vira `{ ok: false }` (falha fechado). */
   verify(token: string): Promise<AccessTokenVerification>;
+  /**
+   * Há chave pronta para verificar um token agora? Sem token (ADR-004 D6): o BFF pergunta ANTES de chamar o GoTrue,
+   * para não consumir o refresh quando o JWKS está fora. Nunca rejeita: qualquer falha é `false`.
+   */
+  keysReady(): Promise<boolean>;
 }

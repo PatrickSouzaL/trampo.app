@@ -1,0 +1,18 @@
+{
+  "plataforma": "gupy",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "main",
+  "raizDaPlataforma": "main",
+  "trechosObrigatorios": [
+    "Hoje, somos o software odontológico líder",
+    "Além de trabalhar na empresa mais",
+    "Saiba sobre nossas oportunidades e venha"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Ao clicar em “Aceitar todos os"
+  ],
+  "anonimizacao": {}
+}

@@ -36,7 +36,7 @@ export {
   LIMIT_GUARD_POLICY,
   RATE_LIMIT_POLICY,
   STRICTEST_RATE_LIMIT_CLASS,
-  WORKERS_AI_NEURON_BUDGET,
+  WORKERS_AI_NEURON_MEASUREMENT,
   effectiveLimit,
   groqReservedTokensPerCall,
   providerLimits,
@@ -124,6 +124,7 @@ export type { QuotaDecision, QuotaLedger } from "./ports/quota-ledger.js";
 export type { DailyQuota, DailyQuotaDecision } from "./ports/daily-quota.js";
 export type { CacheStoreRead, CacheStoreWrite, JobFactsCacheStore } from "./ports/job-facts-cache-store.js";
 export type { Random } from "./ports/random.js";
+export type { RefreshOpenResult, RefreshSealResult, RefreshSealer, SealedSession } from "./ports/refresh-sealer.js";
 export { CRITERIA_GUARD_POLICY, CriteriaGuard } from "./criteria/criteria-guard.js";
 export type {
   CriteriaLookup,

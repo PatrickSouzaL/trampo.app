@@ -1,0 +1,18 @@
+{
+  "plataforma": "gupy",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "main",
+  "raizDaPlataforma": "main",
+  "trechosObrigatorios": [
+    "Somos uma consultoria de transformação e",
+    "Conhecimento em CI/CD e práticas de",
+    "Esse é o mantra que nos"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Ao clicar em “Aceitar todos os"
+  ],
+  "anonimizacao": {}
+}

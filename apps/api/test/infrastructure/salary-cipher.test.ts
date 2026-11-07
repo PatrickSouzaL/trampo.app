@@ -255,3 +255,24 @@ describe("política fixada contra o ADR-018 D4", () => {
     expect(SALARY_CIPHER_POLICY).toEqual({ keyBytes: 32, ivBytes: 12, tagBytes: 16, maxKeys: 4, plaintextMaxBytes: 256, envelopeMaxChars: 1_024 });
   });
 });
+
+describe("formato s1 estável depois da generalização em AEAD por finalidade (F1-API-07 07b, ADR-004 D5)", () => {
+  // Vetores gravados em 2026-11-07 com o salary-cipher anterior ao aead-envelope. A chave é de teste, de baixa
+  // entropia (32 bytes 0x5a), e não protege nada. Se o refactor mudasse AAD, prefixo, ordem das partes ou
+  // codificação, as linhas já gravadas no banco deixariam de abrir.
+  const VECTOR_KEY = Buffer.alloc(32, 0x5a).toString("base64url");
+  const VECTOR_OWNER = "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f";
+  const VECTOR_SALARY =
+    "s1.v1.R_Ti6vDXWgUludRG.99IWBSU57ls3vcUa_vDGvBa66qE4wqG29ehTqRD69pR1JDNdHUfvaTQ3YHgiaAOlWqbYy3b1hCeFTUfKkikOBLzJUp4Wn-MWaMnsUZYQWx9S3eV14cs.xhcFI-Xa0cq6NvDEJtQeYg";
+  const VECTOR_NULL = "s1.v1.vt-f61NtpJLc4DZM.-tGTvg.AbbBiddspM0lgCc7Y8CZlw";
+
+  test("os envelopes gravados antes do refactor abrem com o mesmo valor", () => {
+    const cipher = createSalaryCipher(parseSalaryKeyring(`v1:${VECTOR_KEY}`, "v1"));
+    expect(cipher.open(VECTOR_OWNER, VECTOR_SALARY)).toEqual({
+      ok: true,
+      salary: { minimum: 12_345, currency: "BRL", period: "mes", importance: { level: "obrigatorio" } },
+    });
+    expect(cipher.open(VECTOR_OWNER, VECTOR_NULL)).toEqual({ ok: true, salary: null });
+    expect(cipher.open(B, VECTOR_SALARY)).toEqual({ ok: false });
+  });
+});

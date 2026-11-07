@@ -1,4 +1,6 @@
-// Extrator genérico de texto de vaga (S-2; ADR-023; ADR-001 §5.0 passos 2 a 4; threat-model T2).
+// Extrator de texto de vaga (S-2; ADR-023; ADR-001 §5.0 passos 2 a 4; threat-model T2): o genérico
+// e os do LinkedIn, da Gupy e da Solides, que só escolhem outra raiz e reusam as mesmas regras de
+// descarte (D4).
 // AUTOCONTIDO: o Chrome serializa esta função (scripting.executeScript) e a roda no mundo ISOLATED
 // da aba. Nada do escopo do módulo pode ser usado aqui dentro: auxiliares e constantes são internos.
 // Só lê o `data` de nós de texto que o usuário vê; nunca atributo como conteúdo, nunca decodifica,
@@ -29,19 +31,54 @@ export type DiscardReason =
 
 export type DiscardCounts = Record<DiscardReason, number>;
 
+/** Plataforma escolhida pelo Service Worker a partir do host da aba (ADR-023 D11). */
+export type ExtractorPlatform = "generico" | "linkedin" | "gupy" | "solides";
+
+/**
+ * `ge1` é o genérico; as outras, o seletor da plataforma que achou a raiz (ADR-023 D11 e D12): `li2`
+ * no LinkedIn logado, `li1` no público, `gu1` na Gupy e `so1` na Solides. Sem raiz, roda o `ge1`.
+ */
+export type ExtractorVersion = "ge1" | "li1" | "li2" | "gu1" | "so1";
+
 export type ExtractionResult =
   | {
       ok: true;
-      versao: "ge1";
-      raiz: "main" | "article" | "body";
+      versao: ExtractorVersion;
+      raiz: "plataforma" | "main" | "article" | "body";
       texto: string;
       truncado: boolean;
       descartes: DiscardCounts;
     }
-  | { ok: false; versao: "ge1"; motivo: "limites_invalidos" | "texto_insuficiente" };
+  | { ok: false; versao: ExtractorVersion; motivo: "limites_invalidos" | "texto_insuficiente" };
 
-export function extractGenericJobText(limites: ExtractionLimits): ExtractionResult {
-  const versao = "ge1";
+export function extractJobText(limites: ExtractionLimits, plataforma: ExtractorPlatform): ExtractionResult {
+  // Raiz de cada plataforma, conferida nas fixtures reais (fixtures-dom §6 e §8), em ordem: a primeira
+  // com um elemento visível vence, e o resultado leva a versão dela. `layout` reconhece uma página da
+  // plataforma onde o genérico pegaria o que não é a vaga: achado sem a raiz, nada é lido. `verMais`:
+  // o clamp de linhas da própria raiz não corta (o "ver mais" fechado, D13).
+  // Map, e não objeto, para "__proto__" e afins não acharem nada.
+  const PLATAFORMAS = new Map<string, { versao: ExtractorVersion; raiz: string; layout: string | null; verMais: boolean }[]>([
+    [
+      "linkedin",
+      [
+        // Logado: só a descrição. O painel da vaga também traz blocos tirados do perfil e da rede do
+        // usuário ("qualificações que não constam do seu perfil", "pessoas que você pode contatar"), e o
+        // `main#workspace` junta a lista e o painel.
+        {
+          versao: "li2",
+          raiz: '[data-sdui-screen$=".SemanticJobDetails"] [data-testid="expandable-text-box"]',
+          layout: "main#workspace",
+          verMais: true,
+        },
+        // Público: busca em dois painéis; a vaga aberta é irmã do `main`, que é a lista de vagas.
+        { versao: "li1", raiz: ".details-pane__content", layout: null, verMais: false },
+      ],
+    ],
+    ["gupy", [{ versao: "gu1", raiz: "main#main", layout: null, verMais: false }]],
+    // Busca em dois painéis: a lista de cartões e, ao lado, a vaga aberta.
+    ["solides", [{ versao: "so1", raiz: "#vacancy-box-details", layout: null, verMais: false }]],
+  ]);
+  let versao: ExtractorVersion = "ge1";
   const inteiroEm = (v: unknown, min: number, max: number): boolean =>
     Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
   if (
@@ -49,7 +86,8 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     limites === null ||
     !inteiroEm(limites.maxChars, 1, 1_000_000) ||
     !inteiroEm(limites.maxNodes, 1, 10_000_000) ||
-    !inteiroEm(limites.minChars, 0, limites.maxChars)
+    !inteiroEm(limites.minChars, 0, limites.maxChars) ||
+    (plataforma !== "generico" && !PLATAFORMAS.has(plataforma))
   ) {
     return { ok: false, versao, motivo: "limites_invalidos" };
   }
@@ -63,6 +101,9 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     st: CSSStyleDeclaration;
     /** `<details>` fechado: o texto solto direto nele tem caixa, mas não é renderizado. Não herda. */
     textoDiretoOculto: boolean;
+    /** A origem do documento ainda corta neste eixo (`foraDaTela`): nenhum rolável acima a soltou (D12). */
+    origemX: boolean;
+    origemY: boolean;
   };
 
   const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -99,8 +140,23 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     return 0.2126 * canal(c[0]) + 0.7152 * canal(c[1]) + 0.0722 * canal(c[2]);
   };
 
-  /** Contexto do elemento a partir do pai, ou o motivo do descarte da subárvore inteira (ADR-023 D4). */
-  const entrar = (el: Element, pai: Contexto, abaixoDaRaiz: boolean): Contexto | DiscardReason => {
+  /**
+   * Intervalo que o texto precisa tocar num eixo de um elemento com overflow (ADR-023 D4 e D12).
+   * `hidden`/`clip`: a caixa. Rolável: a parte visível da caixa (já cortada pelos de fora e pela origem
+   * do documento), estendida do que já foi rolado para trás e do que falta rolar para a frente; sem
+   * parte visível, vazio.
+   */
+  const intervalo = (modo: string, ini: number, fim: number, vIni: number, vFim: number, rolado: number, resto: number): [number, number] => {
+    if (modo === "visible") return [-Infinity, Infinity];
+    if (CORTA.test(modo)) return [ini, fim];
+    return vFim > vIni ? [vIni - rolado, vFim + resto] : [Infinity, -Infinity];
+  };
+
+  /**
+   * Contexto do elemento a partir do pai, ou o motivo do descarte da subárvore inteira (ADR-023 D4).
+   * `abreClamp`: só na raiz da plataforma com `verMais` (D13).
+   */
+  const entrar = (el: Element, pai: Contexto, abaixoDaRaiz: boolean, abreClamp = false): Contexto | DiscardReason => {
     if (el.namespaceURI !== HTML_NS || SEM_TEXTO.has(el.tagName)) return "naoTexto";
     if (abaixoDaRaiz && RUIDO.has(el.tagName)) return "ruido";
     const st = getComputedStyle(el);
@@ -113,30 +169,47 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     if (st.clipPath !== "none" || st.clip !== "auto") return "recorte";
 
     let cortes = pai.cortes;
+    let origemX = pai.origemX;
+    let origemY = pai.origemY;
     const ox = st.overflowX;
     const oy = st.overflowY;
     if (ox !== "visible" || oy !== "visible") {
       const caixa = el.getBoundingClientRect();
-      // O que transborda para a esquerda ou para cima nunca é alcançável, nem rolando. Para a direita
-      // e para baixo, o rolável com área positiva não corta: o usuário rola até o texto.
-      const cx = CORTA.test(ox) || caixa.width === 0;
-      const cy = CORTA.test(oy) || caixa.height === 0;
+      // Num eixo rolável, o texto passa se alguma posição da rolagem o traz para a parte visível da
+      // caixa: os cortes de fora e a origem do documento se soltam nesse eixo (D12). O transbordo para a
+      // esquerda ou para cima da posição inicial nunca é alcançável. O rolável do <html> e do <body> é a
+      // própria página, que anda junto com a caixa deles: vale como visible, e a origem do documento
+      // continua cortando (`foraDaTela`).
+      const pagina = el === document.documentElement || el === document.body;
+      const mx = pagina && !CORTA.test(ox) ? "visible" : ox;
+      const my = pagina && !CORTA.test(oy) ? "visible" : oy;
+      const rolaX = mx !== "visible" && !CORTA.test(mx);
+      const rolaY = my !== "visible" && !CORTA.test(my);
+      const vl = Math.max(caixa.left, origemX ? -window.scrollX : -Infinity, ...cortes.map((c) => c.l));
+      const vr = Math.min(caixa.right, ...cortes.map((c) => c.r));
+      const vt = Math.max(caixa.top, origemY ? -window.scrollY : -Infinity, ...cortes.map((c) => c.t));
+      const vb = Math.min(caixa.bottom, ...cortes.map((c) => c.b));
+      const sx = Math.max(0, el.scrollLeft);
+      const sy = el.scrollTop;
+      const [l, r] = intervalo(mx, caixa.left, caixa.right, vl, vr, sx, el.scrollWidth - el.clientWidth - sx);
+      const [t, b] = intervalo(my, caixa.top, caixa.bottom, vt, vb, sy, el.scrollHeight - el.clientHeight - sy);
+      // "Ver mais" fechado (D13): o clamp de linhas da raiz com corte vertical não corta. O que ele
+      // recolhe fica abaixo da caixa, e abrir o "ver mais" empurra a caixa e os de fora para baixo na
+      // mesma medida. Propriedade sombreada por <form> (DOM Clobbering) dá NaN, que corta tudo.
+      const abre = abreClamp && st.webkitLineClamp !== "none" && CORTA.test(oy) ? el.scrollHeight - el.clientHeight : 0;
       cortes = [
-        ...cortes,
-        {
-          l: ox !== "visible" ? caixa.left : -Infinity,
-          r: ox !== "visible" && cx ? caixa.right : Infinity,
-          t: oy !== "visible" ? caixa.top : -Infinity,
-          b: oy !== "visible" && cy ? caixa.bottom : Infinity,
-        },
+        ...cortes.map((c) => ({ l: rolaX ? -Infinity : c.l, r: rolaX ? Infinity : c.r, t: rolaY ? -Infinity : c.t, b: (rolaY ? Infinity : c.b) + abre })),
+        { l, r, t, b: b + abre },
       ];
+      origemX = origemX && !rolaX;
+      origemY = origemY && !rolaY;
     }
 
     const cor = rgba(st.backgroundColor);
     const fundo = st.backgroundImage !== "none" ? null : cor[3] === 1 ? cor : pai.fundo === null ? null : sobre(cor, pai.fundo);
     // `open` é lido só para decidir (propriedade refletida), nunca emitido (ADR-023 D3).
     const textoDiretoOculto = el instanceof HTMLDetailsElement && !el.open;
-    return { opacidade, fundo, cortes, st, textoDiretoOculto };
+    return { opacidade, fundo, cortes, st, textoDiretoOculto, origemX, origemY };
   };
 
   /** Motivo do descarte de um nó de texto com conteúdo, ou null se o usuário o vê (ADR-023 D4). */
@@ -153,7 +226,7 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     const r = Math.max(...caixas.map((c) => c.right));
     const t = Math.min(...caixas.map((c) => c.top));
     const b = Math.max(...caixas.map((c) => c.bottom));
-    if (r + window.scrollX <= 0 || b + window.scrollY <= 0) return "foraDaTela";
+    if ((ctx.origemX && r + window.scrollX <= 0) || (ctx.origemY && b + window.scrollY <= 0)) return "foraDaTela";
     for (const c of ctx.cortes) {
       if (!(r > c.l && l < c.r && b > c.t && t < c.b)) return "cortado";
     }
@@ -173,7 +246,7 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     return s.slice(i, j);
   };
 
-  const extrair = (raiz: Element): { texto: string; truncado: boolean; descartes: DiscardCounts } => {
+  const extrair = (raiz: Element, verMais = false): { texto: string; truncado: boolean; descartes: DiscardCounts } => {
     const descartes: DiscardCounts = {
       naoTexto: 0,
       ruido: 0,
@@ -262,9 +335,11 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
       cortes: [],
       st: getComputedStyle(html),
       textoDiretoOculto: false,
+      origemX: true,
+      origemY: true,
     };
     for (const e of cadeia) {
-      ctx = entrar(e, ctx, false);
+      ctx = entrar(e, ctx, false, verMais && e === raiz);
       // Ancestral da raiz descartado: nada é lido, e o resultado vira texto_insuficiente.
       if (typeof ctx === "string") return { texto: "", truncado, descartes };
     }
@@ -274,10 +349,28 @@ export function extractGenericJobText(limites: ExtractionLimits): ExtractionResu
     return { texto: aparar(linhas.join("\n").replace(/\n{3,}/g, "\n\n"), "\n"), truncado, descartes };
   };
 
-  type Raiz = "main" | "article" | "body";
-  let raiz: Raiz = "main";
-  const principal = Array.from(document.getElementsByTagName("main")).find((m) => m.checkVisibility());
-  let melhor = principal === undefined ? undefined : extrair(principal);
+  type Raiz = "plataforma" | "main" | "article" | "body";
+  let raiz: Raiz = "plataforma";
+  let melhor: ReturnType<typeof extrair> | undefined;
+  const visivel = (seletor: string): Element | undefined => Array.from(document.querySelectorAll(seletor)).find((e) => e.checkVisibility());
+  const alvos = PLATAFORMAS.get(plataforma) ?? [];
+  for (const alvo of alvos) {
+    const doAlvo = visivel(alvo.raiz);
+    // Raiz da plataforma achada: ela decide, mesmo com pouco texto (no LinkedIn, o `main` é a lista).
+    if (doAlvo !== undefined) {
+      versao = alvo.versao;
+      melhor = extrair(doAlvo, alvo.verMais);
+      break;
+    }
+  }
+  // Página da plataforma reconhecida sem nenhuma raiz: o genérico pegaria a lista e o que não é da vaga.
+  const fechado = melhor === undefined ? alvos.find((a) => a.layout !== null && visivel(a.layout) !== undefined) : undefined;
+  if (fechado !== undefined) return { ok: false, versao: fechado.versao, motivo: "texto_insuficiente" };
+  if (melhor === undefined) {
+    raiz = "main";
+    const principal = Array.from(document.getElementsByTagName("main")).find((m) => m.checkVisibility());
+    melhor = principal === undefined ? undefined : extrair(principal);
+  }
   if (melhor === undefined) {
     raiz = "article";
     for (const artigo of Array.from(document.getElementsByTagName("article"))) {

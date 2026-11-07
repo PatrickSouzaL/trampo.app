@@ -1,0 +1,20 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": false,
+  "raizEsperada": "main",
+  "raizDaPlataforma": ".details-pane__content",
+  "trechosObrigatorios": [
+    "Com 85 anos de história, a",
+    "Você Vai Se Dar Bem Se",
+    "E queremos construir esse futuro com"
+  ],
+  "trechosProibidos": [
+    "Banco de Talentos PcD"
+  ],
+  "anonimizacao": {
+    "PESSOA": 2,
+    "URL": 1
+  }
+}

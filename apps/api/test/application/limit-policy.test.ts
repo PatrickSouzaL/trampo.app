@@ -10,7 +10,7 @@ import {
   LIMIT_GUARD_POLICY,
   RATE_LIMIT_POLICY,
   STRICTEST_RATE_LIMIT_CLASS,
-  WORKERS_AI_NEURON_BUDGET,
+  WORKERS_AI_NEURON_MEASUREMENT,
   effectiveLimit,
   groqReservedTokensPerCall,
   isEpochMs,
@@ -60,7 +60,7 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
       providers: {
         // Reserva pessimista de 3.000 só no Groq (ADR-022 D7.2).
         groq: { rpm: 30, rpd: 1_000, tpm: 8_000, tpd: 200_000, reservedTokensPerCall: 3_000 },
-        cloudflare_workers_ai: { rpm: 60, rpd: 54, tpm: null, tpd: null, reservedTokensPerCall: null },
+        cloudflare_workers_ai: { rpm: 60, rpd: 99, tpm: null, tpd: null, reservedTokensPerCall: null },
         ollama: { rpm: null, rpd: null, tpm: null, tpd: null, reservedTokensPerCall: null },
       },
       minuteTtlSeconds: 120,
@@ -72,22 +72,39 @@ describe("política fixada no ADR-014 (D4 a D6)", () => {
     expect(LIMIT_GUARD_POLICY).toEqual({ timeoutMs: 250 });
   });
 
-  test("Workers AI: rpd pela fórmula de neurons do ADR-020 D9, com a folga aplicada uma vez só", () => {
-    expect(WORKERS_AI_NEURON_BUDGET).toEqual({
-      neuronsPerDay: 10_000,
-      inputTokens: 2_200,
-      outputTokens: 600,
-      inputNeuronsPerMillion: 26_668,
-      outputNeuronsPerMillion: 204_805,
-    });
-    // 2.200 × 26.668 / 1e6 = 58,67 e 600 × 204.805 / 1e6 = 122,88: 181,55 → 182 neurons por chamada.
-    const perCall = Math.ceil((2_200 * 26_668 + 600 * 204_805) / 1_000_000);
-    expect(perCall).toBe(182);
-    expect(workersAiCallsPerDay()).toBe(Math.floor(10_000 / perCall));
-    expect(workersAiCallsPerDay()).toBe(54);
+  test("Workers AI: rpd pelo p95 medido de neurons (S-1; emenda ao ADR-020 D9), com a folga aplicada uma vez só", () => {
+    expect(WORKERS_AI_NEURON_MEASUREMENT).toEqual({ neuronsPerDay: 10_000, neuronsPerCallMean: 74, neuronsPerCallP95: 101 });
+    // floor(10.000 ÷ 101) = 99 publicado; floor(99 × 0,85) = 84 efetivo.
+    expect(workersAiCallsPerDay()).toBe(99);
     expect(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd).toBe(workersAiCallsPerDay());
-    // Teto efetivo de 45 por dia, abaixo dos 10.000 × 0,85 ÷ 182 ≈ 46,7 do ADR: a folga não entra duas vezes.
-    expect(effectiveLimit(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd)).toBe(45);
+    expect(effectiveLimit(LEDGER_POLICY.providers.cloudflare_workers_ai.rpd)).toBe(84);
+    // O p95 é o lado seguro: pela média (74), caberiam floor(10.000 ÷ 74) = 135 por dia.
+    expect(workersAiCallsPerDay({ neuronsPerDay: 10_000, neuronsPerCallP95: WORKERS_AI_NEURON_MEASUREMENT.neuronsPerCallMean })).toBe(135);
+    expect(workersAiCallsPerDay()).toBeLessThan(135);
+    // O teto efetivo cabe na cota: 84 chamadas no p95 gastam 8.484 neurons, abaixo dos 10.000.
+    expect(effectiveLimit(workersAiCallsPerDay()) * WORKERS_AI_NEURON_MEASUREMENT.neuronsPerCallP95).toBeLessThanOrEqual(10_000);
+  });
+
+  test("Workers AI: a fórmula com medidas sintéticas (divisão exata, arredondamento para baixo e só o p95 conta)", () => {
+    expect(workersAiCallsPerDay({ neuronsPerDay: 10_000, neuronsPerCallP95: 100 })).toBe(100);
+    expect(workersAiCallsPerDay({ neuronsPerDay: 10_000, neuronsPerCallP95: 182 })).toBe(54);
+    expect(workersAiCallsPerDay({ neuronsPerDay: 1_000, neuronsPerCallP95: 3 })).toBe(333);
+    expect(workersAiCallsPerDay({ neuronsPerDay: 99, neuronsPerCallP95: 100 })).toBe(0);
+    // Campos extras de uma medida (a média) não entram na conta.
+    const withMean = { neuronsPerDay: 10_000, neuronsPerCallP95: 101, neuronsPerCallMean: 1 };
+    expect(workersAiCallsPerDay(withMean)).toBe(99);
+  });
+
+  test("o breaker global e o TPD do Groq continuam mandando no dia (T7; ADR-014 D6; ADR-022 D7.2)", () => {
+    const { groq, cloudflare_workers_ai: workers } = LEDGER_POLICY.providers;
+    // No Groq, o TPD com a reserva cheia (floor(170.000 ÷ 3.000) = 56) aperta antes do RPD efetivo (850).
+    const groqByTokens = Math.floor(effectiveLimit(groq.tpd) / groq.reservedTokensPerCall);
+    expect(groqByTokens).toBe(56);
+    expect(groqByTokens).toBeLessThan(effectiveLimit(groq.rpd));
+    // A Workers AI recalibrada (84) cabe sozinha no breaker global (400), que não leva a folga.
+    expect(effectiveLimit(workers.rpd)).toBeLessThan(LEDGER_POLICY.globalCallsPerDay);
+    // Somados os RPD efetivos dos provedores (850 + 84 = 934), o breaker global é o teto do dia.
+    expect(effectiveLimit(groq.rpd) + effectiveLimit(workers.rpd)).toBeGreaterThan(LEDGER_POLICY.globalCallsPerDay);
   });
 
   test("reserva do Groq calibrada pela medida do aceite do p3 (ADR-022 D7.2; spike-metrics §2.8)", () => {

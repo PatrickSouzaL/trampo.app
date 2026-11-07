@@ -1,0 +1,19 @@
+{
+  "plataforma": "solides",
+  "coletadoEm": "2026-10-31",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "body",
+  "raizDaPlataforma": "#vacancy-box-details",
+  "trechosObrigatorios": [
+    "encarregado de suporte técnico",
+    "Liderar 6 colaboradores do suporte, definir",
+    "Cidade Jardim, Goiânia - GO, Brasil"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Qual vaga de emprego procura?",
+    "analista de suporte junior (pdv)"
+  ],
+  "anonimizacao": {}
+}

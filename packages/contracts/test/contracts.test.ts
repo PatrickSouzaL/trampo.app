@@ -337,6 +337,9 @@ test('AnalyzeJobRequest: rejeita curto, chaves extras e URL de página', () => {
     mode: 'auto',
   };
   assert.equal(AnalyzeJobRequestSchema.safeParse(base).success, true);
+  // ADR-023 D12: a Solides tem extrator próprio (so1); plataforma fora da lista continua rejeitada.
+  assert.equal(AnalyzeJobRequestSchema.safeParse({ ...base, source: { platform: 'solides', extractorVersion: 'so1' } }).success, true);
+  assert.equal(AnalyzeJobRequestSchema.safeParse({ ...base, source: { platform: 'geekhunter', extractorVersion: 'ge1' } }).success, false);
   assert.equal(AnalyzeJobRequestSchema.safeParse({ ...base, job: { ...base.job, text: '   curto   ' } }).success, false);
   assert.equal(AnalyzeJobRequestSchema.safeParse({ ...base, userId: 'x' }).success, false);
   assert.equal(AnalyzeJobRequestSchema.safeParse({ ...base, source: { ...base.source, pageUrl: 'https://x' } }).success, false);

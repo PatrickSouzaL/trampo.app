@@ -80,11 +80,20 @@ describe("captureView", () => {
 describe("createCaptureService", () => {
   beforeEach(() => fakeBrowser.reset());
 
+  test("a plataforma do clique chega ao extrator e à vaga guardada (ADR-023 D11)", async () => {
+    const frames = okFrames(PAGE_TEXT);
+    const runExtractor = vi.fn<ExtractorRunner>(() => Promise.resolve([{ ...frames[0]!, result: { ...frames[0]!.result, versao: "li1", raiz: "plataforma" } }]));
+    const { service, stored } = setup(runExtractor);
+    await service.captureTab(4, "linkedin");
+    expect(runExtractor).toHaveBeenCalledWith(4, "linkedin");
+    expect(await stored()).toMatchObject({ estado: "pronto", vaga: { tabId: 4, platform: "linkedin", extractorVersion: "li1" } });
+  });
+
   test("o painel ligado recebe o estado atual, depois lendo e pronto; o texto fica só no storage.session", async () => {
     const { service, stored, logFailure } = setup();
     const p = fakePort();
     await service.attach(p.port);
-    await service.captureTab(9);
+    await service.captureTab(9, "generico");
     expect(views(p.received)).toEqual([
       { estado: "ocioso" },
       { estado: "lendo" },
@@ -104,7 +113,7 @@ describe("createCaptureService", () => {
     const { service, stored, logFailure } = setup(() => Promise.reject(new Error(`Cannot access ${SECRET}`)));
     const p = fakePort();
     await service.attach(p.port);
-    await service.captureTab(4);
+    await service.captureTab(4, "generico");
     expect(await stored()).toEqual({ estado: "falhou", tabId: 4, motivo: "sem_acesso" });
     expect(views(p.received).at(-1)).toEqual({ estado: "falhou", motivo: "sem_acesso" });
     expect(logFailure.mock.calls).toEqual([["sem_acesso"]]);
@@ -117,9 +126,9 @@ describe("createCaptureService", () => {
     const { service, stored } = setup(() => runs.shift()!.promise);
     const p = fakePort();
     await service.attach(p.port);
-    const a = service.captureTab(1);
+    const a = service.captureTab(1, "generico");
     await vi.waitFor(() => expect(runs).toHaveLength(1));
-    const b = service.captureTab(2);
+    const b = service.captureTab(2, "generico");
     await vi.waitFor(() => expect(runs).toHaveLength(0));
     second.resolve(okFrames(`segunda ${"b".repeat(250)}`));
     await b;
@@ -136,7 +145,7 @@ describe("createCaptureService", () => {
     const { service, stored } = setup(() => pending.promise);
     const p = fakePort();
     await service.attach(p.port);
-    const reading = service.captureTab(3);
+    const reading = service.captureTab(3, "generico");
     await service.paste(`  ${"colado ".repeat(40)}\u0000`);
     pending.resolve(okFrames(PAGE_TEXT));
     await reading;
@@ -160,7 +169,7 @@ describe("createCaptureService", () => {
     await service.attach(a.port);
     await service.attach(b.port);
     a.disconnect();
-    await service.captureTab(1);
+    await service.captureTab(1, "generico");
     expect(a.received).toHaveLength(1);
     expect(b.received).toHaveLength(3);
   });
@@ -174,7 +183,7 @@ describe("createCaptureService", () => {
     broken.port.postMessage.mockImplementation(() => {
       throw new Error("Attempting to use a disconnected port object");
     });
-    await service.captureTab(1);
+    await service.captureTab(1, "generico");
     expect(broken.port.postMessage).toHaveBeenCalledTimes(2);
     expect(ok.received).toHaveLength(3);
   });
@@ -190,7 +199,7 @@ describe("createCaptureService", () => {
 
   test("o painel que conecta depois vê a captura guardada", async () => {
     const { service } = setup();
-    await service.captureTab(5);
+    await service.captureTab(5, "generico");
     const p = fakePort();
     await service.attach(p.port);
     expect(views(p.received)).toEqual([{ estado: "pronto", origem: "pagina", caracteres: PAGE_TEXT.length, truncado: false }]);
@@ -209,7 +218,7 @@ describe("createCaptureService", () => {
     const { service, stored } = setup();
     const p = fakePort();
     await service.attach(p.port);
-    await service.captureTab(8);
+    await service.captureTab(8, "generico");
     await service.tabClosed(8);
     expect(await stored()).toBeUndefined();
     expect(views(p.received).at(-1)).toEqual({ estado: "ocioso" });
@@ -217,7 +226,7 @@ describe("createCaptureService", () => {
 
   test("fechar a aba de uma falha também apaga", async () => {
     const { service, stored } = setup(() => Promise.reject(new Error("x")));
-    await service.captureTab(8);
+    await service.captureTab(8, "generico");
     await service.tabClosed(8);
     expect(await stored()).toBeUndefined();
   });
@@ -227,7 +236,7 @@ describe("createCaptureService", () => {
     const p = fakePort();
     await service.attach(p.port);
     await service.tabClosed(1);
-    await service.captureTab(8);
+    await service.captureTab(8, "generico");
     await service.tabClosed(7);
     expect((await stored())?.estado).toBe("pronto");
     await service.paste("x".repeat(300));
@@ -239,7 +248,7 @@ describe("createCaptureService", () => {
   test("fechar a aba durante a leitura descarta o resultado que chegar depois", async () => {
     const pending = deferred<unknown>();
     const { service, stored } = setup(() => pending.promise);
-    const reading = service.captureTab(6);
+    const reading = service.captureTab(6, "generico");
     await vi.waitFor(async () => expect(await stored()).toEqual({ estado: "lendo", tabId: 6 }));
     await service.tabClosed(6);
     pending.resolve(okFrames(PAGE_TEXT));

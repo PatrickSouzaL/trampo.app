@@ -1,19 +1,20 @@
-// F1-EXT-03 parte 1 (ADR-024): limpeza do texto, validação do retorno do extrator como dado hostil e
-// texto colado. O extrator em si é provado no navegador (test:browser) e no E2E do build de produção.
+// F1-EXT-03 (ADR-024; ADR-023 D11): limpeza do texto, escolha do extrator pelo host, validação do
+// retorno do extrator como dado hostil e texto colado. O extrator em si é provado no navegador (test:browser) e no E2E do build de produção.
 import { describe, expect, test, vi } from "vitest";
 
 import {
   CapturedJobSchema,
   DISCARD_REASONS_EXHAUSTIVE,
-  GENERIC_LIMITS,
+  EXTRACTION_LIMITS,
   PASTED_EXTRACTOR_VERSION,
   captureFromTab,
   capturePasted,
-  genericExtractorRunner,
+  extractorRunner,
+  platformForUrl,
   type ScriptingApi,
 } from "../src/capture/capture";
 import { cleanJobText, countCodePoints } from "../src/capture/job-text";
-import { extractGenericJobText } from "../src/extraction/generic-extractor";
+import { extractJobText } from "../src/extraction/job-extractor";
 
 const MAX = 15_000;
 const MIN = 200;
@@ -73,25 +74,25 @@ describe("cleanJobText", () => {
   });
 });
 
-describe("genericExtractorRunner", () => {
-  test("injeta a função do extrator só no frame principal, no mundo ISOLATED, com os limites", async () => {
+describe("extractorRunner", () => {
+  test("injeta a função do extrator só no frame principal, no mundo ISOLATED, com os limites e a plataforma", async () => {
     const executeScript = vi.fn<ScriptingApi["executeScript"]>().mockResolvedValue("x");
-    await expect(genericExtractorRunner({ executeScript })(42)).resolves.toBe("x");
+    await expect(extractorRunner({ executeScript })(42, "linkedin")).resolves.toBe("x");
     expect(executeScript).toHaveBeenCalledOnce();
     const injection = executeScript.mock.calls[0]![0];
     expect(injection).toStrictEqual({
       target: { tabId: 42 },
       world: "ISOLATED",
       injectImmediately: false,
-      func: extractGenericJobText,
-      args: [{ maxChars: 30_000, maxNodes: 50_000, minChars: MIN }],
+      func: extractJobText,
+      args: [{ maxChars: 30_000, maxNodes: 50_000, minChars: MIN }, "linkedin"],
     });
     expect(Object.keys(injection.target)).toEqual(["tabId"]);
   });
 
   test("os limites são válidos para o próprio extrator", () => {
-    expect(GENERIC_LIMITS.maxChars).toBe(2 * MAX);
-    expect(GENERIC_LIMITS.minChars).toBe(MIN);
+    expect(EXTRACTION_LIMITS.maxChars).toBe(2 * MAX);
+    expect(EXTRACTION_LIMITS.minChars).toBe(MIN);
     expect(DISCARD_REASONS_EXHAUSTIVE).toBe(true);
   });
 });
@@ -114,10 +115,45 @@ const okResult = (texto: unknown, extra: Record<string, unknown> = {}) => ({ ok:
 const frame = (result: unknown, extra: Record<string, unknown> = {}) => ({ documentId: "D0C", frameId: 0, result, ...extra });
 const run = (value: unknown) => () => Promise.resolve(value);
 
+describe("platformForUrl", () => {
+  test.each([
+    ["https://www.linkedin.com/jobs/search/?currentJobId=1", "linkedin"],
+    ["https://linkedin.com/jobs/view/1", "linkedin"],
+    ["https://br.linkedin.com/jobs/view/1", "linkedin"],
+    ["https://WWW.LinkedIn.COM/jobs", "linkedin"],
+    ["https://empresa.gupy.io/jobs/123", "gupy"],
+    ["https://portal.gupy.io/job-search", "gupy"],
+    ["https://vagas.solides.com.br/vagas/devops", "solides"],
+    ["https://empresa.vagas.solides.com.br/vaga/123", "solides"],
+    ["https://VAGAS.Solides.COM.BR/vagas", "solides"],
+  ])("%s → %s", (url, platform) => {
+    expect(platformForUrl(url)).toBe(platform);
+  });
+
+  test.each([
+    ["sem URL (activeTab ausente)", undefined],
+    ["URL inválida", "não é url"],
+    ["http, não https", "http://www.linkedin.com/jobs"],
+    ["sufixo parecido", "https://evillinkedin.com/jobs"],
+    ["domínio dentro do caminho", "https://evil.example/www.linkedin.com"],
+    ["domínio no usuário", "https://www.linkedin.com@evil.example/"],
+    ["domínio como subdomínio de outro", "https://www.linkedin.com.evil.example/"],
+    ["gupy.io sem subdomínio", "https://gupy.io/"],
+    ["sufixo parecido da gupy", "https://empresagupy.io/jobs"],
+    ["solides.com.br sem o vagas", "https://app.solides.com.br/vagas"],
+    ["sufixo parecido da solides", "https://xvagas.solides.com.br/vagas"],
+    ["solides em http", "http://vagas.solides.com.br/vagas"],
+    ["página local", "file:///C:/vaga.html"],
+    ["outro site", "https://vagas.example/123"],
+  ])("cai no genérico: %s", (_label, url) => {
+    expect(platformForUrl(url)).toBe("generico");
+  });
+});
+
 describe("captureFromTab", () => {
   test("texto válido vira vaga genérica limpa, com a versão do extrator", async () => {
     const texto = `Título\n\n${body(MIN)}\u0007​`;
-    const out = await captureFromTab(7, run([frame(okResult(texto, { descartes: { ...zeros, opacidade: 3 } }))]), 1_000);
+    const out = await captureFromTab(7, "generico", run([frame(okResult(texto, { descartes: { ...zeros, opacidade: 3 } }))]), 1_000);
     expect(out).toEqual({
       ok: true,
       job: { tabId: 7, capturedAt: 1_000, platform: "generico", extractorVersion: "ge1", text: `Título\n\n${body(MIN)}​`, truncated: false },
@@ -125,31 +161,77 @@ describe("captureFromTab", () => {
     expect(CapturedJobSchema.safeParse(out.ok && out.job).success).toBe(true);
   });
 
+  test("o extrator da plataforma achou a raiz dela: a vaga leva a plataforma e a versão", async () => {
+    const li = await captureFromTab(3, "linkedin", run([frame(okResult(body(MIN), { versao: "li1", raiz: "plataforma" }))]), 0);
+    expect(li.ok && [li.job.platform, li.job.extractorVersion]).toEqual(["linkedin", "li1"]);
+    const gu = await captureFromTab(3, "gupy", run([frame(okResult(body(MIN), { versao: "gu1", raiz: "plataforma" }))]), 0);
+    expect(gu.ok && [gu.job.platform, gu.job.extractorVersion]).toEqual(["gupy", "gu1"]);
+    const so = await captureFromTab(3, "solides", run([frame(okResult(body(MIN), { versao: "so1", raiz: "plataforma" }))]), 0);
+    expect(so.ok && [so.job.platform, so.job.extractorVersion]).toEqual(["solides", "so1"]);
+  });
+
+  test("LinkedIn: o logado (li2) e o público (li1) valem, e o layout logado sem a vaga recusa (ADR-023 D12)", async () => {
+    const logged = await captureFromTab(3, "linkedin", run([frame(okResult(body(MIN), { versao: "li2", raiz: "plataforma" }))]), 0);
+    expect(logged.ok && [logged.job.platform, logged.job.extractorVersion]).toEqual(["linkedin", "li2"]);
+    const closed = await captureFromTab(3, "linkedin", run([frame({ ok: false, versao: "li2", motivo: "texto_insuficiente" })]), 0);
+    expect(closed).toEqual({ ok: false, motivo: "texto_insuficiente" });
+  });
+
+  test("sem a raiz da plataforma, o genérico roda: a plataforma fica e a versão diz ge1 (sinal de seletor quebrado)", async () => {
+    const out = await captureFromTab(3, "linkedin", run([frame(okResult(body(MIN)))]), 0);
+    expect(out.ok && [out.job.platform, out.job.extractorVersion]).toEqual(["linkedin", "ge1"]);
+    const insufficient = await captureFromTab(3, "gupy", run([frame({ ok: false, versao: "gu1", motivo: "texto_insuficiente" })]), 0);
+    expect(insufficient).toEqual({ ok: false, motivo: "texto_insuficiente" });
+  });
+
+  const mismatched: Array<[string, Parameters<typeof captureFromTab>[1], unknown]> = [
+    ["versão de plataforma no genérico", "generico", okResult(body(MIN), { versao: "li1", raiz: "plataforma" })],
+    ["versão de outra plataforma", "gupy", okResult(body(MIN), { versao: "li1", raiz: "plataforma" })],
+    ["versão da plataforma com raiz genérica", "linkedin", okResult(body(MIN), { versao: "li1", raiz: "main" })],
+    ["ge1 com raiz de plataforma", "linkedin", okResult(body(MIN), { raiz: "plataforma" })],
+    ["ok:false com versão de outra plataforma", "linkedin", { ok: false, versao: "gu1", motivo: "texto_insuficiente" }],
+    ["ok:false com versão de plataforma no genérico", "generico", { ok: false, versao: "li1", motivo: "texto_insuficiente" }],
+    ["li2 na Gupy", "gupy", okResult(body(MIN), { versao: "li2", raiz: "plataforma" })],
+    ["so1 no LinkedIn", "linkedin", okResult(body(MIN), { versao: "so1", raiz: "plataforma" })],
+    ["li1 na Solides", "solides", okResult(body(MIN), { versao: "li1", raiz: "plataforma" })],
+    ["so1 com raiz genérica", "solides", okResult(body(MIN), { versao: "so1", raiz: "body" })],
+    ["li2 no genérico", "generico", okResult(body(MIN), { versao: "li2", raiz: "plataforma" })],
+  ];
+  test.each(mismatched)("versão incoerente com a plataforma pedida vira erro: %s", async (_label, platform, result) => {
+    expect(await captureFromTab(1, platform, run([frame(result)]), 0)).toEqual({ ok: false, motivo: "erro" });
+  });
+
+  test("o runner recebe a aba e a plataforma pedidas", async () => {
+    const runner = vi.fn(() => Promise.resolve([frame(okResult(body(MIN), { versao: "gu1", raiz: "plataforma" }))]));
+    await captureFromTab(11, "gupy", runner, 0);
+    expect(runner).toHaveBeenCalledWith(11, "gupy");
+  });
+
   test("o truncado vem do extrator ou do corte do Service Worker", async () => {
-    const byExtractor = await captureFromTab(1, run([frame(okResult(body(MIN), { truncado: true }))]), 0);
+    const byExtractor = await captureFromTab(1, "generico", run([frame(okResult(body(MIN), { truncado: true }))]), 0);
     expect(byExtractor.ok && byExtractor.job.truncated).toBe(true);
-    const bySw = await captureFromTab(1, run([frame(okResult("\u{1F600}".repeat(MAX + 1)))]), 0);
+    const bySw = await captureFromTab(1, "generico", run([frame(okResult("\u{1F600}".repeat(MAX + 1)))]), 0);
     expect(bySw.ok && bySw.job.truncated).toBe(true);
     expect(bySw.ok && countCodePoints(bySw.job.text)).toBe(MAX);
   });
 
   test("o mínimo é refeito em code points depois da limpeza", async () => {
-    const exact = await captureFromTab(1, run([frame(okResult(body(MIN)))]), 0);
+    const exact = await captureFromTab(1, "generico", run([frame(okResult(body(MIN)))]), 0);
     expect(exact.ok).toBe(true);
-    const short = await captureFromTab(1, run([frame(okResult(`${body(MIN - 1)}${"\u0001".repeat(50)}`))]), 0);
+    const short = await captureFromTab(1, "generico", run([frame(okResult(`${body(MIN - 1)}${"\u0001".repeat(50)}`))]), 0);
     expect(short).toEqual({ ok: false, motivo: "texto_insuficiente" });
   });
 
   test("rejeição do executeScript vira sem_acesso, sem levar a mensagem (que pode ter a URL)", async () => {
     const reject = () => Promise.reject(new Error("Cannot access contents of url \"https://vaga.example/123\""));
-    const out = await captureFromTab(1, reject, 0);
+    const out = await captureFromTab(1, "generico", reject, 0);
     expect(out).toEqual({ ok: false, motivo: "sem_acesso" });
     expect(JSON.stringify(out)).not.toContain("vaga.example");
   });
 
   test("o extrator recusou: texto_insuficiente fica, limites_invalidos é erro", async () => {
-    expect(await captureFromTab(1, run([frame({ ok: false, versao: "ge1", motivo: "texto_insuficiente" })]), 0)).toEqual({ ok: false, motivo: "texto_insuficiente" });
-    expect(await captureFromTab(1, run([frame({ ok: false, versao: "ge1", motivo: "limites_invalidos" })]), 0)).toEqual({ ok: false, motivo: "erro" });
+    expect(await captureFromTab(1, "generico", run([frame({ ok: false, versao: "ge1", motivo: "texto_insuficiente" })]), 0)).toEqual({ ok: false, motivo: "texto_insuficiente" });
+    expect(await captureFromTab(1, "generico", run([frame({ ok: false, versao: "ge1", motivo: "limites_invalidos" })]), 0)).toEqual({ ok: false, motivo: "erro" });
   });
 
   const hostile: Array<[string, unknown]> = [
@@ -162,27 +244,28 @@ describe("captureFromTab", () => {
     ["undefined", undefined],
     ["chave extra no resultado", [frame(okResult(body(MIN), { html: "<b>" }))]],
     ["versão desconhecida", [frame(okResult(body(MIN), { versao: "ge2" }))]],
+    ["ok:false com versão desconhecida", [frame({ ok: false, versao: "ge2", motivo: "texto_insuficiente" })]],
     ["raiz desconhecida", [frame(okResult(body(MIN), { raiz: "section" }))]],
-    ["texto acima do teto do extrator", [frame(okResult(body(GENERIC_LIMITS.maxChars + 1)))]],
+    ["texto acima do teto do extrator", [frame(okResult(body(EXTRACTION_LIMITS.maxChars + 1)))]],
     ["texto não string", [frame(okResult(["x"]))]],
     ["truncado não booleano", [frame(okResult(body(MIN), { truncado: "sim" }))]],
     ["contador ausente", [frame(okResult(body(MIN), { descartes: { ...zeros, corDoFundo: undefined } }))]],
     ["contador extra", [frame(okResult(body(MIN), { descartes: { ...zeros, outro: 1 } }))]],
     ["contador negativo", [frame(okResult(body(MIN), { descartes: { ...zeros, ruido: -1 } }))]],
     ["contador fracionário", [frame(okResult(body(MIN), { descartes: { ...zeros, ruido: 0.5 } }))]],
-    ["contador acima do teto de nós", [frame(okResult(body(MIN), { descartes: { ...zeros, ruido: GENERIC_LIMITS.maxNodes + 1 } }))]],
+    ["contador acima do teto de nós", [frame(okResult(body(MIN), { descartes: { ...zeros, ruido: EXTRACTION_LIMITS.maxNodes + 1 } }))]],
     ["ok:false com motivo desconhecido", [frame({ ok: false, versao: "ge1", motivo: "x" })]],
     ["ok:false com chave extra", [frame({ ok: false, versao: "ge1", motivo: "texto_insuficiente", texto: "x" })]],
     ["ok como string", [frame(okResult(body(MIN), { ok: "true" }))]],
   ];
   test.each(hostile)("retorno fora da forma vira erro: %s", async (_label, value) => {
-    expect(await captureFromTab(1, run(value), 0)).toEqual({ ok: false, motivo: "erro" });
+    expect(await captureFromTab(1, "generico", run(value), 0)).toEqual({ ok: false, motivo: "erro" });
   });
 
   test("o contador no teto de nós ainda vale", async () => {
-    const out = await captureFromTab(1, run([frame(okResult(body(MIN), { descartes: { ...zeros, ruido: GENERIC_LIMITS.maxNodes } }))]), 0);
+    const out = await captureFromTab(1, "generico", run([frame(okResult(body(MIN), { descartes: { ...zeros, ruido: EXTRACTION_LIMITS.maxNodes } }))]), 0);
     expect(out.ok).toBe(true);
-    const atMax = await captureFromTab(1, run([frame(okResult(body(GENERIC_LIMITS.maxChars)))]), 0);
+    const atMax = await captureFromTab(1, "generico", run([frame(okResult(body(EXTRACTION_LIMITS.maxChars)))]), 0);
     expect(atMax.ok && atMax.job.truncated).toBe(true);
   });
 });
@@ -214,11 +297,15 @@ describe("CapturedJobSchema", () => {
     expect(CapturedJobSchema.safeParse(job).success).toBe(true);
     expect(CapturedJobSchema.safeParse({ ...job, text: "\u{1F600}".repeat(MAX) }).success).toBe(true);
     expect(CapturedJobSchema.safeParse({ ...job, tabId: null, platform: "texto_colado" }).success).toBe(true);
+    expect(CapturedJobSchema.safeParse({ ...job, platform: "linkedin", extractorVersion: "li1" }).success).toBe(true);
+    expect(CapturedJobSchema.safeParse({ ...job, platform: "gupy", extractorVersion: "gu1" }).success).toBe(true);
+    expect(CapturedJobSchema.safeParse({ ...job, platform: "solides", extractorVersion: "so1" }).success).toBe(true);
+    expect(CapturedJobSchema.safeParse({ ...job, platform: "linkedin", extractorVersion: "li2" }).success).toBe(true);
   });
   test.each([
     ["texto curto", { text: body(MIN - 1) }],
     ["texto longo", { text: body(MAX + 1) }],
-    ["plataforma de produção ainda inexistente", { platform: "linkedin" }],
+    ["plataforma desconhecida", { platform: "geekhunter" }],
     ["versão fora do padrão", { extractorVersion: "GE 1" }],
     ["aba negativa", { tabId: -1 }],
     ["chave extra", { url: "https://x" }],

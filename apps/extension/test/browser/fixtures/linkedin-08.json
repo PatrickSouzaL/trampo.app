@@ -1,0 +1,35 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-31",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "sessao": "logada",
+  "verMais": "fechado",
+  "raizEsperada": "main",
+  "raizDaPlataforma": "[data-sdui-screen$=\".SemanticJobDetails\"] [data-testid=\"expandable-text-box\"]",
+  "trechosObrigatorios": [
+    "Buscamos um(a) Engenheiro(a) de Dados Pleno",
+    "TI com forte componente de",
+    "A posição terá atuação direta na"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Como é feita a classificação das vagas promovidas",
+    "8 ex-alunos da instituição trabalham aqui",
+    "do seu perfil e currículo",
+    "Pessoas que você pode contatar",
+    "Ex-alunos da [EMPRESA]"
+  ],
+  "trechosRecolhidos": [
+    "Nosso contexto envolve projetos para segmentos",
+    "Participar de refinamentos, planning, dailies, reviews",
+    "Clube de vantagens e descontos nos"
+  ],
+  "anonimizacao": {
+    "EMPRESA": 1
+  },
+  "ajustes": {
+    "pViraDiv": 1,
+    "tituloExtraRemovido": 2
+  }
+}

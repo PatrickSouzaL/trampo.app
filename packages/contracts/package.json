@@ -12,7 +12,8 @@
     "./api": { "types": "./dist/api.d.ts", "default": "./dist/api.js" },
     "./analysis-report": { "types": "./dist/analysis-report.d.ts", "default": "./dist/analysis-report.js" },
     "./job-facts": { "types": "./dist/job-facts.d.ts", "default": "./dist/job-facts.js" },
-    "./user-criteria": { "types": "./dist/user-criteria.d.ts", "default": "./dist/user-criteria.js" }
+    "./user-criteria": { "types": "./dist/user-criteria.d.ts", "default": "./dist/user-criteria.js" },
+    "./auth": { "types": "./dist/auth.d.ts", "default": "./dist/auth.js" }
   },
   "files": ["dist"],
   "scripts": {

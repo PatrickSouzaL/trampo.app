@@ -1,0 +1,21 @@
+{
+  "plataforma": "linkedin",
+  "coletadoEm": "2026-10-30",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": false,
+  "raizEsperada": "main",
+  "raizDaPlataforma": ".details-pane__content",
+  "trechosObrigatorios": [
+    "UltaHost is a rapidly growing global",
+    "Experience with Git, Docker, and CI/CD",
+    "Dynamic and innovation-driven company culture"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Senior Software Engineer (Full Stack | Node.js & React | AI Focus)"
+  ],
+  "anonimizacao": {
+    "EMPRESA": 1,
+    "URL": 2
+  }
+}

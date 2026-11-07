@@ -41,3 +41,11 @@ export const USER_CRITERIA_MAX_JSON_BYTES = 12_288;
  * receber 413 com um perfil válido; o portal usa `JSON.stringify`, que não escapa.
  */
 export const CRITERIA_BODY_MAX_BYTES = 16_384;
+
+/**
+ * Teto do access token do Supabase (JWS compacto, só ASCII), conferido antes de qualquer parse ou
+ * verificação (ADR-013 D3). Fonte única do valor (ADR-004 D7). Hoje só o `AccessTokenSchema` importa
+ * daqui; a borda da API, o `CriteriaGuard` e o cliente do PostgREST trocam os seus literais por este
+ * import na F1-API-07 (ADR-004 §6.1).
+ */
+export const ACCESS_TOKEN_MAX_CHARS = 8_192;

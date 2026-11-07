@@ -6,6 +6,7 @@ import { createPanelHub } from "../messaging/panel-hub";
 import type { CaptureView } from "../messaging/protocol";
 import type { SessionStore } from "../messaging/session-store";
 import type { PanelPort } from "../messaging/worker-port";
+import type { ExtractorPlatform } from "../extraction/job-extractor";
 import { CaptureFailureSchema, CapturedJobSchema, captureFromTab, capturePasted, type CaptureFailure, type CaptureOutcome, type ExtractorRunner } from "./capture";
 import { countCodePoints } from "./job-text";
 
@@ -50,8 +51,8 @@ export interface CaptureServiceDeps {
 }
 
 export interface CaptureService {
-  /** Clique no ícone (gesto do usuário, activeTab concedido): lê a aba. */
-  captureTab(tabId: number): Promise<void>;
+  /** Clique no ícone (gesto do usuário, activeTab concedido): lê a aba com o extrator da plataforma. */
+  captureTab(tabId: number, platform: ExtractorPlatform): Promise<void>;
   /** Texto colado no painel. */
   paste(texto: string): Promise<void>;
   /** Porta confiável do painel: recebe o estado atual e as mudanças seguintes. */
@@ -82,11 +83,11 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
   };
 
   return {
-    async captureTab(tabId) {
+    async captureTab(tabId, platform) {
       generation += 1;
       const mine = generation;
       await publish({ estado: "lendo", tabId });
-      const outcome = await captureFromTab(tabId, deps.runExtractor, deps.now());
+      const outcome = await captureFromTab(tabId, platform, deps.runExtractor, deps.now());
       if (mine !== generation) return;
       await settle(outcome, tabId);
     },

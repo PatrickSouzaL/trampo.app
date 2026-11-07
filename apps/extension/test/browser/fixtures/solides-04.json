@@ -1,0 +1,21 @@
+{
+  "plataforma": "solides",
+  "coletadoEm": "2026-10-31",
+  "modoDeSalvamento": "completa",
+  "cssDaPlataforma": true,
+  "raizEsperada": "body",
+  "raizDaPlataforma": "#vacancy-box-details",
+  "trechosObrigatorios": [
+    "Nosso maior desafio é também o",
+    "Prometheus/Mimir - Intermediário",
+    "Eugênio de Mello, São José dos"
+  ],
+  "trechosProibidos": [
+    "[PESSOA]",
+    "Qual vaga de emprego procura?",
+    "engenheiro(a) devops pleno"
+  ],
+  "anonimizacao": {
+    "URL": 1
+  }
+}

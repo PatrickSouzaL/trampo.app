@@ -3,14 +3,18 @@
 // extrator MINIFICADO na aba. Se a minificação deixasse alguma referência fora da função, o
 // executeScript devolveria null e a captura falharia. A página é hostil: troca as APIs no mundo
 // principal e esconde canários pelas técnicas do T2. Nada sai da máquina (servidor local).
+import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
 
 import { CAPTURE_STORAGE_KEY, type CaptureState } from "../../src/capture/capture-service";
 import { clickAction, loadExtension, unload, type Loaded } from "./browser";
 
 const cfg = inject("e2e");
+/** Fixtures reais anonimizadas do S-2 (runbook fixtures-dom §3). */
+const FIXTURES_DIR = join(import.meta.dirname, "../browser/fixtures");
 
 declare const chrome: (typeof import("wxt/browser"))["browser"];
 
@@ -112,6 +116,67 @@ describe("captura no build de produção", () => {
     expect(panelText).not.toContain("CONTROLE-VISIVEL");
     expect(panelText).not.toContain("CANARIO");
     await page.close();
+  });
+
+  // ADR-023 D11: o Service Worker escolhe o extrator pelo host da aba. As fixtures reais do S-2 são
+  // servidas no host da plataforma por rota do navegador: a URL da aba é a de verdade, nada sai da máquina.
+  const platforms = [
+    { host: "https://www.linkedin.com", path: "/jobs/search/", fixture: "linkedin-03", platform: "linkedin", version: "li1" },
+    // ADR-023 D12: o LinkedIn logado (só a descrição, sem a lista nem os blocos do perfil) e a Solides.
+    { host: "https://www.linkedin.com", path: "/jobs/search-results/", fixture: "linkedin-09", platform: "linkedin", version: "li2" },
+    // ADR-023 D13: o "ver mais" fechado; o que o clamp da descrição recolhe entra. Caminho próprio: o
+    // clickAction acha a aba pela URL, e a do teste anterior pode ainda estar fechando.
+    { host: "https://www.linkedin.com", path: "/jobs/collections/recommended/", fixture: "linkedin-08", platform: "linkedin", version: "li2" },
+    { host: "https://empresa.gupy.io", path: "/jobs/1", fixture: "gupy-01", platform: "gupy", version: "gu1" },
+    { host: "https://vagas.solides.com.br", path: "/vagas/devops", fixture: "solides-04", platform: "solides", version: "so1" },
+  ] as const;
+  for (const p of platforms) {
+    test(`${p.platform} (${p.fixture}): o host da aba escolhe o extrator ${p.version} no build de produção`, async () => {
+      const meta = JSON.parse(readFileSync(join(FIXTURES_DIR, `${p.fixture}.json`), "utf8")) as {
+        trechosObrigatorios: string[];
+        trechosProibidos: string[];
+        trechosRecolhidos?: string[];
+      };
+      await l!.ctx.route(`${p.host}/**`, (route) => {
+        // O CSS da fixture tem href relativo: sob /jobs/search-results/, o caminho traz a pasta da página.
+        const name = new URL(route.request().url()).pathname.split("/").pop() ?? "";
+        if (route.request().url() === `${p.host}${p.path}`) {
+          return route.fulfill({ body: readFileSync(join(FIXTURES_DIR, `${p.fixture}.html`)), contentType: "text/html; charset=utf-8" });
+        }
+        if (/^[a-z]+-[0-9a-f]+\.css$/.test(name)) return route.fulfill({ body: readFileSync(join(FIXTURES_DIR, name)), contentType: "text/css; charset=utf-8" });
+        return route.abort();
+      });
+      const page = await l!.ctx.newPage();
+      await page.goto(`${p.host}${p.path}`);
+      await clickAction(l!, `${p.host}${p.path}`);
+      const state = await settledState(l!);
+      expect(state.estado).toBe("pronto");
+      if (state.estado !== "pronto") return;
+      expect(state.vaga).toMatchObject({ platform: p.platform, extractorVersion: p.version, truncated: false });
+      for (const s of meta.trechosObrigatorios) expect(state.vaga.text).toContain(s);
+      for (const s of meta.trechosProibidos) expect(state.vaga.text).not.toContain(s);
+      for (const s of meta.trechosRecolhidos ?? []) expect(state.vaga.text).toContain(s);
+      // A URL da aba não vai para o storage: só a plataforma.
+      expect(JSON.stringify(state)).not.toContain(p.host.slice("https://".length));
+      await page.close();
+      await l!.ctx.unroute(`${p.host}/**`);
+    });
+  }
+
+  test("LinkedIn logado sem a descrição: texto_insuficiente, e a lista não entra no lugar da vaga (ADR-023 D12)", async () => {
+    const host = "https://www.linkedin.com";
+    const list = `<li>CANARIO-LISTA ${"Analista de dados em Belo Horizonte, híbrido, 2 conexões trabalham aqui. ".repeat(10)}</li>`;
+    const logged = `<!doctype html><html><head><meta charset="utf-8"><title>Vagas</title></head><body><main id="workspace"><ul>${list}</ul></main></body></html>`;
+    await l!.ctx.route(`${host}/**`, (route) =>
+      route.request().url() === `${host}/jobs/collections/` ? route.fulfill({ body: logged, contentType: "text/html; charset=utf-8" }) : route.abort(),
+    );
+    const page = await l!.ctx.newPage();
+    await page.goto(`${host}/jobs/collections/`);
+    await clickAction(l!, `${host}/jobs/collections/`);
+    expect(await settledState(l!)).toMatchObject({ estado: "falhou", motivo: "texto_insuficiente" });
+    await expect.poll(() => l!.panel.locator("textarea").count()).toBe(1);
+    await page.close();
+    await l!.ctx.unroute(`${host}/**`);
   });
 
   test("fechar a aba apaga a captura dela", async () => {

@@ -2,7 +2,7 @@
 // Proibido registrar handler do evento `fetch` (brecha de CSP, crbug 1463420; ADR-001 §5.0.1).
 // Canal único com o painel: a porta PANEL_PORT_NAME. Nenhum onMessage, onMessageExternal nem
 // onConnectExternal é registrado (SR-10).
-import { genericExtractorRunner } from "../capture/capture";
+import { extractorRunner, platformForUrl } from "../capture/capture";
 import { CAPTURE_STORAGE_KEY, CaptureStateSchema, createCaptureService } from "../capture/capture-service";
 import { CONSENT_STORAGE_KEY, ConsentRecordSchema, createConsentService } from "../consent/consent-service";
 import { sessionStore } from "../messaging/session-store";
@@ -20,7 +20,7 @@ export default defineBackground(() => {
   // Os logs levam só motivos de lista fechada, nunca texto de vaga nem URL (T23; ADR-024 D6).
   const capture = createCaptureService({
     store: sessionStore(CAPTURE_STORAGE_KEY, CaptureStateSchema),
-    runExtractor: genericExtractorRunner(browser.scripting),
+    runExtractor: extractorRunner(browser.scripting),
     now: Date.now,
     logFailure: (motivo) => console.warn("[trampo] captura falhou:", motivo),
   });
@@ -34,7 +34,8 @@ export default defineBackground(() => {
     // Primeira instrução do handler: sidePanel.open exige gesto do usuário e não pode vir depois de
     // um await. A leitura vem depois, com o activeTab já concedido pelo clique (ADR-024 D2).
     void browser.sidePanel.open({ tabId: tab.id });
-    capture.captureTab(tab.id).catch(internalFailure);
+    // O activeTab entrega a URL da aba no clique; só o host vira a plataforma (ADR-023 D11).
+    capture.captureTab(tab.id, platformForUrl(tab.url)).catch(internalFailure);
   });
   // Sem a permissão "tabs": onRemoved só entrega o id, o bastante para apagar a captura da aba.
   browser.tabs.onRemoved.addListener((tabId) => {
