@@ -30,6 +30,8 @@ dist/
 # misc
 .DS_Store
 *.pem
+# chave ES256 do GoTrue local (ADR-004 §4.3): gerada no job db ou na estação, nunca versionada
+supabase/signing_keys.json
 
 # debug
 npm-debug.log*

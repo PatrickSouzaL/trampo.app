@@ -91,8 +91,13 @@ function expectForbidden(res: { statusCode: number; body: string; headers: Recor
 }
 
 describe("EXTENSION_ROUTES (ADR-021 D8.3)", () => {
-  test("lista positiva fixada contra o ADR: só POST /v1/analyze", () => {
-    expect(EXTENSION_ROUTES).toEqual([{ method: "POST", path: "/v1/analyze" }]);
+  test("lista positiva fixada contra o ADR: POST /v1/analyze e as 3 rotas do BFF (ADR-004 D8 item 2)", () => {
+    expect(EXTENSION_ROUTES).toEqual([
+      { method: "POST", path: "/v1/analyze" },
+      { method: "POST", path: "/v1/auth/exchange" },
+      { method: "POST", path: "/v1/auth/refresh" },
+      { method: "POST", path: "/v1/auth/logout" },
+    ]);
   });
 
   test("congelada: ninguém acrescenta rota em tempo de execução", () => {

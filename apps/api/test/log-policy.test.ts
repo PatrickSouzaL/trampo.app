@@ -45,6 +45,7 @@ const LogLineSchema = z.strictObject({
     .optional(),
   responseTime: z.int().min(0).optional(),
   signal: z.enum(["SIGINT", "SIGTERM"]).optional(),
+  suprimidas: z.int().min(0).optional(),
 });
 
 type LogLine = Partial<Record<(typeof LOG_ALLOWLIST.top)[number], unknown>>;
@@ -58,7 +59,7 @@ function enforce(record: unknown): LogLine {
 describe("enforceLogAllowlist: tabela do ADR-010 D1", () => {
   test("a allowlist exportada é a do ADR (trava contra crescimento silencioso)", () => {
     expect(LOG_ALLOWLIST).toEqual({
-      top: ["level", "time", "msg", "reqId", "req", "res", "err", "responseTime", "signal"],
+      top: ["level", "time", "msg", "reqId", "req", "res", "err", "responseTime", "signal", "suprimidas"],
       req: ["id", "method", "route"],
       res: ["statusCode"],
       err: ["type", "code", "statusCode"],
@@ -77,6 +78,7 @@ describe("enforceLogAllowlist: tabela do ADR-010 D1", () => {
       err: { type: "ZodError", code: "FST_ERR_VALIDATION", statusCode: 400 },
       responseTime: 12.6,
       signal: "SIGTERM",
+      suprimidas: 999,
     });
     expect(out).toEqual({
       level: 30,
@@ -88,6 +90,7 @@ describe("enforceLogAllowlist: tabela do ADR-010 D1", () => {
       err: { type: "ZodError", code: "FST_ERR_VALIDATION", statusCode: 400 },
       responseTime: 13,
       signal: "SIGTERM",
+      suprimidas: 999,
     });
   });
 
@@ -195,6 +198,14 @@ describe("enforceLogAllowlist: tabela do ADR-010 D1", () => {
     // Achado da propriedade: 2^53 arredondado não é inteiro seguro.
     expect(enforce({ responseTime: 2 ** 53 })).not.toHaveProperty("responseTime");
     expect(enforce({ responseTime: Number.MAX_SAFE_INTEGER }).responseTime).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  test("suprimidas só inteiro seguro >= 0 (o contador das linhas amostradas do BFF, ADR-004 D8 item 7)", () => {
+    for (const suprimidas of [-1, 1.5, "3", CANARY, null, [1], { n: 1 }, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(enforce({ msg: "auth_limite_local", suprimidas })).not.toHaveProperty("suprimidas");
+    }
+    expect(enforce({ msg: "auth_limite_local", suprimidas: 0 }).suprimidas).toBe(0);
+    expect(enforce({ msg: "auth_limite_local", suprimidas: Number.MAX_SAFE_INTEGER }).suprimidas).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   test("signal só SIGINT ou SIGTERM", () => {

@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { AnalysisStreamEventSchema, ApiErrorSchema, type AnalysisStreamEvent } from "@trampo/contracts";
+import { AuthSessionResponseSchema } from "@trampo/contracts/auth";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ZodError } from "zod";
 
@@ -25,10 +26,18 @@ import {
   type ProductionLlmTestHooks,
 } from "../src/composition/production-app.js";
 import { AllowedAmrConfigError } from "../src/infrastructure/auth/allowed-amr-env.js";
+import { AuthSessionConfigError } from "../src/infrastructure/auth/auth-session-env.js";
+import { KeyringReuseError } from "../src/infrastructure/crypto/aead-envelope.js";
+import {
+  RefreshKeyringConfigError,
+  createAeadRefreshSealer,
+  parseRefreshKeyring,
+} from "../src/infrastructure/crypto/aead-refresh-sealer.js";
 import { SalaryKeyringConfigError, createSalaryCipher, parseSalaryKeyring } from "../src/infrastructure/crypto/salary-cipher.js";
 import { WORKERS_AI_DEFAULT_MODEL, WorkersAiConfigError } from "../src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
 import { GROQ_MODEL as GROQ_ADAPTER_MODEL, GroqConfigError } from "../src/infrastructure/llm/groq-extractor.js";
 import { PostgrestClientConfigError } from "../src/infrastructure/supabase/postgrest-user-client.js";
+import { BehindProxyConfigError } from "../src/presentation/edge/behind-proxy-env.js";
 import { systemClock } from "../src/infrastructure/time/system-clock.js";
 import { CLEAN_RAW, CLEAN_TEXT, GROQ_MODEL, REQUEST_ID } from "./application/fakes/analyze-job-harness.js";
 import { ScriptedExtractor } from "./application/fakes/scripted-extractor.js";
@@ -37,13 +46,16 @@ import { completion, startFakeGroq } from "./infrastructure/fakes/fake-groq.js";
 import { startFakePostgrest, type FakePostgrest } from "./infrastructure/fakes/fake-postgrest.js";
 import { startFakeUpstash, type FakeUpstash } from "./infrastructure/fakes/fake-upstash.js";
 import { envelope, startFakeWorkersAi } from "./infrastructure/fakes/fake-workers-ai.js";
-import { signToken, signingKey, supabaseClaims, type SigningKey } from "./infrastructure/jwks-fixture.js";
+import { nowSeconds, signToken, signingKey, supabaseClaims, type SigningKey } from "./infrastructure/jwks-fixture.js";
+import { GOTRUE_CANARIES, startFakeGotrue, type FakeGotrue } from "./support/fake-gotrue.js";
+import { HAPPY_PATH_TIMEOUT_MS } from "./support/socket-deadlines.js";
 
 const PUBLISHABLE = "sb_publishable_boot-teste";
 const UPSTASH_TOKEN = "AXyz_token-de-boot.123";
 const OWNER = "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f";
 const SALARY_KEY = randomBytes(32).toString("base64url");
 const PEPPER = randomBytes(32).toString("base64url");
+const REFRESH_KEY = randomBytes(32).toString("base64url");
 const LEGACY_KEY_PREFIX = "eyJhbGciOiJIUzI1NiJ9";
 const SALARY = { minimum: 9_000, currency: "BRL", period: "mes", importance: weighted(3) } as const;
 
@@ -78,6 +90,9 @@ function environment(over: Record<string, string | undefined> = {}): Environment
     CRITERIA_SALARY_ACTIVE_KEY: "k1",
     CORS_ALLOWED_ORIGINS: "",
     TRUST_PROXY: "false",
+    API_BEHIND_PROXY: "false",
+    AUTH_REFRESH_SEAL_KEYS: `r1k1:${REFRESH_KEY}`,
+    AUTH_REFRESH_SEAL_ACTIVE_KEY: "r1k1",
     ...over,
   };
 }
@@ -174,7 +189,7 @@ describe("aceite: boot com o ambiente completo", () => {
     ["10.0.0.0/8", "203.0.113.9"],
   ])("TRUST_PROXY=%s chega ao Fastify: o IP visto é %s", async (trustProxy, expected) => {
     const token = await signToken(key, supabaseClaims(`${postgrest.url.origin}/auth/v1`, { sub: OWNER }));
-    const instance = boot({ TRUST_PROXY: trustProxy });
+    const instance = boot({ TRUST_PROXY: trustProxy, API_BEHIND_PROXY: trustProxy === "false" ? "false" : "true" });
     instance.app.get("/probe/ip", async (request) => ({ ip: request.ip }));
     const res = await instance.app.inject({
       method: "GET",
@@ -376,6 +391,20 @@ describe("falha fechado no boot", () => {
     ["AUTH_ALLOWED_AMR com senha fora de NODE_ENV=test", { AUTH_ALLOWED_AMR: "oauth,password" }, AllowedAmrConfigError],
     ["AUTH_ALLOWED_AMR com senha e NODE_ENV=production", { AUTH_ALLOWED_AMR: "password", NODE_ENV: "production" }, AllowedAmrConfigError],
     ["AUTH_ALLOWED_AMR com otp", { AUTH_ALLOWED_AMR: "oauth,otp", NODE_ENV: "test" }, AllowedAmrConfigError],
+    // F1-API-07 07g (ADR-004 D5 e D8 item 4): o anel do refresh, as idades e o API_BEHIND_PROXY no boot.
+    ["sem API_BEHIND_PROXY fora de NODE_ENV=test", { API_BEHIND_PROXY: undefined }, BehindProxyConfigError],
+    ["sem API_BEHIND_PROXY com NODE_ENV=production", { API_BEHIND_PROXY: undefined, NODE_ENV: "production" }, BehindProxyConfigError],
+    ["API_BEHIND_PROXY=true com TRUST_PROXY=false", { API_BEHIND_PROXY: "true" }, BehindProxyConfigError],
+    ["API_BEHIND_PROXY=false com os saltos do proxy", { TRUST_PROXY: "10.0.0.0/8" }, BehindProxyConfigError],
+    ["API_BEHIND_PROXY fora de true e false", { API_BEHIND_PROXY: "sim" }, BehindProxyConfigError],
+    ["sem AUTH_REFRESH_SEAL_KEYS", { AUTH_REFRESH_SEAL_KEYS: undefined }, RefreshKeyringConfigError],
+    ["sem AUTH_REFRESH_SEAL_ACTIVE_KEY", { AUTH_REFRESH_SEAL_ACTIVE_KEY: undefined }, RefreshKeyringConfigError],
+    ["kid do refresh fora de [a-z0-9]{1,16}", { AUTH_REFRESH_SEAL_KEYS: `R1:${REFRESH_KEY}`, AUTH_REFRESH_SEAL_ACTIVE_KEY: "R1" }, RefreshKeyringConfigError],
+    ["chave do refresh curta", { AUTH_REFRESH_SEAL_KEYS: `r1k1:${randomBytes(16).toString("base64url")}` }, RefreshKeyringConfigError],
+    ["idade máxima abaixo de 3.600", { AUTH_SESSION_MAX_AGE_SECONDS: "3599" }, AuthSessionConfigError],
+    ["inatividade acima da idade máxima", { AUTH_SESSION_MAX_AGE_SECONDS: "7200", AUTH_SESSION_IDLE_SECONDS: "7201" }, AuthSessionConfigError],
+    ["a chave da pretensão repetida no anel do refresh (pendência do 07b)", { AUTH_REFRESH_SEAL_KEYS: `r1k1:${REFRESH_KEY},r2:${SALARY_KEY}` }, KeyringReuseError],
+    ["a chave do refresh repetida no anel da pretensão", { CRITERIA_SALARY_KEYS: `k1:${SALARY_KEY},k2:${REFRESH_KEY}` }, KeyringReuseError],
   ])("%s: nada sobe e a mensagem não repete segredo", (_name, over, kind) => {
     let error: unknown;
     try {
@@ -385,7 +414,9 @@ describe("falha fechado no boot", () => {
     }
     expect(error).toBeInstanceOf(kind);
     const message = String((error as Error).message);
-    for (const secret of [SALARY_KEY, PEPPER, UPSTASH_TOKEN, "sb_secret_vazada-123", LEGACY_KEY_PREFIX]) expect(message).not.toContain(secret);
+    for (const secret of [SALARY_KEY, REFRESH_KEY, PEPPER, UPSTASH_TOKEN, "sb_secret_vazada-123", LEGACY_KEY_PREFIX, "r1k1", "r2", "k2"]) {
+      expect(message).not.toContain(secret);
+    }
   });
 });
 
@@ -589,5 +620,192 @@ describe("composição de produção: a cadeia de LLM do ambiente (Trilha L1; AD
         await fake.close();
       }
     });
+  });
+});
+
+describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () => {
+  const EXTENSION = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
+  const CODE = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
+  const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const SID = "0b1c2d3e-4f50-4a6b-9c7d-8e9fa0b1c2d3";
+  let gotrue: FakeGotrue;
+  /** Access tokens assinados que o GoTrue simulado vai emitir, em ordem; vazio, um com as claims padrão. */
+  const tokenQueue: string[] = [];
+  let defaultToken = "";
+
+  beforeEach(async () => {
+    tokenQueue.length = 0;
+    gotrue = await startFakeGotrue(PUBLISHABLE, {
+      accessToken: () => tokenQueue.shift() ?? defaultToken,
+      jwks: () => ({ keys: [key.jwk] }),
+    });
+    defaultToken = await signToken(key, supabaseClaims(`${gotrue.url.origin}/auth/v1`));
+  });
+  afterEach(async () => {
+    await gotrue.close();
+  });
+
+  function bootAuth(over: Record<string, string | undefined> = {}, lines?: string[]): ComposedApp {
+    const origin = gotrue.url.origin;
+    return boot(
+      {
+        SUPABASE_URL: origin,
+        SUPABASE_JWKS_URL: `${origin}/auth/v1/.well-known/jwks.json`,
+        CORS_ALLOWED_ORIGINS: EXTENSION,
+        ...over,
+      },
+      lines === undefined ? {} : { logger: { level: "info", stream: { write: (line) => void lines.push(line) } } },
+    );
+  }
+
+  const post = (instance: ComposedApp, route: "exchange" | "refresh" | "logout", payload: unknown, headers: Record<string, string> = {}) =>
+    instance.app.inject({
+      method: "POST",
+      url: `/v1/auth/${route}`,
+      headers: { "content-type": "application/json", origin: EXTENSION, ...headers },
+      payload: JSON.stringify(payload),
+    });
+  const exchangeBody = (code = CODE) => ({ schemaVersion: 1, authCode: code, codeVerifier: VERIFIER });
+  const tokenCalls = () => gotrue.requests.filter((request) => request.url.startsWith("/auth/v1/token"));
+  /** O anel do boot (o mesmo do `environment()`), para forjar envelopes genuínos com idades escolhidas. */
+  const bootSealer = () => createAeadRefreshSealer(parseRefreshKeyring(`r1k1:${REFRESH_KEY}`, "r1k1"));
+  function sealedEnvelope(sst: number, iat: number): string {
+    const sealed = bootSealer().seal({ rt: "rt-de-teste", sid: SID, sst, iat }, EXTENSION);
+    if (!sealed.ok) throw new Error("envelope de teste fora da política");
+    return sealed.envelope;
+  }
+
+  test("troca → renovação → logout pelas peças reais; o Redis só é tocado no logout, depois do JWT", async () => {
+    const instance = bootAuth();
+    gotrue.addFlow(CODE, VERIFIER);
+    const exchanged = await post(instance, "exchange", exchangeBody());
+    expect(exchanged.statusCode).toBe(200);
+    expect(exchanged.headers["cache-control"]).toBe("no-store");
+    const session = AuthSessionResponseSchema.parse(exchanged.json());
+    expect(Object.keys(exchanged.json() as object).sort()).toEqual(["accessToken", "expiresIn", "refreshToken", "schemaVersion"]);
+    // SR-22: os canários da resposta do GoTrue não saem.
+    for (const canary of [GOTRUE_CANARIES.providerToken, GOTRUE_CANARIES.providerRefreshToken, GOTRUE_CANARIES.userId]) {
+      expect(exchanged.body).not.toContain(canary);
+    }
+
+    const refreshed = await post(instance, "refresh", { schemaVersion: 1, refreshToken: session.refreshToken });
+    expect(refreshed.statusCode).toBe(200);
+    const renewed = AuthSessionResponseSchema.parse(refreshed.json());
+    expect(renewed.refreshToken).not.toBe(session.refreshToken);
+    expect(tokenCalls().map((request) => request.url)).toEqual([
+      "/auth/v1/token?grant_type=pkce",
+      "/auth/v1/token?grant_type=refresh_token",
+    ]);
+    // 0 comandos no Redis simulado antes do JWT: as duas públicas não tocam o Redis.
+    expect(upstash.requests).toHaveLength(0);
+
+    const ended = await post(instance, "logout", { schemaVersion: 1 }, { authorization: `Bearer ${renewed.accessToken}` });
+    expect(ended.statusCode).toBe(204);
+    expect(ended.headers["cache-control"]).toBe("no-store");
+    expect(gotrue.requests.at(-1)?.url).toBe("/auth/v1/logout?scope=global");
+    expect(gotrue.requests.at(-1)?.headers.authorization).toBe(`Bearer ${renewed.accessToken}`);
+    // O logout é protegido: o rate limit da classe padrao conta no Redis depois do JWT.
+    expect(upstash.requests.length).toBeGreaterThan(0);
+  });
+
+  test("0 comandos no Redis com códigos falsos, envelopes forjados e o 429 do limitador local", async () => {
+    const instance = bootAuth();
+    for (let i = 0; i < 10; i += 1) expect((await post(instance, "exchange", exchangeBody())).statusCode).toBe(401);
+    expect((await post(instance, "exchange", exchangeBody())).statusCode).toBe(429);
+    const forged = `r1.r1k1.${"A".repeat(16)}.${"B".repeat(40)}.${"C".repeat(22)}`;
+    for (let i = 0; i < 5; i += 1) {
+      expect((await post(instance, "refresh", { schemaVersion: 1, refreshToken: forged })).statusCode).toBe(401);
+    }
+    expect(upstash.requests).toHaveLength(0);
+    // Os forjados não chegaram ao GoTrue: só as 10 trocas recusadas.
+    expect(tokenCalls()).toHaveLength(10);
+  });
+
+  test("as idades do ambiente chegam à renovação: inatividade e idade máxima dão 401 sem rede", async () => {
+    const instance = bootAuth({ AUTH_SESSION_MAX_AGE_SECONDS: "3600", AUTH_SESSION_IDLE_SECONDS: "900" });
+    const now = nowSeconds();
+    for (const refreshToken of [sealedEnvelope(now - 1_000, now - 905), sealedEnvelope(now - 3_605, now - 60)]) {
+      const res = await post(instance, "refresh", { schemaVersion: 1, refreshToken });
+      expect(res.statusCode).toBe(401);
+      expect(ApiErrorSchema.parse(res.json()).code).toBe("NAO_AUTENTICADO");
+    }
+    expect(gotrue.requests).toHaveLength(0);
+    // Dentro das idades, o envelope genuíno chega ao GoTrue (que não conhece o refresh: 401 depois de 1 chamada).
+    expect((await post(instance, "refresh", { schemaVersion: 1, refreshToken: sealedEnvelope(now - 1_000, now - 60) })).statusCode).toBe(401);
+    expect(tokenCalls()).toHaveLength(1);
+  });
+
+  test("um só GotrueEgress por processo: com 4 trocas em voo, a renovação leva 503 com retryAfterSeconds 5", async () => {
+    const instance = bootAuth();
+    const refreshToken = sealedEnvelope(nowSeconds() - 60, nowSeconds() - 60);
+    gotrue.mode = { kind: "lento", delayMs: 1_500 };
+    const codes = ["a1b2c3d4-0001", "a1b2c3d4-0002", "a1b2c3d4-0003", "a1b2c3d4-0004"];
+    for (const code of codes) gotrue.addFlow(code, VERIFIER);
+    const inFlight = codes.map((code) => post(instance, "exchange", exchangeBody(code)));
+    const deadline = Date.now() + HAPPY_PATH_TIMEOUT_MS;
+    while (tokenCalls().length < 4 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(tokenCalls()).toHaveLength(4);
+    const busy = await post(instance, "refresh", { schemaVersion: 1, refreshToken });
+    expect(busy.statusCode).toBe(503);
+    expect(ApiErrorSchema.parse(busy.json()).retryAfterSeconds).toBe(5);
+    expect(busy.headers["retry-after"]).toBe("5");
+    expect(tokenCalls()).toHaveLength(4);
+    await Promise.all(inFlight);
+  });
+
+  test("com TRUST_PROXY e API_BEHIND_PROXY=true, dois X-Forwarded-For do proxy caem em baldes distintos", async () => {
+    const instance = bootAuth({ TRUST_PROXY: "127.0.0.1", API_BEHIND_PROXY: "true" });
+    // Corpo fora do contrato: o limitador conta antes do Zod, e nada chega ao GoTrue nem ao orçamento de saída.
+    for (const client of ["198.51.100.1", "198.51.100.2"]) {
+      for (let i = 0; i < 10; i += 1) {
+        expect((await post(instance, "exchange", { schemaVersion: 1 }, { "x-forwarded-for": client })).statusCode).toBe(400);
+      }
+      expect((await post(instance, "exchange", { schemaVersion: 1 }, { "x-forwarded-for": client })).statusCode).toBe(429);
+    }
+    expect(gotrue.requests).toHaveLength(0);
+  });
+
+  test("API_BEHIND_PROXY vazio com NODE_ENV=test sobe (a pilha de teste não exige a variável)", async () => {
+    const instance = bootAuth({ API_BEHIND_PROXY: undefined, NODE_ENV: "test" });
+    expect((await instance.app.inject({ method: "GET", url: "/health" })).statusCode).toBe(200);
+  });
+
+  test("SR-12 com as peças reais: nada de código, verifier, tokens, envelope, canários do GoTrue ou IP nos caminhos 200, 401, 429 e 503", async () => {
+    const lines: string[] = [];
+    const instance = bootAuth({}, lines);
+    gotrue.addFlow(CODE, VERIFIER);
+    const ok = AuthSessionResponseSchema.parse((await post(instance, "exchange", exchangeBody())).json());
+    const refreshed = AuthSessionResponseSchema.parse(
+      (await post(instance, "refresh", { schemaVersion: 1, refreshToken: ok.refreshToken })).json(),
+    );
+    // 401: o refresh antigo já rotacionou, e o GoTrue o recusa.
+    expect((await post(instance, "refresh", { schemaVersion: 1, refreshToken: ok.refreshToken })).statusCode).toBe(401);
+    // 503: o GoTrue responde 500 (não recebeu).
+    gotrue.mode = { kind: "responde", status: 500, body: "{}" };
+    expect((await post(instance, "exchange", exchangeBody("ffffffff-0000"))).statusCode).toBe(503);
+    gotrue.mode = { kind: "normal" };
+    // 429: o limitador local da troca (já foram 2 trocas no minuto).
+    let limited = 0;
+    for (let i = 0; i < 9; i += 1) limited += (await post(instance, "exchange", exchangeBody())).statusCode === 429 ? 1 : 0;
+    expect(limited).toBeGreaterThan(0);
+    const messages = lines.map((line) => String((JSON.parse(line) as Record<string, unknown>)["msg"]));
+    expect(messages).toEqual(expect.arrayContaining(["auth_renovacao_recusada", "auth_provedor_indisponivel", "auth_limite_local"]));
+    const secrets = [
+      CODE,
+      VERIFIER,
+      ok.accessToken,
+      ok.refreshToken,
+      refreshed.accessToken,
+      refreshed.refreshToken,
+      ...gotrue.activeRefreshTokens,
+      GOTRUE_CANARIES.email,
+      GOTRUE_CANARIES.providerToken,
+      GOTRUE_CANARIES.providerRefreshToken,
+      GOTRUE_CANARIES.userId,
+      "127.0.0.1",
+      EXTENSION,
+      REFRESH_KEY,
+    ];
+    for (const line of lines) for (const secret of secrets) expect(line).not.toContain(secret);
   });
 });

@@ -11,7 +11,7 @@ import type { AccessTokenVerifier } from "../src/application/ports/access-token-
 import { createJoseAccessTokenVerifier } from "../src/infrastructure/auth/jose-access-token-verifier.js";
 import { buildApp, type BuildAppOptions } from "../src/presentation/build-app.js";
 import { PUBLIC_ROUTES, bearerToken } from "../src/presentation/edge/auth.js";
-import { TEST_PRINCIPAL, TEST_TOKEN, fakeVerifier } from "./auth-fakes.js";
+import { TEST_LIFETIME, TEST_PRINCIPAL, TEST_TOKEN, fakeVerifier } from "./auth-fakes.js";
 import { openLimits } from "./limit-fakes.js";
 import { signToken, signingKey, startJwksServer, supabaseClaims, type JwksServer, type SigningKey } from "./infrastructure/jwks-fixture.js";
 
@@ -142,8 +142,8 @@ describe("resultado do verificador", () => {
 });
 
 describe("rotas públicas e ordem dos hooks (ADR-013 D2)", () => {
-  test("lista pública fechada: só GET /health", () => {
-    expect([...PUBLIC_ROUTES]).toEqual(["GET /health"]);
+  test("lista pública fechada: GET /health e as duas rotas públicas do BFF (ADR-004 D8 item 1); o logout fica fora", () => {
+    expect([...PUBLIC_ROUTES]).toEqual(["GET /health", "POST /v1/auth/exchange", "POST /v1/auth/refresh"]);
   });
 
   test("GET /health responde sem token e sem chamar o verificador", async () => {
@@ -229,7 +229,7 @@ describe("SR-12: nenhum token, claim ou motivo no log", () => {
     const lines: string[] = [];
     const token = "eyJjYW5hcmlvIjoiaGVhZGVyIn0.eyJjYW5hcmlvIjoic3ViIn0.canario-assinatura";
     for (const result of [
-      { ok: true, principal: { userId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", sessionId: null } },
+      { ok: true, principal: { userId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", sessionId: null }, lifetime: TEST_LIFETIME },
       { ok: false, reason: "token_invalido" },
       { ok: false, reason: "chaves_indisponiveis" },
     ] as const) {

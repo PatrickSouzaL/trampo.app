@@ -66,6 +66,15 @@ describe("ci.yml: o que o ADR-019 D5 exige", () => {
     expect(build).toBeLessThan(script.indexOf("pnpm --filter @trampo/api test:db"));
   });
 
+  it("db: a chave ES256 do GoTrue local nasce no job, antes do start (ADR-004 §4.3, emenda do 07h)", () => {
+    const script = runs(jobs["db"]);
+    const keygen = script.indexOf("node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json");
+    expect(keygen).toBeGreaterThan(-1);
+    expect(keygen).toBeLessThan(script.indexOf("supabase start -x "));
+    // Nenhum outro passo toca o arquivo da chave (nem cat, nem upload, nem cópia).
+    expect(script.split("signing_keys.json").length).toBe(2);
+  });
+
   it("db: o start deixa de fora tudo que o test:db não usa", () => {
     const start = /supabase start -x (\S+)/.exec(runs(jobs["db"]))?.[1]?.split(",") ?? [];
     expect(start.sort()).toEqual(
@@ -116,6 +125,36 @@ describe("ci.yml: o que o ADR-019 D5 exige", () => {
     for (const line of lines.filter((text) => text.startsWith("'''"))) {
       expect(line).toMatch(/^'''\^.+\$''',$/);
     }
+  });
+});
+
+describe("pilha local do Supabase: espelho da produção e chave fora do git (ADR-004 §4.3 e §4.8)", () => {
+  const config = readFileSync(`${ROOT_DIR}supabase/config.toml`, "utf8").replaceAll("\r\n", "\n");
+  const setting = (name: string): string[] =>
+    config
+      .split("\n")
+      .filter((line) => line.startsWith(`${name} = `))
+      .map((line) => line.slice(name.length + 3));
+
+  it("o JWT local dura 900 s, como o projeto real e o maxTokenAge do verificador (HITL-004)", () => {
+    expect(setting("jwt_expiry")).toEqual(["900"]);
+  });
+
+  it("o GoTrue local assina com a chave gerada no job", () => {
+    expect(setting("signing_keys_path")).toEqual(['"./signing_keys.json"']);
+  });
+
+  it("rotação do refresh com reuso de 10 s (P10) e os limites por IP do P19 (150 e 30)", () => {
+    expect(setting("enable_refresh_token_rotation")).toEqual(["true"]);
+    expect(setting("refresh_token_reuse_interval")).toEqual(["10"]);
+    expect(setting("token_refresh")).toEqual(["150"]);
+    expect(setting("sign_in_sign_ups")).toEqual(["30"]);
+  });
+
+  it("o .gitignore barra a chave do GoTrue local e qualquer .pem", () => {
+    const ignored = readFileSync(`${ROOT_DIR}.gitignore`, "utf8").replaceAll("\r\n", "\n").split("\n");
+    expect(ignored).toContain("supabase/signing_keys.json");
+    expect(ignored).toContain("*.pem");
   });
 });
 

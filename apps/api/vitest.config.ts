@@ -86,6 +86,9 @@ export default defineConfig({
         "src/presentation/edge/rate-limit.ts",
         "src/presentation/edge/daily-quota.ts",
         "src/presentation/edge/client-address.ts",
+        // Limitador local antes do JWT e API_BEHIND_PROXY (F1-API-07 07e, ADR-004 D8 item 4; ADR-014 D10).
+        "src/presentation/edge/pre-auth-limit.ts",
+        "src/presentation/edge/behind-proxy-env.ts",
         // CORS por rota (F1-API-05 commit 4, ADR-021 D8.3): a origem da extensão só alcança EXTENSION_ROUTES.
         "src/presentation/edge/cors.ts",
         "src/presentation/api-error.ts",
@@ -93,11 +96,16 @@ export default defineConfig({
         "src/presentation/routes/analyze.ts",
         // GET e PUT /v1/criteria (F1-API-05 commit 5, ADR-021 D2).
         "src/presentation/routes/criteria.ts",
+        // Rotas do BFF de autenticação (F1-API-07 07g, ADR-004 D4 e D7).
+        "src/presentation/routes/auth.ts",
         "src/presentation/streaming/**/*.ts",
         "src/presentation/build-app.ts",
         // Guarda do test:db (F1-OPS-01 parte 2, ADR-019 D8): só 127.0.0.1 e a publishable local. A suíte do banco
         // roda à parte (vitest.db.config.ts), mas os casos negativos do guarda rodam aqui, sem Docker.
         "test/db/support/local-stack-env.ts",
+        // A contagem da sonda do limite por IP do GoTrue local (F1-API-07 07h, ADR-004 D8 item 5): o job db roda só um
+        // dos ramos dela, então a cobertura fecha aqui.
+        "test/db/support/rate-limit-probe.ts",
       ],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
