@@ -96,6 +96,8 @@ export default defineConfig({
         "src/presentation/routes/analyze.ts",
         // GET e PUT /v1/criteria (F1-API-05 commit 5, ADR-021 D2).
         "src/presentation/routes/criteria.ts",
+        // Rotas do BFF de autenticação (F1-API-07 07g, ADR-004 D4 e D7).
+        "src/presentation/routes/auth.ts",
         "src/presentation/streaming/**/*.ts",
         "src/presentation/build-app.ts",
         // Guarda do test:db (F1-OPS-01 parte 2, ADR-019 D8): só 127.0.0.1 e a publishable local. A suíte do banco

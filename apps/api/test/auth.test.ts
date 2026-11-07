@@ -142,8 +142,8 @@ describe("resultado do verificador", () => {
 });
 
 describe("rotas públicas e ordem dos hooks (ADR-013 D2)", () => {
-  test("lista pública fechada: só GET /health", () => {
-    expect([...PUBLIC_ROUTES]).toEqual(["GET /health"]);
+  test("lista pública fechada: GET /health e as duas rotas públicas do BFF (ADR-004 D8 item 1); o logout fica fora", () => {
+    expect([...PUBLIC_ROUTES]).toEqual(["GET /health", "POST /v1/auth/exchange", "POST /v1/auth/refresh"]);
   });
 
   test("GET /health responde sem token e sem chamar o verificador", async () => {

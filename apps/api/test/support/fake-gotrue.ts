@@ -83,6 +83,11 @@ export interface FakeGotrueOptions {
    * JWKS local, para o verificador real (`jose`) conferir o token antes de repassar.
    */
   readonly accessToken?: () => string;
+  /**
+   * Serve o JWKS do projeto em `/auth/v1/.well-known/jwks.json` (GET): o boot exige o JWKS na mesma origem do
+   * `SUPABASE_URL` (ADR-013 D6), e o teste de composição do 07g sobe a API inteira contra este simulado.
+   */
+  readonly jwks?: () => unknown;
 }
 
 function gotrueError(status: number, errorCode: string): string {
@@ -140,6 +145,9 @@ export async function startFakeGotrue(publishableKey: string, options: FakeGotru
 
   /** O que o GoTrue responderia no modo normal; processar já muda o estado (troca e rotação). */
   const handle = (method: string, url: URL, headers: IncomingHttpHeaders, body: string): { status: number; body: string; contentType?: string } => {
+    if (options.jwks !== undefined && method === "GET" && url.pathname === "/auth/v1/.well-known/jwks.json") {
+      return { status: 200, body: JSON.stringify(options.jwks()) };
+    }
     if (method !== "POST" || !url.pathname.startsWith("/auth/v1/")) {
       return { status: 404, body: "<html><body>404 Not Found</body></html>", contentType: "text/html" };
     }

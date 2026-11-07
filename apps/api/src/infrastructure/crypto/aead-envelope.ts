@@ -66,6 +66,27 @@ export function parseAeadKeyring(keys: string, activeKid: string, invalid: () =>
   return { activeKid, keys: ring };
 }
 
+/** Mensagem fixa: nunca diz qual kid nem qual chave se repetiu. */
+export class KeyringReuseError extends Error {
+  constructor() {
+    super("CRITERIA_SALARY_KEYS e AUTH_REFRESH_SEAL_KEYS não podem repetir material de chave (ADR-004 D5)");
+    this.name = "KeyringReuseError";
+  }
+}
+
+/**
+ * Anéis de finalidades diferentes não dividem material de chave (ADR-004 D5: "anel próprio"; pendência do 07b para o
+ * boot do 07g). O prefixo de AAD já separa as finalidades; a recusa é para o vazamento de um anel não abrir o outro.
+ * Compara os bytes de cada par entre os dois anéis, qualquer que seja o kid.
+ */
+export function assertDisjointKeyrings(first: AeadKeyring, second: AeadKeyring): void {
+  for (const a of first.keys.values()) {
+    for (const b of second.keys.values()) {
+      if (a.equals(b)) throw new KeyringReuseError();
+    }
+  }
+}
+
 function isCiphertextRange({ min, max }: AeadEnvelopeFormat["ciphertextChars"]): boolean {
   return Number.isSafeInteger(min) && Number.isSafeInteger(max) && min >= 1 && max >= min;
 }

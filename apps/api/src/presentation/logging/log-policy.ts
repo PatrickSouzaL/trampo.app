@@ -35,6 +35,18 @@ export const LOG_MESSAGES = [
   "criterios_indisponiveis",
   // PUT /v1/criteria (ADR-021 D9): gravação que virou 503. O GET reusa `criterios_indisponiveis`.
   "criterios_gravacao_indisponivel",
+  // BFF de autenticação (ADR-004 D8 item 7, F1-API-07 07g): linhas amostradas, 1 por motivo a cada 60 s, com o
+  // contador `suprimidas`. A lista é a de AUTH_LOG_MESSAGES (auth-log-sampler.ts), presa por teste.
+  "auth_troca_recusada",
+  "auth_renovacao_recusada",
+  "auth_envelope_invalido",
+  "auth_sessao_idade_maxima",
+  "auth_sessao_inativa",
+  "auth_provedor_indisponivel",
+  "auth_chaves_indisponiveis",
+  "auth_token_fora_da_politica",
+  "auth_renovacao_perdida",
+  "auth_limite_local",
   "encerrando",
   "mensagem_fora_do_catalogo",
   "linha_de_log_descartada",
@@ -70,7 +82,7 @@ export const UNKNOWN_ROUTE = "rota_desconhecida";
 
 /** Chaves que uma linha pode ter, nos níveis 1 e 2 (a tabela do ADR-010 D1). */
 export const LOG_ALLOWLIST = {
-  top: ["level", "time", "msg", "reqId", "req", "res", "err", "responseTime", "signal"],
+  top: ["level", "time", "msg", "reqId", "req", "res", "err", "responseTime", "signal", "suprimidas"],
   req: ["id", "method", "route"],
   res: ["statusCode"],
   err: ["type", "code", "statusCode"],
@@ -174,6 +186,9 @@ export function enforceLogAllowlist(line: string, knownRoutes: ReadonlySet<strin
   const roundedTime = typeof responseTime === "number" && responseTime >= 0 ? Math.round(responseTime) : Number.NaN;
   if (Number.isSafeInteger(roundedTime)) out["responseTime"] = roundedTime;
   if (SIGNALS.has(parsed["signal"])) out["signal"] = parsed["signal"];
+  // Contador das linhas amostradas do BFF de autenticação (ADR-004 D8 item 7): só um inteiro seguro ≥ 0.
+  const suppressed = parsed["suprimidas"];
+  if (Number.isSafeInteger(suppressed) && (suppressed as number) >= 0) out["suprimidas"] = suppressed;
   return `${JSON.stringify(out)}\n`;
 }
 

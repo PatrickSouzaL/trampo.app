@@ -8,6 +8,12 @@
 // derrubam a subida antes de abrir a porta, assim como a lista de `amr` fora da política (AllowedAmrConfigError: método
 // fora do ADR-004 D6, ou senha fora de NODE_ENV=test). Nenhuma mensagem repete valor de variável.
 //
+// BFF de autenticação (F1-API-07 07g, ADR-004 D4 a D8), também em falha fechada: `API_BEHIND_PROXY` ausente ou em
+// contradição com o TRUST_PROXY já validado (BehindProxyConfigError), anel do refresh inválido
+// (RefreshKeyringConfigError), idades fora da faixa (AuthSessionConfigError) e material de chave repetido entre o anel
+// da pretensão e o do refresh (KeyringReuseError). O GotrueEgress (orçamento e *bulkhead*), o limitador local e a
+// amostragem de log são um só por processo, compartilhados pelas três rotas.
+//
 // A extração por LLM é opcional AQUI (os testes de borda e de critérios sobem sem ela): sem adapters, a análise segue
 // só pelo caminho determinístico, sem router e sem cache. Com adapters, entram o router (QuotaLedger em Redis e
 // systemClock) e o JobFactsCache numa instância própria do cliente REST (CACHE_CLIENT_LIMITS). Em produção a cadeia é
@@ -16,6 +22,11 @@ import { JOB_TITLE_MAX_CHARS } from "@trampo/contracts/limits";
 import { safeText, truncateCodePoints } from "@trampo/contracts/primitives";
 import { z } from "zod";
 
+import { EndSession } from "../application/auth/end-session.js";
+import { ExchangeSession } from "../application/auth/exchange-session.js";
+import { createGotrueEgress } from "../application/auth/gotrue-egress.js";
+import { RefreshSession } from "../application/auth/refresh-session.js";
+import type { AccessTokenVerifier } from "../application/ports/access-token-verifier.js";
 import {
   AnalyzeJob,
   CriteriaGuard,
@@ -42,9 +53,12 @@ import {
   ScoringEngine,
 } from "../domain/index.js";
 import { readAllowedAmr } from "../infrastructure/auth/allowed-amr-env.js";
+import { readAuthSessionEnv, type AuthSessionConfig } from "../infrastructure/auth/auth-session-env.js";
 import { createJoseAccessTokenVerifier } from "../infrastructure/auth/jose-access-token-verifier.js";
 import { CACHE_CLIENT_LIMITS, createRedisJobFactsStore } from "../infrastructure/cache/redis-job-facts-store.js";
-import { createHmacKeyPseudonymizer } from "../infrastructure/crypto/hmac-key-pseudonymizer.js";
+import { assertDisjointKeyrings } from "../infrastructure/crypto/aead-envelope.js";
+import { createAeadRefreshSealer } from "../infrastructure/crypto/aead-refresh-sealer.js";
+import { createHmacKeyPseudonymizer, type KeyPseudonymizer } from "../infrastructure/crypto/hmac-key-pseudonymizer.js";
 import { nodeTextHasher } from "../infrastructure/crypto/node-text-hasher.js";
 import { createSalaryCipher, parseSalaryKeyring } from "../infrastructure/crypto/salary-cipher.js";
 import { cryptoIdGenerator } from "../infrastructure/ids/crypto-id-generator.js";
@@ -55,12 +69,17 @@ import { createRedisRateLimiter } from "../infrastructure/limits/redis-rate-limi
 import { createSupabaseCriteriaRepository } from "../infrastructure/persistence/supabase-criteria-repository.js";
 import { cryptoRandom } from "../infrastructure/random/crypto-random.js";
 import { createUpstashRestClient, type RedisTransactions } from "../infrastructure/redis/upstash-rest-client.js";
+import { createGotrueTokenClient } from "../infrastructure/supabase/gotrue-token-client.js";
 import { createPostgrestUserClient } from "../infrastructure/supabase/postgrest-user-client.js";
 import { InMemoryTelemetry } from "../infrastructure/telemetry/in-memory-telemetry.js";
 import { systemClock } from "../infrastructure/time/system-clock.js";
 import { buildApp, type BuildAppOptions } from "../presentation/build-app.js";
 import { AuthEnvSchema } from "../presentation/edge/auth-env.js";
+import { readApiBehindProxy } from "../presentation/edge/behind-proxy-env.js";
 import { EdgeEnvSchema } from "../presentation/edge/edge-env.js";
+import { createPreAuthLimiter } from "../presentation/edge/pre-auth-limit.js";
+import { createAuthLogSampler } from "../presentation/logging/auth-log-sampler.js";
+import type { AuthRouteOptions } from "../presentation/routes/auth.js";
 
 const ServerEnvSchema = z.object({
   HOST: z.string().default("127.0.0.1"),
@@ -103,18 +122,24 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
   const auth = AuthEnvSchema.parse(source);
   // Vale para toda rota protegida: só sessão de login social entra (ADR-004 D6, F1-API-07 07d).
   const allowedAmr = readAllowedAmr(source);
+  // O limitador local das rotas públicas conta pelo `request.ip`: a declaração de proxy precisa concordar com o
+  // TRUST_PROXY, senão o limite vira global atrás do proxy (ADR-004 D8 item 4). Só valida: o valor não muda nada.
+  readApiBehindProxy(source, server.TRUST_PROXY);
+  const authSession = readAuthSessionEnv(source);
+  const salaryKeyring = parseSalaryKeyring(source["CRITERIA_SALARY_KEYS"] ?? "", source["CRITERIA_SALARY_ACTIVE_KEY"] ?? "");
+  assertDisjointKeyrings(salaryKeyring, authSession.keyring);
   const limitsEnv = LimitsEnvSchema.parse(source);
 
-  // Um relógio só, compartilhado pelos critérios e pelos limites.
+  // Um relógio só, compartilhado pelos critérios, pelos limites e pela sessão do BFF.
   const now = (): number => Date.now();
+  const supabaseOrigin = new URL("/", auth.issuer);
+  const publishableKey = source["SUPABASE_PUBLISHABLE_KEY"] ?? "";
 
   // Critérios (ADR-018 D5 e D6): cliente de usuário só com a publishable, e o adapter sempre dentro do guarda.
   const criteria = new CriteriaGuard(
     createSupabaseCriteriaRepository({
-      client: createPostgrestUserClient({ url: new URL("/", auth.issuer), publishableKey: source["SUPABASE_PUBLISHABLE_KEY"] ?? "" }),
-      cipher: createSalaryCipher(
-        parseSalaryKeyring(source["CRITERIA_SALARY_KEYS"] ?? "", source["CRITERIA_SALARY_ACTIVE_KEY"] ?? ""),
-      ),
+      client: createPostgrestUserClient({ url: supabaseOrigin, publishableKey }),
+      cipher: createSalaryCipher(salaryKeyring),
       now,
     }),
     systemClock,
@@ -122,7 +147,12 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
 
   // Instâncias de limite criadas uma vez e compartilhadas por todas as requisições (ADR-014 D8; T39).
   const limitsRedis = createUpstashRestClient({ url: limitsEnv.restUrl, token: limitsEnv.restToken });
-  const limitDeps = { redis: limitsRedis, pseudonymizer: createHmacKeyPseudonymizer(limitsEnv.pepper), now };
+  const pseudonymizer = createHmacKeyPseudonymizer(limitsEnv.pepper);
+  const limitDeps = { redis: limitsRedis, pseudonymizer, now };
+
+  // Um verificador só: o das rotas protegidas é o mesmo que confere o token do GoTrue antes de repassar (ADR-004 D6).
+  const verifier = createJoseAccessTokenVerifier({ ...auth, allowedAmr });
+  const authRoutes = composeAuth({ verifier, supabaseOrigin, publishableKey, authSession, pseudonymizer, now });
 
   const extractorVersion = extractorVersionTag({
     prompt: options.llm?.promptVersion ?? NO_EXTRACTOR_PROMPT_VERSION,
@@ -156,7 +186,7 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
   });
 
   const app = buildApp({
-    accessTokenVerifier: createJoseAccessTokenVerifier({ ...auth, allowedAmr }),
+    accessTokenVerifier: verifier,
     limits: {
       rateLimit: new RateLimitGuard(createRedisRateLimiter(limitDeps), systemClock),
       dailyQuota: new DailyQuotaGuard(createRedisDailyQuota(limitDeps), systemClock),
@@ -166,9 +196,39 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
     analysis: { job, criteria },
     // O mesmo guarda (prazo e revalidação) lê para a análise e lê e grava para o portal.
     criteria: { repository: criteria },
+    auth: authRoutes,
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   });
   return { app, host: server.HOST, port: server.PORT };
+}
+
+interface AuthCompositionInput {
+  readonly verifier: AccessTokenVerifier;
+  readonly supabaseOrigin: URL;
+  readonly publishableKey: string;
+  readonly authSession: AuthSessionConfig;
+  readonly pseudonymizer: KeyPseudonymizer;
+  readonly now: () => number;
+}
+
+/**
+ * O BFF de autenticação (ADR-004 D4): adapter do GoTrue só com a publishable e a URL fixa do projeto, selador do anel
+ * próprio, um só GotrueEgress (orçamento e *bulkhead* por processo, D8 item 5) e os três casos de uso do 07f. O
+ * limitador local usa o mesmo *pepper* do rate limit, só para pseudonimizar o balde (nenhum comando ao Redis).
+ */
+function composeAuth(input: AuthCompositionInput): AuthRouteOptions {
+  const { verifier, now } = input;
+  const gateway = createGotrueTokenClient({ url: input.supabaseOrigin, publishableKey: input.publishableKey });
+  const sealer = createAeadRefreshSealer(input.authSession.keyring);
+  const egress = createGotrueEgress(systemClock);
+  const ages = { maxAgeSeconds: input.authSession.maxAgeSeconds, idleSeconds: input.authSession.idleSeconds };
+  return {
+    exchange: new ExchangeSession({ gateway, sealer, verifier, egress, now }),
+    refresh: new RefreshSession({ gateway, sealer, verifier, egress, clock: systemClock, now, ages }),
+    logout: new EndSession({ gateway, egress }),
+    preAuthLimiter: createPreAuthLimiter(systemClock, input.pseudonymizer),
+    logSampler: createAuthLogSampler(systemClock),
+  };
 }
 
 interface LlmCompositionInput {

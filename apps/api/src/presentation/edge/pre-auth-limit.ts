@@ -97,12 +97,18 @@ export function createPreAuthLimiter(clock: Clock, pseudonymizer: KeyPseudonymiz
 
 /**
  * `onRequest` de uma rota pública de auth: 429 `LIMITE_DE_TAXA` com `Retry-After` (ADR-004 D7). Não lê
- * `Authorization` nem o corpo, e nada do IP ou da chave vai para o log (SR-12).
+ * `Authorization` nem o corpo, e nada do IP ou da chave vai para o log (SR-12). `onLimited` é a linha amostrada
+ * `auth_limite_local` da rota (07g, ADR-004 D8 item 7), sem argumento além da requisição.
  */
-export function createPreAuthLimitHook(limiter: PreAuthLimiter, limitClass: PreAuthLimitClass) {
+export function createPreAuthLimitHook(
+  limiter: PreAuthLimiter,
+  limitClass: PreAuthLimitClass,
+  onLimited?: (request: FastifyRequest) => void,
+) {
   return async function preAuthLimitHook(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | undefined> {
     const decision = limiter.check(limitClass, request.ip);
     if (decision.ok) return undefined;
+    onLimited?.(request);
     return sendApiError(reply, request.id, "LIMITE_DE_TAXA", { retryAfterSeconds: decision.retryAfterSeconds });
   };
 }

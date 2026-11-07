@@ -11,6 +11,8 @@ import { describe, expect, test } from "vitest";
 import {
   AEAD_KEY_ID_PATTERN,
   AEAD_POLICY,
+  KeyringReuseError,
+  assertDisjointKeyrings,
   createAeadEnvelope,
   decodeCanonical,
   parseAeadKeyring,
@@ -129,6 +131,32 @@ describe("parseAeadKeyring: falha fechada no boot, sem ecoar valor", () => {
       }),
       { numRuns: 2_000 },
     );
+  });
+});
+
+describe("assertDisjointKeyrings: anéis de finalidades diferentes (pendência do 07b, boot do 07g)", () => {
+  const invalid = () => new Error("anel inválido");
+  const key = () => randomBytes(32).toString("base64url");
+
+  test("material distinto passa, inclusive com o mesmo kid nos dois anéis", () => {
+    expect(() => assertDisjointKeyrings(parseAeadKeyring(`k1:${key()}`, "k1", invalid), parseAeadKeyring(`k1:${key()}`, "k1", invalid))).not.toThrow();
+  });
+
+  test("a mesma chave sob kids diferentes, em qualquer posição do anel, é recusada sem ecoar kid nem chave", () => {
+    const shared = key();
+    const salary = parseAeadKeyring(`s1k:${key()},s2k:${shared}`, "s1k", invalid);
+    const refresh = parseAeadKeyring(`r1k1:${shared},r2:${key()}`, "r2", invalid);
+    for (const [first, second] of [[salary, refresh], [refresh, salary]] as const) {
+      let error: unknown;
+      try {
+        assertDisjointKeyrings(first, second);
+      } catch (caught) {
+        error = caught;
+      }
+      expect(error).toBeInstanceOf(KeyringReuseError);
+      const message = String((error as Error).message);
+      for (const leak of [shared, "s2k", "r1k1"]) expect(message).not.toContain(leak);
+    }
   });
 });
 
