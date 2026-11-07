@@ -1,6 +1,10 @@
 // Em que balde do limite por IP caem o `grant_type=pkce` e o `/logout`, no GoTrue local (ADR-004 D8 item 5 e §6.3,
 // condição 3 do [APPSEC]; F1-API-07 07h). O simulado só repetiria a nossa hipótese: aqui é o GoTrue de verdade. Roda
-// no último grupo do test:db, depois do contrato, e não chama nada além da pilha local.
+// num grupo próprio do test:db e não chama nada além da pilha local. A ordem entre os grupos não é garantida (no 1º
+// run do CI, este rodou antes do contrato), então, em modo ativo, a sonda espera a reposição antes de terminar.
+//
+// Resultado no job db (run 42397764768, 2026-11-07): limitador inativo no GoTrue local, 45 renovações, 45 trocas e 45
+// logouts sem 429.
 //
 // Hipótese, pelo código do GoTrue (supabase/auth, master em 2026-11-07; texto na emenda do 07h do ADR-004 D8 item 5):
 // - `pkce`, `password` e `refresh_token` dividem um balde só, o `Token` (`token_refresh`: 150 por 5 min, rajada de 30);
@@ -83,5 +87,7 @@ describe("D8 item 5: o balde do pkce e do /logout no GoTrue local", () => {
     expect(logout.firstLimitedAt).toBeNull();
     expect(onlyRefusals(logout)).toBe(true);
     expect(await refreshCall()).not.toBe(429);
+    // Devolve o balde cheio: o contrato pode rodar depois desta sonda.
+    await sleep(REFILL_MS);
   });
 });

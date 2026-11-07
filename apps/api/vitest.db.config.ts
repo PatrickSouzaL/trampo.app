@@ -4,8 +4,9 @@ import { defineConfig } from "vitest/config";
 // (o vitest.config.ts não inclui test/db/**): o portão padrão não exige Docker. Em série, porque os testes de cada
 // arquivo dependem da ordem e falam com o mesmo banco.
 //
-// Dois grupos em sequência (07h, ADR-004 §4.3): a sonda do limite por IP (D8 item 5) esvazia o balde do `/token` do
-// GoTrue, então roda sozinha, depois do RLS e do contrato de auth.
+// Dois grupos (07h, ADR-004 §4.3): a sonda do limite por IP (D8 item 5) roda sozinha, porque em modo ativo esvazia o
+// balde do `/token` do GoTrue. O `groupOrder` não segurou a ordem no 1º run do CI (a sonda rodou antes), então a
+// própria sonda devolve o balde cheio ao terminar.
 export default defineConfig({
   test: {
     fileParallelism: false,

@@ -14,7 +14,6 @@ import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-import Fastify from "fastify";
 import { beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -22,7 +21,8 @@ import type { AccessTokenVerifier } from "../../src/application/ports/access-tok
 import { AllowedAmrConfigError, readAllowedAmr } from "../../src/infrastructure/auth/allowed-amr-env.js";
 import { createJoseAccessTokenVerifier } from "../../src/infrastructure/auth/jose-access-token-verifier.js";
 import { createGotrueTokenClient } from "../../src/infrastructure/supabase/gotrue-token-client.js";
-import { createAuthHook } from "../../src/presentation/edge/auth.js";
+import { buildApp } from "../../src/presentation/build-app.js";
+import { openLimits } from "../limit-fakes.js";
 import { fetchJwks, jwsHeader, signInWithPassword, signUpWithPassword, type PasswordSession } from "./support/auth-stack.js";
 import { parseLocalStackEnv, type LocalStack } from "./support/local-stack-env.js";
 
@@ -96,17 +96,21 @@ describe("amr: senha só na pilha local (ADR-004 D6)", () => {
     await expect(oauthVerifier.verify(user.accessToken)).resolves.toEqual({ ok: false, reason: "token_invalido" });
   });
 
-  test("pela borda real (hook do JWT): 401 com oauth, 200 com password", async () => {
-    const statusWith = async (verifier: AccessTokenVerifier): Promise<number> => {
-      const app = Fastify();
-      app.addHook("onRequest", createAuthHook(verifier));
-      app.get("/v1/criteria", () => ({ ok: true }));
-      const response = await app.inject({ method: "GET", url: "/v1/criteria", headers: { authorization: `Bearer ${user.accessToken}` } });
-      await app.close();
-      return response.statusCode;
+  test("pela borda real (buildApp e o hook do JWT): 401 com oauth, 200 com password", async () => {
+    const responseWith = async (verifier: AccessTokenVerifier): Promise<{ status: number; body: unknown }> => {
+      const app = buildApp({ limits: openLimits, logger: false, accessTokenVerifier: verifier, corsAllowedOrigins: [] });
+      app.get("/probe/eu", (request) => ({ userId: request.principal?.userId ?? null }));
+      try {
+        const response = await app.inject({ method: "GET", url: "/probe/eu", headers: { authorization: `Bearer ${user.accessToken}` } });
+        return { status: response.statusCode, body: response.json() };
+      } finally {
+        await app.close();
+      }
     };
-    expect(await statusWith(oauthVerifier)).toBe(401);
-    expect(await statusWith(passwordVerifier)).toBe(200);
+    const refused = await responseWith(oauthVerifier);
+    expect(refused.status).toBe(401);
+    expect(refused.body).toMatchObject({ code: "NAO_AUTENTICADO" });
+    await expect(responseWith(passwordVerifier)).resolves.toEqual({ status: 200, body: { userId: user.userId } });
   });
 });
 
