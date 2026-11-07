@@ -14,6 +14,8 @@ import { z } from "zod";
 
 import type { AccessTokenVerification, AccessTokenVerifier } from "../../application/ports/access-token-verifier.js";
 
+import type { AmrMethod } from "./allowed-amr-env.js";
+
 /** ADR-013 D4 e D5. Valores em código, sem variável de ambiente (um botão a menos para errar). */
 export const JWT_POLICY = {
   algorithm: "ES256",
@@ -46,6 +48,11 @@ export interface JoseAccessTokenVerifierConfig {
   readonly issuer: string;
   /** `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`, validada no main.ts (ADR-013 D6). */
   readonly jwksUrl: URL;
+  /**
+   * Métodos de autenticação aceitos no `amr` (ADR-004 D6), vindos do `readAllowedAmr`. Obrigatório: o adapter não
+   * tem padrão próprio.
+   */
+  readonly allowedAmr: readonly [AmrMethod, ...AmrMethod[]];
   /** Só para os testes encurtarem os prazos. Produção usa JWKS_TIMINGS. */
   readonly jwks?: Partial<JwksTimings>;
 }
@@ -53,14 +60,21 @@ export interface JoseAccessTokenVerifierConfig {
 /**
  * Claims conferidas depois da assinatura. `aud` precisa ser a string (o jose aceita um array que a contenha),
  * e `is_anonymous` ausente também é recusado (ADR-013 D4).
+ *
+ * `amr` (emenda do ADR-004 D6): o formato do GoTrue, lista de `{ method, timestamp }`, não vazia e com TODO método
+ * na lista permitida. Uma sessão que misture `oauth` com outro método é recusada, e a forma do RFC 8176 (lista de
+ * strings) também, até o P9 confirmar o token real.
  */
-const ClaimsSchema = z.object({
-  sub: z.uuid(),
-  aud: z.literal(JWT_POLICY.audience),
-  role: z.literal(JWT_POLICY.role),
-  is_anonymous: z.literal(false),
-  session_id: z.uuid().optional(),
-});
+function claimsSchema(allowedAmr: readonly [AmrMethod, ...AmrMethod[]]) {
+  return z.object({
+    sub: z.uuid(),
+    aud: z.literal(JWT_POLICY.audience),
+    role: z.literal(JWT_POLICY.role),
+    is_anonymous: z.literal(false),
+    session_id: z.uuid().optional(),
+    amr: z.array(z.object({ method: z.enum(allowedAmr) })).min(1),
+  });
+}
 
 /** Falha do lado das chaves (rede, timeout, status, JSON, JWKS vazio ou sem ES256): vira 503, não 401. */
 class KeysUnavailableError extends Error {}
@@ -106,6 +120,7 @@ function cappedFetch(maxBytes: number): FetchImplementation {
 
 export function createJoseAccessTokenVerifier(config: JoseAccessTokenVerifierConfig): AccessTokenVerifier {
   const timings: JwksTimings = { ...JWKS_TIMINGS, ...config.jwks };
+  const ClaimsSchema = claimsSchema(config.allowedAmr);
   const remote = createRemoteJWKSet(config.jwksUrl, {
     timeoutDuration: timings.timeoutMs,
     cacheMaxAge: timings.cacheMaxAgeMs,
@@ -143,6 +158,16 @@ export function createJoseAccessTokenVerifier(config: JoseAccessTokenVerifierCon
         return { ok: true, principal: { userId: claims.data.sub, sessionId: claims.data.session_id ?? null } };
       } catch (error) {
         return error instanceof KeysUnavailableError ? UNAVAILABLE : INVALID;
+      }
+    },
+    // P15 (ADR-004 D6): o próprio RemoteJWKSet responde sem token. Mesmo cache e mesmas regras do verify: com o
+    // cache vencido, busca de novo, e o JWKS fora do ar dá false mesmo com a chave antiga na memória (ADR-013 D5).
+    async keysReady() {
+      try {
+        if (!remote.fresh) await remote.reload();
+        return hasSigningKey(remote.jwks());
+      } catch {
+        return false;
       }
     },
   };

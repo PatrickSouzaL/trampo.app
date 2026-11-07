@@ -16,6 +16,13 @@ export {
   type AuthSessionVariable,
 } from "./auth/auth-session-env.js";
 export {
+  AMR_METHODS,
+  AllowedAmrConfigError,
+  DEFAULT_ALLOWED_AMR,
+  readAllowedAmr,
+  type AmrMethod,
+} from "./auth/allowed-amr-env.js";
+export {
   AEAD_KEY_ID_PATTERN,
   AEAD_POLICY,
   createAeadEnvelope,

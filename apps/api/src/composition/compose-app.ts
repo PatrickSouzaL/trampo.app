@@ -5,7 +5,8 @@
 //
 // Falha fechado no boot: ambiente da borda, do JWT ou do Redis inválido (ZodError), chave do Supabase que não é
 // publishable (PostgrestClientConfigError) e anel da pretensão inválido ou ausente (SalaryKeyringConfigError)
-// derrubam a subida antes de abrir a porta. Nenhuma mensagem repete valor de variável.
+// derrubam a subida antes de abrir a porta, assim como a lista de `amr` fora da política (AllowedAmrConfigError: método
+// fora do ADR-004 D6, ou senha fora de NODE_ENV=test). Nenhuma mensagem repete valor de variável.
 //
 // A extração por LLM é opcional AQUI (os testes de borda e de critérios sobem sem ela): sem adapters, a análise segue
 // só pelo caminho determinístico, sem router e sem cache. Com adapters, entram o router (QuotaLedger em Redis e
@@ -40,6 +41,7 @@ import {
   ReportComposer,
   ScoringEngine,
 } from "../domain/index.js";
+import { readAllowedAmr } from "../infrastructure/auth/allowed-amr-env.js";
 import { createJoseAccessTokenVerifier } from "../infrastructure/auth/jose-access-token-verifier.js";
 import { CACHE_CLIENT_LIMITS, createRedisJobFactsStore } from "../infrastructure/cache/redis-job-facts-store.js";
 import { createHmacKeyPseudonymizer } from "../infrastructure/crypto/hmac-key-pseudonymizer.js";
@@ -99,6 +101,8 @@ const titleSchema = safeText(JOB_TITLE_MAX_CHARS);
 export function composeApp(source: Environment, options: ComposeOptions = {}): ComposedApp {
   const server = ServerEnvSchema.parse(source);
   const auth = AuthEnvSchema.parse(source);
+  // Vale para toda rota protegida: só sessão de login social entra (ADR-004 D6, F1-API-07 07d).
+  const allowedAmr = readAllowedAmr(source);
   const limitsEnv = LimitsEnvSchema.parse(source);
 
   // Um relógio só, compartilhado pelos critérios e pelos limites.
@@ -152,7 +156,7 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
   });
 
   const app = buildApp({
-    accessTokenVerifier: createJoseAccessTokenVerifier(auth),
+    accessTokenVerifier: createJoseAccessTokenVerifier({ ...auth, allowedAmr }),
     limits: {
       rateLimit: new RateLimitGuard(createRedisRateLimiter(limitDeps), systemClock),
       dailyQuota: new DailyQuotaGuard(createRedisDailyQuota(limitDeps), systemClock),

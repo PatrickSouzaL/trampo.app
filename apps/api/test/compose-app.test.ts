@@ -24,6 +24,7 @@ import {
   productionLlmComposition,
   type ProductionLlmTestHooks,
 } from "../src/composition/production-app.js";
+import { AllowedAmrConfigError } from "../src/infrastructure/auth/allowed-amr-env.js";
 import { SalaryKeyringConfigError, createSalaryCipher, parseSalaryKeyring } from "../src/infrastructure/crypto/salary-cipher.js";
 import { WORKERS_AI_DEFAULT_MODEL, WorkersAiConfigError } from "../src/infrastructure/llm/cloudflare-workers-ai-extractor.js";
 import { GROQ_MODEL as GROQ_ADAPTER_MODEL, GroqConfigError } from "../src/infrastructure/llm/groq-extractor.js";
@@ -224,6 +225,45 @@ describe("fluxo completo com as peças reais", () => {
   });
 });
 
+// F1-API-07, commit 07d (ADR-004 D6): o `amr` vale para TODA rota protegida já existente, pelo verificador do boot.
+describe("amr exigido no boot (ADR-004 D6)", () => {
+  /** Token de login por senha (o que o signup da pilha local emite), conhecido pela RLS do PostgREST simulado. */
+  async function passwordToken(): Promise<string> {
+    await storeOwnerCriteria();
+    const token = await signToken(
+      key,
+      supabaseClaims(`${postgrest.url.origin}/auth/v1`, { sub: OWNER, amr: [{ method: "password", timestamp: 1 }] }),
+    );
+    postgrest.sessions.set(token, OWNER);
+    return token;
+  }
+
+  test("ambiente padrão: token de senha dá 401 em /v1/analyze e /v1/criteria, sem tocar o banco nem o Redis", async () => {
+    const token = await passwordToken();
+    const instance = boot();
+    const auth = { authorization: `Bearer ${token}` };
+    const responses = [await analyze(instance, auth), await criteriaRequest(instance, "GET", auth)];
+    for (const res of responses) {
+      expect(res.statusCode).toBe(401);
+      expect(ApiErrorSchema.parse(res.json()).code).toBe("NAO_AUTENTICADO");
+    }
+    expect(postgrest.requests.filter((request) => request.url.includes("/rest/v1/"))).toHaveLength(0);
+    expect(upstash.requests).toHaveLength(0);
+  });
+
+  test("AUTH_ALLOWED_AMR=oauth explícito: o mesmo 401", async () => {
+    const token = await passwordToken();
+    const res = await analyze(boot({ AUTH_ALLOWED_AMR: "oauth", NODE_ENV: "test" }), { authorization: `Bearer ${token}` });
+    expect(res.statusCode).toBe(401);
+  });
+
+  test("pilha local (NODE_ENV=test e AUTH_ALLOWED_AMR=oauth,password): o token de senha entra", async () => {
+    const token = await passwordToken();
+    const res = await analyze(boot({ AUTH_ALLOWED_AMR: "oauth,password", NODE_ENV: "test" }), { authorization: `Bearer ${token}` });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
 describe("rotas de critérios (F1-API-05 commit 5; ADR-021 §4)", () => {
   const OTHER_OWNER = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
   const restRequests = () => postgrest.requests.filter((request) => request.url.includes("/rest/v1/"));
@@ -333,6 +373,9 @@ describe("falha fechado no boot", () => {
     ["sem SUPABASE_URL", { SUPABASE_URL: undefined }, ZodError],
     ["JWKS de outro projeto", { SUPABASE_JWKS_URL: "https://outro.supabase.co/auth/v1/.well-known/jwks.json" }, ZodError],
     ["TRUST_PROXY true", { TRUST_PROXY: "true" }, ZodError],
+    ["AUTH_ALLOWED_AMR com senha fora de NODE_ENV=test", { AUTH_ALLOWED_AMR: "oauth,password" }, AllowedAmrConfigError],
+    ["AUTH_ALLOWED_AMR com senha e NODE_ENV=production", { AUTH_ALLOWED_AMR: "password", NODE_ENV: "production" }, AllowedAmrConfigError],
+    ["AUTH_ALLOWED_AMR com otp", { AUTH_ALLOWED_AMR: "oauth,otp", NODE_ENV: "test" }, AllowedAmrConfigError],
   ])("%s: nada sobe e a mensagem não repete segredo", (_name, over, kind) => {
     let error: unknown;
     try {

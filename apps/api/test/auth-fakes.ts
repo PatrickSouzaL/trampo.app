@@ -15,7 +15,10 @@ export const TEST_PRINCIPAL: Principal = {
 export const TEST_TOKEN = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ0ZXN0ZSJ9.c2lnbmF0dXJh";
 export const TEST_AUTHORIZATION = `Bearer ${TEST_TOKEN}`;
 
-/** Verificador que registra os tokens recebidos e responde o resultado configurado. */
+/**
+ * Verificador que registra os tokens recebidos e responde o resultado configurado. `keysReady` responde `true`
+ * (ninguém na presentation o chama: é do BFF, ADR-004 D6).
+ */
 export function fakeVerifier(result: AccessTokenVerification = { ok: true, principal: TEST_PRINCIPAL }) {
   const calls: string[] = [];
   const verifier: AccessTokenVerifier = {
@@ -23,6 +26,7 @@ export function fakeVerifier(result: AccessTokenVerification = { ok: true, princ
       calls.push(token);
       return result;
     },
+    keysReady: async () => true,
   };
   return { verifier, calls };
 }

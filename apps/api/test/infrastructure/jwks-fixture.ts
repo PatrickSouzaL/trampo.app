@@ -94,7 +94,10 @@ export const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 
 export type Claims = Record<string, unknown>;
 
-/** Claims de um access token do Supabase Auth para o `issuer` dado. */
+/**
+ * Claims de um access token do Supabase Auth para o `issuer` dado. O `amr` tem o formato do GoTrue (lista de
+ * `{ method, timestamp }`) com login social, o único que a API aceita por padrão (ADR-004 D6).
+ */
 export function supabaseClaims(issuer: string, overrides: Claims = {}): Claims {
   const now = nowSeconds();
   return {
@@ -105,6 +108,7 @@ export function supabaseClaims(issuer: string, overrides: Claims = {}): Claims {
     is_anonymous: false,
     session_id: "0b1c2d3e-4f50-4a6b-9c7d-8e9fa0b1c2d3",
     aal: "aal1",
+    amr: [{ method: "oauth", timestamp: now }],
     email: "canario-email@exemplo.test",
     user_metadata: { name: "Canário Nome" },
     iat: now,

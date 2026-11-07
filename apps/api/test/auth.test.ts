@@ -131,6 +131,7 @@ describe("resultado do verificador", () => {
       verify: async () => {
         throw new Error("defeito");
       },
+      keysReady: async () => true,
     };
     const { app, counts } = authApp(broken);
     const res = await app.inject({ method: "GET", url: "/probe/eu", headers: { authorization: `Bearer ${TEST_TOKEN}` } });
@@ -259,7 +260,8 @@ describe("ponta a ponta: buildApp com o adapter jose e um JWKS local", () => {
     await server.close();
   });
 
-  const realApp = () => authApp(createJoseAccessTokenVerifier({ issuer: server.issuer, jwksUrl: server.jwksUrl })).app;
+  const realApp = () =>
+    authApp(createJoseAccessTokenVerifier({ issuer: server.issuer, jwksUrl: server.jwksUrl, allowedAmr: ["oauth"] })).app;
 
   test("token válido: 200 com userId = sub", async () => {
     const token = await signToken(key, supabaseClaims(server.issuer));
@@ -274,6 +276,16 @@ describe("ponta a ponta: buildApp com o adapter jose e um JWKS local", () => {
     const token = await signToken(key, supabaseClaims(server.issuer, { is_anonymous: true }));
     const res = await realApp().inject({ method: "GET", url: "/probe/eu", headers: { authorization: `Bearer ${token}` } });
     expect(res.statusCode).toBe(401);
+  });
+
+  // ADR-004 D6 (F1-API-07 07d): login por e-mail ou telefone não entra em rota protegida; 401, não 503 (na API, o
+  // `amr` é do usuário, não desvio de configuração).
+  test.each(["password", "otp"])("amr %s: 401 NAO_AUTENTICADO com WWW-Authenticate", async (method) => {
+    const token = await signToken(key, supabaseClaims(server.issuer, { amr: [{ method, timestamp: 1 }] }));
+    const res = await realApp().inject({ method: "GET", url: "/probe/eu", headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(401);
+    expectApiError(res.body, "NAO_AUTENTICADO");
+    expect(res.headers["www-authenticate"]).toBe("Bearer");
   });
 
   test("JWKS vazio: 503", async () => {
