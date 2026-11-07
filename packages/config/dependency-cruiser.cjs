@@ -55,6 +55,38 @@ module.exports = {
       to: { path: "^packages/contracts/(src|dist)/(user-criteria|index)(/|\\.)" },
     },
     {
+      name: "extension-panel-no-auth",
+      severity: "error",
+      comment:
+        "O painel nunca alcança a sessão: nem src/auth, nem src/api, nem o session-store, nem os contratos de auth (ADR-004 D10 B3).",
+      from: { path: "^apps/extension/src/(entrypoints/sidepanel|panel)/" },
+      to: {
+        path: "^(apps/extension/src/(auth|api)/|apps/extension/src/messaging/session-store\\.ts$|packages/contracts/(src|dist)/auth\\.)",
+      },
+    },
+    {
+      name: "extension-capture-no-auth",
+      severity: "error",
+      comment: "O extrator e a captura nunca recebem nada da sessão (ADR-004 D10 B3 e B7).",
+      from: { path: "^apps/extension/src/(extraction|capture)/" },
+      to: { path: "^(apps/extension/src/(auth|api)/|packages/contracts/(src|dist)/auth\\.)" },
+    },
+    {
+      name: "extension-auth-only-from-worker",
+      severity: "error",
+      comment:
+        "src/auth e src/api só são importados pelo background.ts e entre si; os contratos de auth, só por eles (ADR-004 D10 B3). Os testes ficam fora de src/.",
+      from: { path: "^apps/extension/src/", pathNot: "^apps/extension/src/(auth/|api/|entrypoints/background\\.ts$)" },
+      to: { path: "^(apps/extension/src/(auth|api)/|packages/contracts/(src|dist)/auth\\.)" },
+    },
+    {
+      name: "extension-contracts-auth-only-auth-and-api",
+      severity: "error",
+      comment: "Nem o background.ts importa os contratos de auth: só src/auth e src/api falam com o BFF (ADR-004 D10).",
+      from: { path: "^apps/extension/src/entrypoints/background\\.ts$" },
+      to: { path: "^packages/contracts/(src|dist)/auth\\." },
+    },
+    {
       name: "ui-kit-presentation-only",
       severity: "error",
       comment: "ui-kit só depende de React e dos contratos.",

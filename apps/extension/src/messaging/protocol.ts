@@ -25,6 +25,13 @@ export const PASTE_MAX_UTF16 = 2 * JOB_TEXT_MAX_CHARS;
  */
 export const CONSENT_VERSION = "aviso-1";
 
+/**
+ * Provedores do login (HITL-004; ADR-004 D2 e D12): só GitHub e Google. Fica aqui, e não em src/auth,
+ * porque o painel também precisa da lista e nunca importa src/auth (ADR-004 D10 B3).
+ */
+export const AUTH_PROVIDERS = ["github", "google"] as const;
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+
 export const PanelToWorkerSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("hello"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
   // Fallback "colar o texto" (ADR-001 D10; ADR-024 D5). O texto é dado, nunca comando.

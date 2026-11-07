@@ -4,6 +4,30 @@ import { htmlSinkSelectors, security } from "@trampo/config/eslint/security";
 // A extensão só vê os subpaths de contrato que não carregam perfil do usuário
 // (contratos-zod §2; revisão M1.6, F-02). A raiz reexporta user-criteria e contornaria o bloqueio.
 const CONTRACTS_ALLOWED = "limits|primitives|api|analysis-report";
+// O subpath de auth só entra no código do Service Worker que fala com o BFF (src/auth e src/api) e nos
+// testes: o painel e o extrator nunca veem os contratos da sessão (ADR-004 D10 B3).
+const CONTRACTS_ALLOWED_IN_WORKER_AUTH = `${CONTRACTS_ALLOWED}|auth`;
+const WORKER_AUTH_FILES = ["src/auth/**/*.ts", "src/api/**/*.ts", "test/**/*.ts"];
+
+function boundaryImports(allowed) {
+  return [
+    "error",
+    {
+      patterns: [
+        {
+          regex: `^@trampo/contracts(?!/(${allowed})$)`,
+          message: `Este arquivo só importa @trampo/contracts/{${allowed.replaceAll("|", ",")}}: nunca a raiz nem user-criteria (F-02), e auth só em src/auth e src/api (ADR-004 D10).`,
+        },
+        {
+          // Os aliases do WXT (@/, ~/, @@/, ~~/) não são resolvidos pelo dependency-cruiser:
+          // o import vira ponto cego das fronteiras (not-to-unresolvable falha fechado).
+          regex: "^(@@?|~~?)(/|$)",
+          message: "Use import relativo: o dependency-cruiser não resolve os aliases do WXT.",
+        },
+      ],
+    },
+  ];
+}
 
 // Armazenamento só em storage.session (ADR-001 §5.0.1; threat-model T22).
 const NON_SESSION_AREAS = "local|sync|managed";
@@ -77,25 +101,16 @@ export default defineConfig([
     name: "@trampo/extension/boundaries",
     files: ["**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              regex: `^@trampo/contracts(?!/(${CONTRACTS_ALLOWED})$)`,
-              message: `A extensão só importa @trampo/contracts/{${CONTRACTS_ALLOWED.replaceAll("|", ",")}}: nunca a raiz nem user-criteria (F-02).`,
-            },
-            {
-              // Os aliases do WXT (@/, ~/, @@/, ~~/) não são resolvidos pelo dependency-cruiser:
-              // o import vira ponto cego das fronteiras (not-to-unresolvable falha fechado).
-              regex: "^(@@?|~~?)(/|$)",
-              message: "Use import relativo: o dependency-cruiser não resolve os aliases do WXT.",
-            },
-          ],
-        },
-      ],
+      "no-restricted-imports": boundaryImports(CONTRACTS_ALLOWED),
       // A regra não se acumula entre configs: os seletores de HTML do preset são repetidos aqui.
       "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors],
+    },
+  },
+  {
+    name: "@trampo/extension/worker-auth",
+    files: WORKER_AUTH_FILES,
+    rules: {
+      "no-restricted-imports": boundaryImports(CONTRACTS_ALLOWED_IN_WORKER_AUTH),
     },
   },
   {
