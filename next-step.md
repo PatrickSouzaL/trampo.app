@@ -26,7 +26,11 @@
   - API de 3.518 para 3.553 testes e `ci-policy` com 258, as duas com 100% nas 4 métricas;
   - mutação dirigida: 57 mutantes, 56 mortos e 1 equivalente (a flag solta `(?i)`, que o V8 já recusa). Quatro sobreviventes da 1ª rodada viraram testes;
   - turbo 21/21 em série na 1ª rodada; depcruise sem violações (480 módulos).
-- **Só no CI:** a estação não tem o *daemon* do Docker, e o download do binário do gitleaks foi negado. O contrato, a sonda e o gitleaks com a regra nova sobre o histórico rodam nos jobs `db` e `secrets` do PR #17.
+- **CI verde no PR #17** (a estação não tem o *daemon* do Docker, e o download do binário do gitleaks foi negado, então o contrato, a sonda e o gitleaks rodaram só lá):
+  - run `42397764768` (`4efd96c`): 71 dos 72 casos do `test:db` passaram contra o GoTrue real, inclusive o P10, o P11 e o logout repetido com 403. O caso "pela borda real" falhou por erro do teste (Fastify mínimo, 500), corrigido em `316da68` com o `buildApp`;
+  - run `42398183789` (`316da68`): `secrets` (regras novas no histórico inteiro, sem achado), `db` (72/72, cobertura de 100%), `test` e `quality` verdes;
+  - a sonda mediu o **limitador inativo** no GoTrue local nos dois runs, e o `groupOrder` não segurou a ordem dos grupos: a sonda agora devolve o balde cheio ao terminar, em modo ativo.
+- **Remoto:** o branch tinha o `47db338` (agente Copilot), que libera na allowlist do gitleaks um UUID de fixture falsa; o `[APPSEC]` aceitou, e os commits locais entraram por *rebase* (o 07h passou de `7962d4f` a `4efd96c`).
 - **Cofre:** ADR-004 §4.3, §4.8, D7 e D8 item 5 ("Emenda do 07h") e a marca no §6.3; ADR-019 §3.4 novo; runbook `auth-extensao` §1.6 novo; STATE, BACKLOG e SESSION-LOG, com backups no scratchpad.
 - Nada chamou o Supabase real nem provedor de LLM.
 
@@ -34,7 +38,8 @@
 - Nenhum HITL aberto para as trilhas.
 - **Vale desde o 07h:** quem rodar `supabase start` na estação precisa gerar a chave antes, com `node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json` na raiz do `trampo.app` (runbook `auth-extensao` §1.6). Sem o arquivo, o `start` não sobe.
 - **Vale desde o 07g:** fora de `NODE_ENV=test`, a API só sobe com `API_BEHIND_PROXY=false` (junto com `TRUST_PROXY=false`) e o anel `AUTH_REFRESH_SEAL_KEYS` e `AUTH_REFRESH_SEAL_ACTIVE_KEY` no `apps/api/.env` (runbook `auth-extensao` §1.5).
-- Push autorizado nesta sessão: o `spike/s1-extraction` vai ao `origin` com o 07h e o commit deste arquivo. Confira os jobs `secrets` e `db` do PR #17.
+- Push autorizado nesta sessão e feito: o `spike/s1-extraction` está no `origin` com o 07h, a correção e este arquivo.
+- **Antes de cada push:** `git fetch` e confira `HEAD..origin/spike/s1-extraction`. O branch pode receber commits no GitHub entre sessões.
 
 ---
 
@@ -49,7 +54,7 @@
 | **F1-DB-02** | Custom Access Token Hook por migration (ADR-004 D5): recusa com 403 a sessão com mais de 24 h, grants mínimos e `test:db` da recusa na emissão e na renovação. Depois, HITL de aplicação no projeto real (molde do HITL-023) | não | nada; o P18 (CA-15) depende dela, mesmo com o ADR-004 aceito por sobreposição do veto |
 
 **O que vem depois:**
-- **Se o job `db` ou o `secrets` do PR #17 falhar:** a próxima sessão começa pelo conserto (o nome do caso e a saída do job), antes da F1-EXT-05a. A sonda imprime a linha `[sonda do limite por IP]` com o modo medido: registre-a no ADR-004 D8 item 5.
+- **Balde do projeto real:** o GoTrue local não aplica o limite por IP, então a sonda só prova o modo. O balde do `pkce` e do `/logout` no projeto real fica para o spike S-3 (P19), pelo código-fonte até lá.
 - **07i e 07j:** entram antes ou depois da F1-EXT-05a, à escolha do `[ORCHESTRATOR]`, cada um numa sessão própria.
 - **F1-EXT-05a concluída:** o envio à API (F1-EXT-04 parte 2) vira trilha.
 - **F1-DB-02 concluída:** abre o HITL de aplicação do hook.
