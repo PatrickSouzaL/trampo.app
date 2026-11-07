@@ -1,7 +1,7 @@
 // Contrato PRIVADO da extensão entre o Side Panel e o Service Worker (F1-EXT-02).
 // Fica fora do @trampo/contracts porque não cruza a rede. Estrito dos dois lados: chave extra,
 // tipo desconhecido ou versão errada derrubam a porta (SR-10).
-import { AnalysisStreamEventSchema } from "@trampo/contracts/api";
+import { AnalysisStreamEventSchema, type ApiErrorCode } from "@trampo/contracts/api";
 import { JOB_TEXT_MAX_CHARS } from "@trampo/contracts/limits";
 import { z } from "zod";
 
@@ -31,6 +31,17 @@ export const CONSENT_VERSION = "aviso-1";
  */
 export const AUTH_PROVIDERS = ["github", "google"] as const;
 export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+
+/**
+ * Visão da sessão no painel (ADR-004 D12): um booleano e um código do catálogo do ADR-025, nunca token,
+ * claim, e-mail nem expiração. Por enquanto só o tipo, que o auth-service emite (05a-3); o schema com o
+ * `refine`, a porta e as mensagens `entrar`, `sair` e `sessao` entram na F1-EXT-05b. A união já proíbe
+ * `{ autenticado: true, erro: "NAO_AUTENTICADO" }` (e `ERRO_INTERNO`) em tempo de compilação.
+ */
+export type SessaoErro = Extract<ApiErrorCode, "NAO_AUTENTICADO" | "SERVICO_INDISPONIVEL" | "LIMITE_DE_TAXA" | "ERRO_INTERNO">;
+export type SessaoView =
+  | { readonly autenticado: true; readonly erro: Extract<SessaoErro, "SERVICO_INDISPONIVEL" | "LIMITE_DE_TAXA"> | null }
+  | { readonly autenticado: false; readonly erro: SessaoErro | null };
 
 export const PanelToWorkerSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("hello"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
