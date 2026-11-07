@@ -174,7 +174,7 @@ jwt_expiry = 900
 # Path to JWT signing key. DO NOT commit your signing keys file to git.
 # Trampo (ADR-004 §4.3): chave ES256 gerada no próprio job db por apps/api/test/db/support/write-signing-key.ts,
 # nunca versionada (.gitignore e a regra trampo-auth-seal-keys-files do gitleaks). Na estação, gere antes do start
-# (runbook supabase-local).
+# (runbook auth-extensao §1.6).
 signing_keys_path = "./signing_keys.json"
 # If disabled, the refresh token will never expire.
 enable_refresh_token_rotation = true
