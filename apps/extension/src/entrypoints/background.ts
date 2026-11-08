@@ -2,6 +2,7 @@
 // Proibido registrar handler do evento `fetch` (brecha de CSP, crbug 1463420; ADR-001 §5.0.1).
 // Canal único com o painel: a porta PANEL_PORT_NAME. Nenhum onMessage, onMessageExternal nem
 // onConnectExternal é registrado (SR-10).
+import { createWorkerAuth } from "../auth/worker-auth";
 import { extractorRunner, platformForUrl } from "../capture/capture";
 import { CAPTURE_STORAGE_KEY, CaptureStateSchema, createCaptureService } from "../capture/capture-service";
 import { CONSENT_STORAGE_KEY, ConsentRecordSchema, createConsentService } from "../consent/consent-service";
@@ -28,6 +29,17 @@ export default defineBackground(() => {
   // Consentimento antes da 1ª transmissão (ADR-025 D2). O envio à API (parte 2) consulta consent.isGranted().
   const consent = createConsentService({ store: sessionStore(CONSENT_STORAGE_KEY, ConsentRecordSchema), now: Date.now });
   const consentFailure = (): void => console.warn("[trampo] falha interna no consentimento");
+
+  // Sessão (ADR-004 D3 e D11): o token vive só aqui e no storage.session. O config só existe com as duas
+  // origens do build. O log leva só o motivo da lista fechada (T23). A F1-EXT-05b liga o serviço às mensagens
+  // do painel ("entrar", "sair" e a SessaoView no handshake) e guarda a referência; até lá, nada o aciona.
+  createWorkerAuth(
+    { apiOrigin: import.meta.env.TRAMPO_API_ORIGIN, supabaseOrigin: import.meta.env.TRAMPO_SUPABASE_ORIGIN },
+    {
+      emit: () => undefined,
+      log: (motivo) => console.warn("[trampo] sessão:", motivo),
+    },
+  );
 
   browser.action.onClicked.addListener((tab) => {
     if (tab.id === undefined) return;

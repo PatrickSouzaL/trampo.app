@@ -50,23 +50,70 @@ const storageSelectors = [
   },
 ];
 
-// Saída de rede (ADR-004 D10 B2): o `fetch` existe só em src/api/api-client.ts, que fixa a origem, a lista
-// de caminhos e o Bearer. Os outros canais (XHR, WebSocket, EventSource, sendBeacon) não têm uso na extensão.
+// Lint por módulo do Service Worker (ADR-004 D10 B2), em todo o src/. Cada capacidade sensível mora num arquivo só:
+// o `fetch` em src/api/api-client.ts (origem, caminhos e Bearer fixos), o `browser.identity` no adapter do login,
+// o `storage.onChanged` em src/auth, o `executeScript` na captura e o `tabs.create` no background.ts. As regras
+// `no-restricted-*` não se acumulam entre configs: cada bloco abaixo repete a lista inteira, com a sua exceção.
 const API_CLIENT_FILE = "src/api/api-client.ts";
-const OTHER_EGRESS_GLOBALS = ["XMLHttpRequest", "WebSocket", "EventSource"].map((name) => ({
-  name,
-  message: "Canal de rede proibido na extensão: tudo sai pelo api-client (ADR-004 D10 B2).",
-}));
+const IDENTITY_FILE = "src/auth/web-auth-flow-source.ts";
+const CAPTURE_FILE = "src/capture/capture.ts";
+const BACKGROUND_FILE = "src/entrypoints/background.ts";
+const EGRESS = "Canal de rede proibido na extensão: tudo sai pelo api-client (ADR-004 D10 B2).";
+const NO_SIDE_CHANNEL = "Canal proibido em toda a extensão: o único canal é a porta do painel (ADR-004 D10 B2; SR-10).";
+const FORBIDDEN_GLOBALS = [
+  ...["XMLHttpRequest", "WebSocket", "EventSource"].map((name) => ({ name, message: EGRESS })),
+  ...["BroadcastChannel", "MessageChannel", "clients"].map((name) => ({ name, message: NO_SIDE_CHANNEL })),
+];
+// Por propriedade, para pegar também `self.X`, `globalThis["X"]` e a desestruturação, que a regra de globais não vê.
+const FORBIDDEN_PROPERTIES = [
+  { property: "sendBeacon", message: EGRESS },
+  ...[
+    "onMessageExternal",
+    "onConnectExternal",
+    "sendMessage",
+    "BroadcastChannel",
+    "MessageChannel",
+    "clients",
+    "serviceWorker",
+    "registerContentScripts",
+    "insertCSS",
+  ].map((property) => ({ property, message: NO_SIDE_CHANNEL })),
+];
 const FETCH_ONLY_IN_CLIENT = "fetch só em src/api/api-client.ts, que fixa a origem, os caminhos e o Bearer (ADR-004 D10 B2).";
-const egressRules = (allowFetch) => ({
-  "no-restricted-globals": ["error", ...OTHER_EGRESS_GLOBALS, ...(allowFetch ? [] : [{ name: "fetch", message: FETCH_ONLY_IN_CLIENT }])],
-  // Pega `globalThis.fetch`, `self["fetch"]` e `const { fetch } = globalThis`, que a regra de globais não vê.
+const SCOPED_PROPERTIES = {
+  fetch: FETCH_ONLY_IN_CLIENT,
+  identity: "browser.identity só em src/auth/web-auth-flow-source.ts, o adapter do login (ADR-004 D3 e D10 B2).",
+  // Pega storage.onChanged e storage.session.onChanged: a mudança da sessão só é ouvida em src/auth.
+  onChanged: "storage.onChanged só em src/auth: quem ouve a mudança da sessão vê o token (ADR-004 D10 B2).",
+  executeScript: "executeScript só em src/capture/capture.ts, com o extrator e os args travados (ADR-004 D10 B2 e B7).",
+};
+/** `allow` lista as propriedades de SCOPED_PROPERTIES liberadas no arquivo. */
+const workerRules = (...allow) => ({
+  "no-restricted-globals": ["error", ...FORBIDDEN_GLOBALS, ...(allow.includes("fetch") ? [] : [{ name: "fetch", message: FETCH_ONLY_IN_CLIENT }])],
   "no-restricted-properties": [
     "error",
-    { property: "sendBeacon", message: "Canal de rede proibido na extensão: tudo sai pelo api-client (ADR-004 D10 B2)." },
-    ...(allowFetch ? [] : [{ property: "fetch", message: FETCH_ONLY_IN_CLIENT }]),
+    ...FORBIDDEN_PROPERTIES,
+    ...Object.entries(SCOPED_PROPERTIES)
+      .filter(([property]) => !allow.includes(property))
+      .map(([property, message]) => ({ property, message })),
   ],
 });
+// `tabs.create` e `tabs.connect` precisam do objeto (`runtime.connect` é o canal do painel), e a regra de
+// propriedades só casa objeto que seja identificador: vão como seletores. A opção `files:` injetaria um arquivo
+// inteiro na página, fora do extrator travado.
+const tabsSelectors = (method, message) => [
+  { selector: `MemberExpression[object.property.name="tabs"][property.name="${method}"]`, message },
+  { selector: `MemberExpression[object.name="tabs"][property.name="${method}"]`, message },
+  { selector: `VariableDeclarator[init.property.name="tabs"] > ObjectPattern > Property[key.name="${method}"]`, message },
+];
+const workerSelectors = (allowTabsCreate) => [
+  ...tabsSelectors("connect", NO_SIDE_CHANNEL),
+  ...(allowTabsCreate ? [] : tabsSelectors("create", "tabs.create só no background.ts (ADR-004 D10 B2).")),
+  {
+    selector: `CallExpression[callee.property.name="executeScript"] Property[key.name="files"]`,
+    message: "A opção files: do executeScript é proibida: só o extrator autocontido roda na página (ADR-004 D10 B2).",
+  },
+];
 
 // O painel não tem link nem recurso externo (ADR-025 D5; AnalysisReport D8): o texto do servidor nunca
 // vira navegação, e a CSP não precisa abrir nada além de 'self'.
@@ -125,14 +172,39 @@ export default defineConfig([
     },
   },
   {
-    name: "@trampo/extension/egress",
+    name: "@trampo/extension/worker-modules",
     files: ["src/**/*.{ts,tsx}"],
-    rules: egressRules(false),
+    rules: {
+      ...workerRules(),
+      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors, ...workerSelectors(false)],
+    },
   },
   {
-    name: "@trampo/extension/egress-api-client",
+    name: "@trampo/extension/worker-modules-auth",
+    files: ["src/auth/**/*.ts"],
+    rules: workerRules("onChanged"),
+  },
+  {
+    name: "@trampo/extension/worker-modules-identity",
+    files: [IDENTITY_FILE],
+    rules: workerRules("onChanged", "identity"),
+  },
+  {
+    name: "@trampo/extension/worker-modules-api-client",
     files: [API_CLIENT_FILE],
-    rules: egressRules(true),
+    rules: workerRules("fetch"),
+  },
+  {
+    name: "@trampo/extension/worker-modules-capture",
+    files: [CAPTURE_FILE],
+    rules: workerRules("executeScript"),
+  },
+  {
+    name: "@trampo/extension/worker-modules-background",
+    files: [BACKGROUND_FILE],
+    rules: {
+      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors, ...workerSelectors(true)],
+    },
   },
   {
     name: "@trampo/extension/worker-auth",
@@ -145,7 +217,7 @@ export default defineConfig([
     name: "@trampo/extension/extraction",
     files: ["src/extraction/**/*.ts"],
     rules: {
-      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...extractionSelectors],
+      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...extractionSelectors, ...workerSelectors(false)],
     },
   },
 ]);
