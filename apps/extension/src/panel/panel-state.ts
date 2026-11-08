@@ -4,7 +4,7 @@
 import type { AnalysisReport } from "@trampo/contracts/analysis-report";
 import type { ApiError, AnalysisStreamEvent } from "@trampo/contracts/api";
 
-import { WorkerToPanelSchema, type CaptureView, type WorkerToPanel } from "../messaging/protocol";
+import { WorkerToPanelSchema, type CaptureView, type SessaoView, type WorkerToPanel } from "../messaging/protocol";
 
 export type Conexao = "conectando" | "pronto" | "desconectado";
 
@@ -23,6 +23,8 @@ export interface PanelState {
   readonly captura: CaptureView;
   /** null enquanto o Service Worker não disse. */
   readonly consentimento: boolean | null;
+  /** Só um booleano e um código do catálogo (ADR-004 D10 B6); null até o fim do handshake. */
+  readonly sessao: SessaoView | null;
   readonly analise: AnaliseView;
 }
 
@@ -31,6 +33,7 @@ export const INITIAL_PANEL_STATE: PanelState = {
   queda: null,
   captura: { estado: "ocioso" },
   consentimento: null,
+  sessao: null,
   analise: { estado: "nenhuma" },
 };
 
@@ -66,6 +69,8 @@ function reduceMessage(state: PanelState, message: WorkerToPanel): PanelState {
       return { ...state, captura: message.captura, analise: { estado: "nenhuma" } };
     case "consentimento":
       return { ...state, consentimento: message.dado };
+    case "sessao":
+      return { ...state, sessao: message.sessao };
     case "stream":
       return { ...state, analise: reduceStream(message.event) };
   }

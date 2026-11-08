@@ -2,11 +2,12 @@
 // CA-01). Qualquer permissão nova quebra aqui de propósito: ampliar privilégio exige revisão do [APPSEC] e a
 // atualização deste teste. Dois builds próprios, em pasta temporária: o "fechado", sem nenhuma variável, e o
 // "completo", com as duas origens e a `key` (a forma do build do E2E). A chave é gerada na hora e não vai ao git.
+// F1-EXT-05b, 05b-1: a meta CSP do D10 B4 nas páginas e o fecho exato do painel (B5), nos dois builds.
 import { execFileSync } from "node:child_process";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -41,22 +42,82 @@ interface Built {
   readonly background: string;
   /** Todos os arquivos de texto do artefato, menos o background.js: um superconjunto dos chunks do painel. */
   readonly others: ReadonlyMap<string, string>;
+  /** Todos os arquivos de texto do artefato, pelo caminho relativo com "/". */
+  readonly all: ReadonlyMap<string, string>;
 }
 
 function readBuilt(outDir: string): Built {
   const dir = join(outDir, "chrome-mv3");
-  const others = new Map<string, string>();
+  const all = new Map<string, string>();
   for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile() || !/\.(js|html|css|json)$/.test(entry.name)) continue;
     const path = relative(dir, join(entry.parentPath, entry.name)).replaceAll("\\", "/");
-    if (path !== "background.js") others.set(path, readFileSync(join(dir, path), "utf8"));
+    all.set(path, readFileSync(join(dir, path), "utf8"));
   }
   return {
     manifest: JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as Record<string, unknown>,
     background: readFileSync(join(dir, "background.js"), "utf8"),
-    others,
+    others: new Map([...all].filter(([path]) => path !== "background.js")),
+    all,
   };
 }
+
+/** Os atributos de uma tag HTML, com as entidades decodificadas (o WXT serializa `'` como `&#39;`). */
+function attributes(tag: string): Map<string, string> {
+  const decode = (value: string): string =>
+    value.replace(/&(#x[0-9a-f]+|#\d+|quot|amp|lt|gt|apos);/gi, (_m, entity: string) => {
+      const named: Record<string, string> = { quot: '"', amp: "&", lt: "<", gt: ">", apos: "'" };
+      const lower = entity.toLowerCase();
+      if (lower.startsWith("#x")) return String.fromCodePoint(Number.parseInt(lower.slice(2), 16));
+      if (lower.startsWith("#")) return String.fromCodePoint(Number.parseInt(lower.slice(1), 10));
+      return named[lower] ?? "";
+    });
+  const attrs = new Map<string, string>();
+  const body = tag.replace(/^<\s*[a-z]+/i, "").replace(/\/?>$/, "");
+  for (const m of body.matchAll(/([^\s=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g)) {
+    attrs.set((m[1] ?? "").toLowerCase(), decode(m[2] ?? m[3] ?? m[4] ?? ""));
+  }
+  return attrs;
+}
+
+const tags = (html: string, name: string): Array<{ readonly index: number; readonly attrs: Map<string, string> }> =>
+  [...html.matchAll(new RegExp(`<${name}\\b[^>]*>`, "gi"))].map((m) => ({ index: m.index, attrs: attributes(m[0]) }));
+
+/** Os `import` estáticos, os reexports e os `import()` de um chunk; só caminhos do próprio artefato. */
+function jsImports(code: string): string[] {
+  const specifiers = [
+    ...code.matchAll(/\bimport\s*(?:[\w$*{},][\w$*{},\s]*from\s*)?["']([^"']+)["']/g),
+    ...code.matchAll(/\bexport\s*(?:\*(?:\s*as\s*[\w$]+)?|\{[^}]*\})\s*from\s*["']([^"']+)["']/g),
+    ...code.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g),
+  ].map((m) => m[1] ?? "");
+  return specifiers.filter((s) => /^(\.{1,2})?\//.test(s));
+}
+
+/**
+ * O fecho do B5: a partir da página, o `src` de cada script, o `href` de cada modulepreload e, nos chunks, cada
+ * import estático ou dinâmico. Uma referência a arquivo que não está no artefato derruba o teste.
+ */
+function panelClosure(files: ReadonlyMap<string, string>, page: string): Set<string> {
+  const seen = new Set<string>();
+  const queue = [page];
+  for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
+    if (seen.has(path)) continue;
+    const text = files.get(path);
+    if (text === undefined) throw new Error(`o painel referencia um arquivo fora do artefato: ${path}`);
+    seen.add(path);
+    const refs = path.endsWith(".html")
+      ? [
+          ...tags(text, "script").flatMap(({ attrs }) => (attrs.has("src") ? [attrs.get("src") ?? ""] : [])),
+          ...tags(text, "link").flatMap(({ attrs }) => (attrs.get("rel") === "modulepreload" ? [attrs.get("href") ?? ""] : [])),
+        ]
+      : jsImports(text);
+    for (const ref of refs) queue.push(ref.startsWith("/") ? ref.slice(1) : posix.normalize(posix.join(posix.dirname(path), ref)));
+  }
+  return seen;
+}
+
+/** O que nunca pode estar fora do background.js (D10 B5). */
+const SESSION_MARKERS = ["launchWebAuthFlow", "getRedirectURL", ".identity.", "storage.session", "/v1/auth/", SUPABASE];
 
 let work = "";
 const builds = new Map<"fechado" | "completo", Built>();
@@ -170,10 +231,63 @@ describe("artefato: a sessão só no background.js (D10 B2 e B5)", () => {
   test.each(["fechado", "completo"] as const)("build %s: nenhum outro arquivo tem identity, storage.session, rota de auth ou a origem do Supabase", (name) => {
     expect(get(name).others.size).toBeGreaterThan(0);
     for (const [path, text] of get(name).others) {
-      for (const marker of ["launchWebAuthFlow", "getRedirectURL", ".identity.", "storage.session", "/v1/auth/", SUPABASE]) {
+      for (const marker of SESSION_MARKERS) {
         expect(text.includes(marker), `${marker} em ${path}`).toBe(false);
       }
     }
+  });
+});
+
+describe("painel: meta CSP do D10 B4 e fecho exato do B5", () => {
+  const B4 = "connect-src 'none'; form-action 'none'; base-uri 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
+
+  test.each(["fechado", "completo"] as const)("build %s: a única página, o sidepanel.html, tem uma só meta CSP, exata, no head e antes de qualquer script ou link", (name) => {
+    const pages = [...get(name).all.keys()].filter((path) => path.endsWith(".html"));
+    expect(pages).toStrictEqual(["sidepanel.html"]);
+    const html = get(name).all.get("sidepanel.html") ?? "";
+    const csp = tags(html, "meta").filter(({ attrs }) => attrs.get("http-equiv")?.toLowerCase() === "content-security-policy");
+    expect(csp).toHaveLength(1);
+    const [meta] = csp;
+    expect(meta?.attrs.get("content")).toBe(B4);
+    const head = html.search(/<head\b/i);
+    const firstLoad = Math.min(...["script", "link", "style", "base"].flatMap((tag) => tags(html, tag).map(({ index }) => index)));
+    expect(head).toBeGreaterThanOrEqual(0);
+    expect(meta?.index).toBeGreaterThan(head);
+    expect(meta?.index).toBeLessThan(firstLoad);
+    expect(meta?.index).toBeLessThan(html.search(/<\/head>/i));
+  });
+
+  test.each(["fechado", "completo"] as const)("build %s: o fecho do painel tem o chunk do sidepanel, não tem o background.js e, com ele, cobre todo .js do artefato", (name) => {
+    const closure = panelClosure(get(name).all, "sidepanel.html");
+    const js = (paths: Iterable<string>) => [...paths].filter((path) => path.endsWith(".js")).sort();
+    expect(js(closure).some((path) => /^chunks\/sidepanel-[\w-]+\.js$/.test(path))).toBe(true);
+    expect(closure.has("background.js")).toBe(false);
+    // Nenhum .js fora do SW e do painel: um chunk novo, que ninguém carrega, pede revisão deste teste.
+    expect([...js(closure), "background.js"].sort()).toStrictEqual(js(get(name).all.keys()));
+  });
+
+  test.each(["fechado", "completo"] as const)("build %s: nenhum arquivo do fecho tem identity, storage.session, rota de auth ou a origem do Supabase", (name) => {
+    const closure = panelClosure(get(name).all, "sidepanel.html");
+    expect(closure.size).toBeGreaterThan(1);
+    for (const path of closure) {
+      const text = get(name).all.get(path) ?? "";
+      for (const marker of SESSION_MARKERS) expect(text.includes(marker), `${marker} em ${path}`).toBe(false);
+    }
+  });
+
+  test("o leitor do fecho segue import estático, reexport, import() e modulepreload, e falha em referência ausente", () => {
+    const files = new Map([
+      ["p.html", '<html><head><script type="module" crossorigin src="/chunks/a.js"></script><link rel="modulepreload" href="/chunks/b.js"><link rel="stylesheet" href="/assets/c.css"></head></html>'],
+      ["chunks/a.js", 'import{x as y}from"./d.js";export*from"./e.js";const f=()=>import("../chunks/f.js");import"https://cdn.example/x.js";'],
+      ["chunks/b.js", ""],
+      ["chunks/d.js", 'export{z}from"./g.js";'],
+      ["chunks/e.js", ""],
+      ["chunks/f.js", ""],
+      ["chunks/g.js", ""],
+      ["assets/c.css", ""],
+    ]);
+    expect([...panelClosure(files, "p.html")].sort()).toStrictEqual(["chunks/a.js", "chunks/b.js", "chunks/d.js", "chunks/e.js", "chunks/f.js", "chunks/g.js", "p.html"]);
+    expect(() => panelClosure(new Map([["p.html", '<script src="/chunks/sumiu.js"></script>']]), "p.html")).toThrow(/fora do artefato: chunks\/sumiu\.js/);
   });
 });
 

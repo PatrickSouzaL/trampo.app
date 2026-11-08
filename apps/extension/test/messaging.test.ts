@@ -1,7 +1,21 @@
-// SR-10: o Service Worker rejeita porta ou mensagem de outra origem ou com forma inválida.
-import { describe, expect, test, vi } from "vitest";
+// SR-10: o Service Worker rejeita porta ou mensagem de outra origem ou com forma inválida. ADR-004 D10 B6 e D12
+// (F1-EXT-05b): a SessaoView só tem um booleano e um código do catálogo, e o painel só pede "entrar" e "sair".
+import { describe, expect, expectTypeOf, test, vi } from "vitest";
+import type { z } from "zod";
 
-import { CONSENT_VERSION, PANEL_PORT_NAME, PASTE_MAX_UTF16, PanelToWorkerSchema, WorkerToPanelSchema } from "../src/messaging/protocol";
+import {
+  AUTH_PROVIDERS,
+  CONSENT_VERSION,
+  PANEL_PORT_NAME,
+  PASTE_MAX_UTF16,
+  PanelToWorkerSchema,
+  SessaoErroSchema,
+  type SessaoView,
+  SessaoViewSchema,
+  WorkerToPanelSchema,
+  toSessaoView,
+  type WorkerToPanel,
+} from "../src/messaging/protocol";
 import { checkPanelPort, handlePanelConnection, type PanelPort, type RejectReason } from "../src/messaging/worker-port";
 
 const ID = "oniojmpioahjchcadecjkmekigalfack";
@@ -25,7 +39,17 @@ function fakePort(name: string, sender: Sender) {
 }
 
 function hooks(logRejection: (r: RejectReason) => void) {
-  return { runtimeId: ID, extensionBaseUrl: BASE, logRejection, onReady: vi.fn(), onPaste: vi.fn(), onConsent: vi.fn(), onRevoke: vi.fn() };
+  return {
+    runtimeId: ID,
+    extensionBaseUrl: BASE,
+    logRejection,
+    onReady: vi.fn(),
+    onPaste: vi.fn(),
+    onConsent: vi.fn(),
+    onRevoke: vi.fn(),
+    onLogin: vi.fn(),
+    onLogout: vi.fn(),
+  };
 }
 
 function connect(name: string, sender: Sender) {
@@ -97,6 +121,26 @@ describe("handlePanelConnection", () => {
     expect(c.port.disconnect).not.toHaveBeenCalled();
   });
 
+  test.each(AUTH_PROVIDERS)("entrar com %s chega ao Service Worker só com o provedor, sem resposta direta", (provedor) => {
+    const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
+    c.deliver({ kind: "entrar", provedor });
+    expect(c.ctx.onLogin).toHaveBeenCalledExactlyOnceWith(provedor);
+    expect(c.ctx.onLogout).not.toHaveBeenCalled();
+    expect(c.ctx.onReady).not.toHaveBeenCalled();
+    expect(c.port.postMessage).not.toHaveBeenCalled();
+    expect(c.port.disconnect).not.toHaveBeenCalled();
+  });
+
+  test("sair chega ao Service Worker sem resposta direta", () => {
+    const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
+    c.deliver({ kind: "sair" });
+    expect(c.ctx.onLogout).toHaveBeenCalledOnce();
+    expect(c.ctx.onLogin).not.toHaveBeenCalled();
+    expect(c.ctx.onRevoke).not.toHaveBeenCalled();
+    expect(c.port.postMessage).not.toHaveBeenCalled();
+    expect(c.port.disconnect).not.toHaveBeenCalled();
+  });
+
   test("porta não confiável nunca entrega texto colado", () => {
     const c = connect(PANEL_PORT_NAME, { id: ID, url: "https://evil.example/sidepanel.html" });
     expect(c.listeners).toHaveLength(0);
@@ -128,6 +172,13 @@ describe("handlePanelConnection", () => {
     ["consentir sem versão", { kind: "consentir" }],
     ["consentir com chave extra", { kind: "consentir", versao: CONSENT_VERSION, escopo: "tudo" }],
     ["revogar com chave extra", { kind: "revogar", motivo: "x" }],
+    // Sessão (ADR-004 §4.1, "protocol"): o painel só escolhe um provedor da lista; nada de URL, token ou e-mail.
+    ["entrar com chave extra", { kind: "entrar", provedor: "github", redirectTo: "https://evil.example/" }],
+    ["entrar com provedor desconhecido", { kind: "entrar", provedor: "facebook" }],
+    ["entrar com provedor em outra caixa", { kind: "entrar", provedor: "GitHub" }],
+    ["entrar sem provedor", { kind: "entrar" }],
+    ["sair com payload", { kind: "sair", escopo: "local" }],
+    ["sessao vinda do painel", { kind: "sessao", sessao: { autenticado: true, erro: null } }],
   ];
   test.each(invalid)("mensagem inválida (%s) derruba a porta sem resposta", (_label, msg) => {
     const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
@@ -139,6 +190,8 @@ describe("handlePanelConnection", () => {
     expect(c.ctx.onReady).not.toHaveBeenCalled();
     expect(c.ctx.onConsent).not.toHaveBeenCalled();
     expect(c.ctx.onRevoke).not.toHaveBeenCalled();
+    expect(c.ctx.onLogin).not.toHaveBeenCalled();
+    expect(c.ctx.onLogout).not.toHaveBeenCalled();
   });
 
   test("o log de recusa recebe só o motivo, nunca o conteúdo", () => {
@@ -202,5 +255,98 @@ describe("WorkerToPanelSchema (revalidação no painel)", () => {
     expect(WorkerToPanelSchema.safeParse({ kind: "stream", event: htmlError }).success).toBe(false);
     expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, html: "<b>" }).success).toBe(false);
     expect(WorkerToPanelSchema.safeParse({ kind: "render", html: "<b>" }).success).toBe(false);
+  });
+});
+
+/** As 10 combinações de `{ autenticado, erro }`; só `{ true, NAO_AUTENTICADO }` e `{ true, ERRO_INTERNO }` são incoerentes. */
+const COMBINACOES = [true, false].flatMap((autenticado) => [null, ...SessaoErroSchema.options].map((erro) => ({ autenticado, erro })));
+const INCOERENTES = [
+  { autenticado: true, erro: "NAO_AUTENTICADO" },
+  { autenticado: true, erro: "ERRO_INTERNO" },
+];
+const COERENTES = COMBINACOES.filter((c) => !INCOERENTES.some((i) => i.autenticado === c.autenticado && i.erro === c.erro));
+
+describe("SessaoView (ADR-004 D10 B6 e D12)", () => {
+  test("os erros são os 4 códigos do catálogo do D12, nenhum privado", () => {
+    expect(SessaoErroSchema.options).toStrictEqual(["NAO_AUTENTICADO", "SERVICO_INDISPONIVEL", "LIMITE_DE_TAXA", "ERRO_INTERNO"]);
+  });
+
+  test("aceita as 8 combinações coerentes, dentro e fora da mensagem sessao", () => {
+    expect(COERENTES).toHaveLength(8);
+    for (const sessao of COERENTES) {
+      expect(SessaoViewSchema.safeParse(sessao).success, JSON.stringify(sessao)).toBe(true);
+      expect(WorkerToPanelSchema.safeParse({ kind: "sessao", sessao }).success, JSON.stringify(sessao)).toBe(true);
+    }
+  });
+
+  // M-08: o refine é o que recusa uma sessão "viva" com o erro que a apagaria.
+  test.each(INCOERENTES)("recusa { autenticado: $autenticado, erro: $erro } (M-08)", (sessao) => {
+    expect(SessaoViewSchema.safeParse(sessao).success).toBe(false);
+    expect(WorkerToPanelSchema.safeParse({ kind: "sessao", sessao }).success).toBe(false);
+  });
+
+  test.each([
+    ["token", { autenticado: true, erro: null, token: "CANARIO.TOKEN" }],
+    ["accessToken", { autenticado: true, erro: null, accessToken: "CANARIO.TOKEN" }],
+    ["email", { autenticado: true, erro: null, email: "pessoa@exemplo.com" }],
+    ["exp", { autenticado: true, erro: null, exp: 1_700_000_900 }],
+    ["sub", { autenticado: true, erro: null, sub: "00000000-0000-4000-8000-000000000000" }],
+    ["session_id", { autenticado: false, erro: null, session_id: "s" }],
+    ["provedor", { autenticado: true, erro: null, provedor: "github" }],
+    ["erro com outro código do catálogo", { autenticado: false, erro: "PROIBIDO" }],
+    ["erro com texto livre", { autenticado: false, erro: "Sua sessão expirou" }],
+    ["sem erro", { autenticado: false }],
+    ["sem autenticado", { erro: null }],
+    ["autenticado em texto", { autenticado: "true", erro: null }],
+    ["__proto__", JSON.parse('{"autenticado":false,"erro":null,"__proto__":{"token":"x"}}')],
+  ])("recusa a sessão com %s, e a porta cai", (_caso, sessao) => {
+    expect(SessaoViewSchema.safeParse(sessao).success).toBe(false);
+    expect(WorkerToPanelSchema.safeParse({ kind: "sessao", sessao }).success).toBe(false);
+  });
+
+  test("recusa chave extra na própria mensagem sessao", () => {
+    expect(WorkerToPanelSchema.safeParse({ kind: "sessao", sessao: { autenticado: true, erro: null }, token: "x" }).success).toBe(false);
+  });
+
+  test("por tipo, a SessaoView não carrega texto livre nem os campos da sessão guardada", () => {
+    expectTypeOf<keyof SessaoView>().toEqualTypeOf<"autenticado" | "erro">();
+    expectTypeOf<SessaoView["autenticado"]>().toEqualTypeOf<boolean>();
+    expectTypeOf<SessaoView["erro"]>().toEqualTypeOf<"NAO_AUTENTICADO" | "SERVICO_INDISPONIVEL" | "LIMITE_DE_TAXA" | "ERRO_INTERNO" | null>();
+    expectTypeOf<string>().not.toExtend<SessaoView["erro"]>();
+    // O refine é guarda de tipo: a saída do schema (e da mensagem) equivale à união, que já proíbe { true, NAO_AUTENTICADO }.
+    type Saida = z.output<typeof SessaoViewSchema>;
+    type NaMensagem = Extract<WorkerToPanel, { kind: "sessao" }>["sessao"];
+    expectTypeOf<Saida>().toExtend<SessaoView>();
+    expectTypeOf<SessaoView>().toExtend<Saida>();
+    expectTypeOf<NaMensagem>().toExtend<SessaoView>();
+    expectTypeOf<{ autenticado: true; erro: "NAO_AUTENTICADO" }>().not.toExtend<Saida>();
+    expectTypeOf<{ autenticado: true; erro: "NAO_AUTENTICADO" }>().not.toExtend<SessaoView>();
+    expectTypeOf<{ autenticado: true; erro: "ERRO_INTERNO" }>().not.toExtend<SessaoView>();
+  });
+});
+
+describe("toSessaoView: a única saída da sessão para o painel", () => {
+  test.each(COERENTES)("copia { autenticado: $autenticado, erro: $erro } num objeto novo", (view) => {
+    const out = toSessaoView(view as SessaoView);
+    expect(out).toStrictEqual(view);
+    expect(out).not.toBe(view);
+  });
+
+  test("campo a mais nunca sai: um espalhamento da sessão guardada vira só o booleano e o código", () => {
+    const vazada = { v: 1, accessToken: "CANARIO.TOKEN.um", refreshToken: "r1.CANARIO", autenticado: true, erro: null } as unknown as SessaoView;
+    const out = toSessaoView(vazada);
+    expect(out).toStrictEqual({ autenticado: true, erro: null });
+    expect(JSON.stringify(out)).not.toContain("CANARIO");
+  });
+
+  test.each([
+    ...INCOERENTES,
+    { autenticado: false, erro: "CANARIO-texto-livre" },
+    { autenticado: "true", erro: null },
+    { autenticado: true, erro: undefined },
+  ])("valor fora do schema vira { false, ERRO_INTERNO }, sem eco: %j", (view) => {
+    const out = toSessaoView(view as unknown as SessaoView);
+    expect(out).toStrictEqual({ autenticado: false, erro: "ERRO_INTERNO" });
+    expect(JSON.stringify(out)).not.toContain("CANARIO");
   });
 });

@@ -1,6 +1,6 @@
 // Lado do Service Worker da porta com o Side Panel (ADR-001 §5.0.1, "Mensagens internas"; SR-10).
 // Funções puras sobre uma porta mínima, para testar sem navegador; o background só faz a ligação.
-import { PANEL_PAGE_PATH, PANEL_PORT_NAME, PROTOCOL_VERSION, PanelToWorkerSchema, type WorkerToPanel } from "./protocol";
+import { type AuthProvider, PANEL_PAGE_PATH, PANEL_PORT_NAME, PROTOCOL_VERSION, PanelToWorkerSchema, type WorkerToPanel } from "./protocol";
 
 /** O mínimo de `runtime.Port` que usamos. */
 export interface PanelPort {
@@ -64,6 +64,10 @@ export interface PortContext {
   readonly onConsent: () => void;
   /** O usuário retirou o consentimento. */
   readonly onRevoke: () => void;
+  /** Clique em "Entrar com …": só o provedor da lista fechada, conferido pelo schema (ADR-004 D12). */
+  readonly onLogin: (provedor: AuthProvider) => void;
+  /** Clique em "Sair da conta" (ou "Tentar sair de novo"). */
+  readonly onLogout: () => void;
 }
 
 /** Valida a porta na conexão e cada mensagem recebida. Qualquer falha desconecta (fail closed). */
@@ -95,6 +99,12 @@ export function handlePanelConnection(port: PanelPort, ctx: PortContext): void {
         break;
       case "revogar":
         ctx.onRevoke();
+        break;
+      case "entrar":
+        ctx.onLogin(parsed.data.provedor);
+        break;
+      case "sair":
+        ctx.onLogout();
         break;
     }
   });

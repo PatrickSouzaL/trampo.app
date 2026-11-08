@@ -9,11 +9,12 @@ const CONTRACTS_ALLOWED = "limits|primitives|api|analysis-report";
 const CONTRACTS_ALLOWED_IN_WORKER_AUTH = `${CONTRACTS_ALLOWED}|auth`;
 const WORKER_AUTH_FILES = ["src/auth/**/*.ts", "src/api/**/*.ts", "test/**/*.ts"];
 
-function boundaryImports(allowed) {
+function boundaryImports(allowed, extraPatterns = []) {
   return [
     "error",
     {
       patterns: [
+        ...extraPatterns,
         {
           regex: `^@trampo/contracts(?!/(${allowed})$)`,
           message: `Este arquivo só importa @trampo/contracts/{${allowed.replaceAll("|", ",")}}: nunca a raiz nem user-criteria (F-02), e auth só em src/auth e src/api (ADR-004 D10).`,
@@ -115,6 +116,45 @@ const workerSelectors = (allowTabsCreate) => [
   },
 ];
 
+// Lint do painel (ADR-004 D10 B1). O painel é página da extensão e CONSEGUE ler storage.session: o navegador não
+// impõe o "só o Service Worker". A barreira é de código (este bloco e o depcruise B3), de build (o grep B5) e de rede
+// (a meta CSP B4). O painel só fala pela porta (runtime.connect) e só vê a SessaoView, nunca token nem storage.
+const PANEL_FILES = ["src/entrypoints/sidepanel/**/*.{ts,tsx}", "src/panel/**/*.{ts,tsx}"];
+const PANEL_NO_STORAGE = "O painel nunca lê armazenamento: sessão e consentimento chegam só pela porta (ADR-004 D10 B1 e B6).";
+const PANEL_NO_NAVIGATION = "O painel não navega, não abre janela nem aba e não tem canal fora da porta (ADR-004 D10 B1).";
+const PANEL_NO_WORKER_MODULES = "O painel nunca importa src/auth, src/api nem o session-store: só a SessaoView, pela porta (ADR-004 D10 B1 e B3).";
+const PANEL_STORAGE = ["indexedDB", "caches", "localStorage", "sessionStorage"];
+const PANEL_NAVIGATION = ["location", "RTCPeerConnection", "webkitRTCPeerConnection"];
+const panelRules = () => {
+  const worker = workerRules();
+  return {
+    // Só importação relativa (os aliases já são proibidos): um segmento auth ou api, ou o session-store. O subpath
+    // @trampo/contracts/api segue liberado, e o /auth já cai na regra dos contratos.
+    "no-restricted-imports": boundaryImports(CONTRACTS_ALLOWED, [
+      { regex: "^(\\.\\.?/)+([^/]+/)*(auth|api)(/|$)", message: PANEL_NO_WORKER_MODULES },
+      { regex: "^(\\.\\.?/)+([^/]+/)*messaging/session-store(\\.[cm]?[jt]sx?)?$", message: PANEL_NO_WORKER_MODULES },
+    ]),
+    "no-restricted-globals": [
+      ...worker["no-restricted-globals"],
+      ...PANEL_STORAGE.map((name) => ({ name, message: PANEL_NO_STORAGE })),
+      ...[...PANEL_NAVIGATION, "open"].map((name) => ({ name, message: PANEL_NO_NAVIGATION })),
+    ],
+    "no-restricted-properties": [
+      ...worker["no-restricted-properties"],
+      // `storage` pega browser.storage, chrome.storage, o acesso computado e a desestruturação, em qualquer área.
+      ...["storage", ...PANEL_STORAGE].map((property) => ({ property, message: PANEL_NO_STORAGE })),
+      ...["tabs", "setUninstallURL", "submit", "requestSubmit", ...PANEL_NAVIGATION].map((property) => ({ property, message: PANEL_NO_NAVIGATION })),
+      ...["window", "self", "globalThis", "document"].map((object) => ({ object, property: "open", message: PANEL_NO_NAVIGATION })),
+    ],
+  };
+};
+const panelSelectors = [
+  {
+    selector: "ImportExpression",
+    message: "O painel não carrega módulo em tempo de execução: o import() dinâmico escaparia do no-restricted-imports (ADR-004 D10 B1).",
+  },
+];
+
 // O painel não tem link nem recurso externo (ADR-025 D5; AnalysisReport D8): o texto do servidor nunca
 // vira navegação, e a CSP não precisa abrir nada além de 'self'.
 const NAVIGATING_ELEMENTS = "a|area|base|link|iframe|frame|embed|object|img|image|video|audio|source|track|portal";
@@ -177,6 +217,14 @@ export default defineConfig([
     rules: {
       ...workerRules(),
       "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors, ...workerSelectors(false)],
+    },
+  },
+  {
+    name: "@trampo/extension/panel",
+    files: PANEL_FILES,
+    rules: {
+      ...panelRules(),
+      "no-restricted-syntax": ["error", ...htmlSinkSelectors, ...storageSelectors, ...noLinkSelectors, ...workerSelectors(false), ...panelSelectors],
     },
   },
   {

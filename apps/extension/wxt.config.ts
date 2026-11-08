@@ -1,6 +1,7 @@
 import { defineConfig } from "wxt";
 
 import { readBuildEnv } from "./build-env";
+import { panelCspPlugin } from "./panel-csp";
 
 // Lidas e validadas uma vez, antes de qualquer etapa: um valor fora da forma derruba o build (ADR-004 §4.6).
 // TRAMPO_API_ORIGIN e TRAMPO_SUPABASE_ORIGIN são definidas no S-5; sem elas, o build sai com `connect-src 'none'`
@@ -12,12 +13,14 @@ export default defineConfig({
   srcDir: "src",
   modules: ["@wxt-dev/module-react"],
   // As duas origens chegam ao código só pelo `import.meta.env` (src/build-env.d.ts), e só o background.ts as lê.
-  // A do Supabase só monta a URL do `authorize`: nunca entra na CSP (D13).
-  vite: () => ({
+  // A do Supabase só monta a URL do `authorize`: nunca entra na CSP (D13). As páginas HTML ganham a meta CSP do D10 B4
+  // só no `mode` de produção, como a CSP do manifesto abaixo.
+  vite: ({ mode }) => ({
     define: {
       "import.meta.env.TRAMPO_API_ORIGIN": JSON.stringify(env.apiOrigin ?? ""),
       "import.meta.env.TRAMPO_SUPABASE_ORIGIN": JSON.stringify(env.supabaseOrigin ?? ""),
     },
+    plugins: [panelCspPlugin(mode)],
   }),
   manifest: ({ mode }) => ({
     name: "Trampo",

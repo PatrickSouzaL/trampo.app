@@ -1,7 +1,9 @@
-// Composição da sessão no Service Worker (ADR-004 D3 passo 2, D9 e D15; F1-EXT-05a, 05a-4). O background.ts só
-// chama createWorkerAuth com as origens do build: a montagem fica aqui, testada, e não na cola do entrypoint.
+// Composição da sessão no Service Worker (ADR-004 D3 passo 2, D9, D12 e D15; F1-EXT-05a e 05b). O background.ts só
+// chama createWorkerAuth com as origens do build: a montagem fica aqui, testada, e não na cola do entrypoint. A
+// SessaoView sai só pelo canal da sessão (src/messaging/session-channel.ts), saneada pelo toSessaoView.
 import { createApiClient } from "../api/api-client";
-import type { SessaoView } from "../messaging/protocol";
+import { createSessionChannel } from "../messaging/session-channel";
+import type { PanelPort } from "../messaging/worker-port";
 import { type AuthConfig, type AuthLogReason, type AuthService, createAuthService } from "./auth-service";
 import { authSessionStore } from "./session-schema";
 import { webAuthFlowSource } from "./web-auth-flow-source";
@@ -23,14 +25,19 @@ export function authConfigFrom(origins: BuildOrigins): AuthConfig | undefined {
 }
 
 export interface WorkerAuthDeps {
-  /** A ligação à porta do painel é da F1-EXT-05b. */
-  readonly emit: (view: SessaoView) => void;
   /** Só o motivo da lista fechada do D3 (T23). */
   readonly log: (motivo: AuthLogReason) => void;
 }
 
-export function createWorkerAuth(origins: BuildOrigins, deps: WorkerAuthDeps): AuthService {
-  return createAuthService({
+/** O serviço da sessão já ligado ao painel: a SessaoView só sai pelo canal, saneada (D10 B6). */
+export interface WorkerAuth extends Omit<AuthService, "view"> {
+  /** Porta confiável depois do `hello`, no fim do handshake: recebe a visão atual e as mudanças seguintes (D12). */
+  attach(port: PanelPort): Promise<void>;
+}
+
+export function createWorkerAuth(origins: BuildOrigins, deps: WorkerAuthDeps): WorkerAuth {
+  const channel = createSessionChannel();
+  const { view, ...service } = createAuthService({
     store: authSessionStore(),
     config: authConfigFrom(origins),
     codeSource: webAuthFlowSource(),
@@ -38,7 +45,8 @@ export function createWorkerAuth(origins: BuildOrigins, deps: WorkerAuthDeps): A
     setTimer: (callback, ms) => {
       setTimeout(callback, ms);
     },
-    emit: deps.emit,
+    emit: channel.emit,
     log: deps.log,
   });
+  return { ...service, attach: (port) => channel.attach(port, view) };
 }

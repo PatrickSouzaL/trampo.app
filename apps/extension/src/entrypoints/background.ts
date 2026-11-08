@@ -30,16 +30,14 @@ export default defineBackground(() => {
   const consent = createConsentService({ store: sessionStore(CONSENT_STORAGE_KEY, ConsentRecordSchema), now: Date.now });
   const consentFailure = (): void => console.warn("[trampo] falha interna no consentimento");
 
-  // Sessão (ADR-004 D3 e D11): o token vive só aqui e no storage.session. O config só existe com as duas
-  // origens do build. O log leva só o motivo da lista fechada (T23). A F1-EXT-05b liga o serviço às mensagens
-  // do painel ("entrar", "sair" e a SessaoView no handshake) e guarda a referência; até lá, nada o aciona.
-  createWorkerAuth(
+  // Sessão (ADR-004 D3, D11 e D12): o token vive só aqui e no storage.session. O config só existe com as duas
+  // origens do build. O painel recebe só a SessaoView, pelo canal da sessão, e pede "entrar" e "sair" pela porta.
+  // O log leva só o motivo da lista fechada (T23).
+  const auth = createWorkerAuth(
     { apiOrigin: import.meta.env.TRAMPO_API_ORIGIN, supabaseOrigin: import.meta.env.TRAMPO_SUPABASE_ORIGIN },
-    {
-      emit: () => undefined,
-      log: (motivo) => console.warn("[trampo] sessão:", motivo),
-    },
+    { log: (motivo) => console.warn("[trampo] sessão:", motivo) },
   );
+  const sessionFailure = (): void => console.warn("[trampo] falha interna na sessão");
 
   browser.action.onClicked.addListener((tab) => {
     if (tab.id === undefined) return;
@@ -58,11 +56,12 @@ export default defineBackground(() => {
     runtimeId: browser.runtime.id,
     extensionBaseUrl: browser.runtime.getURL("/"),
     logRejection: (reason: string) => console.warn("[trampo] porta ou mensagem recusada:", reason),
-    // Em sequência, para o painel receber sempre ready, captura e consentimento nesta ordem.
+    // Em sequência, para o painel receber sempre [ready, captura, consentimento, sessao] nesta ordem (ADR-004 D12).
     onReady: (port: Parameters<typeof capture.attach>[0]) => {
       capture
         .attach(port)
         .then(() => consent.attach(port))
+        .then(() => auth.attach(port))
         .catch(internalFailure);
     },
     onPaste: (texto: string) => {
@@ -73,6 +72,13 @@ export default defineBackground(() => {
     },
     onRevoke: () => {
       consent.revoke().catch(consentFailure);
+    },
+    // Os dois nunca rejeitam e sempre terminam com uma SessaoView no canal; o catch é só a segunda trava.
+    onLogin: (provedor: Parameters<typeof auth.login>[0]) => {
+      auth.login(provedor).catch(sessionFailure);
+    },
+    onLogout: () => {
+      auth.logout().catch(sessionFailure);
     },
   };
   browser.runtime.onConnect.addListener((port) => handlePanelConnection(port, ctx));
