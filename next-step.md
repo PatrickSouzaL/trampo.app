@@ -26,8 +26,8 @@
 - Nada chamou o Supabase real nem provedor de LLM.
 
 ### Pendências do humano
-- **HITL-037 (novo, não bloqueia nenhuma trilha):** publicar o `spike/s1-extraction` e abrir o PR novo para o `master`. O passo a passo está no runbook `../base/03-infra-runbook/publicar-branch-pr.md`. O CI só roda em PR para o `master`, então a prova no GitHub vem com o PR.
-- **Push não autorizado nesta sessão:** o GitHub está no `4b0bb1d`. O `abafafb`, o `b3a398e`, o `c61f50d` e o commit deste arquivo estão só no local. Para subir, escreva "push autorizado" no prompt da próxima sessão, ou faça o push pelo runbook (§3). **Abrir e mergear o PR** é seu (o PR #17 já foi mergeado).
+- **HITL-037 (não bloqueia nenhuma trilha): falta só o merge do PR #18.** O push e o PR #18 foram feitos por você. O job `secrets` falhou com um falso positivo (o canário base64 de `CANARIO-nao-e-chave` no `manifest.test.ts`, que entrou no `cd141d2`), corrigido no `56c6612` com o push autorizado (ADR-019 D6, "Emenda"). Os 4 checks ficaram verdes no run `42624571844`. Mergeie com merge commit, sem apagar o branch (runbook `../base/03-infra-runbook/publicar-branch-pr.md` §6).
+- **Push:** o GitHub está em dia com o local, inclusive este arquivo. Na próxima sessão, o push volta a exigir autorização no prompt.
 - **Vale desde o 07h:** quem rodar `supabase start` na estação precisa gerar a chave antes, com `node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json` na raiz do `trampo.app` (runbook `auth-extensao` §1.6). Sem o arquivo, o `start` não sobe.
 - **Vale desde o 07g:** fora de `NODE_ENV=test`, a API só sobe com `API_BEHIND_PROXY=false` (junto com `TRUST_PROXY=false`) e o anel `AUTH_REFRESH_SEAL_KEYS` e `AUTH_REFRESH_SEAL_ACTIVE_KEY` no `apps/api/.env` (runbook `auth-extensao` §1.5).
 - **Vale desde o 05a-4:** o build da extensão com login precisa de `TRAMPO_API_ORIGIN`, `TRAMPO_SUPABASE_ORIGIN` e, para o ID fixo, `TRAMPO_EXTENSION_KEY` (a chave pública em SPKI base64). Sem as duas origens, o "Entrar" dá erro interno. Nenhum valor vai ao cofre.
@@ -95,7 +95,8 @@
 14. **Job `db` e gitleaks (07h):**
     - o `test:db` tem dois grupos; teste novo que esvazie um balde do GoTrue vai para o grupo `db-limite`, depois do resto;
     - fixture com material de chave do refresh é montada em tempo de execução (`${...}` no meio): a regra `trampo-auth-seal-keys` pega `AUTH_REFRESH_SEAL_KEYS` seguido de `kid:` e 32+ caracteres, também na linha de baixo. Nenhum `.pem` nem `signing_keys.json` entra no git;
-    - regra nova no `.gitleaks.toml` passa pelo leitor do `@trampo/ci-policy`, que recusa allowlist, `entropy` e chave desconhecida dentro de uma regra própria.
+    - regra nova no `.gitleaks.toml` passa pelo leitor do `@trampo/ci-policy`, que recusa allowlist, `entropy` e chave desconhecida dentro de uma regra própria. A lista **global** aceita só valor exato, falso e ancorado, com revisão do `[APPSEC]` (ADR-019 D6);
+    - **fixture com cara de chave** (base64 ou texto longo ao lado de `KEY`, `TOKEN` ou `SECRET`) é montada em tempo de execução **desde o 1º commit**. O CI só roda no PR, e o gitleaks varre o *patch* de cada commit: um achado já publicado só sai pela lista de valor exato (incidente do PR #18). Antes do push, vale rodar o gitleaks 8.30.1 conferido (release oficial, `checksums.txt`) com o comando do job `secrets` e `-v`.
 15. **Auth na extensão (05a-1):**
     - o `@trampo/contracts/auth` só entra em `src/auth`, `src/api` e `test/` (lint e depcruise). O `background.ts` também fica de fora: ele só importa `src/auth`. Constante que o painel precisa (como `AUTH_PROVIDERS`) vai para o `protocol.ts`, nunca para `src/auth`;
     - quem mexer no `parseAuthRedirect`, no `pkce.ts` ou no `authorize-url.ts` roda de novo o `mut05a1.py` (scratchpad da sessão 8; catálogo no SESSION-LOG). O retorno é dado hostil: nenhum texto dele vai a log ou ao painel;
