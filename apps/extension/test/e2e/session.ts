@@ -24,14 +24,41 @@ export async function storage(l: Loaded, storageArea: Area): Promise<Record<stri
   }
 }
 
-/** O localStorage e os nomes dos bancos IndexedDB da origem da extensão, por CDP (cenário 6, P13). */
-export async function originStorage(l: Loaded): Promise<{ localStorage: string[][]; indexedDB: string[] }> {
+/** Grava e apaga no storage da extensão por CDP, também só pela sessão do painel: o controle positivo do leitor (§4.5 item 8). */
+export async function setStorage(l: Loaded, storageArea: Area, values: Record<string, unknown>): Promise<void> {
+  const cdp = await l.ctx.newCDPSession(l.panel);
+  try {
+    await cdp.send("Extensions.setStorageItems" as never, { id: l.id, storageArea, values } as never);
+  } finally {
+    await cdp.detach();
+  }
+}
+
+export async function removeStorage(l: Loaded, storageArea: Area, keys: string[]): Promise<void> {
+  const cdp = await l.ctx.newCDPSession(l.panel);
+  try {
+    await cdp.send("Extensions.removeStorageItems" as never, { id: l.id, storageArea, keys } as never);
+  } finally {
+    await cdp.detach();
+  }
+}
+
+export interface OriginStorage {
+  localStorage: string[][];
+  indexedDB: string[];
+  /** Os nomes dos caches do CacheStorage (05c-3, §4.5 item 8). */
+  cacheStorage: string[];
+}
+
+/** O localStorage, os bancos IndexedDB e os caches do CacheStorage da origem da extensão, por CDP (cenário 6, P13; §4.5 item 8). */
+export async function originStorage(l: Loaded): Promise<OriginStorage> {
   const cdp = await l.ctx.newCDPSession(l.panel);
   const storageKey = `chrome-extension://${l.id}/`;
   try {
     const local = (await cdp.send("DOMStorage.getDOMStorageItems" as never, { storageId: { storageKey, isLocalStorage: true } } as never)) as { entries: string[][] };
     const idb = (await cdp.send("IndexedDB.requestDatabaseNames" as never, { storageKey } as never)) as { databaseNames: string[] };
-    return { localStorage: local.entries, indexedDB: idb.databaseNames };
+    const caches = (await cdp.send("CacheStorage.requestCacheNames" as never, { storageKey } as never)) as { caches: Array<{ cacheName: string }> };
+    return { localStorage: local.entries, indexedDB: idb.databaseNames, cacheStorage: caches.caches.map((c) => c.cacheName) };
   } finally {
     await cdp.detach();
   }

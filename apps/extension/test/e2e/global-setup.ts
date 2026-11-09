@@ -19,6 +19,7 @@ import { build } from "wxt";
 
 import { extensionIdFromSpki } from "../../build-env";
 import { type Handler, createFakeEnvironment } from "./support/fake-servers";
+import { builtManifestViolations } from "./support/leaks";
 
 /** Portas fixas: as origens entram no build. */
 export const E2E_API_PORT = Number(process.env["TRAMPO_E2E_API_PORT"] ?? "47443");
@@ -63,6 +64,20 @@ async function buildVariant(outDir: string, vars: Partial<Record<(typeof BUILD_V
   return join(outDir, "chrome-mv3");
 }
 
+/**
+ * F1-EXT-05c, 05c-3: o build é o declarado, conferido no artefato. O `wxt build` também lê o `.env` da pasta da extensão
+ * (hoje depois do `wxt.config.ts`, então sem efeito no build), e uma chave ou uma origem real que chegasse ao build do
+ * teste levaria o E2E para fora da máquina. Se o manifesto ou a origem do Supabase falso divergir, o E2E para aqui.
+ */
+function assertBuilt(dir: string, expected: { readonly key?: string; readonly apiOrigin?: string; readonly supabaseOrigin?: string }): void {
+  const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as Record<string, unknown>;
+  const out = builtManifestViolations(manifest, expected);
+  if (expected.supabaseOrigin !== undefined && !readFileSync(join(dir, "background.js"), "utf8").includes(expected.supabaseOrigin)) {
+    out.push("background.js sem a origem do Supabase falso");
+  }
+  if (out.length > 0) throw new Error(`build do E2E fora do declarado: ${out.join("; ")}`);
+}
+
 function listen(server: Server, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
     server.once("error", reject);
@@ -85,6 +100,8 @@ export default async function setup(project: TestProject): Promise<() => Promise
     TRAMPO_SUPABASE_ORIGIN: supabaseOrigin,
     TRAMPO_EXTENSION_KEY: spki.toString("base64"),
   });
+  assertBuilt(extNoOrigin, {});
+  assertBuilt(extAuth, { key: spki.toString("base64"), apiOrigin, supabaseOrigin });
 
   // Certificado só para o teste (CN=localhost, 1 dia). Nunca sai da pasta temporária.
   const certPem = join(work, "cert.pem");

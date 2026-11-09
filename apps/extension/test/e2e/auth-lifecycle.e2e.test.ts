@@ -127,7 +127,7 @@ describe("recarga da extensão e reinício do navegador (ADR-004 §4.4, cenário
   });
   afterAll(() => unload(l));
 
-  /** `{ false, null }` no handshake e na tela, e nada em `session`, `local`, `sync`, localStorage nem IndexedDB. */
+  /** `{ false, null }` no handshake e na tela, e nada em `session`, `local`, `sync`, localStorage, IndexedDB nem CacheStorage. */
   async function expectClean(current: Loaded) {
     expect(current.id).toBe(cfg.extensionId);
     expect(await handshake(current)).toEqual(handshakeWith({ autenticado: false, erro: null }));
@@ -136,10 +136,10 @@ describe("recarga da extensão e reinício do navegador (ADR-004 §4.4, cenário
     expect(await storage(current, "session")).toEqual({});
     expect(await storage(current, "local")).toEqual({});
     expect(await storage(current, "sync")).toEqual({});
-    expect(await originStorage(current)).toEqual({ localStorage: [], indexedDB: [] });
+    expect(await originStorage(current)).toEqual({ localStorage: [], indexedDB: [], cacheStorage: [] });
   }
 
-  test("controle positivo dos leitores: a sessão no storage.session, e o localStorage e o IndexedDB da origem quando há o que ler", async () => {
+  test("controle positivo dos leitores: a sessão no storage.session, e o localStorage, o IndexedDB e o CacheStorage da origem quando há o que ler", async () => {
     await login(l!);
     await l!.panel.evaluate(
       () =>
@@ -148,20 +148,20 @@ describe("recarga da extensão e reinício do navegador (ADR-004 §4.4, cenário
           const open = indexedDB.open("controle");
           open.onsuccess = () => {
             open.result.close();
-            resolve();
+            void caches.open("controle").then(() => resolve(), reject);
           };
           open.onerror = () => reject(new Error("IndexedDB"));
         }),
     );
-    expect(await originStorage(l!)).toEqual({ localStorage: [["controle", "1"]], indexedDB: ["controle"] });
+    expect(await originStorage(l!)).toEqual({ localStorage: [["controle", "1"]], indexedDB: ["controle"], cacheStorage: ["controle"] });
     await l!.panel.evaluate(
       () =>
         new Promise<void>((resolve) => {
           localStorage.clear();
-          indexedDB.deleteDatabase("controle").onsuccess = () => resolve();
+          indexedDB.deleteDatabase("controle").onsuccess = () => void caches.delete("controle").then(() => resolve());
         }),
     );
-    expect(await originStorage(l!)).toEqual({ localStorage: [], indexedDB: [] });
+    expect(await originStorage(l!)).toEqual({ localStorage: [], indexedDB: [], cacheStorage: [] });
   });
 
   test.runIf(runtimeReloadReturns)("chrome.runtime.reload(): o SW novo começa sem sessão, e a origem fica sem resto", async () => {

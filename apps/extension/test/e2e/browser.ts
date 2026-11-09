@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type BrowserContext, type CDPSession, type Page, type Worker } from "playwright-core";
 
+import { type CdpTap, REMOTE_DEBUGGING_ARG, openTap } from "./cdp-tap";
+
 const DEFAULT_BROWSERS: Partial<Record<NodeJS.Platform, string>> = {
   win32: "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
   linux: "/usr/bin/microsoft-edge",
@@ -21,6 +23,8 @@ export interface Loaded {
   profile: string;
   /** Sessão CDP do navegador (Extensions.*, Target.*). */
   cdp: CDPSession;
+  /** O coletor de console e rede das provas negativas (§4.5 itens 4 e 9), quando pedido no load. */
+  tap?: CdpTap;
 }
 
 export interface LoadOptions {
@@ -29,11 +33,19 @@ export interface LoadOptions {
    * navegador intercepta o retorno do login antes da rede, então o contador desse servidor tem de ficar em 0.
    */
   readonly chromiumappPort?: number;
+  /**
+   * F1-EXT-05c, 05c-3 (§4.5 itens 4 e 9): abre a porta de depuração e liga o coletor de console e rede antes do
+   * loadUnpacked, para o SW e o painel nascerem já observados.
+   */
+  readonly tap?: boolean;
+  /** Roda na página do painel antes do `goto` (o espião do §4.5 item 1 entra por `addInitScript`). */
+  readonly beforePanel?: (panel: Page) => Promise<void>;
 }
 
 async function launch(profile: string, options: LoadOptions): Promise<{ ctx: BrowserContext; cdp: CDPSession }> {
   if (browserPath === undefined) throw new Error("Defina TRAMPO_E2E_BROWSER com o caminho do Edge ou do Chrome.");
   const rules = options.chromiumappPort === undefined ? [] : [`--host-resolver-rules=MAP *.chromiumapp.org 127.0.0.1:${options.chromiumappPort}`];
+  if (options.tap === true) rules.push(REMOTE_DEBUGGING_ARG);
   const ctx = await chromium.launchPersistentContext(profile, {
     executablePath: browserPath,
     headless: true,
@@ -57,12 +69,14 @@ async function ourWorker(ctx: BrowserContext, id: string, previous?: Worker): Pr
 export async function loadExtension(extDir: string, options: LoadOptions = {}): Promise<Loaded> {
   const profile = mkdtempSync(join(tmpdir(), "trampo-e2e-profile-"));
   const { ctx, cdp } = await launch(profile, options);
+  const tap = options.tap === true ? await openTap(profile) : undefined;
   const id = await loadUnpacked(cdp, extDir);
   const worker = await ourWorker(ctx, id);
 
   const panel = await ctx.newPage();
+  await options.beforePanel?.(panel);
   await panel.goto(`chrome-extension://${id}/sidepanel.html`);
-  return { ctx, worker, panel, id, profile, cdp };
+  return { ctx, worker, panel, id, profile, cdp, ...(tap === undefined ? {} : { tap }) };
 }
 
 /**
@@ -204,6 +218,7 @@ export const scriptRejections = (l: Loaded): Promise<string[]> =>
 
 export async function unload(l: Loaded | undefined): Promise<void> {
   if (l === undefined) return;
+  l.tap?.close();
   await l.ctx.close().catch(() => undefined);
   rmSync(l.profile, { recursive: true, force: true });
 }
