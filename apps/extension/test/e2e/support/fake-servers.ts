@@ -6,7 +6,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { AUTH_BODY_MAX_BYTES, AUTH_ROUTES } from "@trampo/contracts/auth";
 
-import { type FakeAuth, type FakeAuthSnapshot, type HttpReply, createFakeAuth } from "./fake-auth";
+import { type FakeAuth, type FakeAuthSnapshot, type FakeScript, type HttpReply, FakeScriptSchema, createFakeAuth } from "./fake-auth";
 
 export type Handler = (req: IncomingMessage, res: ServerResponse) => void;
 
@@ -23,17 +23,26 @@ export interface RequestRecord {
 export interface FakeState {
   readonly auth: FakeAuthSnapshot;
   readonly requests: readonly RequestRecord[];
+  /** Os 302 do `authorize` presos pelo roteiro `segurar`, à espera do `POST /soltar`. */
+  readonly segurados: number;
 }
 
 export interface FakeEnvironment {
   readonly bff: Handler;
   readonly supabase: Handler;
-  /** O destino do `--host-resolver-rules` de `*.chromiumapp.org`: o navegador intercepta o retorno antes, e a conta fica em 0. */
+  /** O destino do `--host-resolver-rules` de `*.chromiumapp.org`: o navegador intercepta o retorno e pode já ter mandado o GET. */
   readonly chromiumapp: Handler;
-  /** Canal do teste (o vitest roda os testes noutro processo): `GET /estado` e `POST /zerar`, só com o segredo. */
+  /**
+   * Canal do teste (o vitest roda os testes noutro processo), só com o segredo: `GET /estado`, `POST /zerar`,
+   * `POST /roteiro` (o roteiro do fake-auth.ts, no corpo) e `POST /soltar` (manda os 302 segurados).
+   */
   readonly control: Handler;
   state(): FakeState;
+  /** Volta ao início: estado novo, sem roteiro, e os 302 segurados encerrados com 410 (nenhum socket fica preso). */
   reset(): void;
+  script(script: FakeScript): void;
+  /** Manda os 302 segurados e diz quantos eram. */
+  release(): number;
 }
 
 export interface FakeEnvironmentOptions {
@@ -47,6 +56,8 @@ export interface FakeEnvironmentOptions {
 
 /** Cabeçalho do segredo do canal de controle. */
 export const CONTROL_HEADER = "x-trampo-e2e-controle";
+/** O roteiro tem duas chaves curtas: nada maior que isto chega ao parse. */
+const CONTROL_BODY_MAX_BYTES = 256;
 
 const BFF_ROUTES: ReadonlySet<string> = new Set(Object.values(AUTH_ROUTES));
 const HEALTH_PATH = "/v1/health";
@@ -102,6 +113,7 @@ export function createFakeEnvironment(options: FakeEnvironmentOptions): FakeEnvi
   const extensionOrigin = `chrome-extension://${options.extensionId}`;
   let auth = createAuth(options.extensionId, options.now);
   let requests: RequestRecord[] = [];
+  let held: Array<{ readonly res: ServerResponse; readonly location: string }> = [];
 
   const bff: Handler = (req, res) => {
     requests.push(record("bff", req));
@@ -133,6 +145,10 @@ export function createFakeEnvironment(options: FakeEnvironmentOptions): FakeEnvi
     if (req.method !== "GET" || url.pathname !== "/auth/v1/authorize") return send(res, { status: 404 });
     const reply = auth.authorize(url.searchParams);
     if (reply.location === undefined) return send(res, reply);
+    if (reply.hold === true) {
+      held.push({ res, location: reply.location });
+      return;
+    }
     send(res, { status: reply.status }, { location: reply.location });
   };
 
@@ -142,25 +158,46 @@ export function createFakeEnvironment(options: FakeEnvironmentOptions): FakeEnvi
     send(res, { status: 404 });
   };
 
-  const state = (): FakeState => ({ auth: auth.snapshot(), requests: structuredClone(requests) });
+  const state = (): FakeState => ({ auth: auth.snapshot(), requests: structuredClone(requests), segurados: held.length });
+  const release = (): number => {
+    const out = held;
+    held = [];
+    for (const h of out) send(h.res, { status: 302 }, { location: h.location });
+    return out.length;
+  };
   const reset = (): void => {
+    for (const h of held) send(h.res, { status: 410 });
+    held = [];
     auth = createAuth(options.extensionId, options.now);
     requests = [];
   };
+  const script = (s: FakeScript): void => auth.script(s);
 
   const control: Handler = (req, res) => {
-    req.resume();
-    if (req.headers[CONTROL_HEADER] !== options.controlToken) return send(res, { status: 403 });
-    const path = pathOf(req);
-    if (req.method === "GET" && path === "/estado") return send(res, { status: 200, body: state() });
-    if (req.method === "POST" && path === "/zerar") {
-      reset();
-      return send(res, { status: 204 });
+    if (req.headers[CONTROL_HEADER] !== options.controlToken) {
+      req.resume();
+      return send(res, { status: 403 });
     }
-    send(res, { status: 404 });
+    void (async () => {
+      const body = await readBody(req, CONTROL_BODY_MAX_BYTES);
+      const path = pathOf(req);
+      if (req.method === "GET" && path === "/estado") return send(res, { status: 200, body: state() });
+      if (req.method !== "POST") return send(res, { status: 404 });
+      if (path === "/zerar") {
+        reset();
+        return send(res, { status: 204 });
+      }
+      if (path === "/soltar") return send(res, { status: 200, body: { soltos: release() } });
+      if (path !== "/roteiro") return send(res, { status: 404 });
+      const json = body === undefined ? undefined : parseJson(body);
+      const parsed = FakeScriptSchema.safeParse(json?.ok === true ? json.value : undefined);
+      if (!parsed.success) return send(res, { status: 400 });
+      script(parsed.data);
+      send(res, { status: 204 });
+    })();
   };
 
-  return { bff, supabase, chromiumapp, control, state, reset };
+  return { bff, supabase, chromiumapp, control, state, reset, script, release };
 }
 
 /** Os pedidos com `Origin: chrome-extension://…` num servidor: no Supabase falso, precisam ficar em 0 (SR-02, P3). */
@@ -171,11 +208,15 @@ export const extensionOriginRequests = (state: FakeState, server: RequestRecord[
 export interface FakeControl {
   state(): Promise<FakeState>;
   reset(): Promise<void>;
+  script(script: FakeScript): Promise<void>;
+  release(): Promise<number>;
 }
 
 export function fakeControl(url: string, token: string): FakeControl {
-  const call = async (method: "GET" | "POST", path: string): Promise<Response> => {
-    const response = await fetch(`${url}${path}`, { method, headers: { [CONTROL_HEADER]: token } });
+  const call = async (method: "GET" | "POST", path: string, body?: unknown): Promise<Response> => {
+    const headers: Record<string, string> = { [CONTROL_HEADER]: token };
+    if (body !== undefined) headers["content-type"] = "application/json";
+    const response = await fetch(`${url}${path}`, { method, headers, body: body === undefined ? null : JSON.stringify(body) });
     if (!response.ok) throw new Error(`canal de controle do E2E respondeu ${response.status} em ${path}`);
     return response;
   };
@@ -184,5 +225,9 @@ export function fakeControl(url: string, token: string): FakeControl {
     reset: async () => {
       await call("POST", "/zerar");
     },
+    script: async (script) => {
+      await call("POST", "/roteiro", script);
+    },
+    release: async () => ((await (await call("POST", "/soltar")).json()) as { soltos: number }).soltos,
   };
 }

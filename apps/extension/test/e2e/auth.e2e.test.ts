@@ -6,12 +6,12 @@
 import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
 
 import { SESSION_STORAGE_KEY } from "../../src/auth/session-schema";
-import { PANEL_PORT_NAME } from "../../src/messaging/protocol";
-import { SESSION_ACTION_LABELS, SESSION_TEXTS, SIGN_IN_LABELS, type SessionText } from "../../src/panel/texts";
+import { SESSION_ACTION_LABELS, SESSION_TEXTS, SIGN_IN_LABELS } from "../../src/panel/texts";
 import { browserPath, loadExtension, unload, type Loaded } from "./browser";
+import { bffRequests, chromiumappHits, expectedLines, handshake, handshakeWith, panelDump, sessionButtons, sessionLines, storage } from "./session";
 import { findCanaries } from "./support/canaries";
 import { s256 } from "./support/fake-auth";
-import { type FakeState, extensionOriginRequests, fakeControl } from "./support/fake-servers";
+import { extensionOriginRequests, fakeControl } from "./support/fake-servers";
 import { p20ModeFor } from "./support/p20";
 
 const cfg = inject("e2e");
@@ -19,54 +19,6 @@ const control = fakeControl(cfg.control.url, cfg.control.token);
 const ORIGIN = `chrome-extension://${cfg.extensionId}`;
 
 declare const chrome: (typeof import("wxt/browser"))["browser"];
-
-type Area = "session" | "local" | "sync";
-/**
- * O storage por CDP `Extensions.getStorageItems`, como o §4.4 pede: nada roda dentro da extensão para ler. No Edge 157, a
- * sessão do navegador responde "No associated browser context", e a de uma página comum, "Extension not found": só a
- * sessão anexada a uma página da própria extensão (o painel) lê.
- */
-const storage = async (l: Loaded, storageArea: Area) => {
-  const cdp = await l.ctx.newCDPSession(l.panel);
-  try {
-    return ((await cdp.send("Extensions.getStorageItems" as never, { id: l.id, storageArea } as never)) as { data: Record<string, unknown> }).data;
-  } finally {
-    await cdp.detach();
-  }
-};
-
-const sessionLines = (l: Loaded) => l.panel.locator("[data-sessao] p:not(.acoes)").allInnerTexts();
-const sessionButtons = (l: Loaded) => l.panel.locator("[data-sessao] button").allInnerTexts();
-const expectedLines = (texto: SessionText) => [texto.estado, ...(texto.erro === null ? [] : [texto.erro.titulo, texto.erro.acao])];
-
-/** Tudo o que o painel mostra ou guarda no DOM: o texto e o valor de cada atributo (§4.5 item 2). */
-const panelDump = (l: Loaded) =>
-  l.panel.evaluate(() =>
-    [document.body.innerText, ...[...document.querySelectorAll("*")].flatMap((el) => [...el.attributes].map((a) => `${a.name}=${a.value}`))].join("\n"),
-  );
-
-const bffRequests = (state: FakeState, path: string) => state.requests.filter((r) => r.server === "bff" && r.path === path);
-
-/** Os pedidos que chegaram ao chromiumapp local: só o GET do próprio retorno, sem origem, Authorization nem Cookie. */
-function chromiumappHits(state: FakeState): number {
-  const hits = state.requests.filter((r) => r.server === "chromiumapp");
-  const retorno = { server: "chromiumapp", method: "GET", path: "/auth", origin: null, authorization: false, cookie: false };
-  for (const hit of hits) expect(hit).toEqual(retorno);
-  return hits.length;
-}
-
-/** O handshake de uma porta nova aberta na página do painel (cenário 10). */
-const handshake = ([name]: [string]) =>
-  new Promise<unknown[]>((resolve) => {
-    const port = chrome.runtime.connect({ name });
-    const received: unknown[] = [];
-    port.onMessage.addListener((m: unknown) => {
-      received.push(m);
-      if (received.length === 4) setTimeout(() => resolve(received), 300);
-    });
-    port.postMessage({ kind: "hello", protocolVersion: 1 });
-    setTimeout(() => resolve(received), 5_000);
-  });
 
 describe("login com o IdP falso no build com as origens e a chave efêmera (ADR-004 §4.4; P3, P17 e P20)", () => {
   let l: Loaded | undefined;
@@ -157,12 +109,7 @@ describe("login com o IdP falso no build com as origens e a chave efêmera (ADR-
   });
 
   test("cenário 10: com a sessão aberta, uma porta nova recebe exatamente [ready, captura, consentimento, sessao{ true, null }]", async () => {
-    expect(await l!.panel.evaluate(handshake, [PANEL_PORT_NAME] as [string])).toEqual([
-      { kind: "ready", protocolVersion: 1 },
-      { kind: "captura", captura: { estado: "ocioso" } },
-      { kind: "consentimento", dado: false },
-      { kind: "sessao", sessao: { autenticado: true, erro: null } },
-    ]);
+    expect(await handshake(l!)).toEqual(handshakeWith({ autenticado: true, erro: null }));
   });
 
   test("cenário 2: Sair apaga o storage, o BFF falso recebe o logout com Bearer, e nenhuma renovação sai depois", async () => {

@@ -12,6 +12,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { buildAuthorizeUrl } from "../src/auth/authorize-url";
 import { createPkcePair, createState } from "../src/auth/pkce";
+import { parseAuthRedirect } from "../src/auth/redirect";
 import {
   LONG_TOKEN,
   base64url,
@@ -22,7 +23,7 @@ import {
   newEnvelopeCanary,
   newErrorCanary,
 } from "./e2e/support/canaries";
-import { FAKE_AUTH_POLICY, createFakeAuth, s256 } from "./e2e/support/fake-auth";
+import { AUTHORIZE_SCRIPTS, FAKE_AUTH_POLICY, FakeScriptSchema, createFakeAuth, s256 } from "./e2e/support/fake-auth";
 import { CONTROL_HEADER, type FakeEnvironment, type Handler, createFakeEnvironment, extensionOriginRequests, fakeControl } from "./e2e/support/fake-servers";
 import { P20_MODES, browserBrand, p20ModeFor } from "./e2e/support/p20";
 
@@ -486,8 +487,181 @@ describe("fake-servers: canal de controle", () => {
     const control = fakeControl(url, token);
     expect((await control.state()).requests).toHaveLength(1);
     await control.reset();
-    expect(await control.state()).toEqual({ auth: createFakeAuth({ extensionId: ID, now: () => 0 }).snapshot(), requests: [] });
+    expect(await control.state()).toEqual({ auth: createFakeAuth({ extensionId: ID, now: () => 0 }).snapshot(), requests: [], segurados: 0 });
     await expect(fakeControl(url, "errado").state()).rejects.toThrow(/respondeu 403 em \/estado/);
+  });
+
+  test("roteiro pelo canal: forma fechada, só com o segredo e só por POST; o cliente arma e solta", async () => {
+    const token = randomBytes(16).toString("hex");
+    const env = createFakeEnvironment({ extensionId: ID, now: () => 0, controlToken: token });
+    const port = await serve(env.control);
+    const control = fakeControl(`http://127.0.0.1:${port}`, token);
+    const roteiro = (body: string, headers: Record<string, string> = { [CONTROL_HEADER]: token }) =>
+      call(port, { method: "POST", path: "/roteiro", headers, body });
+
+    expect((await roteiro('{"authorize":"cancelar"}', {})).status).toBe(403);
+    expect((await call(port, { path: "/roteiro", headers: { [CONTROL_HEADER]: token } })).status).toBe(404);
+    expect((await call(port, { method: "POST", path: "/outro", headers: { [CONTROL_HEADER]: token } })).status).toBe(404);
+    // O último passa do teto de 256 bytes só pelos espaços: no teto exato, o mesmo roteiro é aceito (abaixo).
+    for (const body of ["", "{", "{}", '{"authorize":"aceitar"}', '{"logout503":2,"extra":1}', '{"authorize":"cancelar"}'.padEnd(257)]) {
+      expect((await roteiro(body)).status, body).toBe(400);
+    }
+    // Nenhuma das recusas armou o roteiro.
+    expect(codeOf(createLocation(env, (await swAuthorize()).query))).toMatch(/^CANARIO-CODE-/);
+    expect(env.state().auth.roteiro).toEqual([]);
+
+    expect((await roteiro('{"authorize":"cancelar"}'.padEnd(256))).status).toBe(204);
+    await control.script({ logout503: 2 });
+    const cancel = new URL(createLocation(env, (await swAuthorize()).query));
+    expect(cancel.searchParams.get("error")).toBe("access_denied");
+    expect(env.state().auth.roteiro).toEqual(["authorize:cancelar"]);
+
+    const segurado = createFakeEnvironment({ extensionId: ID, now: () => 0, controlToken: token });
+    const segPort = await serve(segurado.control);
+    const segControl = fakeControl(`http://127.0.0.1:${segPort}`, token);
+    await segControl.script({ authorize: "segurar" });
+    const supabasePort = await serve(segurado.supabase);
+    const pending = call(supabasePort, { path: `/auth/v1/authorize?${(await swAuthorize()).query.toString()}` });
+    await expect.poll(async () => (await segControl.state()).segurados).toBe(1);
+    expect(await segControl.release()).toBe(1);
+    expect((await pending).status).toBe(302);
+    expect(await segControl.release()).toBe(0);
+  });
+});
+
+describe("fake-auth: roteiro do 05c-2 (ADR-004 §4.4, cenários 7, 8, 13 e 14): mais hostil, nunca mais permissivo", () => {
+  const make = () => createFakeAuth({ extensionId: ID, now: () => 0 });
+  /** Um authorize do SW com o roteiro armado: a URL de retorno, o que o parser do SW diz dela e o fluxo. */
+  async function scripted(script: (typeof AUTHORIZE_SCRIPTS)[number]) {
+    const auth = make();
+    auth.script({ authorize: script });
+    const flow = await swAuthorize();
+    const reply = auth.authorize(flow.query);
+    const location = String(reply.location);
+    return { auth, flow, reply, location, parsed: parseAuthRedirect(location, REDIRECT, flow.state) };
+  }
+  const codeFrom = (location: string) => String(new URL(location).searchParams.get("code"));
+
+  test("o schema do roteiro: as 5 formas do authorize e de 1 a 5 logouts com 503; nada fora disso", () => {
+    expect(AUTHORIZE_SCRIPTS).toEqual(["segurar", "cancelar", "outro_caminho", "fragmento", "outro_challenge"]);
+    for (const ok of [{ authorize: "segurar" }, { logout503: 1 }, { logout503: 5 }, { authorize: "fragmento", logout503: 2 }]) {
+      expect(FakeScriptSchema.safeParse(ok).success, JSON.stringify(ok)).toBe(true);
+    }
+    for (const bad of [{}, { logout503: 0 }, { logout503: 6 }, { logout503: 1.5 }, { authorize: "aceitar" }, { authorize: "segurar", troca: "ok" }, null]) {
+      expect(FakeScriptSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+
+  test("segurar: o 302 normal, marcado para o servidor segurar; o código vale na troca", async () => {
+    const { auth, flow, reply, location, parsed } = await scripted("segurar");
+    expect(reply).toEqual({ status: 302, location, hold: true });
+    expect(parsed).toEqual({ ok: true, code: codeFrom(location) });
+    expect(auth.exchange(exchangeBody(codeFrom(location), flow.verifier)).status).toBe(200);
+    expect(auth.snapshot().roteiro).toEqual(["authorize:segurar"]);
+  });
+
+  test("cancelar: o erro do IdP na query, com o st e o CANARIO-ERR; nenhum código nasce, e o SW lê cancelamento", async () => {
+    const auth = createFakeAuth({ extensionId: ID, now: () => 0, newError: () => "CANARIO-ERR-fixo" });
+    auth.script({ authorize: "cancelar" });
+    const flow = await swAuthorize();
+    const reply = auth.authorize(flow.query);
+    expect(reply).toEqual({
+      status: 302,
+      location: `${REDIRECT}?st=${flow.state}&error=access_denied&error_code=access_denied&error_description=CANARIO-ERR-fixo`,
+    });
+    expect(parseAuthRedirect(String(reply.location), REDIRECT, flow.state)).toEqual({ ok: false, motivo: "cancelado" });
+    expect(auth.snapshot()).toMatchObject({ counters: { authorize: { ok: 1, recusado: 0 } }, canaries: ["CANARIO-ERR-fixo"], roteiro: ["authorize:cancelar"] });
+  });
+
+  test("outro_caminho: o código certo em /outro; o SW recusa pelo caminho, e o código valeria na troca", async () => {
+    const { auth, flow, location, parsed } = await scripted("outro_caminho");
+    expect(location).toBe(`https://${ID}.chromiumapp.org/outro?code=${codeFrom(location)}&st=${flow.state}`);
+    expect(parsed).toEqual({ ok: false, motivo: "recusado" });
+    expect(auth.exchange(exchangeBody(codeFrom(location), flow.verifier)).status).toBe(200);
+  });
+
+  test("fragmento: o código certo e um #access_token= canário; o SW recusa pelo fragmento, e o token entra nos canários", async () => {
+    const { auth, flow, location, parsed } = await scripted("fragmento");
+    const url = new URL(location);
+    expect(`${url.origin}${url.pathname}${url.search}`).toBe(`${REDIRECT}?code=${codeFrom(location)}&st=${flow.state}`);
+    const fragment = new URLSearchParams(url.hash.slice(1));
+    expect([...fragment.keys()]).toEqual(["access_token", "token_type"]);
+    const token = String(fragment.get("access_token"));
+    expect(AccessTokenSchema.safeParse(token).success).toBe(true);
+    expect(parsed).toEqual({ ok: false, motivo: "recusado" });
+    expect(auth.snapshot().canaries).toEqual([codeFrom(location), token, ...token.split(".")]);
+    expect(auth.exchange(exchangeBody(codeFrom(location), flow.verifier)).status).toBe(200);
+  });
+
+  test("outro_challenge: o retorno passa no SW, mas a troca recusa com verifier_divergente", async () => {
+    const { auth, flow, location, parsed } = await scripted("outro_challenge");
+    expect(parsed).toEqual({ ok: true, code: codeFrom(location) });
+    expect(auth.exchange(exchangeBody(codeFrom(location), flow.verifier)).status).toBe(401);
+    expect(auth.snapshot()).toMatchObject({ refusals: ["exchange:verifier_divergente"], roteiro: ["authorize:outro_challenge"] });
+  });
+
+  test("o roteiro vale para um authorize só, e nunca pula as barreiras: o pedido inválido é recusado e não o consome", async () => {
+    const auth = make();
+    auth.script({ authorize: "fragmento" });
+    auth.script({ authorize: "cancelar" });
+    auth.script({ logout503: 1 });
+    const bad = await swAuthorize();
+    bad.query.set("code_challenge_method", "plain");
+    expect(auth.authorize(bad.query).status).toBe(400);
+    const first = auth.authorize((await swAuthorize()).query);
+    expect(new URL(String(first.location)).searchParams.get("error")).toBe("access_denied");
+    const second = await swAuthorize();
+    const normal = auth.authorize(second.query);
+    expect(normal).toEqual({ status: 302, location: `${REDIRECT}?code=${codeFrom(String(normal.location))}&st=${second.state}` });
+    expect(auth.snapshot()).toMatchObject({ refusals: ["authorize:metodo"], roteiro: ["authorize:cancelar"] });
+  });
+
+  test("logout com 503: só depois do corpo e do Bearer conferidos, sem derrubar a sessão, e só as vezes armadas", async () => {
+    const auth = make();
+    const flow = await swAuthorize();
+    const body = AuthSessionResponseSchema.parse(auth.exchange(exchangeBody(codeOf(auth.authorize(flow.query).location), flow.verifier)).body);
+    auth.script({ logout503: 2 });
+    // Corpo fora do contrato e Bearer errado continuam recusados como sempre, e não gastam o roteiro.
+    expect(auth.logout({ schemaVersion: 1, escopo: "local" }, `Bearer ${body.accessToken}`).status).toBe(400);
+    expect(auth.logout({ schemaVersion: 1 }, `Bearer ${newAccessCanary().token}`).status).toBe(401);
+    for (let i = 0; i < 2; i += 1) {
+      const reply = auth.logout({ schemaVersion: 1 }, `Bearer ${body.accessToken}`);
+      expect(reply.status).toBe(503);
+      expect(ApiErrorSchema.parse(reply.body).code).toBe("SERVICO_INDISPONIVEL");
+    }
+    expect(auth.logout({ schemaVersion: 1 }, `Bearer ${body.accessToken}`)).toEqual({ status: 204 });
+    expect(auth.snapshot()).toMatchObject({
+      counters: { logout: { ok: 1, recusado: 4 } },
+      refusals: ["logout:corpo", "logout:bearer", "logout:roteiro_503", "logout:roteiro_503"],
+      roteiro: ["logout:503", "logout:503"],
+    });
+  });
+});
+
+describe("fake-servers: o 302 segurado", () => {
+  test("o authorize com segurar não responde até o soltar; o zerar encerra o que estiver preso com 410 e limpa o roteiro", async () => {
+    const env = createFakeEnvironment({ extensionId: ID, now: () => 0, controlToken: "t" });
+    const port = await serve(env.supabase);
+    const authorize = async () => call(port, { path: `/auth/v1/authorize?${(await swAuthorize()).query.toString()}` });
+
+    env.script({ authorize: "segurar" });
+    const held = authorize();
+    await expect.poll(() => env.state().segurados).toBe(1);
+    expect(env.release()).toBe(1);
+    const released = await held;
+    expect(released.status).toBe(302);
+    expect(String(released.headers.location)).toMatch(new RegExp(`^${REDIRECT.replaceAll(".", "\\.")}\\?code=CANARIO-CODE-`));
+    expect(env.state().segurados).toBe(0);
+
+    env.script({ authorize: "segurar" });
+    const dropped = authorize();
+    await expect.poll(() => env.state().segurados).toBe(1);
+    env.reset();
+    expect((await dropped).status).toBe(410);
+    expect(env.state()).toMatchObject({ segurados: 0, requests: [] });
+    expect(env.release()).toBe(0);
+    // Sem roteiro depois do zerar: o próximo authorize responde na hora.
+    expect((await authorize()).status).toBe(302);
   });
 });
 
