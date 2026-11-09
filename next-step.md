@@ -1,30 +1,33 @@
-# Próximo passo: F1-EXT-05c (E2E local com IdP falso e provas negativas), numa sessão nova
+# Próximo passo: F1-EXT-05c, commit 05c-2 (cenários adversariais e de ciclo de vida), numa sessão nova
 
 > **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. Nenhum HITL bloqueia a trilha: o HITL-037 (push e PR) corre em paralelo.
 
-## O que acabou de ser entregue (2026-11-09, sessão 15)
+## O que acabou de ser entregue (2026-11-09, sessão 16)
 
-### F1-EXT-05b: commit 05b-3 (`4b1259a`), botões, "Reconectar" e E2E do painel. **A F1-EXT-05b fechou.**
-- **Partição** (ADR-004 §6.3 item 4): 05b-1 ✅ (`abafafb`), 05b-2 ✅ (`c61f50d`) e **05b-3 ✅** (`4b1259a`). O `[APPSEC]` não vetou, e as 4 condições da partição estão cumpridas. A condição 3 ("Reconectar" só por ação do usuário, sem laço) agora vale também na tela.
-- **No React** (`src/entrypoints/sidepanel/`), sem lógica fora do `src/panel`:
-  - `Session.tsx` (novo): o texto vem do `describeSession`, e os botões vêm do `sessionActions`. São eles "Entrar com GitHub", "Entrar com Google", "Sair da conta" e "Tentar sair de novo". Só botões, sem conta nem provedor depois do login;
-  - `App.tsx`:
-    - o clique despacha a ação local (o `entrar` leva o `Date.now()` do App) e posta `entrar` ou `sair`;
-    - o tique de 1 s (`ENTRANDO_TIQUE_MS`) só fica armado com o "entrando" ligado;
-    - o "Reconectar" aparece só com o `canReconnect`;
-    - o "Analisar" e o "Reanalisar" passam pelo `analyzeBlock(API_DO_ENVIO, …)`, com o `API_DO_ENVIO` em `false`;
-  - **a porta segue o redutor:** o `PanelState` ganhou a `geracao` da porta, e só o "Reconectar" aceito a soma. O efeito da porta depende só dela, então um clique ignorado nunca abre porta. A porta que caiu fica inativa: o painel ignora o que chegar por ela e não a derruba de novo;
-  - o texto da `porta_fechada` passou a ser "A conexão com o Trampo caiu. Clique em Reconectar para continuar.".
-- **Prova local:**
-  - extensão de 1255 para 1258 testes de unidade, 100% nas 4 métricas; um teste de invariante prova que a `geracao` só muda pelo "Reconectar" aceito, de 1 em 1;
-  - **E2E local inteiro (CA-16):** 59 testes no Edge 157.0.4341.42, headless (eram 49), em 4 rodadas: 59/59, 59/59, 58/59 e 59/59. A falha foi o `solides-04` da captura, a intermitência do QA-04; a captura e o extrator não mudaram. O modo do P20 não foi exercido, porque o login com IdP falso é da 05c. Os 10 casos novos usam a porta falsa: as 8 `SessaoView`, o "Entrar" com cada provedor, o "Tentar sair de novo" a 320 px, o "entrando" com o relógio falso do Playwright e o "Reconectar" com a porta antiga ignorada. Dois deles usam o SW real: o "Entrar" no build sem origens, e o SW parado por `Target.closeTarget` com o "Reconectar" refazendo o handshake;
-  - mutação 32/33 (`mut05b3.py`, catálogo no SESSION-LOG): 8/8 de unidade e 24/25 do React pelo E2E no Edge. O sobrevivente é equivalente. O A-09 (intervalo sempre armado) só morreu depois que o teste do relógio passou a contar os intervalos vivos;
-  - turbo 21/21 em série, sem cache; depcruise sem violações (510 módulos).
-- **Cofre:** ADR-004 (D12 "Emenda do 05b-3", §4.4 cenários 11 e 13, §6.3 item 4), ADR-025 (D4, D5 e D6, "Emenda do 05b-3"), STATE, BACKLOG (F1-EXT-05 e QA-04), HITL-037 e SESSION-LOG. Os backups estão no scratchpad.
+### F1-EXT-05c: partição e commit 05c-1 (`2861c6a`), IdP falso, chave efêmera, P20 no modo 1 e P3 em runtime
+- **Partição** (ADR-004 §6.3 item 5): **05c-1 ✅** (`2861c6a`) → 05c-2 cenários adversariais e de ciclo de vida (6, 7, 8, 9, 13 e 14, com roteiro nos falsos) → 05c-3 provas negativas do §4.5 depois de todos os cenários e o E2E que fecha a trilha. Os cenários 3, 4, 5 e 12 esperam a F1-EXT-04 parte 2. O `[APPSEC]` não vetou e pôs 4 condições no ADR.
+- **P20 sondado antes do código:** o `launchWebAuthFlow` interativo real resolve em headless, com o 302 imediato do Supabase falso, no Edge 157.0.4341.42 (53 ms) e no Chrome 156.0.8078.80 (73 ms), sem janela. **Os dois ficam no modo 1**, fixos na tabela `test/e2e/support/p20.ts`. O modo 3 (adapter falso) ficou sem código: o `build-env.ts` recusa `TRAMPO_E2E_FAKE_IDENTITY` sem `TRAMPO_E2E=1` e também com ele. O E2E roda o adapter de produção.
+- **Falsos** (`apps/extension/test/e2e/support/`, todos subindo no `global-setup`):
+  - os canários nascem em tempo de execução (access com `sub` e `session_id` canários, envelope `r1.e2e.<iv>.CANARIO_RT_<hex>.<tag>`, código `CANARIO-CODE-<uuid>`), e o coletor procura nas três formas;
+  - o IdP falso confere o PKCE de ponta a ponta: o `authorize` aceita só os 4 parâmetros do SW, e a troca confere `S256(verifier)`, com código de uso único e 5 min;
+  - o BFF falso só responde à origem exata da extensão. O Supabase falso conta o `Origin` de extensão em qualquer caminho;
+  - há ainda um chromiumapp local e um canal de controle com segredo, pelo qual os testes leem e zeram o estado.
+- **Chave efêmera:** RSA em memória (só a SPKI pública sai), o build `auth` com as duas origens e a `key`, e o ID conhecido antes do launch (P17).
+- **E2E:**
+  - `auth.e2e.test.ts` (novo, 8 casos): P17, P20, o manifesto do D13 na extensão carregada, o controle do chromiumapp, o **cenário 1 (P3 em runtime)**, o 10 com a sessão aberta, o 2 e um 2º login com o Google, com os itens 2, 8 (`local` e `sync`) e 10 do §4.5;
+  - `csp.e2e.test.ts`: passou ao BFF falso, e o SW não alcança o Supabase;
+  - **QA-04**, só no harness: o `clickAction` espera as abas anteriores fecharem, e o teste guarda a mensagem da rejeição do `executeScript`, sem URL.
+- **Achado:** o "0 no chromiumapp" do §4.4 não é garantia. Com a conexão aquecida, o `GET /auth?code=…` do 302 chega ao chromiumapp local antes de o navegador abortar a navegação. O E2E agora mede (no máximo um `GET /auth` por login) em vez de zerar. Em produção o `<id>.chromiumapp.org` é NXDOMAIN, e o código é inútil sem o verifier. O residual vai para o T48 e a F1-SEC-01.
+- **Prova:**
+  - unidade: extensão de 1258 para 1347 testes, 100% nas 4 métricas, com os falsos na cobertura;
+  - **E2E local inteiro (CA-16):** Edge 157, headless, **modo 1 do P20**, 67/67 em 3 rodadas com o arquivo final. No Chrome 156, login, CSP e mensageria deram 29/29;
+  - mutação 51/52 na 2ª rodada (`mut05c1.py`, catálogo no SESSION-LOG). O sobrevivente (`interactive: false`) é equivalente no E2E e morre na unidade do adapter;
+  - turbo 21/21 em série, sem cache; depcruise sem violações (516 módulos); gitleaks 8.30.1 conferido, com 0 achados no histórico (172 commits).
+- **Cofre:** ADR-004 (§1.4, §4.4, §4.5, §4.6 e §6.3 item 5), STATE, BACKLOG (F1-EXT-05 e QA-04), HITL-037 e SESSION-LOG. Os backups estão no scratchpad.
 - Nada chamou o Supabase real nem provedor de LLM.
 
 ### Pendências do humano
-- **HITL-037 (não bloqueia nenhuma trilha):** o PR #18 foi mergeado no `master` (`bd9132e`, conferido pelo `gh` nesta sessão). Os commits desta sessão (o 05b-3 e o do `next-step.md`) ficam só no local. O próximo ciclo segue o mesmo runbook (`../base/03-infra-runbook/publicar-branch-pr.md`): push (ou "push autorizado" no prompt), PR novo para o `master`, os 4 checks e o merge com merge commit, sem apagar o branch.
+- **HITL-037 (não bloqueia nenhuma trilha):** o PR #19 foi mergeado no `master` (`168e784`, 15:37 UTC, conferido pelo `gh` nesta sessão), e o 2º ciclo fechou. O `2861c6a` e o commit do `next-step.md` desta sessão ficam só no local (3º ciclo). O próximo ciclo segue o mesmo runbook (`../base/03-infra-runbook/publicar-branch-pr.md`): push (ou "push autorizado" no prompt), PR novo para o `master`, os 4 checks e o merge com merge commit, sem apagar o branch.
 - **Push:** não autorizado nesta sessão. Antes de cada push: `git fetch` e confira `HEAD..origin/spike/s1-extraction`.
 - **Vale desde o 07h:** quem rodar `supabase start` na estação precisa gerar a chave antes, com `node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json` na raiz do `trampo.app` (runbook `auth-extensao` §1.6). Sem o arquivo, o `start` não sobe.
 - **Vale desde o 07g:** fora de `NODE_ENV=test`, a API só sobe com `API_BEHIND_PROXY=false` (junto com `TRUST_PROXY=false`) e o anel `AUTH_REFRESH_SEAL_KEYS` e `AUTH_REFRESH_SEAL_ACTIVE_KEY` no `apps/api/.env` (runbook `auth-extensao` §1.5).
@@ -38,7 +41,7 @@
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **F1-EXT-05c → F1-SEC-01** (**próximo: 05c**) | Resto do ADR-004, uma trilha por vez. A F1-EXT-05a (`78be3f2`, `ec9c915`, `db98323` e `cd141d2`) e a **F1-EXT-05b** (`abafafb`, `c61f50d` e `4b1259a`) foram concluídas. **05c**: E2E local com IdP falso (§4.4: BFF falso e Supabase falso no `global-setup`, chave efêmera com o ID conhecido, o modo do P20 fixo por navegador e os cenários que não dependem da F1-EXT-04 parte 2), as provas negativas do §4.5 e a prova em runtime do P3. Primeiro, a partição em commits atômicos, registrada no §6.3. **SEC-01**: threat model v2 e revisão adversarial de auth | não | nada para a 05c; a SEC-01 espera a 05c |
+| **F1-EXT-05c → F1-SEC-01** (**próximo: 05c-2**) | Resto do ADR-004, uma trilha por vez. A F1-EXT-05a (`78be3f2`, `ec9c915`, `db98323` e `cd141d2`) e a F1-EXT-05b (`abafafb`, `c61f50d` e `4b1259a`) foram concluídas. **05c** (partição no §6.3 item 5): **05c-1 ✅** (`2861c6a`: IdP falso, chave efêmera, P20 no modo 1 e P3 em runtime); **05c-2**: cenários 6, 7, 8, 9, 13 e 14, com roteiro nos falsos; **05c-3**: provas negativas do §4.5 depois de todos os cenários e o E2E que fecha a trilha. **SEC-01**: threat model v2 e revisão adversarial de auth, com o residual do chromiumapp no T48 | não | nada para a 05c; a SEC-01 espera a 05c |
 | **F1-EXT-04 parte 2 (envio à API)** | Liberada pela F1-EXT-05a e pela F1-EXT-05b: portão do `consent.isGranted()` e da sessão, `accessToken()` e `onUnauthorized(1 \| 2)` do `auth-service`, SSE, `source` com `platform` e `extractorVersion`, a mensagem `analisar`, a fonte do `API_DO_ENVIO` (pelo `[APPSEC]`, B6) e os botões habilitados. O prazo, o teto e o leitor do `/v1/analyze` se decidem aqui (ponto aberto do 05a-2) | não, se os testes usarem a API falsa | nada; mexe na porta, no painel e no E2E como a 05c, então nunca roda junto com ela |
 | **F1-API-07 (07i e 07j)** | BFF do ADR-004 (D4 a D8), na partição do ADR-004 §6.3. Feitos: 07a (`c51b809`), 07b (`905d85f`), 07c (`86fe1ef`), 07d (`7e6c5d5`), 07e (`ac3c2c7`), 07f (`e1af5d0`), 07g (`b516fd0`) e 07h (`4efd96c`). Faltam, um commit por vez: **07i** métricas `auth_*_total` do D8 item 7 na porta `Telemetry`; **07j** teto de rajada de 15 (reposição de 0,25 por segundo) no `GotrueEgress`, somado às janelas de hoje (o balde `Token` do GoTrue tem rajada fixa de 30; ADR-004 D8 item 5, "Emenda do 07h") | não | nada; nenhum dos dois bloqueia as F1-EXT-05x |
 | **F1-DB-02** | Custom Access Token Hook por migration (ADR-004 D5): recusa com 403 a sessão com mais de 24 h, grants mínimos e `test:db` da recusa na emissão e na renovação. Depois, HITL de aplicação no projeto real (molde do HITL-023) | não | nada; o P18 (CA-15) depende dela, mesmo com o ADR-004 aceito por sobreposição do veto |
@@ -87,13 +90,13 @@
       - as linhas `auth_*` são amostradas, e a única chave nova da allowlist é `suprimidas`. Mensagem nova de auth entra no `AUTH_LOG_MESSAGES` e no `LOG_MESSAGES`, e o teste prende os dois;
     - **envio à API (F1-EXT-04 parte 2):** quando virar trilha, só envia com `consent.isGranted()` e com sessão, e um teste prova isso. O `source` leva `platform` e `extractorVersion`, a base do monitoramento dos seletores (spike-metrics §3.4 e §3.5).
 11. **Mudança de contrato atualiza o cofre na mesma tarefa** (DOC-01): a §4 do `contratos-zod` é regerada do `src/` por script (o `auth.ts` é a §4.8 e o `index.ts` a §4.9), e a §9 ganha uma linha.
-12. **E2E com fixture real:** cada teste de plataforma usa uma URL própria (o `clickAction` acha a aba pela URL), e a rota serve o CSS pelo nome do arquivo. Intermitência de `sem_acesso` vai para o QA-04. Ela voltou na sessão 15 (`solides-04`, 1 de 4 rodadas), e o próximo passo do QA-04 (registrar a mensagem do `executeScript` só no E2E e esperar a aba anterior fechar) cabe na 05c, que mexe no harness.
+12. **E2E com fixture real:** cada teste de plataforma usa uma URL própria (o `clickAction` acha a aba pela URL), e a rota serve o CSS pelo nome do arquivo. Intermitência de `sem_acesso` vai para o QA-04. Ela voltou na sessão 15 (`solides-04`, 1 de 4 rodadas). Desde o 05c-1, o `clickAction` espera as abas anteriores fecharem, e o `recordScriptRejections` guarda a mensagem da rejeição do `executeScript`, sem URL: se voltar, o erro do teste traz a causa, e ela vai para o QA-04.
 13. Ao fim de cada sessão, o `[SCRIBE]` reescreve este arquivo **mantendo a tabela de trilhas**: tira a trilha concluída e acrescenta a que ela liberou.
 14. **Job `db` e gitleaks (07h):**
     - o `test:db` tem dois grupos; teste novo que esvazie um balde do GoTrue vai para o grupo `db-limite`, depois do resto;
     - fixture com material de chave do refresh é montada em tempo de execução (`${...}` no meio): a regra `trampo-auth-seal-keys` pega `AUTH_REFRESH_SEAL_KEYS` seguido de `kid:` e 32+ caracteres, também na linha de baixo. Nenhum `.pem` nem `signing_keys.json` entra no git;
     - regra nova no `.gitleaks.toml` passa pelo leitor do `@trampo/ci-policy`, que recusa allowlist, `entropy` e chave desconhecida dentro de uma regra própria. A lista **global** aceita só valor exato, falso e ancorado, com revisão do `[APPSEC]` (ADR-019 D6);
-    - **fixture com cara de chave** (base64 ou texto longo ao lado de `KEY`, `TOKEN` ou `SECRET`) é montada em tempo de execução **desde o 1º commit**. O CI só roda no PR, e o gitleaks varre o *patch* de cada commit: um achado já publicado só sai pela lista de valor exato (incidente do PR #18). Antes do push, vale rodar o gitleaks 8.30.1 conferido (release oficial, `checksums.txt`) com o comando do job `secrets` e `-v`. Na 05c, a chave efêmera do E2E e os canários do §4.4 seguem esta regra.
+    - **fixture com cara de chave** (base64 ou texto longo ao lado de `KEY`, `TOKEN` ou `SECRET`) é montada em tempo de execução **desde o 1º commit**. O CI só roda no PR, e o gitleaks varre o *patch* de cada commit: um achado já publicado só sai pela lista de valor exato (incidente do PR #18). Antes do push, vale rodar o gitleaks 8.30.1 conferido (release oficial, `checksums.txt`) com o comando do job `secrets` e `-v`. No 05c-1, a chave efêmera e os canários do E2E já nascem em tempo de execução, e o gitleaks conferido deu 0 achados no histórico.
 15. **Auth na extensão (05a-1):**
     - o `@trampo/contracts/auth` só entra em `src/auth`, `src/api` e `test/` (lint e depcruise). O `background.ts` também fica de fora: ele só importa `src/auth`. Constante que o painel precisa (como `AUTH_PROVIDERS`) vai para o `protocol.ts`, nunca para `src/auth`;
     - quem mexer no `parseAuthRedirect`, no `pkce.ts` ou no `authorize-url.ts` roda de novo o `mut05a1.py` (scratchpad da sessão 8; catálogo no SESSION-LOG). O retorno é dado hostil: nenhum texto dele vai a log ou ao painel;
@@ -131,16 +134,23 @@
     - o tique (`ENTRANDO_TIQUE_MS`, 1 s) só fica armado com o "entrando" ligado e nunca posta nada ao SW;
     - o `API_DO_ENVIO` é a constante `false` do `App.tsx` até a F1-EXT-04 parte 2. A fonte dele passa pelo `[APPSEC]` (B6), porque só o SW sabe da origem da API;
     - **no E2E:** a porta falsa aceita várias conexões e a queda pelo SW (`fall`), e o relógio do "entrando" usa o `page.clock` do Playwright, instalado antes do `goto`. O SW real se para por `Target.closeTarget` no alvo `service_worker`, pela sessão CDP do navegador: é a base do cenário 13 da 05c.
+22. **E2E com IdP falso (05c-1):**
+    - os falsos ficam em `test/e2e/support/` e entram na cobertura de 100% da extensão. Quem mexer no `canaries.ts`, no `fake-auth.ts`, no `fake-servers.ts`, no `p20.ts` ou no `refuseFakeIdentity` do `build-env.ts` roda de novo o `mut05c1.py` (scratchpad da sessão 16; catálogo no SESSION-LOG). Os mutantes `E-` rodam pelo E2E do login e da CSP no Edge (cerca de 35 s cada);
+    - os falsos sobem no `global-setup`, e os testes leem e zeram o estado só pelo `fakeControl` (canal HTTP com segredo). Cada arquivo E2E que usa o IdP falso zera o estado antes de usar. O BFF falso nunca fica mais permissivo que o real: origem exata, código de uso único, S256 conferido e Bearer só no logout (condição 2 do `[APPSEC]`);
+    - **o P20 é fixo por navegador** (`p20.ts`, Edge e Chrome no modo 1). Navegador novo passa por sondagem (o `probe-p20.mjs` do scratchpad da sessão 16 é o molde) e emenda do §4.4. O modo 3 não tem código, e o `TRAMPO_E2E_FAKE_IDENTITY` derruba o build;
+    - **o chromiumapp local é medido, não zerado:** o navegador pode mandar o `GET /auth?code=…` antes de abortar a navegação (ADR-004 §4.4, "Emenda do 05c-1"). Todo outro "0" do E2E tem controle positivo;
+    - o storage da extensão se lê por CDP `Extensions.getStorageItems` só pela sessão anexada a uma página da própria extensão (o painel); a sessão do navegador e a de uma página comum falham;
+    - o build `auth` (as duas origens e a chave efêmera) substituiu o `extWithOrigin`: o ID é o `cfg.extensionId`, e o BFF falso só fala com ele.
 
 ---
 
 ## Próximo prompt (sessão nova)
 
 ```text
-Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05c (E2E local com IdP falso e provas negativas; ADR-004 §4.4, §4.5 e §6.3 item 5), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt (HITL-037).
+Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05c, commit 05c-2 (cenários adversariais e de ciclo de vida; ADR-004 §4.4 e §6.3 item 5), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt (HITL-037, 3º ciclo).
 
-1. [ORCHESTRATOR]: leiam o STATE.md (bloco "Trilha F1-EXT-05b", fechada com o 05b-3 em 4b1259a) e rodem git fetch para ver se o branch recebeu commits no GitHub. Leiam o ADR-004 §4.4 (topologia, build, modo do P20 e os 14 cenários), o §4.5 (provas negativas), o §4.6, o P3 e o P20 do §1.4, a CA-02, a CA-04, a CA-10, a CA-14 e a CA-16, e o §6.3 item 5.
-2. [ARCHITECT] + [APPSEC]: partam a F1-EXT-05c em commits atômicos (molde da 05a e da 05b) e registrem a partição no §6.3. Entram: o BFF falso e o Supabase falso no global-setup, a chave efêmera com o ID conhecido (P17), o modo do P20 fixo por navegador (o TRAMPO_E2E_FAKE_IDENTITY recusado sem TRAMPO_E2E=1, com o marcador fora do build normal), os cenários do §4.4 que não dependem da F1-EXT-04 parte 2, as provas negativas do §4.5 e a prova em runtime do P3. Chave e canários com cara de segredo nascem montados em tempo de execução (cuidado 14). Avaliem também o próximo passo do QA-04 (cuidado 12).
-3. [DEV] + [QA_EVALS]: implementem o 1º commit da partição: 100% de cobertura no que for lógica, mutação dirigida, E2E local inteiro (CA-16: navegador, versão, modo do P20 e contagens no SESSION-LOG), turbo em série e depcruise. Avaliem o peso da sessão antes do commit seguinte (AGENTS §4.4).
+1. [ORCHESTRATOR]: leiam o STATE.md (bloco "Trilha F1-EXT-05c", com o 05c-1 em 2861c6a) e rodem git fetch para ver se o branch recebeu commits no GitHub (e o gh pr list do branch, para saber se há PR aberto ou mergeado). Leiam o ADR-004 §4.4 (cenários 6, 7, 8, 9, 13 e 14, e a "Emenda do 05c-1": modo 1, falsos, storage e o achado do chromiumapp), o §6.3 item 5 (partição), o P13 do §1.4 e a CA-10 e a CA-14.
+2. [ARCHITECT] + [APPSEC]: desenhem o roteiro dos falsos (o 302 segurado, o retorno com error_description=CANARIO-ERR-<uuid>, o retorno com outro caminho, com #access_token= e com o código de outro challenge, e o 503 no logout), sempre pelo canal de controle e sem afrouxar o BFF falso (condição 2 do [APPSEC]). Para o cenário 6, decidam a forma da recarga (runtime.reload ou novo loadUnpacked no mesmo caminho) e do relançamento com o perfil preservado e o mesmo ID (P13).
+3. [DEV] + [QA_EVALS]: implementem o 05c-2: 100% de cobertura nos falsos, mutação dirigida no roteiro e nos cenários (com controle positivo para cada "0"), E2E local inteiro (CA-16: navegador, versão, modo do P20 e contagens no SESSION-LOG), turbo em série, depcruise e gitleaks 8.30.1 conferido. Avaliem o peso da sessão antes do 05c-3 (AGENTS §4.4).
 4. [SCRIBE]: atualizem o STATE a cada commit. No fim, atualizem o SESSION-LOG, o BACKLOG e o next-step, mantendo a tabela de trilhas. Commit atômico; push só se autorizado.
 ```
