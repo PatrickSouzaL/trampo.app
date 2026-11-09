@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "outputs": [".output/**"],
-      "env": ["TRAMPO_API_ORIGIN"]
+      "env": ["TRAMPO_API_ORIGIN", "TRAMPO_SUPABASE_ORIGIN", "TRAMPO_EXTENSION_KEY"]
     },
     "test": {
       "dependsOn": ["^build", "build"]

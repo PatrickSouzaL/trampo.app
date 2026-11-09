@@ -1,11 +1,12 @@
 // Catálogo de textos do Side Panel (pt-BR; ADR-025 D4). Cada enum do contrato tem um Record exaustivo:
 // um valor novo no contrato quebra a compilação até ganhar texto. Os erros saem SÓ daqui, pelo `code`;
-// o `message` do servidor não é exibido (ADR-025 D5).
+// o `message` do servidor não é exibido (ADR-025 D5). A sessão (ADR-004 D12) também sai só daqui, pelo booleano e
+// pelo código da SessaoView, sem conta nem provedor.
 import type { AnalysisWarning, DecisionPath, DimensionOutcome, ScoreDimension, Verdict } from "@trampo/contracts/analysis-report";
 import type { ApiErrorCode } from "@trampo/contracts/api";
 
-import type { CaptureView } from "../messaging/protocol";
-import type { AnaliseView, PanelState } from "./panel-state";
+import type { AuthProvider, CaptureView, SessaoErro, SessaoView } from "../messaging/protocol";
+import { logoutUnconfirmed, type AcaoSessao, type AnaliseView, type BloqueioAnalise, type PanelState } from "./panel-state";
 
 export type Stage = Extract<AnaliseView, { estado: "andamento" }>["etapa"];
 
@@ -122,6 +123,75 @@ export const ERROR_TEXTS: Record<ApiErrorCode, ErrorText> = {
   COTA_DIARIA_ESGOTADA: { titulo: "Você usou todas as análises de hoje.", acao: "A cota volta amanhã." },
   SERVICO_INDISPONIVEL: { titulo: "O serviço do Trampo está fora do ar agora.", acao: "Tente de novo em alguns minutos." },
   ERRO_INTERNO: { titulo: "Algo deu errado do nosso lado.", acao: "Tente de novo. Se continuar, informe o código do pedido ao suporte." },
+};
+
+/** O que a área da sessão mostra: a linha do estado e, se houver, o problema e o que fazer (ADR-004 D12). */
+export interface SessionText {
+  readonly estado: string;
+  readonly erro: ErrorText | null;
+}
+
+type ErroComSessao = NonNullable<Extract<SessaoView, { autenticado: true }>["erro"]>;
+
+const CONECTADO = "Conectado à sua conta do Trampo.";
+const ENTRE = "Entre com a sua conta do GitHub ou do Google para analisar vagas.";
+/** O ERROR_TEXTS fala de análises no LIMITE_DE_TAXA; na sessão, o limite é do login ou da renovação (emenda do 05b-2). */
+const LIMITE_DA_SESSAO: ErrorText = { titulo: "Muitas tentativas em pouco tempo.", acao: "Espere um pouco e tente de novo." };
+
+/**
+ * Texto de cada `SessaoView` (ADR-004 D12), exaustivo: um código novo no SessaoErroSchema quebra a compilação. Os
+ * códigos reaproveitam o ERROR_TEXTS, menos o ERRO_INTERNO, que não pede o código do pedido (a SessaoView não tem
+ * `requestId`), e o LIMITE_DE_TAXA. Nenhum texto mostra conta nem provedor da sessão (residual "conta trocada", §3).
+ */
+export const SESSION_TEXTS: {
+  readonly conectado: Record<ErroComSessao | "nenhum", SessionText>;
+  readonly desconectado: Record<SessaoErro | "nenhum", SessionText>;
+} = {
+  conectado: {
+    nenhum: { estado: CONECTADO, erro: null },
+    SERVICO_INDISPONIVEL: { estado: CONECTADO, erro: ERROR_TEXTS.SERVICO_INDISPONIVEL },
+    LIMITE_DE_TAXA: { estado: CONECTADO, erro: LIMITE_DA_SESSAO },
+  },
+  desconectado: {
+    nenhum: { estado: ENTRE, erro: null },
+    NAO_AUTENTICADO: { estado: ENTRE, erro: ERROR_TEXTS.NAO_AUTENTICADO },
+    SERVICO_INDISPONIVEL: { estado: ENTRE, erro: ERROR_TEXTS.SERVICO_INDISPONIVEL },
+    LIMITE_DE_TAXA: { estado: ENTRE, erro: LIMITE_DA_SESSAO },
+    ERRO_INTERNO: { estado: ENTRE, erro: { titulo: "Algo deu errado do nosso lado.", acao: "Tente de novo. Se continuar, fale com o suporte do Trampo." } },
+  },
+};
+
+/** `{ false, SERVICO_INDISPONIVEL }` depois do clique em "Sair" (D11.5 passo 4), com o botão "Tentar sair de novo". */
+export const LOGOUT_UNCONFIRMED_TEXT: SessionText = {
+  estado: "Você saiu neste navegador, mas o servidor não confirmou o encerramento da sessão. Tente de novo.",
+  erro: null,
+};
+
+/** O "entrando…", estado local do painel (D12). */
+export const SIGNING_IN_TEXT: SessionText = { estado: "Entrando… Conclua o acesso na janela que abriu.", erro: null };
+
+/** O texto da sessão agora; null antes da conexão pronta e da `sessao` do handshake (como o consentimento null). */
+export function describeSession(state: PanelState): SessionText | null {
+  if (state.conexao !== "pronto" || state.sessao === null) return null;
+  if (state.entrandoDesde !== null) return SIGNING_IN_TEXT;
+  if (logoutUnconfirmed(state)) return LOGOUT_UNCONFIRMED_TEXT;
+  return state.sessao.autenticado ? SESSION_TEXTS.conectado[state.sessao.erro ?? "nenhum"] : SESSION_TEXTS.desconectado[state.sessao.erro ?? "nenhum"];
+}
+
+/** Botões, nunca links (D12). Um provedor novo na AUTH_PROVIDERS quebra a compilação até ganhar rótulo. */
+export const SIGN_IN_LABELS: Record<AuthProvider, string> = { github: "Entrar com GitHub", google: "Entrar com Google" };
+
+export const SESSION_ACTION_LABELS: Record<Exclude<AcaoSessao, "entrar"> | "reconectar", string> = {
+  sair: "Sair da conta",
+  tentar_sair: "Tentar sair de novo",
+  reconectar: "Reconectar",
+};
+
+/** Por que o "Analisar" está desabilitado (D12). O `sem_api` é o aviso de hoje (ADR-025 D5). */
+export const ANALYZE_BLOCKED_TEXTS: Record<BloqueioAnalise, string> = {
+  sem_api: "A ligação com o servidor do Trampo ainda não está ativa nesta versão.",
+  sem_consentimento: "Aceite o aviso de envio para analisar a vaga.",
+  sem_sessao: "Entre com a sua conta para analisar a vaga.",
 };
 
 function plural(n: number, singular: string, varios: string): string {

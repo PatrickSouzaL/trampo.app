@@ -5,6 +5,7 @@ import type { ApiError } from "@trampo/contracts/api";
 
 import type { AnaliseView } from "../../panel/panel-state";
 import {
+  ANALYZE_BLOCKED_TEXTS,
   DECISION_PATH_LABELS,
   DIMENSION_LABELS,
   ERROR_TEXTS,
@@ -20,7 +21,7 @@ import {
 } from "../../panel/texts";
 
 /** Enquanto a API não está ligada (F1-EXT-04 parte 2), os botões de envio ficam desabilitados. */
-export const SEM_API = "A ligação com o servidor do Trampo ainda não está ativa nesta versão.";
+export const SEM_API = ANALYZE_BLOCKED_TEXTS.sem_api;
 
 export function Consent({ onAccept }: { onAccept: () => void }) {
   return (

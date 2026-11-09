@@ -6,7 +6,7 @@
 useDefault = true
 
 [[allowlists]]
-description = "Fixtures falsas dos testes da API (tokens JWS montados à mão, chave secret fictícia e prefixo legado)"
+description = "Fixtures falsas dos testes da API (tokens JWS montados à mão, chave secret fictícia e prefixo legado) e da extensão (canário de chave)"
 regexes = [
   # JWS falsos: cabeçalho, carga de teste e assinatura "c2lnbmF0dXJh" / "b3V0cmE" / "canario-assinatura".
   '''^eyJhbGciOiJFUzI1NiJ9\.eyJzdWIiOiJhIn0\.c2lnbmF0dXJh$''',
@@ -19,6 +19,9 @@ regexes = [
   '''^sb_secret_AbC123-teste_xyz$''',
   '''^sb_secret_vazada-123$''',
   '''^6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f$''',
+  # Canário da extensão (apps/extension/test/manifest.test.ts, commit cd141d2): base64 de "CANARIO-nao-e-chave", que o
+  # build recusa como chave SPKI. Hoje o teste o monta em tempo de execução; a liberação cobre o histórico.
+  '''^Q0FOQVJJTy1uYW8tZS1jaGF2ZQ==$''',
 ]
 
 # Regras próprias (ADR-004 §4.8 e D9; emenda do 07h no ADR-019). O gitleaks não junta regex e caminho com "ou",

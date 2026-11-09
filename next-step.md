@@ -1,44 +1,36 @@
-# Próximo passo: F1-EXT-05a (Service Worker e manifesto da autenticação) numa sessão nova
+# Próximo passo: F1-EXT-05b, commit 05b-3 (botões, "Reconectar" e E2E do painel), numa sessão nova
 
-> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. Não há HITL aberto para a trilha.
+> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. Nenhum HITL bloqueia a trilha: o HITL-037 (push e PR) corre em paralelo.
 
-## O que acabou de ser entregue (2026-11-07, sessão 7)
+## O que acabou de ser entregue (2026-11-09, sessão 14)
 
-### F1-API-07, commit 07h (`4efd96c`): contrato no job `db` e regra do gitleaks
-- **Pilha local espelhando a produção:**
-  - `supabase/config.toml` com `jwt_expiry = 900` e `signing_keys_path = "./signing_keys.json"`;
-  - a chave ES256 nasce no próprio job `db`, antes do `supabase start` (`apps/api/test/db/support/write-signing-key.ts`: JWK P-256 com `kid` aleatório, `wx` e modo 0600, só com o nome `signing_keys.json`). Nunca versionada: `.gitignore` e regra do gitleaks;
-  - o `@trampo/ci-policy` prende a ordem "chave antes do start", o `config.toml` (900 s, chave, rotação, reuso de 10 s, limites 150 e 30) e o `.gitignore`.
-- **Contrato** (`apps/api/test/db/auth-contract.db.test.ts`, só no job `db`):
-  - o token sai com `alg` ES256 e o `kid` do job, e o JWKS público não tem `d` nem `k`;
-  - `expires_in` 900 e `exp − iat` 900 no `JoseAccessTokenVerifier` real;
-  - `password` só com `NODE_ENV=test`; com `AUTH_ALLOWED_AMR=oauth`, **401 pela borda real** (`createAuthHook`);
-  - o `GotrueTokenClient` real renova e faz logout; P10 (o pai do ativo devolve o ativo, antes e depois de 10 s; o ancestral revoga a cadeia) e P11 (o logout global derruba o refresh de todas as sessões do usuário, e não as de outro);
-  - `pkce` com código desconhecido é `recusado` (404 com o corpo do GoTrue).
-- **Achado, corrigido no adapter:** o GoTrue real responde **403 `session_not_found`** ao logout repetido, não 401. Só esse `error_code` exato vira sessão encerrada (204, D7 idempotente); o `bad_jwt` e o resto do 403 seguem `recusado`. O GoTrue simulado agora responde como o real.
-- **Balde do `pkce` e do `/logout` (D8 item 5), pelo código-fonte do GoTrue:**
-  - o `pkce` cai no balde `Token`, o mesmo da renovação, e não no `sign_in_sign_ups`; o `/logout` não tem limitador;
-  - o balde `Token` tem **rajada fixa de 30**. O orçamento do 07e deixa passar 74 numa rajada: isso virou o **07j** (teto de rajada de 15 no `GotrueEgress`);
-  - o limitador só roda com cabeçalho de IP configurado, e a CLI local provavelmente não configura nenhum;
-  - a sonda (`apps/api/test/db/auth-rate-limit.db.test.ts`, último grupo do `test:db`) descobre o modo no GoTrue local e, se ativo, confere os baldes. Em modo inativo, o balde do projeto real fica pelo código-fonte e pelo P19.
-- **Gitleaks:** `trampo-auth-seal-keys` (atribuição ao `AUTH_REFRESH_SEAL_KEYS` com material de chave literal, inclusive com o valor na linha de baixo do YAML) e `trampo-auth-seal-keys-files` (`.pem` e `signing_keys.json` pelo caminho), sem allowlist própria. O `@trampo/ci-policy` tem um leitor estrito do `.gitleaks.toml` (regex lida igual pelo RE2 e pelo V8) e varre a árvore versionada no `pnpm test`.
+### F1-EXT-05b: commit 05b-2 (`c61f50d`), estado e textos da sessão
+- **Partição** (ADR-004 §6.3 item 4): 05b-1 ✅ (`abafafb`) → **05b-2 ✅** (`c61f50d`) → 05b-3 (botões, "Reconectar" e E2E do painel). O `[APPSEC]` não vetou. A condição 3 ("Reconectar" só por ação do usuário) já vale na lógica; o clique em si é do 05b-3.
+- **`src/panel/panel-state.ts`**, em lógica pura e sem mensagem nova na porta:
+  - estado local `entrandoDesde` e `pediuSair`, e as ações `entrar { agora }`, `sair`, `tique { agora }` e `reconectar`. O relógio entra como dado da ação, e o redutor segue puro;
+  - o "entrando" desliga na próxima `sessao` ou no teto de 310 s (`ENTRANDO_TETO_MS`, preso por teste ao `loginDeadlineMs` + 10 s), e também com o relógio que volta (falha segura);
+  - `logoutUnconfirmed`: o texto da falha remota e o "Tentar sair de novo" só depois do clique em "Sair". Uma sessão autenticada encerra o pedido;
+  - `sessionActions`: os botões que a tela oferece. O redutor ignora o clique que não está ali;
+  - `canReconnect`: só com `porta_fechada`. O "Reconectar" volta ao estado inicial; `resposta_invalida` continua definitiva;
+  - `analyzeBlock(api, { consentimento, sessao })`: `sem_api`, `sem_consentimento` ou `sem_sessao`. O `api` vem do App e fica `false` até a F1-EXT-04 parte 2.
+- **`src/panel/texts.ts`:**
+  - `SESSION_TEXTS` exaustivo por `{ autenticado, erro }`, o texto do "Sair" sem confirmação, o "entrando", os rótulos dos botões por provedor e os motivos do portão;
+  - dois desvios do D12, registrados como emenda: o `ERRO_INTERNO` sem pedir o código do pedido, e o `LIMITE_DE_TAXA` com texto próprio (o do `ERROR_TEXTS` fala de análises);
+  - o `SEM_API` do `Analysis.tsx` passou a vir daqui (a única linha de `.tsx` do commit).
 - **Prova local:**
-  - API de 3.518 para 3.553 testes e `ci-policy` com 258, as duas com 100% nas 4 métricas;
-  - mutação dirigida: 57 mutantes, 56 mortos e 1 equivalente (a flag solta `(?i)`, que o V8 já recusa). Quatro sobreviventes da 1ª rodada viraram testes;
-  - turbo 21/21 em série na 1ª rodada; depcruise sem violações (480 módulos).
-- **CI verde no PR #17** (a estação não tem o *daemon* do Docker, e o download do binário do gitleaks foi negado, então o contrato, a sonda e o gitleaks rodaram só lá):
-  - run `42397764768` (`4efd96c`): 71 dos 72 casos do `test:db` passaram contra o GoTrue real, inclusive o P10, o P11 e o logout repetido com 403. O caso "pela borda real" falhou por erro do teste (Fastify mínimo, 500), corrigido em `316da68` com o `buildApp`;
-  - run `42398183789` (`316da68`): `secrets` (regras novas no histórico inteiro, sem achado), `db` (72/72, cobertura de 100%), `test` e `quality` verdes;
-  - a sonda mediu o **limitador inativo** no GoTrue local nos dois runs, e o `groupOrder` não segurou a ordem dos grupos: a sonda agora devolve o balde cheio ao terminar, em modo ativo.
-- **Remoto:** o branch tinha o `47db338` (agente Copilot), que libera na allowlist do gitleaks um UUID de fixture falsa; o `[APPSEC]` aceitou, e os commits locais entraram por *rebase* (o 07h passou de `7962d4f` a `4efd96c`).
-- **Cofre:** ADR-004 §4.3, §4.8, D7 e D8 item 5 ("Emenda do 07h") e a marca no §6.3; ADR-019 §3.4 novo; runbook `auth-extensao` §1.6 novo; STATE, BACKLOG e SESSION-LOG, com backups no scratchpad.
+  - extensão de 1203 para 1255 testes, 100% nas 4 métricas;
+  - teste de invariante: uma busca em largura por todos os estados alcançáveis;
+  - mutação 64/65 na 2ª rodada (`mut05b2.py`, catálogo no SESSION-LOG). Na 1ª, os 3 sobreviventes eram equivalentes: 2 conferências redundantes saíram do código, e o 3º ficou provado pelo teste de invariante;
+  - E2E 49/49 no Edge; turbo 21/21 em série, sem cache; depcruise sem violações (509 módulos).
+- **Cofre:** ADR-004 D12 e §6.3 item 4 ("Emenda do 05b-2"), ADR-025 D3, STATE, BACKLOG (F1-EXT-05) e SESSION-LOG. **Runbook novo `publicar-branch-pr` e HITL-037**, a seu pedido. Os backups estão no scratchpad.
 - Nada chamou o Supabase real nem provedor de LLM.
 
 ### Pendências do humano
-- Nenhum HITL aberto para as trilhas.
+- **HITL-037 (não bloqueia nenhuma trilha): falta só o merge do PR #18.** O push e o PR #18 foram feitos por você. O job `secrets` falhou com um falso positivo (o canário base64 de `CANARIO-nao-e-chave` no `manifest.test.ts`, que entrou no `cd141d2`), corrigido no `56c6612` com o push autorizado (ADR-019 D6, "Emenda"). Os 4 checks ficaram verdes no run `42624571844`. Mergeie com merge commit, sem apagar o branch (runbook `../base/03-infra-runbook/publicar-branch-pr.md` §6).
+- **Push:** o GitHub está em dia com o local, inclusive este arquivo. Na próxima sessão, o push volta a exigir autorização no prompt.
 - **Vale desde o 07h:** quem rodar `supabase start` na estação precisa gerar a chave antes, com `node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json` na raiz do `trampo.app` (runbook `auth-extensao` §1.6). Sem o arquivo, o `start` não sobe.
 - **Vale desde o 07g:** fora de `NODE_ENV=test`, a API só sobe com `API_BEHIND_PROXY=false` (junto com `TRUST_PROXY=false`) e o anel `AUTH_REFRESH_SEAL_KEYS` e `AUTH_REFRESH_SEAL_ACTIVE_KEY` no `apps/api/.env` (runbook `auth-extensao` §1.5).
-- Push autorizado nesta sessão e feito: o `spike/s1-extraction` está no `origin` com o 07h, a correção e este arquivo.
+- **Vale desde o 05a-4:** o build da extensão com login precisa de `TRAMPO_API_ORIGIN`, `TRAMPO_SUPABASE_ORIGIN` e, para o ID fixo, `TRAMPO_EXTENSION_KEY` (a chave pública em SPKI base64). Sem as duas origens, o "Entrar" dá erro interno. Nenhum valor vai ao cofre.
 - **Antes de cada push:** `git fetch` e confira `HEAD..origin/spike/s1-extraction`. O branch pode receber commits no GitHub entre sessões.
 
 ---
@@ -49,14 +41,14 @@
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **F1-EXT-05a → F1-EXT-05b → F1-EXT-05c → F1-SEC-01** (**próxima: F1-EXT-05a**) | Resto do ADR-004, uma trilha por vez: Service Worker e manifesto (com `auth` no `CONTRACTS_ALLOWED` e o painel proibido de importá-lo), painel, E2E com IdP falso e threat model v2 | não | nada para a F1-EXT-05a (o 07h a liberou); as seguintes esperam a anterior |
-| **F1-API-07 (07i e 07j)** | BFF do ADR-004 (D4 a D8), na partição do ADR-004 §6.3. Feitos: 07a (`c51b809`), 07b (`905d85f`), 07c (`86fe1ef`), 07d (`7e6c5d5`), 07e (`ac3c2c7`), 07f (`e1af5d0`), 07g (`b516fd0`) e 07h (`4efd96c`). Faltam, um commit por vez: **07i** métricas `auth_*_total` do D8 item 7 na porta `Telemetry`; **07j** teto de rajada de 15 (reposição de 0,25 por segundo) no `GotrueEgress`, somado às janelas de hoje (o balde `Token` do GoTrue tem rajada fixa de 30; ADR-004 D8 item 5, "Emenda do 07h") | não | nada; nenhum dos dois bloqueia a F1-EXT-05a |
+| **F1-EXT-05b → F1-EXT-05c → F1-SEC-01** (**próximo: 05b-3**) | Resto do ADR-004, uma trilha por vez. A F1-EXT-05a foi concluída (`78be3f2`, `ec9c915`, `db98323` e `cd141d2`). **05b**, em 3 commits (ADR-004 §6.3 item 4): 05b-1 ✅ `abafafb` (isolamento e handshake) e 05b-2 ✅ `c61f50d` (estado e textos da sessão, em lógica pura). **05b-3**, no React: os botões do `sessionActions` ("Entrar com GitHub", "Entrar com Google", "Sair da conta", "Tentar sair de novo"), o texto do `describeSession`, o "Analisar" pelo `analyzeBlock`, o relógio e o tique do "entrando", e o "Reconectar" (novo `runtime.connect` e novo `hello`, só por clique); o E2E do painel com a porta falsa e o E2E local inteiro (CA-16); a emenda do ADR-025 D4 e D5. Com ele, a F1-EXT-05b fecha. **05c**: E2E com IdP falso (com a prova em runtime do P3) e as provas negativas. **SEC-01**: threat model v2 | não | nada para o 05b-3; as trilhas seguintes esperam a anterior |
+| **F1-EXT-04 parte 2 (envio à API)** | Nova, liberada pela F1-EXT-05a (a Trilha A já tinha sido feita): portão do `consent.isGranted()` e da sessão, `accessToken()` e `onUnauthorized(1 \| 2)` do `auth-service`, SSE, `source` com `platform` e `extractorVersion`, botões habilitados. O prazo, o teto e o leitor do `/v1/analyze` se decidem aqui (ponto aberto do 05a-2) | não, se os testes usarem a API falsa | mexe na porta e no painel como a 05b: entra depois dela, numa sessão própria |
+| **F1-API-07 (07i e 07j)** | BFF do ADR-004 (D4 a D8), na partição do ADR-004 §6.3. Feitos: 07a (`c51b809`), 07b (`905d85f`), 07c (`86fe1ef`), 07d (`7e6c5d5`), 07e (`ac3c2c7`), 07f (`e1af5d0`), 07g (`b516fd0`) e 07h (`4efd96c`). Faltam, um commit por vez: **07i** métricas `auth_*_total` do D8 item 7 na porta `Telemetry`; **07j** teto de rajada de 15 (reposição de 0,25 por segundo) no `GotrueEgress`, somado às janelas de hoje (o balde `Token` do GoTrue tem rajada fixa de 30; ADR-004 D8 item 5, "Emenda do 07h") | não | nada; nenhum dos dois bloqueia as F1-EXT-05x |
 | **F1-DB-02** | Custom Access Token Hook por migration (ADR-004 D5): recusa com 403 a sessão com mais de 24 h, grants mínimos e `test:db` da recusa na emissão e na renovação. Depois, HITL de aplicação no projeto real (molde do HITL-023) | não | nada; o P18 (CA-15) depende dela, mesmo com o ADR-004 aceito por sobreposição do veto |
 
 **O que vem depois:**
 - **Balde do projeto real:** o GoTrue local não aplica o limite por IP, então a sonda só prova o modo. O balde do `pkce` e do `/logout` no projeto real fica para o spike S-3 (P19), pelo código-fonte até lá.
-- **07i e 07j:** entram antes ou depois da F1-EXT-05a, à escolha do `[ORCHESTRATOR]`, cada um numa sessão própria.
-- **F1-EXT-05a concluída:** o envio à API (F1-EXT-04 parte 2) vira trilha.
+- **07i e 07j:** entram entre as trilhas da extensão, à escolha do `[ORCHESTRATOR]`, cada um numa sessão própria.
 - **F1-DB-02 concluída:** abre o HITL de aplicação do hook.
 - **Spike S-3 completo (P1 a P20):** depois das F1-EXT-05x e da F1-DB-02. Depois dele, o fechamento do F1-EXT-05 pelos CAs do §4.10. O ADR-004 já está `aceito` por sobreposição do veto, mas o P3 e o P18 seguem obrigatórios. O **P9** confirma o formato real do `amr` (hoje só a lista de objetos do GoTrue passa).
 - **S-5 (troca do Site URL, ADR-004 D15):** a página estática fica pronta antes, numa origem própria. Depois, o humano refaz pelo runbook `auth-extensao` §3 os casos A com `-ComState` (P5), E, F (anotando o `caminho`) e G. Se o `st` deixar de voltar, vale a Q6; se um código chegar a host fora da lista, vale o veto do `[APPSEC]`. O S-5 também traz as faixas da Cloudflare para o `TRUST_PROXY` (com `API_BEHIND_PROXY=true`) e o exportador de métricas.
@@ -103,17 +95,52 @@
 14. **Job `db` e gitleaks (07h):**
     - o `test:db` tem dois grupos; teste novo que esvazie um balde do GoTrue vai para o grupo `db-limite`, depois do resto;
     - fixture com material de chave do refresh é montada em tempo de execução (`${...}` no meio): a regra `trampo-auth-seal-keys` pega `AUTH_REFRESH_SEAL_KEYS` seguido de `kid:` e 32+ caracteres, também na linha de baixo. Nenhum `.pem` nem `signing_keys.json` entra no git;
-    - regra nova no `.gitleaks.toml` passa pelo leitor do `@trampo/ci-policy`, que recusa allowlist, `entropy` e chave desconhecida dentro de uma regra própria.
+    - regra nova no `.gitleaks.toml` passa pelo leitor do `@trampo/ci-policy`, que recusa allowlist, `entropy` e chave desconhecida dentro de uma regra própria. A lista **global** aceita só valor exato, falso e ancorado, com revisão do `[APPSEC]` (ADR-019 D6);
+    - **fixture com cara de chave** (base64 ou texto longo ao lado de `KEY`, `TOKEN` ou `SECRET`) é montada em tempo de execução **desde o 1º commit**. O CI só roda no PR, e o gitleaks varre o *patch* de cada commit: um achado já publicado só sai pela lista de valor exato (incidente do PR #18). Antes do push, vale rodar o gitleaks 8.30.1 conferido (release oficial, `checksums.txt`) com o comando do job `secrets` e `-v`.
+15. **Auth na extensão (05a-1):**
+    - o `@trampo/contracts/auth` só entra em `src/auth`, `src/api` e `test/` (lint e depcruise). O `background.ts` também fica de fora: ele só importa `src/auth`. Constante que o painel precisa (como `AUTH_PROVIDERS`) vai para o `protocol.ts`, nunca para `src/auth`;
+    - quem mexer no `parseAuthRedirect`, no `pkce.ts` ou no `authorize-url.ts` roda de novo o `mut05a1.py` (scratchpad da sessão 8; catálogo no SESSION-LOG). O retorno é dado hostil: nenhum texto dele vai a log ou ao painel;
+    - regra nova de depcruise na extensão ganha prova negativa por fixture temporária, com o hash dos arquivos restaurados conferido.
+16. **Sessão guardada e `api-client` (05a-2):**
+    - a sessão só é lida e gravada pelo `authSessionStore` (`src/auth/session-schema.ts`). Quem mexer no `StoredSessionSchema` ou no `api-client` roda de novo o `mut05a2.py` (scratchpad da sessão 9; catálogo no SESSION-LOG);
+    - toda chamada à API sai pelo `createApiClient(...).post`, que nunca rejeita. Rota nova entra no `Map` do `api-client` com o Bearer, o schema e o teto, e ganha teste de "caminho fora" com os corpos válidos das outras rotas (o M-07a da 1ª rodada só morreu assim);
+    - no 05a-3, o D11.3 lê `sem_resposta` como "sem resposta HTTP" (uma nova tentativa sequencial em 2 s) e `resposta_ilegivel` como resposta HTTP (sem nova tentativa). O corpo volta em texto: o `auth-service` valida com o `AuthSessionResponseSchema` e o `ApiErrorSchema`;
+    - `fetch` fora do `api-client` derruba o lint, inclusive por `globalThis.fetch` e por desestruturação.
+17. **`auth-service` (05a-3):**
+    - quem mexer no `auth-service.ts` ou no `auth-code-source.ts` roda de novo o `mut05a3.py` (scratchpad da sessão 10; catálogo no SESSION-LOG) e mantém um teste `D12 | …` por linha do SW na tabela (CA-14);
+    - o 401 só apaga a sessão com o `ApiError` `NAO_AUTENTICADO` da API. Nunca ligue o "apagar" a um status sozinho (T30);
+    - os testes do `auth-service` usam um crypto determinístico: o `crypto.subtle` real do Node resolve fora das microtarefas e deixa os testes de corrida intermitentes.
+18. **SW e manifesto (05a-4):**
+    - quem mexer no `web-auth-flow-source.ts`, no `worker-auth.ts`, no `build-env.ts`, no `wxt.config.ts` ou no bloco B2 do `eslint.config.js` roda de novo o `mut05a4.py` (scratchpad da sessão 11; catálogo no SESSION-LOG);
+    - o `browser.identity` só existe no adapter. A contingência C1 do D14 (relay pelo painel) pediria exceção escrita ao lint e HITL próprio;
+    - as regras `no-restricted-*` do `eslint.config.js` não se acumulam entre blocos: cada bloco do B2 repete a lista inteira com a sua exceção. Regra nova entra no `workerRules`/`workerSelectors` e ganha fixture em `test/worker-modules-lint.test.ts`;
+    - permissão nova ou variável de build nova passa pelo `manifest.test.ts`, que faz os dois builds próprios (fechado e completo). Nenhuma chave entra no git: o teste gera a sua;
+    - desde o 05b-1, o `createWorkerAuth` liga o `emit` ao canal da sessão e devolve o `attach(port)`; o `view()` não sai da composição.
+19. **Painel e sessão (05b-1):**
+    - quem mexer na sessão ou nas mensagens do `protocol.ts`, no `session-channel.ts`, no `worker-port.ts`, no `panel-csp.ts`, no bloco B1 do `eslint.config.js` ou no fecho do `manifest.test.ts` roda de novo o `mut05b1.py` (scratchpad da sessão 13; catálogo no SESSION-LOG). Os mutantes BG-01 a BG-03 rodam pelo E2E e pedem o Edge;
+    - a `SessaoView` só sai do SW pelo `toSessaoView`, no canal da sessão. Campo novo nela, ou texto livre numa mensagem nova, passa pelo `[APPSEC]` (B6);
+    - o bloco B1 repete as listas do B2. Regra nova do painel entra no `panelRules` e ganha fixture em `test/worker-modules-lint.test.ts`, nos 3 caminhos do painel;
+    - a meta do B4 só sai no `mode` `production`. Uma página HTML nova na extensão recebe a meta pelo mesmo plugin, e o `manifest.test.ts` hoje exige que o `sidepanel.html` seja a única página;
+    - o `panel-state` já guarda a `sessao`, e o 05b-2 acrescentou o resto da lógica da sessão (item 20);
+    - a cópia de trabalho mistura CRLF e LF (`core.autocrlf`). Script com trecho multilinha segue o fim de linha de cada arquivo, contado por Python, porque o Git Bash esconde o CR.
+20. **Estado e textos da sessão (05b-2):**
+    - quem mexer na sessão do `panel-state.ts` ou do `texts.ts` roda de novo o `mut05b2.py` (scratchpad da sessão 14; catálogo no SESSION-LOG). Ação nova do redutor entra também na lista do teste de invariante (a busca em largura do `panel-session.test.ts`), que prova que o "entrando" e o `pediuSair` nunca valem juntos;
+    - o `ENTRANDO_TETO_MS` fica preso ao `loginDeadlineMs` + 10 s por teste: mudar o prazo do login no SW muda os dois;
+    - o redutor ignora o clique que a tela não oferece. No 05b-3, o App renderiza só os botões do `sessionActions` e só posta a mensagem no clique de um botão visível. O `agora` vem do relógio do App, e o tique vem de um *timer* armado enquanto o `entrandoDesde` não for `null`;
+    - o "Reconectar" volta ao `INITIAL_PANEL_STATE`. O App abre uma porta nova, manda um `hello` novo e ignora a porta antiga, que já caiu. Nenhum laço automático (condição 3 do `[APPSEC]`);
+    - o texto da `porta_fechada` no `describeConnection` ainda diz "Feche e abra o painel de novo": o 05b-3 troca o texto junto com o botão "Reconectar";
+    - o `api` do `analyzeBlock` é `false` até a F1-EXT-04 parte 2. Só o SW sabe da origem da API, então a fonte do `api` passa pelo `[APPSEC]` (B6);
+    - texto novo da sessão passa pelo teste de "nenhum link, nenhum `<` ou `>`" e, se aparecer com a sessão aberta, pelo de "nenhuma conta nem provedor".
 
 ---
 
 ## Próximo prompt (sessão nova)
 
 ```text
-Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05a (Service Worker e manifesto da autenticação, ADR-004 §6.3 item 3), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt.
+Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05b, commit 05b-3 (botões, "Reconectar" e E2E do painel; ADR-004 §6.3 item 4), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt (HITL-037).
 
-1. [ORCHESTRATOR]: leiam o STATE.md (bloco "HITL-036 fechado e Trilha F1-API-07 em andamento", com o 07h e o CI verde do run 42398183789) e rodem git fetch para ver se o branch recebeu commits no GitHub. Leiam o ADR-004: D3, D9 a D13, §4.1, §4.5, §4.6, §4.8 e §4.10 (CA-01 e o P3), e os ADR-024 e ADR-025 na parte do Service Worker e do painel.
-2. [ARCHITECT] + [APPSEC]: desenhem a F1-EXT-05a: src/auth/** e src/api/api-client.ts no Service Worker (fluxo do D3 com launchWebAuthFlow, PKCE S256, state, storage.session, renovação sem paralelo e logout local primeiro), manifesto (identity e key, D13), auth no CONTRACTS_ALLOWED só para o SW, lint B2 e depcruise que proíbem o painel e o extrator de importar src/auth. O token nunca sai do SW (D10).
-3. [DEV] + [QA_EVALS]: TDD com 100% de cobertura em apps/extension/src/{auth,api}/**, mutação dirigida, manifest.test.ts e o grep do artefato. Turbo em série e depcruise. Ao fim, avaliem o peso da sessão: se leve, sigam para o 07i ou o 07j (um só); se pesada, parem e reciclem (AGENTS §4.4).
-4. [SCRIBE]: atualizem o STATE a cada commit. No fim, SESSION-LOG, BACKLOG e o next-step mantendo a tabela de trilhas. Commit atômico; push só se autorizado.
+1. [ORCHESTRATOR]: leiam o STATE.md (bloco "Trilha F1-EXT-05b", com o 05b-2 concluído em c61f50d) e rodem git fetch para ver se o branch recebeu commits no GitHub. Leiam o ADR-004 D12 ("UI", "Emenda do 05b-1" e "Emenda do 05b-2"), a CA-16, o §6.3 item 4 e o ADR-025 D3 a D6.
+2. [ARCHITECT] + [APPSEC]: desenhem o 05b-3 no React, sem lógica nova fora do src/panel: os botões saem do sessionActions, o texto do describeSession, o "Analisar" do analyzeBlock (api false), o relógio e o tique do "entrando", e o "Reconectar" (novo runtime.connect e novo hello, só por clique, ignorando a porta antiga), com o texto da porta_fechada trocado junto. Condição 3 do [APPSEC]: nenhum laço automático.
+3. [DEV] + [QA_EVALS]: E2E do painel com a porta falsa (mensagens exatas enviadas, o texto de cada SessaoView, o "entrando", o "Tentar sair de novo" e o "Reconectar" refazendo o handshake), o E2E local inteiro (CA-16: navegador, versão, modo do P20 e contagens no SESSION-LOG), 100% de cobertura na lógica, mutação dirigida do que couber, turbo em série e depcruise. Emenda do ADR-025 D4 e D5. Com o commit, a F1-EXT-05b fecha: avaliem o peso da sessão antes de seguir para a F1-EXT-05c (AGENTS §4.4).
+4. [SCRIBE]: atualizem o STATE a cada commit. No fim, atualizem o SESSION-LOG, o BACKLOG e o next-step, mantendo a tabela de trilhas. Commit atômico; push só se autorizado.
 ```

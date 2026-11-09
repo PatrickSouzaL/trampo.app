@@ -1,7 +1,7 @@
 // Contrato PRIVADO da extensão entre o Side Panel e o Service Worker (F1-EXT-02).
 // Fica fora do @trampo/contracts porque não cruza a rede. Estrito dos dois lados: chave extra,
 // tipo desconhecido ou versão errada derrubam a porta (SR-10).
-import { AnalysisStreamEventSchema } from "@trampo/contracts/api";
+import { AnalysisStreamEventSchema, ApiErrorCodeSchema } from "@trampo/contracts/api";
 import { JOB_TEXT_MAX_CHARS } from "@trampo/contracts/limits";
 import { z } from "zod";
 
@@ -25,6 +25,46 @@ export const PASTE_MAX_UTF16 = 2 * JOB_TEXT_MAX_CHARS;
  */
 export const CONSENT_VERSION = "aviso-1";
 
+/**
+ * Provedores do login (HITL-004; ADR-004 D2 e D12): só GitHub e Google. Fica aqui, e não em src/auth,
+ * porque o painel também precisa da lista e nunca importa src/auth (ADR-004 D10 B3).
+ */
+export const AUTH_PROVIDERS = ["github", "google"] as const;
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+
+/** Os códigos do catálogo do ADR-025 que a sessão usa (ADR-004 D12). Nenhum código privado novo. */
+export const SessaoErroSchema = ApiErrorCodeSchema.extract(["NAO_AUTENTICADO", "SERVICO_INDISPONIVEL", "LIMITE_DE_TAXA", "ERRO_INTERNO"]);
+export type SessaoErro = z.infer<typeof SessaoErroSchema>;
+
+/**
+ * Visão da sessão no painel (ADR-004 D10 B6 e D12): um booleano e um código do catálogo, nunca token, claim,
+ * e-mail, `sub`, expiração nem `session_id`. A união proíbe `{ autenticado: true, erro: "NAO_AUTENTICADO" }`
+ * (e `ERRO_INTERNO`) em tempo de compilação; o `refine` do schema proíbe o mesmo em tempo de execução (M-08).
+ */
+export type SessaoView =
+  | { readonly autenticado: true; readonly erro: Extract<SessaoErro, "SERVICO_INDISPONIVEL" | "LIMITE_DE_TAXA"> | null }
+  | { readonly autenticado: false; readonly erro: SessaoErro | null };
+
+/** Com sessão, só um erro transitório da renovação (D11.3). A guarda de tipo faz a saída do schema ser a união. */
+function sessaoCoerente(view: { readonly autenticado: boolean; readonly erro: SessaoErro | null }): view is SessaoView {
+  return !view.autenticado || view.erro === null || view.erro === "SERVICO_INDISPONIVEL" || view.erro === "LIMITE_DE_TAXA";
+}
+
+/** Estrito: chave extra derruba a porta nos dois sentidos (SR-10). */
+export const SessaoViewSchema = z.strictObject({ autenticado: z.boolean(), erro: SessaoErroSchema.nullable() }).refine(sessaoCoerente);
+
+const SESSAO_FALHA_INTERNA: SessaoView = { autenticado: false, erro: "ERRO_INTERNO" };
+
+/**
+ * A única saída da sessão para o painel: copia só `autenticado` e `erro` e revalida a cópia. Um objeto com
+ * campo a mais (um espalhamento da sessão guardada, por exemplo) nunca sai como veio; um valor fora do schema
+ * vira `{ false, ERRO_INTERNO }`, sem eco do que chegou.
+ */
+export function toSessaoView(view: SessaoView): SessaoView {
+  const parsed = SessaoViewSchema.safeParse({ autenticado: view.autenticado, erro: view.erro });
+  return parsed.success ? parsed.data : SESSAO_FALHA_INTERNA;
+}
+
 export const PanelToWorkerSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("hello"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
   // Fallback "colar o texto" (ADR-001 D10; ADR-024 D5). O texto é dado, nunca comando.
@@ -32,6 +72,9 @@ export const PanelToWorkerSchema = z.discriminatedUnion("kind", [
   // Consentimento antes da 1ª transmissão (ADR-025 D2). Só a versão do aviso que o painel mostrou.
   z.strictObject({ kind: z.literal("consentir"), versao: z.literal(CONSENT_VERSION) }),
   z.strictObject({ kind: z.literal("revogar") }),
+  // Sessão (ADR-004 D12): o painel só pede. O login, o token e o logout vivem no Service Worker.
+  z.strictObject({ kind: z.literal("entrar"), provedor: z.enum(AUTH_PROVIDERS) }),
+  z.strictObject({ kind: z.literal("sair") }),
 ]);
 export type PanelToWorker = z.infer<typeof PanelToWorkerSchema>;
 
@@ -56,6 +99,8 @@ export const WorkerToPanelSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ready"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
   z.strictObject({ kind: z.literal("captura"), captura: CaptureViewSchema }),
   z.strictObject({ kind: z.literal("consentimento"), dado: z.boolean() }),
+  // Último do handshake ([ready, captura, consentimento, sessao]) e reemitida a cada mudança (ADR-004 D12).
+  z.strictObject({ kind: z.literal("sessao"), sessao: SessaoViewSchema }),
   // O que o painel renderiza vem do contrato público e é revalidado antes de qualquer render.
   z.strictObject({ kind: z.literal("stream"), event: AnalysisStreamEventSchema }),
 ]);

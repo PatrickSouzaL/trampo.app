@@ -1,11 +1,12 @@
 // F1-EXT-04 parte 1 (ADR-025 D3 e D4): o estado do painel muda só com mensagens do contrato, a queda é
-// definitiva, e cada enum do contrato tem texto. O React em si é provado no E2E de produção.
+// definitiva, e cada enum do contrato tem texto. O React em si é provado no E2E de produção. F1-EXT-05b, 05b-1
+// (ADR-004 D12): a SessaoView chega no fim do handshake e a cada mudança.
 import { AnalysisReportSchema, AnalysisWarningSchema, DecisionPathSchema, DimensionOutcomeSchema, ScoreDimensionSchema, VerdictSchema } from "@trampo/contracts/analysis-report";
 import { AnalysisStageSchema, ApiErrorCodeSchema } from "@trampo/contracts/api";
 import { containsUrlLike } from "@trampo/contracts/primitives";
 import { describe, expect, test } from "vitest";
 
-import type { CaptureView, WorkerToPanel } from "../src/messaging/protocol";
+import type { CaptureView, SessaoView, WorkerToPanel } from "../src/messaging/protocol";
 import { INITIAL_PANEL_STATE, parseWorkerMessage, reducePanel, type PanelAction, type PanelState } from "../src/panel/panel-state";
 import {
   DECISION_PATH_LABELS,
@@ -34,6 +35,7 @@ const run = (...actions: PanelAction[]): PanelState => actions.reduce(reducePane
 const ready = msg({ kind: "ready", protocolVersion: 1 });
 const captura = (c: CaptureView) => msg({ kind: "captura", captura: c } satisfies WorkerToPanel);
 const pronto: CaptureView = { estado: "pronto", origem: "pagina", caracteres: 900, truncado: false };
+const sessao = (view: SessaoView) => msg({ kind: "sessao", sessao: view } satisfies WorkerToPanel);
 
 describe("fixtures do stream", () => {
   test("o relatório de fixture é válido no contrato, e cada hostil é recusado", () => {
@@ -46,8 +48,31 @@ describe("fixtures do stream", () => {
 });
 
 describe("reducePanel", () => {
-  test("começa conectando, sem captura, sem consentimento conhecido e sem análise", () => {
-    expect(INITIAL_PANEL_STATE).toEqual({ conexao: "conectando", queda: null, captura: { estado: "ocioso" }, consentimento: null, analise: { estado: "nenhuma" } });
+  test("começa conectando, sem captura, sem consentimento nem sessão conhecidos e sem análise", () => {
+    expect(INITIAL_PANEL_STATE).toStrictEqual({
+      conexao: "conectando",
+      queda: null,
+      captura: { estado: "ocioso" },
+      consentimento: null,
+      sessao: null,
+      entrandoDesde: null,
+      pediuSair: false,
+      analise: { estado: "nenhuma" },
+    });
+  });
+
+  test("handshake [ready, captura, consentimento, sessao]: a sessão vem por último e muda a cada emissão", () => {
+    const s = run(ready, captura(pronto), msg({ kind: "consentimento", dado: true }), sessao({ autenticado: false, erro: null }));
+    expect(s).toStrictEqual({ ...INITIAL_PANEL_STATE, conexao: "pronto", captura: pronto, consentimento: true, sessao: { autenticado: false, erro: null } });
+    const logado = reducePanel(s, sessao({ autenticado: true, erro: null }));
+    expect(logado.sessao).toStrictEqual({ autenticado: true, erro: null });
+    expect(reducePanel(logado, sessao({ autenticado: true, erro: "SERVICO_INDISPONIVEL" })).sessao).toStrictEqual({ autenticado: true, erro: "SERVICO_INDISPONIVEL" });
+  });
+
+  test("a sessão não mexe na captura, no consentimento nem na análise mostrada", () => {
+    const antes = run(ready, captura(pronto), msg({ kind: "consentimento", dado: true }), msg(result(REPORT)));
+    const depois = reducePanel(antes, sessao({ autenticado: false, erro: "NAO_AUTENTICADO" }));
+    expect(depois).toStrictEqual({ ...antes, sessao: { autenticado: false, erro: "NAO_AUTENTICADO" } });
   });
 
   test("ready conecta; captura e consentimento vêm do Service Worker", () => {
@@ -83,7 +108,7 @@ describe("reducePanel", () => {
 
   test("depois da queda nada mais muda a tela, nem a queda seguinte", () => {
     const caida = run(ready, { type: "recusada" });
-    for (const action of [ready, msg(result(REPORT)), captura(pronto), { type: "desconectou" } as const]) {
+    for (const action of [ready, msg(result(REPORT)), captura(pronto), sessao({ autenticado: true, erro: null }), { type: "desconectou" } as const]) {
       expect(reducePanel(caida, action)).toBe(caida);
     }
   });
@@ -94,6 +119,13 @@ describe("parseWorkerMessage", () => {
     expect(parseWorkerMessage({ kind: "ready", protocolVersion: 1 })).toEqual({ kind: "ready", protocolVersion: 1 });
     expect(parseWorkerMessage({ kind: "stream", event: { type: "stage", stage: "pontuando", elapsedMs: -1 } })).toBeNull();
     expect(parseWorkerMessage({ kind: "captura", captura: { estado: "pronto", origem: "pagina", caracteres: 1, truncado: false, texto: "vaga" } })).toBeNull();
+  });
+
+  test("sessão com token, e-mail ou incoerente é recusada, e o App derruba a porta (D10 B6)", () => {
+    expect(parseWorkerMessage({ kind: "sessao", sessao: { autenticado: true, erro: null } })).toStrictEqual({ kind: "sessao", sessao: { autenticado: true, erro: null } });
+    expect(parseWorkerMessage({ kind: "sessao", sessao: { autenticado: true, erro: null, token: "CANARIO" } })).toBeNull();
+    expect(parseWorkerMessage({ kind: "sessao", sessao: { autenticado: true, erro: null, email: "pessoa@exemplo.com" } })).toBeNull();
+    expect(parseWorkerMessage({ kind: "sessao", sessao: { autenticado: true, erro: "NAO_AUTENTICADO" } })).toBeNull();
   });
 });
 
