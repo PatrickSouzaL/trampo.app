@@ -308,8 +308,11 @@ describe("Service Worker gerado", () => {
 });
 
 describe("variável fora da forma derruba o build, sem ecoar o valor (§4.6)", () => {
+  // Base64 que não é chave SPKI, montado em tempo de execução: o literal parece chave para o gitleaks
+  // (generic-api-key). O valor exato, que já está no histórico (cd141d2), é liberado no .gitleaks.toml (ADR-019 D6).
+  const CANARIO_BASE64 = Buffer.from("CANARIO-nao-e-chave").toString("base64");
   test.each([
-    ["TRAMPO_EXTENSION_KEY", "Q0FOQVJJTy1uYW8tZS1jaGF2ZQ=="],
+    ["TRAMPO_EXTENSION_KEY", CANARIO_BASE64],
     ["TRAMPO_SUPABASE_ORIGIN", "https://canario.supabase.test/caminho"],
     ["TRAMPO_API_ORIGIN", "http://canario.trampo.test"],
   ])("%s inválida", (name, value) => {
