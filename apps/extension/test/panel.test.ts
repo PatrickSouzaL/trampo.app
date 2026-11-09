@@ -55,6 +55,8 @@ describe("reducePanel", () => {
       captura: { estado: "ocioso" },
       consentimento: null,
       sessao: null,
+      entrandoDesde: null,
+      pediuSair: false,
       analise: { estado: "nenhuma" },
     });
   });
