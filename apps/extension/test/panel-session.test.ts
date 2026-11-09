@@ -10,6 +10,7 @@ import { AUTH_SERVICE_POLICY } from "../src/auth/auth-service";
 import { AUTH_PROVIDERS, SessaoErroSchema, SessaoViewSchema, type SessaoView, type WorkerToPanel } from "../src/messaging/protocol";
 import {
   ENTRANDO_TETO_MS,
+  ENTRANDO_TIQUE_MS,
   INITIAL_PANEL_STATE,
   analyzeBlock,
   canReconnect,
@@ -82,6 +83,11 @@ describe("entrando (ADR-004 D12: liga no clique e desliga na próxima sessao, te
   test("o teto é o prazo do login no SW mais 10 s de folga", () => {
     expect(ENTRANDO_TETO_MS).toBe(310_000);
     expect(ENTRANDO_TETO_MS).toBe(AUTH_SERVICE_POLICY.loginDeadlineMs + 10_000);
+  });
+
+  test("o tique do App é de 1 s: o teto desliga com no máximo 1 s de atraso, dentro da folga de 10 s", () => {
+    expect(ENTRANDO_TIQUE_MS).toBe(1_000);
+    expect(ENTRANDO_TIQUE_MS).toBeLessThan(ENTRANDO_TETO_MS - AUTH_SERVICE_POLICY.loginDeadlineMs);
   });
 
   test("o clique em Entrar liga o entrando com a hora do relógio injetado e esconde os botões", () => {
@@ -230,11 +236,16 @@ describe("Reconectar (ADR-004 D12: só da porta fechada; resposta_invalida conti
     expect(canReconnect(INITIAL_PANEL_STATE)).toBe(false);
   });
 
-  test("Reconectar da porta fechada recomeça do estado inicial, e o handshake novo vale", () => {
+  test("Reconectar da porta fechada recomeça do estado inicial, com a porta da geração seguinte, e o handshake novo vale", () => {
+    expect(INITIAL_PANEL_STATE.geracao).toBe(0);
     const caido = run(pronto(DENTRO), SAIR, { type: "desconectou" });
     const novo = reducePanel(caido, { type: "reconectar" });
-    expect(novo).toStrictEqual(INITIAL_PANEL_STATE);
-    expect(run(novo, msg({ kind: "ready", protocolVersion: 1 }), sessao(DENTRO))).toMatchObject({ conexao: "pronto", sessao: DENTRO, pediuSair: false });
+    expect(novo).toStrictEqual({ ...INITIAL_PANEL_STATE, geracao: 1 });
+    expect(run(novo, msg({ kind: "ready", protocolVersion: 1 }), sessao(DENTRO))).toMatchObject({ geracao: 1, conexao: "pronto", sessao: DENTRO, pediuSair: false });
+    // Cada queda da porta seguida do clique abre a geração seguinte; a geração atravessa o handshake e a queda.
+    const segunda = run(novo, msg({ kind: "ready", protocolVersion: 1 }), { type: "desconectou" });
+    expect(segunda.geracao).toBe(1);
+    expect(reducePanel(segunda, { type: "reconectar" })).toStrictEqual({ ...INITIAL_PANEL_STATE, geracao: 2 });
   });
 
   test("o entrando não sobrevive ao Reconectar", () => {
@@ -398,18 +409,25 @@ describe("invariantes do redutor (todos os estados alcançáveis com as ações 
     msg({ kind: "ready", protocolVersion: 1 }),
   ];
 
-  test("o entrando e o pedido de saída nunca valem juntos, e a queda só existe com a conexão desconectada", () => {
-    // Busca em largura até o ponto fixo: cada estado alcançável a partir do inicial e de cada handshake.
+  /**
+   * Busca em largura até o ponto fixo: cada estado alcançável a partir do inicial e de cada handshake. A geração da
+   * porta cresce a cada Reconectar e fica fora da chave; as outras invariantes não dependem dela.
+   */
+  const reachable = (): PanelState[] => {
     const seen = new Map<string, PanelState>();
     const queue: PanelState[] = [INITIAL_PANEL_STATE, ...VALID_VIEWS.map((view) => pronto(view))];
     while (queue.length > 0) {
       const s = queue.shift() as PanelState;
-      const key = JSON.stringify(s);
+      const key = JSON.stringify({ ...s, geracao: 0 });
       if (seen.has(key)) continue;
       seen.set(key, s);
       for (const action of ACTIONS) queue.push(reducePanel(s, action));
     }
-    const states = [...seen.values()];
+    return [...seen.values()];
+  };
+
+  test("o entrando e o pedido de saída nunca valem juntos, e a queda só existe com a conexão desconectada", () => {
+    const states = reachable();
     expect(states.filter((s) => s.entrandoDesde !== null && s.pediuSair)).toStrictEqual([]);
     expect(states.filter((s) => (s.queda !== null) !== (s.conexao === "desconectado"))).toStrictEqual([]);
     // A busca passa pelos estados que importam: entrando, pedido de saída, falha do logout e as duas quedas.
@@ -417,6 +435,18 @@ describe("invariantes do redutor (todos os estados alcançáveis com as ações 
     expect(states.some((s) => logoutUnconfirmed(s))).toBe(true);
     expect(states.some((s) => s.queda === "porta_fechada")).toBe(true);
     expect(states.some((s) => s.queda === "resposta_invalida")).toBe(true);
+  });
+
+  test("a geração da porta só muda com o Reconectar aceito, e de 1 em 1: nenhuma mensagem, tique ou clique reabre a porta", () => {
+    let reconexoes = 0;
+    for (const s of reachable()) {
+      for (const action of ACTIONS) {
+        const aceito = action.type === "reconectar" && canReconnect(s);
+        expect(reducePanel(s, action).geracao, `${JSON.stringify(s)} ${action.type}`).toBe(s.geracao + (aceito ? 1 : 0));
+        if (aceito) reconexoes += 1;
+      }
+    }
+    expect(reconexoes).toBeGreaterThan(0);
   });
 });
 

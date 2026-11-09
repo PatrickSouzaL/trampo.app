@@ -3,7 +3,7 @@
 import type { AnalysisReport, ReportItem } from "@trampo/contracts/analysis-report";
 import type { ApiError } from "@trampo/contracts/api";
 
-import type { AnaliseView } from "../../panel/panel-state";
+import type { AnaliseView, BloqueioAnalise } from "../../panel/panel-state";
 import {
   ANALYZE_BLOCKED_TEXTS,
   DECISION_PATH_LABELS,
@@ -19,9 +19,6 @@ import {
   formatRetry,
   type Stage,
 } from "../../panel/texts";
-
-/** Enquanto a API não está ligada (F1-EXT-04 parte 2), os botões de envio ficam desabilitados. */
-export const SEM_API = ANALYZE_BLOCKED_TEXTS.sem_api;
 
 export function Consent({ onAccept }: { onAccept: () => void }) {
   return (
@@ -41,15 +38,21 @@ export function Consent({ onAccept }: { onAccept: () => void }) {
   );
 }
 
-export function AnalyzeButton({ label }: { label: string }) {
+/**
+ * "Analisar vaga" e "Reanalisar com IA", pelo portão do analyzeBlock (ADR-004 D12): desabilitados, com o motivo, sem a
+ * API, o consentimento ou a sessão. Até a F1-EXT-04 parte 2 (que traz o clique), o motivo é sempre o `sem_api`.
+ */
+export function AnalyzeButton({ label, bloqueio }: { label: string; bloqueio: BloqueioAnalise | null }) {
   return (
     <div data-acao={label}>
-      <button type="button" disabled aria-describedby="sem-api">
+      <button type="button" disabled={bloqueio !== null} aria-describedby={bloqueio === null ? undefined : "analise-bloqueada"}>
         {label}
       </button>
-      <p id="sem-api" className="nota">
-        {SEM_API}
-      </p>
+      {bloqueio !== null && (
+        <p id="analise-bloqueada" className="nota" data-bloqueio={bloqueio}>
+          {ANALYZE_BLOCKED_TEXTS[bloqueio]}
+        </p>
+      )}
     </div>
   );
 }

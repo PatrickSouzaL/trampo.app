@@ -13,6 +13,7 @@ import {
   DIMENSION_LABELS,
   ERROR_TEXTS,
   OUTCOME_LABELS,
+  SESSION_ACTION_LABELS,
   STAGE_LABELS,
   STAGE_ORDER,
   VERDICT_LABELS,
@@ -48,8 +49,9 @@ describe("fixtures do stream", () => {
 });
 
 describe("reducePanel", () => {
-  test("começa conectando, sem captura, sem consentimento nem sessão conhecidos e sem análise", () => {
+  test("começa conectando, na porta da geração 0, sem captura, sem consentimento nem sessão conhecidos e sem análise", () => {
     expect(INITIAL_PANEL_STATE).toStrictEqual({
+      geracao: 0,
       conexao: "conectando",
       queda: null,
       captura: { estado: "ocioso" },
@@ -133,8 +135,19 @@ describe("textos do painel", () => {
   test("conexão: um texto por estado e por motivo da queda", () => {
     expect(describeConnection({ conexao: "conectando", queda: null })).toBe("Conectando ao Trampo…");
     expect(describeConnection({ conexao: "pronto", queda: null })).toMatch(/^Pronto\./);
-    expect(describeConnection({ conexao: "desconectado", queda: "porta_fechada" })).toMatch(/^A conexão com o Trampo caiu\./);
     expect(describeConnection({ conexao: "desconectado", queda: "resposta_invalida" })).toMatch(/paramos por segurança/);
+  });
+
+  test("a queda da porta manda clicar no botão Reconectar, pelo rótulo do botão (05b-3); a resposta inválida, não", () => {
+    expect(describeConnection({ conexao: "desconectado", queda: "porta_fechada" })).toBe(
+      `A conexão com o Trampo caiu. Clique em ${SESSION_ACTION_LABELS.reconectar} para continuar.`,
+    );
+    expect(describeConnection({ conexao: "desconectado", queda: "resposta_invalida" })).not.toContain(SESSION_ACTION_LABELS.reconectar);
+    for (const queda of ["porta_fechada", "resposta_invalida"] as const) {
+      const text = describeConnection({ conexao: "desconectado", queda });
+      expect(containsUrlLike(text), text).toBe(false);
+      expect(text, text).not.toMatch(/[<>]/);
+    }
   });
 
   test("captura: cada estado e cada motivo", () => {

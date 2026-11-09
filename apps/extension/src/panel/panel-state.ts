@@ -1,7 +1,8 @@
 // Estado do Side Panel (F1-EXT-04 parte 1; ADR-025 D3). Lógica pura, sem React e sem navegador: o
 // App.tsx só liga a porta a este redutor e renderiza texto. Tudo o que chega do Service Worker passa
 // pelo WorkerToPanelSchema antes de virar estado (ADR-001 §5.0 passo 6). F1-EXT-05b, 05b-2 (ADR-004 D12):
-// o estado local da sessão ("entrando" e o último "Sair"), o "Reconectar" e o portão do "Analisar".
+// o estado local da sessão ("entrando" e o último "Sair"), o "Reconectar" e o portão do "Analisar". 05b-3: a geração
+// da porta, que o App segue para abrir uma porta nova.
 import type { AnalysisReport } from "@trampo/contracts/analysis-report";
 import type { ApiError, AnalysisStreamEvent } from "@trampo/contracts/api";
 
@@ -25,7 +26,15 @@ export type AnaliseView =
  */
 export const ENTRANDO_TETO_MS = 310_000;
 
+/** Intervalo do tique do App enquanto o "entrando" estiver ligado: o teto vale com folga de 1 s, e o relógio que volta é visto no tique seguinte. */
+export const ENTRANDO_TIQUE_MS = 1_000;
+
 export interface PanelState {
+  /**
+   * Geração da porta (F1-EXT-05b, 05b-3): o App abre uma porta nova quando ela muda. Só o "Reconectar" aceito pelo
+   * redutor a muda, então nenhuma mensagem, tique nem clique ignorado reabre a porta (sem laço, condição 3 do [APPSEC]).
+   */
+  readonly geracao: number;
   readonly conexao: Conexao;
   readonly queda: Queda | null;
   readonly captura: CaptureView;
@@ -44,6 +53,7 @@ export interface PanelState {
 }
 
 export const INITIAL_PANEL_STATE: PanelState = {
+  geracao: 0,
   conexao: "conectando",
   queda: null,
   captura: { estado: "ocioso" },
@@ -149,8 +159,11 @@ function reduceMessage(state: PanelState, message: WorkerToPanel): PanelState {
 
 export function reducePanel(state: PanelState, action: PanelAction): PanelState {
   // Depois da queda, nada mais muda a tela: o usuário reabre o painel, ou, só com a porta fechada, clica em
-  // "Reconectar". Nenhuma mensagem nem tique reconecta (sem laço).
-  if (state.conexao === "desconectado") return action.type === "reconectar" && canReconnect(state) ? INITIAL_PANEL_STATE : state;
+  // "Reconectar", que recomeça do estado inicial com a porta da geração seguinte. Nenhuma mensagem nem tique
+  // reconecta (sem laço).
+  if (state.conexao === "desconectado") {
+    return action.type === "reconectar" && canReconnect(state) ? { ...INITIAL_PANEL_STATE, geracao: state.geracao + 1 } : state;
+  }
   switch (action.type) {
     case "mensagem":
       return reduceMessage(state, action.message);
