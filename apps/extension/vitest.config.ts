@@ -12,7 +12,8 @@ export default defineConfig({
       provider: "v8",
       // A lógica do Service Worker e a do painel (estado e textos) vivem aqui e são testadas sem navegador. O extrator tem a cobertura de
       // bloco do V8 no próprio navegador (test:browser), e background e os .tsx do painel são cola provada no E2E.
-      include: ["build-env.ts", "panel-csp.ts", "src/auth/**", "src/api/**", "src/capture/**", "src/consent/**", "src/messaging/**", "src/panel/**"],
+      // Os falsos do E2E com IdP falso (F1-EXT-05c) também são lógica: o que o E2E prova depende deles.
+      include: ["build-env.ts", "panel-csp.ts", "src/auth/**", "src/api/**", "src/capture/**", "src/consent/**", "src/messaging/**", "src/panel/**", "test/e2e/support/**"],
       reporter: ["text"],
       thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },
     },

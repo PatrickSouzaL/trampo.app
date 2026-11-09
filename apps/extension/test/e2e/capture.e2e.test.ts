@@ -3,6 +3,8 @@
 // extrator MINIFICADO na aba. Se a minificação deixasse alguma referência fora da função, o
 // executeScript devolveria null e a captura falharia. A página é hostil: troca as APIs no mundo
 // principal e esconde canários pelas técnicas do T2. Nada sai da máquina (servidor local).
+// QA-04 (F1-EXT-05c, 05c-1): o clickAction espera as abas dos testes anteriores fecharem, e o teste guarda no SW a
+// mensagem de cada rejeição do executeScript (sem URL), para dizer por que uma captura deu sem_acesso.
 import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -10,7 +12,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
 
 import { CAPTURE_STORAGE_KEY, type CaptureState } from "../../src/capture/capture-service";
-import { clickAction, loadExtension, unload, type Loaded } from "./browser";
+import { clickAction, loadExtension, recordScriptRejections, scriptRejections, unload, type Loaded } from "./browser";
 
 const cfg = inject("e2e");
 /** Fixtures reais anonimizadas do S-2 (runbook fixtures-dom §3). */
@@ -83,6 +85,7 @@ describe("captura no build de produção", () => {
   let l: Loaded | undefined;
   beforeAll(async () => {
     l = await loadExtension(cfg.extNoOrigin);
+    await recordScriptRejections(l);
   });
   afterAll(() => unload(l));
 
@@ -150,7 +153,8 @@ describe("captura no build de produção", () => {
       await page.goto(`${p.host}${p.path}`);
       await clickAction(l!, `${p.host}${p.path}`);
       const state = await settledState(l!);
-      expect(state.estado).toBe("pronto");
+      // QA-04: na falha, a mensagem que o navegador deu à rejeição do executeScript vai junto, sem a URL.
+      expect(state.estado, `rejeições do executeScript: ${JSON.stringify(await scriptRejections(l!))}`).toBe("pronto");
       if (state.estado !== "pronto") return;
       expect(state.vaga).toMatchObject({ platform: p.platform, extractorVersion: p.version, truncated: false });
       for (const s of meta.trechosObrigatorios) expect(state.vaga.text).toContain(s);
