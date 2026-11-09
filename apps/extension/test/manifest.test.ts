@@ -182,8 +182,9 @@ describe.each(["fechado", "completo"] as const)("manifest.json de produção (bu
     expect(manifest()).not.toHaveProperty("web_accessible_resources");
   });
 
-  test("nenhum marcador do build de E2E no artefato (§4.6)", () => {
-    for (const text of [get(name).background, ...get(name).others.values()]) expect(text).not.toContain("TRAMPO_E2E");
+  // F1-EXT-05c, 05c-1: o modo 3 do P20 não tem código, e nenhum marcador do adapter falso existe em artefato algum.
+  test.each(["TRAMPO_E2E", "FAKE_IDENTITY", "trampo/e2e/"])("nenhum marcador do build de E2E no artefato: %s (§4.6)", (marker) => {
+    for (const text of get(name).all.values()) expect(text).not.toContain(marker);
   });
 });
 
@@ -326,5 +327,23 @@ describe("variável fora da forma derruba o build, sem ecoar o valor (§4.6)", (
     const output = `${failure?.stderr?.toString() ?? ""}${failure?.stdout?.toString() ?? ""}`;
     expect(output).toContain(name);
     expect(output).not.toContain(value);
+  }, 60_000);
+
+  // F1-EXT-05c, 05c-1 (ADR-004 §4.4 e §4.6): o adapter falso de identidade não existe; a variável derruba o build com ou
+  // sem TRAMPO_E2E=1, como o build-env.test.ts prova pela mensagem.
+  test.each([
+    [{}, "só existe no build de teste, com TRAMPO_E2E=1"],
+    [{ TRAMPO_E2E: "1" }, "o modo 3 do P20 não existe"],
+  ])("TRAMPO_E2E_FAKE_IDENTITY derruba o build (%j)", (extra, message) => {
+    let failure: { status?: number | null; stderr?: Buffer; stdout?: Buffer } | undefined;
+    try {
+      runBuild(join(work, `falha-fake-identity-${Object.keys(extra).length}`), { ...extra, TRAMPO_E2E_FAKE_IDENTITY: "CANARIO-modo-3" });
+    } catch (error) {
+      failure = error as typeof failure;
+    }
+    expect(failure?.status).not.toBe(0);
+    const output = `${failure?.stderr?.toString() ?? ""}${failure?.stdout?.toString() ?? ""}`;
+    expect(output).toContain(message);
+    expect(output).not.toContain("CANARIO-modo-3");
   }, 60_000);
 });

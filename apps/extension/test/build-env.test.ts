@@ -121,3 +121,30 @@ describe("TRAMPO_EXTENSION_KEY (D13: SPKI em base64)", () => {
     expect(thrown({ TRAMPO_EXTENSION_KEY: tampered })).toBe(INVALID);
   });
 });
+
+// F1-EXT-05c, 05c-1 (ADR-004 §4.4 e §4.6): o modo 3 do P20 não existe. A variável do adapter falso derruba o build sem
+// TRAMPO_E2E=1 e também com ele; sozinho, o TRAMPO_E2E não muda nada no build.
+describe("TRAMPO_E2E_FAKE_IDENTITY (P20 no modo 1 no Edge e no Chrome)", () => {
+  const SEM_E2E = "TRAMPO_E2E_FAKE_IDENTITY só existe no build de teste, com TRAMPO_E2E=1 (ADR-004 §4.6)";
+  const SEM_MODO_3 = "TRAMPO_E2E_FAKE_IDENTITY: o modo 3 do P20 não existe; o Edge e o Chrome rodam o login real em headless (modo 1, ADR-004 §4.4)";
+
+  test.each([
+    [{ TRAMPO_E2E_FAKE_IDENTITY: "1" }, SEM_E2E],
+    [{ TRAMPO_E2E_FAKE_IDENTITY: "1", TRAMPO_E2E: "" }, SEM_E2E],
+    [{ TRAMPO_E2E_FAKE_IDENTITY: "1", TRAMPO_E2E: "0" }, SEM_E2E],
+    [{ TRAMPO_E2E_FAKE_IDENTITY: "1", TRAMPO_E2E: "1 " }, SEM_E2E],
+    [{ TRAMPO_E2E_FAKE_IDENTITY: "0", TRAMPO_E2E: "true" }, SEM_E2E],
+    [{ TRAMPO_E2E_FAKE_IDENTITY: "1", TRAMPO_E2E: "1" }, SEM_MODO_3],
+    [{ TRAMPO_E2E_FAKE_IDENTITY: "nao", TRAMPO_E2E: "1" }, SEM_MODO_3],
+  ])("recusa %j", (env, message) => {
+    expect(thrown(env)).toBe(message);
+  });
+
+  test("a recusa vem antes das outras variáveis: nem uma chave válida salva o build", () => {
+    expect(thrown({ TRAMPO_E2E_FAKE_IDENTITY: "1", TRAMPO_API_ORIGIN: "https://x.test", TRAMPO_EXTENSION_KEY: KEY })).toBe(SEM_E2E);
+  });
+
+  test.each([{ TRAMPO_E2E_FAKE_IDENTITY: "" }, { TRAMPO_E2E: "1" }, { TRAMPO_E2E: "1", TRAMPO_E2E_FAKE_IDENTITY: "" }])("aceita %j: nada muda no build", (env) => {
+    expect(readBuildEnv(env)).toStrictEqual({ apiOrigin: undefined, supabaseOrigin: undefined, extensionKey: undefined });
+  });
+});

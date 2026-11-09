@@ -62,7 +62,19 @@ function extensionKey(env: Env): ExtensionKey | undefined {
   return { key: value, id: extensionIdFromSpki(der) };
 }
 
+/**
+ * O adapter falso de identidade (modo 3 do P20, ADR-004 §4.4) só poderia existir no build de teste, com `TRAMPO_E2E=1`
+ * (§4.6). A sondagem do 05c-1 pôs o Edge e o Chrome no modo 1 (o login real em headless), e o modo 3 ficou sem código:
+ * a variável derruba o build com ou sem `TRAMPO_E2E=1`, e nenhum marcador dele chega a artefato algum.
+ */
+function refuseFakeIdentity(env: Env): void {
+  if (present(env, "TRAMPO_E2E_FAKE_IDENTITY") === undefined) return;
+  if (env["TRAMPO_E2E"] !== "1") throw new Error("TRAMPO_E2E_FAKE_IDENTITY só existe no build de teste, com TRAMPO_E2E=1 (ADR-004 §4.6)");
+  throw new Error("TRAMPO_E2E_FAKE_IDENTITY: o modo 3 do P20 não existe; o Edge e o Chrome rodam o login real em headless (modo 1, ADR-004 §4.4)");
+}
+
 export function readBuildEnv(env: Env): BuildEnv {
+  refuseFakeIdentity(env);
   return {
     apiOrigin: exactOrigin(env, "TRAMPO_API_ORIGIN", "https://api.exemplo.com"),
     supabaseOrigin: exactOrigin(env, "TRAMPO_SUPABASE_ORIGIN", "https://<projeto>.supabase.co"),
