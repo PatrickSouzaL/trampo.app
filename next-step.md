@@ -1,39 +1,33 @@
-# Próximo passo: F1-EXT-05b, commit 05b-2 (estado e textos da sessão), numa sessão nova
+# Próximo passo: F1-EXT-05b, commit 05b-3 (botões, "Reconectar" e E2E do painel), numa sessão nova
 
-> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. Não há HITL aberto para a trilha.
+> **Sessão extensa detectada.** Para evitar corte por limite de tokens, encerre esta sessão do terminal (Ctrl+C), abra uma nova e envie o prompt do fim deste arquivo. Nenhum HITL bloqueia a trilha: o HITL-037 (push e PR) corre em paralelo.
 
-## O que acabou de ser entregue (2026-11-08, sessões 12 e 13)
+## O que acabou de ser entregue (2026-11-09, sessão 14)
 
-> Um desligamento da estação derrubou a sessão 12 com o 05b-1 escrito e sem commit. A sessão 13 retomou pela árvore de trabalho, rodou a mutação, fechou as lacunas e fez o commit. Nada se perdeu.
-
-### F1-EXT-05b: commit 05b-1 (`abafafb`), isolamento e handshake
-- **Partição** (ADR-004 §6.3 item 4): **05b-1 ✅** (`abafafb`) → 05b-2 (estado e textos da sessão, em lógica pura) → 05b-3 (botões, "Reconectar" e E2E do painel). O `[APPSEC]` não vetou e pôs 4 condições: a 1, a 2 e a 4 estão cumpridas, e a 3 ("Reconectar" só por ação do usuário) é do 05b-3.
-- **`src/messaging/protocol.ts`:**
-  - `SessaoErroSchema` (os 4 códigos do catálogo) e `SessaoViewSchema` estrito, com o `refine` do M-08 escrito como guarda de tipo;
-  - `toSessaoView`, a única saída da sessão: copia `autenticado` e `erro` e revalida. Valor fora do schema vira `{ false, ERRO_INTERNO }`, sem eco;
-  - `entrar` (só o provedor da lista) e `sair` no `PanelToWorkerSchema`, e `sessao` no `WorkerToPanelSchema`.
-- **`src/messaging/session-channel.ts`** (novo): a emissão sai saneada para todas as portas. No handshake, a leitura velha nunca vai por cima de uma emissão concorrente, nem para uma porta que caiu.
-- **Service Worker:**
-  - o `createWorkerAuth` devolve o serviço sem o `view()`, com o `attach(port)`;
-  - o `background.ts` fecha o handshake `[ready, captura, consentimento, sessao]` e liga `entrar` e `sair`, que respondem só pela `sessao` emitida;
-  - o `panel-state` guarda a `sessao`, ainda sem UI.
-- **Lint B1:** um bloco próprio do painel no `eslint.config.js`, que repete o B2. Ele soma armazenamento, navegação, WebRTC, import de `auth`, de `api` e do `session-store`, e o `import()` dinâmico. São 36 formas negativas em 3 caminhos do painel.
-- **Meta CSP do B4:** plugin `trampo:panel-csp` do Vite (`apps/extension/panel-csp.ts`), em `head-prepend`, só com o `mode` exatamente `production`. O dev do WXT não recebe a meta, e o teste prova isso pelo próprio `wxt.config.ts`.
-- **B5:** o `manifest.test.ts` calcula o fecho do `sidepanel.html`. Nos dois builds, ele prova a meta exata antes de qualquer script e nenhum marcador da sessão no fecho.
-- **E2E no Edge 157 (de 38 para 49 testes):**
-  - o handshake com 4 mensagens, e `entrar` e `sair` no SW real;
-  - a emenda do `csp.e2e.test.ts`, puxada da F1-EXT-05c: o painel perde a API e ganha `form-action`, `base-uri` e Trusted Types;
-  - o painel real renderiza com a meta. O P16 está provado.
+### F1-EXT-05b: commit 05b-2 (`c61f50d`), estado e textos da sessão
+- **Partição** (ADR-004 §6.3 item 4): 05b-1 ✅ (`abafafb`) → **05b-2 ✅** (`c61f50d`) → 05b-3 (botões, "Reconectar" e E2E do painel). O `[APPSEC]` não vetou. A condição 3 ("Reconectar" só por ação do usuário) já vale na lógica; o clique em si é do 05b-3.
+- **`src/panel/panel-state.ts`**, em lógica pura e sem mensagem nova na porta:
+  - estado local `entrandoDesde` e `pediuSair`, e as ações `entrar { agora }`, `sair`, `tique { agora }` e `reconectar`. O relógio entra como dado da ação, e o redutor segue puro;
+  - o "entrando" desliga na próxima `sessao` ou no teto de 310 s (`ENTRANDO_TETO_MS`, preso por teste ao `loginDeadlineMs` + 10 s), e também com o relógio que volta (falha segura);
+  - `logoutUnconfirmed`: o texto da falha remota e o "Tentar sair de novo" só depois do clique em "Sair". Uma sessão autenticada encerra o pedido;
+  - `sessionActions`: os botões que a tela oferece. O redutor ignora o clique que não está ali;
+  - `canReconnect`: só com `porta_fechada`. O "Reconectar" volta ao estado inicial; `resposta_invalida` continua definitiva;
+  - `analyzeBlock(api, { consentimento, sessao })`: `sem_api`, `sem_consentimento` ou `sem_sessao`. O `api` vem do App e fica `false` até a F1-EXT-04 parte 2.
+- **`src/panel/texts.ts`:**
+  - `SESSION_TEXTS` exaustivo por `{ autenticado, erro }`, o texto do "Sair" sem confirmação, o "entrando", os rótulos dos botões por provedor e os motivos do portão;
+  - dois desvios do D12, registrados como emenda: o `ERRO_INTERNO` sem pedir o código do pedido, e o `LIMITE_DE_TAXA` com texto próprio (o do `ERROR_TEXTS` fala de análises);
+  - o `SEM_API` do `Analysis.tsx` passou a vir daqui (a única linha de `.tsx` do commit).
 - **Prova local:**
-  - extensão de 982 para 1203 testes, 100% nas 4 métricas (o `panel-csp.ts` entrou na cobertura);
-  - mutação 83/83 na 2ª rodada (`mut05b1.py`, catálogo no SESSION-LOG). Na 1ª, os 2 sobreviventes eram lacunas de teste: o `mode` passado pelo `wxt.config.ts` e o `self.open`. Outros 6 mutantes multilinha não se aplicaram por causa do CRLF da cópia de trabalho;
-  - turbo 21/21 em série, sem cache; depcruise sem violações (508 módulos).
-- **Cofre:** ADR-004 D10 B1, B4 e B5, D12, §4.5 item 5 e §6.3 item 4 ("Emenda do 05b-1"); STATE, BACKLOG (F1-EXT-05) e SESSION-LOG. Os backups estão no scratchpad.
+  - extensão de 1203 para 1255 testes, 100% nas 4 métricas;
+  - teste de invariante: uma busca em largura por todos os estados alcançáveis;
+  - mutação 64/65 na 2ª rodada (`mut05b2.py`, catálogo no SESSION-LOG). Na 1ª, os 3 sobreviventes eram equivalentes: 2 conferências redundantes saíram do código, e o 3º ficou provado pelo teste de invariante;
+  - E2E 49/49 no Edge; turbo 21/21 em série, sem cache; depcruise sem violações (509 módulos).
+- **Cofre:** ADR-004 D12 e §6.3 item 4 ("Emenda do 05b-2"), ADR-025 D3, STATE, BACKLOG (F1-EXT-05) e SESSION-LOG. **Runbook novo `publicar-branch-pr` e HITL-037**, a seu pedido. Os backups estão no scratchpad.
 - Nada chamou o Supabase real nem provedor de LLM.
 
 ### Pendências do humano
-- Nenhum HITL aberto para as trilhas.
-- **Push não autorizado nesta sessão:** a sessão 12 subiu tudo até o `4b0bb1d`. O `abafafb` e o commit deste arquivo estão só no local. Para subir, autorize de forma explícita no prompt da próxima sessão (por exemplo, "push autorizado"). **Abrir o PR novo** do `spike/s1-extraction` para o `master` continua com o humano (o PR #17 já foi mergeado).
+- **HITL-037 (novo, não bloqueia nenhuma trilha):** publicar o `spike/s1-extraction` e abrir o PR novo para o `master`. O passo a passo está no runbook `../base/03-infra-runbook/publicar-branch-pr.md`. O CI só roda em PR para o `master`, então a prova no GitHub vem com o PR.
+- **Push não autorizado nesta sessão:** o GitHub está no `4b0bb1d`. O `abafafb`, o `b3a398e`, o `c61f50d` e o commit deste arquivo estão só no local. Para subir, escreva "push autorizado" no prompt da próxima sessão, ou faça o push pelo runbook (§3). **Abrir e mergear o PR** é seu (o PR #17 já foi mergeado).
 - **Vale desde o 07h:** quem rodar `supabase start` na estação precisa gerar a chave antes, com `node apps/api/test/db/support/write-signing-key.ts supabase/signing_keys.json` na raiz do `trampo.app` (runbook `auth-extensao` §1.6). Sem o arquivo, o `start` não sobe.
 - **Vale desde o 07g:** fora de `NODE_ENV=test`, a API só sobe com `API_BEHIND_PROXY=false` (junto com `TRUST_PROXY=false`) e o anel `AUTH_REFRESH_SEAL_KEYS` e `AUTH_REFRESH_SEAL_ACTIVE_KEY` no `apps/api/.env` (runbook `auth-extensao` §1.5).
 - **Vale desde o 05a-4:** o build da extensão com login precisa de `TRAMPO_API_ORIGIN`, `TRAMPO_SUPABASE_ORIGIN` e, para o ID fixo, `TRAMPO_EXTENSION_KEY` (a chave pública em SPKI base64). Sem as duas origens, o "Entrar" dá erro interno. Nenhum valor vai ao cofre.
@@ -47,7 +41,7 @@
 
 | Trilha | Sessão | Gasta cota? | Espera |
 |---|---|---|---|
-| **F1-EXT-05b → F1-EXT-05c → F1-SEC-01** (**próximo: 05b-2**) | Resto do ADR-004, uma trilha por vez. A F1-EXT-05a foi concluída (`78be3f2`, `ec9c915`, `db98323` e `cd141d2`). **05b**, em 3 commits (ADR-004 §6.3 item 4): 05b-1 ✅ `abafafb` (isolamento e handshake). **05b-2**, no `panel-state`: o "entrando" (liga no clique e desliga na próxima `sessao`, com teto de 310 s e relógio injetado), o último clique em "Sair", o "Reconectar" (só de `porta_fechada`) e o portão do "Analisar" (API, sessão e consentimento); no `texts.ts`, o `SESSION_TEXTS` exaustivo do D12; e a emenda do ADR-025 D3. **05b-3**: botões e "Reconectar" no React e o E2E do painel (CA-16). **05c**: E2E com IdP falso (com a prova em runtime do P3) e as provas negativas. **SEC-01**: threat model v2 | não | nada para o 05b-2; as trilhas seguintes esperam a anterior |
+| **F1-EXT-05b → F1-EXT-05c → F1-SEC-01** (**próximo: 05b-3**) | Resto do ADR-004, uma trilha por vez. A F1-EXT-05a foi concluída (`78be3f2`, `ec9c915`, `db98323` e `cd141d2`). **05b**, em 3 commits (ADR-004 §6.3 item 4): 05b-1 ✅ `abafafb` (isolamento e handshake) e 05b-2 ✅ `c61f50d` (estado e textos da sessão, em lógica pura). **05b-3**, no React: os botões do `sessionActions` ("Entrar com GitHub", "Entrar com Google", "Sair da conta", "Tentar sair de novo"), o texto do `describeSession`, o "Analisar" pelo `analyzeBlock`, o relógio e o tique do "entrando", e o "Reconectar" (novo `runtime.connect` e novo `hello`, só por clique); o E2E do painel com a porta falsa e o E2E local inteiro (CA-16); a emenda do ADR-025 D4 e D5. Com ele, a F1-EXT-05b fecha. **05c**: E2E com IdP falso (com a prova em runtime do P3) e as provas negativas. **SEC-01**: threat model v2 | não | nada para o 05b-3; as trilhas seguintes esperam a anterior |
 | **F1-EXT-04 parte 2 (envio à API)** | Nova, liberada pela F1-EXT-05a (a Trilha A já tinha sido feita): portão do `consent.isGranted()` e da sessão, `accessToken()` e `onUnauthorized(1 \| 2)` do `auth-service`, SSE, `source` com `platform` e `extractorVersion`, botões habilitados. O prazo, o teto e o leitor do `/v1/analyze` se decidem aqui (ponto aberto do 05a-2) | não, se os testes usarem a API falsa | mexe na porta e no painel como a 05b: entra depois dela, numa sessão própria |
 | **F1-API-07 (07i e 07j)** | BFF do ADR-004 (D4 a D8), na partição do ADR-004 §6.3. Feitos: 07a (`c51b809`), 07b (`905d85f`), 07c (`86fe1ef`), 07d (`7e6c5d5`), 07e (`ac3c2c7`), 07f (`e1af5d0`), 07g (`b516fd0`) e 07h (`4efd96c`). Faltam, um commit por vez: **07i** métricas `auth_*_total` do D8 item 7 na porta `Telemetry`; **07j** teto de rajada de 15 (reposição de 0,25 por segundo) no `GotrueEgress`, somado às janelas de hoje (o balde `Token` do GoTrue tem rajada fixa de 30; ADR-004 D8 item 5, "Emenda do 07h") | não | nada; nenhum dos dois bloqueia as F1-EXT-05x |
 | **F1-DB-02** | Custom Access Token Hook por migration (ADR-004 D5): recusa com 403 a sessão com mais de 24 h, grants mínimos e `test:db` da recusa na emissão e na renovação. Depois, HITL de aplicação no projeto real (molde do HITL-023) | não | nada; o P18 (CA-15) depende dela, mesmo com o ADR-004 aceito por sobreposição do veto |
@@ -126,18 +120,26 @@
     - a `SessaoView` só sai do SW pelo `toSessaoView`, no canal da sessão. Campo novo nela, ou texto livre numa mensagem nova, passa pelo `[APPSEC]` (B6);
     - o bloco B1 repete as listas do B2. Regra nova do painel entra no `panelRules` e ganha fixture em `test/worker-modules-lint.test.ts`, nos 3 caminhos do painel;
     - a meta do B4 só sai no `mode` `production`. Uma página HTML nova na extensão recebe a meta pelo mesmo plugin, e o `manifest.test.ts` hoje exige que o `sidepanel.html` seja a única página;
-    - o `panel-state` já guarda a `sessao`. O 05b-2 acrescenta o "entrando", o último "Sair", o "Reconectar" e o portão do "Analisar", em lógica pura e com relógio injetado;
+    - o `panel-state` já guarda a `sessao`, e o 05b-2 acrescentou o resto da lógica da sessão (item 20);
     - a cópia de trabalho mistura CRLF e LF (`core.autocrlf`). Script com trecho multilinha segue o fim de linha de cada arquivo, contado por Python, porque o Git Bash esconde o CR.
+20. **Estado e textos da sessão (05b-2):**
+    - quem mexer na sessão do `panel-state.ts` ou do `texts.ts` roda de novo o `mut05b2.py` (scratchpad da sessão 14; catálogo no SESSION-LOG). Ação nova do redutor entra também na lista do teste de invariante (a busca em largura do `panel-session.test.ts`), que prova que o "entrando" e o `pediuSair` nunca valem juntos;
+    - o `ENTRANDO_TETO_MS` fica preso ao `loginDeadlineMs` + 10 s por teste: mudar o prazo do login no SW muda os dois;
+    - o redutor ignora o clique que a tela não oferece. No 05b-3, o App renderiza só os botões do `sessionActions` e só posta a mensagem no clique de um botão visível. O `agora` vem do relógio do App, e o tique vem de um *timer* armado enquanto o `entrandoDesde` não for `null`;
+    - o "Reconectar" volta ao `INITIAL_PANEL_STATE`. O App abre uma porta nova, manda um `hello` novo e ignora a porta antiga, que já caiu. Nenhum laço automático (condição 3 do `[APPSEC]`);
+    - o texto da `porta_fechada` no `describeConnection` ainda diz "Feche e abra o painel de novo": o 05b-3 troca o texto junto com o botão "Reconectar";
+    - o `api` do `analyzeBlock` é `false` até a F1-EXT-04 parte 2. Só o SW sabe da origem da API, então a fonte do `api` passa pelo `[APPSEC]` (B6);
+    - texto novo da sessão passa pelo teste de "nenhum link, nenhum `<` ou `>`" e, se aparecer com a sessão aberta, pelo de "nenhuma conta nem provedor".
 
 ---
 
 ## Próximo prompt (sessão nova)
 
 ```text
-Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05b, commit 05b-2 (estado e textos da sessão; ADR-004 §6.3 item 4), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt.
+Equipe, sigam em ciclo estrito de DevSecOps. Trilha F1-EXT-05b, commit 05b-3 (botões, "Reconectar" e E2E do painel; ADR-004 §6.3 item 4), sem gastar cota e sem chamar o Supabase real. Push do spike/s1-extraction só com autorização no prompt (HITL-037).
 
-1. [ORCHESTRATOR]: leiam o STATE.md (bloco "Trilha F1-EXT-05b", com o 05b-1 concluído em abafafb) e rodem git fetch para ver se o branch recebeu commits no GitHub. Leiam o ADR-004 D12 (tabela, "UI" e "Emenda do 05b-1"), o §4.1 (testes do panel-state) e o §6.3 item 4, além do ADR-025 D3.
-2. [ARCHITECT] + [APPSEC]: desenhem o 05b-2 em lógica pura, sem React e sem mensagem nova na porta. No panel-state: o "entrando" (liga no clique e desliga na próxima sessao, com teto de 310 s e relógio injetado), o último clique em "Sair" para o texto da falha remota, o "Reconectar" (só a partir de porta_fechada; resposta_invalida continua definitiva) e o portão do "Analisar" (API, sessão e consentimento). No texts.ts: o SESSION_TEXTS exaustivo do D12.
-3. [DEV] + [QA_EVALS]: TDD com 100% de cobertura, mutação dirigida do que couber (o script segue o fim de linha de cada arquivo), turbo em série e depcruise. Emenda do ADR-025 D3. Ao fim do commit, avaliem o peso da sessão: se estiver leve, sigam para o 05b-3; se estiver pesada, parem e reciclem (AGENTS §4.4).
+1. [ORCHESTRATOR]: leiam o STATE.md (bloco "Trilha F1-EXT-05b", com o 05b-2 concluído em c61f50d) e rodem git fetch para ver se o branch recebeu commits no GitHub. Leiam o ADR-004 D12 ("UI", "Emenda do 05b-1" e "Emenda do 05b-2"), a CA-16, o §6.3 item 4 e o ADR-025 D3 a D6.
+2. [ARCHITECT] + [APPSEC]: desenhem o 05b-3 no React, sem lógica nova fora do src/panel: os botões saem do sessionActions, o texto do describeSession, o "Analisar" do analyzeBlock (api false), o relógio e o tique do "entrando", e o "Reconectar" (novo runtime.connect e novo hello, só por clique, ignorando a porta antiga), com o texto da porta_fechada trocado junto. Condição 3 do [APPSEC]: nenhum laço automático.
+3. [DEV] + [QA_EVALS]: E2E do painel com a porta falsa (mensagens exatas enviadas, o texto de cada SessaoView, o "entrando", o "Tentar sair de novo" e o "Reconectar" refazendo o handshake), o E2E local inteiro (CA-16: navegador, versão, modo do P20 e contagens no SESSION-LOG), 100% de cobertura na lógica, mutação dirigida do que couber, turbo em série e depcruise. Emenda do ADR-025 D4 e D5. Com o commit, a F1-EXT-05b fecha: avaliem o peso da sessão antes de seguir para a F1-EXT-05c (AGENTS §4.4).
 4. [SCRIBE]: atualizem o STATE a cada commit. No fim, atualizem o SESSION-LOG, o BACKLOG e o next-step, mantendo a tabela de trilhas. Commit atômico; push só se autorizado.
 ```
