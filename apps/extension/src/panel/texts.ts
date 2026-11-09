@@ -19,7 +19,7 @@ export function describeConnection(state: Pick<PanelState, "conexao" | "queda">)
     case "desconectado":
       return state.queda === "resposta_invalida"
         ? "Recebemos uma resposta fora do formato esperado e paramos por segurança. Feche e abra o painel de novo."
-        : "A conexão com o Trampo caiu. Feche e abra o painel de novo.";
+        : "A conexão com o Trampo caiu. Clique em Reconectar para continuar.";
   }
 }
 

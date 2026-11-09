@@ -78,6 +78,7 @@ article {
 }
 
 [data-analise="erro"] strong,
+[data-sessao-erro] strong,
 [data-eliminatorio] {
   color: var(--alerta);
 }
@@ -115,6 +116,14 @@ button {
   font: inherit;
   padding: 6px 12px;
   margin-top: 8px;
+}
+
+/* Botões da sessão lado a lado, quebrando a linha no painel estreito (320 px). */
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin: 0;
 }
 
 button.secundario {
