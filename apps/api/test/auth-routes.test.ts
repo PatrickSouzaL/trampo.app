@@ -386,6 +386,25 @@ describe("Origin e CORS (D8 item 2; M-15)", () => {
     expectError(await preflight(PORTAL), 403, "PROIBIDO");
   });
 
+  test("preflight de `%61uth` da origem de web passa (sem padrão casado), mas o pedido real leva 403 (F1-SEC-01, A-04)", async () => {
+    // O preflight só vê o caminho cru, e o cru com `%` não está na lista só da extensão: o 204 é inofensivo,
+    // porque o pedido real é barrado pelo padrão casado antes do limitador e do caso de uso.
+    const counted: string[] = [];
+    const h = authApp({ limiter: { check: (limitClass) => (counted.push(limitClass), { ok: true }) } });
+    for (const route of SESSION_ROUTES) {
+      const url = `/v1/%61uth/${route}`;
+      const pre = await h.app.inject({
+        method: "OPTIONS",
+        url,
+        headers: { origin: PORTAL, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
+      });
+      expect(pre.statusCode).toBe(204);
+      expectError(await send(h, route, { url, headers: { origin: PORTAL } }), 403, "PROIBIDO");
+    }
+    expect(h.useCaseCalls()).toBe(0);
+    expect(counted).toEqual([]);
+  });
+
   test("a origem de web continua alcançando as outras rotas (o portal não muda)", async () => {
     const h = authApp();
     const res = await h.app.inject({ method: "GET", url: "/health", headers: { origin: PORTAL } });

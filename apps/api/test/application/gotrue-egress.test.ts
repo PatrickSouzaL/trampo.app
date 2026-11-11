@@ -279,3 +279,22 @@ describe("política inválida derruba a criação", () => {
     );
   });
 });
+
+// F1-SEC-01, achado A-03 da revisão adversarial de auth: o *bulkhead* é um só para as três chamadas, sem vaga
+// reservada para a renovação. O teste prende o comportamento de hoje; a decisão está no BACKLOG (F1-API-08).
+describe("bulkhead sem partição (A-03)", () => {
+  test("4 trocas penduradas negam a renovação com bulkhead_cheio, sem gastar o orçamento dela", async () => {
+    const { egress, run } = egressWith();
+    const releases: (() => void)[] = [];
+    const hang = () =>
+      new Promise<string>((resolve) => {
+        releases.push(() => resolve("feito"));
+      });
+    const trocas = [1, 2, 3, 4].map(() => egress.run("troca", hang));
+    expect(await run("renovacao")).toEqual({ ok: false, reason: "bulkhead_cheio", retryAfterSeconds: 5 });
+    for (const release of releases) release();
+    await Promise.all(trocas);
+    // Livre o bulkhead, a renovação passa: a reserva de 50% continua intacta (74 − 4 trocas = 70 renovações).
+    expect(await spendN(run, "renovacao", 80)).toBe(70);
+  });
+});
