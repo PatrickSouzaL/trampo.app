@@ -8,7 +8,11 @@
 // - P10: o pai do refresh ativo devolve o ativo, também depois de 10 s; o ancestral mais velho, depois de 10 s, revoga
 //   a cadeia;
 // - P11: `logout?scope=global` invalida o refresh de todas as sessões do usuário;
-// - o `grant_type=pkce` com código desconhecido é `recusado` (404 com o corpo do GoTrue, D7).
+// - o `grant_type=pkce` com código desconhecido é `recusado` (404 com o corpo do GoTrue, D7);
+// - F1-API-08 (achados A-01 e A-02, D7): cada recusa real da troca (400, 404 e 422), da renovação (400) e do logout
+//   (403) chega com o corpo JSON do GoTrue e um `error_code` string, que é o que o adapter exige para dizer
+//   `recusado`; e o limite deste job: o gateway local não confere a `apikey` em `/auth/v1/`, então o `Invalid API key`
+//   do projeto real só existe no simulado (e no S-3).
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -23,7 +27,16 @@ import { createJoseAccessTokenVerifier } from "../../src/infrastructure/auth/jos
 import { createGotrueTokenClient } from "../../src/infrastructure/supabase/gotrue-token-client.js";
 import { buildApp } from "../../src/presentation/build-app.js";
 import { openLimits } from "../limit-fakes.js";
-import { fetchJwks, jwsHeader, signInWithPassword, signUpWithPassword, type PasswordSession } from "./support/auth-stack.js";
+import {
+  fetchJwks,
+  insertPkceFlow,
+  jwsHeader,
+  rawAuthPost,
+  signInWithPassword,
+  signUpWithPassword,
+  type PasswordSession,
+  type RawAuthResponse,
+} from "./support/auth-stack.js";
 import { parseLocalStackEnv, type LocalStack } from "./support/local-stack-env.js";
 
 const stack: LocalStack = parseLocalStackEnv(process.env);
@@ -178,5 +191,85 @@ describe("P11: logout global", () => {
     await expect(client.logout(owner.accessToken)).resolves.toEqual({ ok: true });
     // Outro usuário não é afetado.
     await expect(client.refresh(bystander.refreshToken)).resolves.toMatchObject({ ok: true });
+  });
+});
+
+/** O corpo de erro do GoTrue sem o cabeçalho `X-Supabase-Api-Version` (o adapter não o manda). */
+const GotrueErrorBodySchema = z.object({ code: z.int(), error_code: z.string().min(1), msg: z.string() });
+const RECUSADO = { ok: false, reason: "recusado" };
+const TOKEN_HEADERS = { apikey: stack.publishableKey, "content-type": "application/json", accept: "application/json" };
+const PKCE_PATH = "/auth/v1/token?grant_type=pkce";
+const REFRESH_PATH = "/auth/v1/token?grant_type=refresh_token";
+const LOGOUT_PATH = "/auth/v1/logout?scope=global";
+const VERIFIER = "v".repeat(64);
+/** Acima do `flow_state_expiry_duration` padrão do GoTrue (300 s). */
+const EXPIRED_FLOW_AGE_SECONDS = 3_600;
+
+/** A recusa veio do GoTrue: o status, JSON e o `error_code` dado (ou qualquer um, sem `errorCode`). */
+function expectGotrueRefusal(raw: RawAuthResponse, status: number, errorCode?: string): void {
+  expect(raw.status).toBe(status);
+  expect(raw.contentType).toMatch(/^application\/json/);
+  const body = GotrueErrorBodySchema.parse(raw.body);
+  expect(body.code).toBe(status);
+  if (errorCode !== undefined) expect(body.error_code).toBe(errorCode);
+}
+
+describe("F1-API-08: as recusas reais trazem o corpo do GoTrue (A-01 e A-02; D7)", () => {
+  test("troca sem verifier: 400 validation_failed (só pela chamada crua; o adapter nem deixa sair)", async () => {
+    const raw = await rawAuthPost(stack, PKCE_PATH, TOKEN_HEADERS, JSON.stringify({ auth_code: randomUUID(), code_verifier: "" }));
+    expectGotrueRefusal(raw, 400, "validation_failed");
+  });
+
+  test("troca com código desconhecido: 404 flow_state_not_found", async () => {
+    const raw = await rawAuthPost(stack, PKCE_PATH, TOKEN_HEADERS, JSON.stringify({ auth_code: randomUUID(), code_verifier: VERIFIER }));
+    expectGotrueRefusal(raw, 404, "flow_state_not_found");
+  });
+
+  test("troca com verifier errado: 400 bad_code_verifier, e o adapter diz recusado", async () => {
+    const code = insertPkceFlow(stack, user.userId, VERIFIER, 0);
+    const wrong = "w".repeat(64);
+    expectGotrueRefusal(await rawAuthPost(stack, PKCE_PATH, TOKEN_HEADERS, JSON.stringify({ auth_code: code, code_verifier: wrong })), 400, "bad_code_verifier");
+    // O verifier errado não consome o fluxo: a mesma recusa, agora pelo adapter.
+    await expect(client.exchangePkce(code, wrong)).resolves.toEqual(RECUSADO);
+  });
+
+  test("troca com fluxo vencido: 422 flow_state_expired, e o adapter diz recusado", async () => {
+    const code = insertPkceFlow(stack, user.userId, VERIFIER, EXPIRED_FLOW_AGE_SECONDS);
+    expectGotrueRefusal(await rawAuthPost(stack, PKCE_PATH, TOKEN_HEADERS, JSON.stringify({ auth_code: code, code_verifier: VERIFIER })), 422, "flow_state_expired");
+    await expect(client.exchangePkce(code, VERIFIER)).resolves.toEqual(RECUSADO);
+  });
+
+  test("renovação com refresh desconhecido e com o de uma sessão encerrada: 400 com error_code", async () => {
+    const unknown = await rawAuthPost(stack, REFRESH_PATH, TOKEN_HEADERS, JSON.stringify({ refresh_token: "trampo-sonda-inexistente" }));
+    expectGotrueRefusal(unknown, 400, "refresh_token_not_found");
+    const session = await signInWithPassword(stack, user);
+    await expect(client.logout(session.accessToken)).resolves.toEqual({ ok: true });
+    expectGotrueRefusal(await rawAuthPost(stack, REFRESH_PATH, TOKEN_HEADERS, JSON.stringify({ refresh_token: session.refreshToken })), 400);
+  });
+
+  test("logout com JWT que não verifica: 403 bad_jwt, e o adapter diz recusado (503 no caso de uso), nunca encerrada", async () => {
+    const headers = { apikey: stack.publishableKey, authorization: "Bearer aaa.bbb.ccc", accept: "application/json" };
+    expectGotrueRefusal(await rawAuthPost(stack, LOGOUT_PATH, headers, null), 403, "bad_jwt");
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
+  });
+
+  test("logout de sessão já apagada: 403 session_not_found, o único que vale como encerrada", async () => {
+    const session = await signInWithPassword(stack, user);
+    await expect(client.logout(session.accessToken)).resolves.toEqual({ ok: true });
+    const headers = { apikey: stack.publishableKey, authorization: `Bearer ${session.accessToken}`, accept: "application/json" };
+    expectGotrueRefusal(await rawAuthPost(stack, LOGOUT_PATH, headers, null), 403, "session_not_found");
+  });
+
+  test("logout sem Bearer: recusa com o corpo do GoTrue (o gateway local põe o JWT anônimo, que não tem sub)", async () => {
+    const raw = await rawAuthPost(stack, LOGOUT_PATH, { apikey: stack.publishableKey, accept: "application/json" }, null);
+    expect([401, 403]).toContain(raw.status);
+    expectGotrueRefusal(raw, raw.status);
+  });
+
+  test("limite do job: o gateway local não confere a apikey em /auth/v1/, e a publishable errada chega ao GoTrue", async () => {
+    // No projeto real, o gateway responde 401 `Invalid API key`, sem o corpo do GoTrue (o caso do A-01 e do A-02):
+    // essa prova fica no simulado (gotrue-token-client e auth-session-stack) e no S-3.
+    const headers = { ...TOKEN_HEADERS, apikey: "sb_publishable_ChaveRevogada-0000" };
+    expectGotrueRefusal(await rawAuthPost(stack, REFRESH_PATH, headers, JSON.stringify({ refresh_token: "trampo-sonda-inexistente" })), 400, "refresh_token_not_found");
   });
 });

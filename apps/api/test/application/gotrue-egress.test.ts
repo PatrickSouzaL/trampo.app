@@ -1,6 +1,6 @@
 // F1-API-07 07e (ADR-004 D8 item 5, §4.2 "Orçamento de saída" e "Bulkhead"; emenda ao ADR-014, D10): orçamento de
-// saída ao GoTrue em janela deslizante exata de 300 s, particionado, com reserva da renovação, e *bulkhead* de 4.
-// Relógio manual: o tempo só anda quando o teste manda.
+// saída ao GoTrue em janela deslizante exata de 300 s, particionado, com reserva da renovação, e *bulkhead* de 4, com
+// uma vaga que a troca nunca ocupa (F1-API-08, achado A-03). Relógio manual: o tempo só anda quando o teste manda.
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
@@ -56,8 +56,13 @@ describe("tetos do P19 (HITL-036) presos por teste", () => {
       tokenTotalMax: 74,
       renovacaoReserve: 37,
       maxConcurrent: 4,
+      trocaMaxConcurrent: 3,
       busyRetryAfterSeconds: 5,
     });
+  });
+
+  test("a troca deixa pelo menos uma vaga do bulkhead para quem já está logado (A-03)", () => {
+    expect(GOTRUE_EGRESS_POLICY.trocaMaxConcurrent).toBeLessThan(GOTRUE_EGRESS_POLICY.maxConcurrent);
   });
 
   test("cada teto fica abaixo de 50% do limite real, na mesma janela", () => {
@@ -265,8 +270,17 @@ describe("política inválida derruba a criação", () => {
     ["bulkhead zero", { maxConcurrent: 0 }],
     ["Retry-After do bulkhead zero", { busyRetryAfterSeconds: 0 }],
     ["total NaN", { tokenTotalMax: Number.NaN }],
+    ["troca simultânea zero (a troca nunca passaria)", { trocaMaxConcurrent: 0 }],
+    ["troca simultânea igual ao bulkhead (nenhuma vaga para quem está logado)", { trocaMaxConcurrent: 4 }],
+    ["troca simultânea acima do bulkhead", { trocaMaxConcurrent: 5 }],
+    ["troca simultânea fracionária", { trocaMaxConcurrent: 1.5 }],
+    ["troca simultânea NaN", { trocaMaxConcurrent: Number.NaN }],
   ])("%s", (_name, patch) => {
     expect(() => createGotrueEgress(new ManualClock(), { ...GOTRUE_EGRESS_POLICY, ...patch })).toThrow(EgressPolicyError);
+  });
+
+  test("o menor bulkhead com a vaga reservada é válido: 2 vagas, 1 para a troca", () => {
+    expect(() => createGotrueEgress(new ManualClock(), { ...GOTRUE_EGRESS_POLICY, maxConcurrent: 2, trocaMaxConcurrent: 1 })).not.toThrow();
   });
 
   test("reserva zero é válida (a renovação só não tem vaga própria)", () => {
@@ -280,21 +294,100 @@ describe("política inválida derruba a criação", () => {
   });
 });
 
-// F1-SEC-01, achado A-03 da revisão adversarial de auth: o *bulkhead* é um só para as três chamadas, sem vaga
-// reservada para a renovação. O teste prende o comportamento de hoje; a decisão está no BACKLOG (F1-API-08).
-describe("bulkhead sem partição (A-03)", () => {
-  test("4 trocas penduradas negam a renovação com bulkhead_cheio, sem gastar o orçamento dela", async () => {
-    const { egress, run } = egressWith();
+// F1-SEC-01, achado A-03 da revisão adversarial de auth; decisão da F1-API-08 (ADR-004 D8 item 5, "Emenda da
+// F1-API-08"): a troca é a única chamada que um anônimo leva ao GoTrue (código de formato válido basta), e ela ocupa no
+// máximo 3 das 4 vagas. A renovação (envelope que abre) e o logout (Bearer verificado) usam as 4.
+describe("vaga do bulkhead que a troca nunca ocupa (A-03)", () => {
+  function hanging() {
     const releases: (() => void)[] = [];
     const hang = () =>
       new Promise<string>((resolve) => {
         releases.push(() => resolve("feito"));
       });
-    const trocas = [1, 2, 3, 4].map(() => egress.run("troca", hang));
-    expect(await run("renovacao")).toEqual({ ok: false, reason: "bulkhead_cheio", retryAfterSeconds: 5 });
+    return { releases, hang };
+  }
+
+  test("3 trocas penduradas: a 4ª troca leva bulkhead_cheio sem rodar nem gastar orçamento, e a renovação passa", async () => {
+    const { egress, run, calls } = egressWith();
+    const { releases, hang } = hanging();
+    const trocas = [1, 2, 3].map(() => egress.run("troca", hang));
+    expect(await run("troca")).toEqual({ ok: false, reason: "bulkhead_cheio", retryAfterSeconds: 5 });
+    expect(calls()).toBe(0);
+    expect(await run("renovacao")).toEqual({ ok: true, value: "feito" });
     for (const release of releases) release();
     await Promise.all(trocas);
-    // Livre o bulkhead, a renovação passa: a reserva de 50% continua intacta (74 − 4 trocas = 70 renovações).
-    expect(await spendN(run, "renovacao", 80)).toBe(70);
+    // A troca negada não gastou orçamento: 14 − 3 penduradas = 11.
+    expect(await spendN(run, "troca", 20)).toBe(11);
+  });
+
+  test("3 trocas penduradas: o logout também usa a 4ª vaga", async () => {
+    const { egress, run } = egressWith();
+    const { releases, hang } = hanging();
+    const trocas = [1, 2, 3].map(() => egress.run("troca", hang));
+    expect(await run("logout")).toEqual({ ok: true, value: "feito" });
+    for (const release of releases) release();
+    await Promise.all(trocas);
+  });
+
+  test("com a 4ª vaga ocupada por quem está logado, nada mais entra até uma vaga voltar", async () => {
+    const { egress, run } = egressWith();
+    const { releases, hang } = hanging();
+    const running = [egress.run("troca", hang), egress.run("troca", hang), egress.run("troca", hang), egress.run("renovacao", hang)];
+    for (const kind of ["troca", "renovacao", "logout"] as const) {
+      expect(await run(kind)).toEqual({ ok: false, reason: "bulkhead_cheio", retryAfterSeconds: 5 });
+    }
+    // Volta a vaga da renovação: a troca continua no teto dela, e a renovação entra.
+    releases[3]?.();
+    await running[3];
+    expect(await run("troca")).toMatchObject({ ok: false, reason: "bulkhead_cheio" });
+    expect(await run("renovacao")).toEqual({ ok: true, value: "feito" });
+    for (const release of releases.slice(0, 3)) release();
+    await Promise.all(running);
+  });
+
+  test("4 renovações ocupam o bulkhead inteiro; a troca volta a entrar quando uma vaga volta", async () => {
+    const { egress, run } = egressWith();
+    const { releases, hang } = hanging();
+    const running = [1, 2, 3, 4].map(() => egress.run("renovacao", hang));
+    expect(await run("troca")).toMatchObject({ ok: false, reason: "bulkhead_cheio" });
+    releases[0]?.();
+    await running[0];
+    expect(await run("troca")).toEqual({ ok: true, value: "feito" });
+    for (const release of releases.slice(1)) release();
+    await Promise.all(running);
+  });
+
+  test("2 trocas e 1 renovação: cabe uma 3ª troca, e só então o bulkhead enche", async () => {
+    const { egress, run } = egressWith();
+    const { releases, hang } = hanging();
+    const running = [egress.run("troca", hang), egress.run("renovacao", hang), egress.run("troca", hang)];
+    const third = egress.run("troca", hang);
+    expect(await run("logout")).toMatchObject({ ok: false, reason: "bulkhead_cheio" });
+    for (const release of releases) release();
+    expect(await third).toEqual({ ok: true, value: "feito" });
+    await Promise.all(running);
+  });
+
+  test("a vaga da troca volta quando ela termina, inclusive se rejeitar", async () => {
+    const { egress, run } = egressWith();
+    const { releases, hang } = hanging();
+    const running = [egress.run("troca", hang), egress.run("troca", hang)];
+    await expect(egress.run("troca", () => Promise.reject(new Error("falhou")))).rejects.toThrow("falhou");
+    // Se a rejeição prendesse a vaga da troca, esta 3ª seria negada.
+    const third = egress.run("troca", hang);
+    expect(await run("troca")).toMatchObject({ ok: false, reason: "bulkhead_cheio" });
+    for (const release of releases) release();
+    expect(await third).toEqual({ ok: true, value: "feito" });
+    await Promise.all(running);
+  });
+
+  test("com 1 vaga de troca em 2: a 2ª troca simultânea é negada, e a renovação entra", async () => {
+    const { egress, run } = egressWith({ ...GOTRUE_EGRESS_POLICY, maxConcurrent: 2, trocaMaxConcurrent: 1 });
+    const { releases, hang } = hanging();
+    const first = egress.run("troca", hang);
+    expect(await run("troca")).toMatchObject({ ok: false, reason: "bulkhead_cheio" });
+    expect(await run("renovacao")).toEqual({ ok: true, value: "feito" });
+    for (const release of releases) release();
+    await first;
   });
 });

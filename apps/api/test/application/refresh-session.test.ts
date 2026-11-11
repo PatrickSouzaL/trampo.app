@@ -181,6 +181,18 @@ describe("M-16, orçamento antes do open: forjado nunca consome, genuíno é bar
     await h.spend("renovacao", GOTRUE_EGRESS_POLICY.tokenTotalMax);
   });
 
+  test("trocas anônimas no teto do bulkhead não barram a renovação: ela usa a vaga que a troca nunca ocupa (A-03)", async () => {
+    const { h, run } = setup();
+    const release: (() => void)[] = [];
+    const hold = Array.from({ length: GOTRUE_EGRESS_POLICY.trocaMaxConcurrent }, () =>
+      h.realEgress.run("troca", () => new Promise<void>((resolve) => release.push(resolve))),
+    );
+    expect((await run()).kind).toBe("sessao");
+    expect(h.calls).toHaveLength(1);
+    for (const done of release) done();
+    await Promise.all(hold);
+  });
+
   test("propriedade: nenhum envelope forjado chega ao orçamento", async () => {
     const { h, run } = setup();
     await fc.assert(

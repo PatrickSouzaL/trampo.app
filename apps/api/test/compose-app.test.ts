@@ -735,22 +735,32 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
     expect(tokenCalls()).toHaveLength(1);
   });
 
-  test("um só GotrueEgress por processo: com 4 trocas em voo, a renovação leva 503 com retryAfterSeconds 5", async () => {
+  test("um só GotrueEgress por processo: 3 trocas e 1 renovação em voo enchem o bulkhead das duas rotas (503, retryAfterSeconds 5)", async () => {
     const instance = bootAuth();
     const refreshToken = sealedEnvelope(nowSeconds() - 60, nowSeconds() - 60);
     gotrue.mode = { kind: "lento", delayMs: 1_500 };
     const codes = ["a1b2c3d4-0001", "a1b2c3d4-0002", "a1b2c3d4-0003", "a1b2c3d4-0004"];
     for (const code of codes) gotrue.addFlow(code, VERIFIER);
-    const inFlight = codes.map((code) => post(instance, "exchange", exchangeBody(code)));
-    const deadline = Date.now() + HAPPY_PATH_TIMEOUT_MS;
-    while (tokenCalls().length < 4 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+    const waitTokenCalls = async (n: number): Promise<void> => {
+      const deadline = Date.now() + HAPPY_PATH_TIMEOUT_MS;
+      while (tokenCalls().length < n && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(tokenCalls()).toHaveLength(n);
+    };
+    const expectBusy = (res: Awaited<ReturnType<typeof post>>): void => {
+      expect(res.statusCode).toBe(503);
+      expect(ApiErrorSchema.parse(res.json()).retryAfterSeconds).toBe(5);
+      expect(res.headers["retry-after"]).toBe("5");
+    };
+    const trocas = codes.slice(0, 3).map((code) => post(instance, "exchange", exchangeBody(code)));
+    await waitTokenCalls(3);
+    // A 4ª troca para no teto dela (A-03), e a vaga que sobra é da renovação.
+    expectBusy(await post(instance, "exchange", exchangeBody(codes[3] ?? "")));
+    const renovacao = post(instance, "refresh", { schemaVersion: 1, refreshToken });
+    await waitTokenCalls(4);
+    // A rota da renovação vê as trocas da outra rota: o bulkhead é um só.
+    expectBusy(await post(instance, "refresh", { schemaVersion: 1, refreshToken }));
     expect(tokenCalls()).toHaveLength(4);
-    const busy = await post(instance, "refresh", { schemaVersion: 1, refreshToken });
-    expect(busy.statusCode).toBe(503);
-    expect(ApiErrorSchema.parse(busy.json()).retryAfterSeconds).toBe(5);
-    expect(busy.headers["retry-after"]).toBe("5");
-    expect(tokenCalls()).toHaveLength(4);
-    await Promise.all(inFlight);
+    await Promise.all([...trocas, renovacao]);
   });
 
   test("com TRUST_PROXY e API_BEHIND_PROXY=true, dois X-Forwarded-For do proxy caem em baldes distintos", async () => {

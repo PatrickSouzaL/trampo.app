@@ -17,7 +17,7 @@ export interface EndSessionInput {
   readonly accessToken: string;
 }
 
-/** 204: a sessão não está mais viva no GoTrue (2xx, ou 401 de sessão já revogada, que o adapter já trata como `ok`). */
+/** 204: a sessão não está mais viva no GoTrue (2xx, ou 403 `session_not_found`, que o adapter já trata como `ok`). */
 export interface SessionEnded {
   readonly kind: "encerrada";
 }
@@ -40,7 +40,8 @@ export class EndSession {
     const deps = this.#deps;
     const outcome = await callGotrue(deps.egress, "logout", () => deps.gateway.logout(input.accessToken), GATEWAY_THREW);
     if (!outcome.ok) return unavailable("auth_provedor_indisponivel", outcome.retryAfterSeconds);
-    // Qualquer falha (5xx, prazo, rede ou recusa que não seja 401) é 503: o 204 só sai com a sessão de fato encerrada.
+    // Qualquer falha (5xx, prazo, rede, 401 ou recusa que não seja o `session_not_found`) é 503: o 204 só sai com a
+    // sessão de fato encerrada.
     return outcome.value.ok ? ENDED : unavailable("auth_provedor_indisponivel");
   }
 }

@@ -15,10 +15,11 @@ export interface AuthTokens {
 
 /**
  * Por que a chamada falhou (D4 e D7):
- * - `recusado`: o GoTrue respondeu que não (400, 401, 403 ou 422; o 404 só com o corpo JSON do GoTrue e um
- *   `error_code` string). Vira 401, um único motivo;
- * - `nao_recebido`: o GoTrue não processou (conexão recusada, redirecionamento, 429, 5xx, 404 sem o corpo do
- *   GoTrue, entrada fora da forma). Vira 503, sem nova tentativa;
+ * - `recusado`: o GoTrue respondeu que não (400, 401, 403, 404 ou 422, sempre com o corpo JSON do GoTrue e um
+ *   `error_code` string; emenda da F1-API-08). Vira 401, um único motivo;
+ * - `nao_recebido`: o GoTrue não processou (conexão recusada, redirecionamento, 429, 5xx, status de recusa sem o
+ *   corpo do GoTrue, como o `Invalid API key` do gateway ou o HTML de um WAF, entrada fora da forma). Vira 503, sem
+ *   nova tentativa;
  * - `pode_ter_rotacionado`: o pedido pode ter sido processado e a resposta se perdeu (prazo, socket cortado,
  *   corpo inválido ou acima do teto). Na renovação, justifica **uma** nova tentativa com o mesmo refresh (07f).
  */
@@ -31,7 +32,10 @@ export interface AuthTokenFailure {
 
 export type AuthTokenResult = { readonly ok: true; readonly tokens: AuthTokens } | AuthTokenFailure;
 
-/** Logout: `ok` quando a sessão não está mais viva no GoTrue (2xx, ou 401 de sessão já revogada; D4 passo 3). */
+/**
+ * Logout: `ok` quando a sessão não está mais viva no GoTrue (2xx, ou 403 `session_not_found` de sessão já apagada;
+ * D4 passo 3, D7). O 401 nunca é `ok` (achado A-01).
+ */
 export type AuthLogoutResult = { readonly ok: true } | AuthTokenFailure;
 
 export interface AuthTokenGateway {
