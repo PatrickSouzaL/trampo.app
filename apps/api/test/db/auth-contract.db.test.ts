@@ -11,7 +11,8 @@
 // - o `grant_type=pkce` com código desconhecido é `recusado` (404 com o corpo do GoTrue, D7);
 // - F1-API-08 (achados A-01 e A-02, D7): cada recusa real da troca (400, 404 e 422), da renovação (400) e do logout
 //   (403) chega com o corpo JSON do GoTrue e um `error_code` string, que é o que o adapter exige para dizer
-//   `recusado`; e o limite deste job: o gateway local não confere a `apikey` em `/auth/v1/`, então o `Invalid API key`
+//   `recusado` (o refresh desconhecido precisa ter a forma legada de 12 caracteres para chegar à busca, e o fluxo PKCE
+//   gravado à mão precisa dos tokens do provedor como texto vazio: correção do 1º run do job, no PR #21); e o limite deste job: o gateway local não confere a `apikey` em `/auth/v1/`, então o `Invalid API key`
 //   do projeto real só existe no simulado (e no S-3).
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -42,6 +43,13 @@ import { parseLocalStackEnv, type LocalStack } from "./support/local-stack-env.j
 const stack: LocalStack = parseLocalStackEnv(process.env);
 const client = createGotrueTokenClient({ url: stack.apiUrl, publishableKey: stack.publishableKey });
 const SIGNING_KEYS = fileURLToPath(new URL("../../../../supabase/signing_keys.json", import.meta.url));
+/**
+ * Refresh que o GoTrue procura no banco e não acha: 12 caracteres `[a-z0-9]`, a forma legada. Fora dela (e da forma
+ * nova, assinada), o GoTrue v2.197.0 recusa antes da busca, com `validation_failed` (`RefreshTokenGrantParams.Validate`).
+ */
+const UNKNOWN_REFRESH = "trampo0sonda";
+/** Refresh fora das duas formas (a sonda do 1º run do job, que deu `validation_failed`): nem chega à busca. */
+const MALFORMED_REFRESH = "trampo-sonda-inexistente";
 /** O intervalo de reuso do `config.toml` (10 s) e uma folga. */
 const AFTER_REUSE_INTERVAL_MS = 11_500;
 
@@ -143,7 +151,7 @@ describe("GotrueTokenClient contra o GoTrue de verdade", () => {
   });
 
   test("refresh desconhecido: recusado (400 refresh_token_not_found)", async () => {
-    await expect(client.refresh("trampo-sonda-inexistente")).resolves.toEqual({ ok: false, reason: "recusado" });
+    await expect(client.refresh(UNKNOWN_REFRESH)).resolves.toEqual({ ok: false, reason: "recusado" });
   });
 
   test("troca com código desconhecido: recusado (404 com o corpo do GoTrue, D7)", async () => {
@@ -240,11 +248,17 @@ describe("F1-API-08: as recusas reais trazem o corpo do GoTrue (A-01 e A-02; D7)
   });
 
   test("renovação com refresh desconhecido e com o de uma sessão encerrada: 400 com error_code", async () => {
-    const unknown = await rawAuthPost(stack, REFRESH_PATH, TOKEN_HEADERS, JSON.stringify({ refresh_token: "trampo-sonda-inexistente" }));
+    const unknown = await rawAuthPost(stack, REFRESH_PATH, TOKEN_HEADERS, JSON.stringify({ refresh_token: UNKNOWN_REFRESH }));
     expectGotrueRefusal(unknown, 400, "refresh_token_not_found");
     const session = await signInWithPassword(stack, user);
     await expect(client.logout(session.accessToken)).resolves.toEqual({ ok: true });
     expectGotrueRefusal(await rawAuthPost(stack, REFRESH_PATH, TOKEN_HEADERS, JSON.stringify({ refresh_token: session.refreshToken })), 400);
+  });
+
+  test("renovação com refresh fora da forma: 400 validation_failed, antes da busca, e o adapter diz recusado", async () => {
+    const malformed = await rawAuthPost(stack, REFRESH_PATH, TOKEN_HEADERS, JSON.stringify({ refresh_token: MALFORMED_REFRESH }));
+    expectGotrueRefusal(malformed, 400, "validation_failed");
+    await expect(client.refresh(MALFORMED_REFRESH)).resolves.toEqual(RECUSADO);
   });
 
   test("logout com JWT que não verifica: 403 bad_jwt, e o adapter diz recusado (503 no caso de uso), nunca encerrada", async () => {
@@ -270,6 +284,6 @@ describe("F1-API-08: as recusas reais trazem o corpo do GoTrue (A-01 e A-02; D7)
     // No projeto real, o gateway responde 401 `Invalid API key`, sem o corpo do GoTrue (o caso do A-01 e do A-02):
     // essa prova fica no simulado (gotrue-token-client e auth-session-stack) e no S-3.
     const headers = { ...TOKEN_HEADERS, apikey: "sb_publishable_ChaveRevogada-0000" };
-    expectGotrueRefusal(await rawAuthPost(stack, REFRESH_PATH, headers, JSON.stringify({ refresh_token: "trampo-sonda-inexistente" })), 400, "refresh_token_not_found");
+    expectGotrueRefusal(await rawAuthPost(stack, REFRESH_PATH, headers, JSON.stringify({ refresh_token: UNKNOWN_REFRESH })), 400, "refresh_token_not_found");
   });
 });

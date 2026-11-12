@@ -103,12 +103,15 @@ export async function rawAuthPost(
 
 // As colunas obrigatórias de `auth.flow_state` no GoTrue v2.197.0 (migrations de 2023-03 e 2023-04; as de 2026-01 têm
 // padrão ou aceitam nulo). O `created_at` recua `age` segundos: acima do `flow_state_expiry_duration` (300 s), vencido.
+// `provider_access_token` e `provider_refresh_token` aceitam nulo no banco, mas o modelo do GoTrue os lê como `string`:
+// com nulo, a leitura do fluxo falha e a troca responde 500 (visto no job `db` do PR #21). O GoTrue grava texto vazio.
 const INSERT_PKCE_FLOW_SQL = `
 with ins as (
   insert into auth.flow_state
-    (id, user_id, auth_code, code_challenge_method, code_challenge, provider_type, authentication_method, created_at, updated_at)
+    (id, user_id, auth_code, code_challenge_method, code_challenge, provider_type, provider_access_token, provider_refresh_token,
+     authentication_method, created_at, updated_at)
   values
-    (gen_random_uuid(), :'uid'::uuid, :'code', 's256', :'challenge', 'github', 'oauth', now() - make_interval(secs => :'age'::int), now())
+    (gen_random_uuid(), :'uid'::uuid, :'code', 's256', :'challenge', 'github', '', '', 'oauth', now() - make_interval(secs => :'age'::int), now())
   returning id
 )
 select json_build_object('inseridos', count(*)) from ins;
