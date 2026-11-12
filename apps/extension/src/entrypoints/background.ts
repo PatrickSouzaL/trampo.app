@@ -2,9 +2,10 @@
 // Proibido registrar handler do evento `fetch` (brecha de CSP, crbug 1463420; ADR-001 §5.0.1).
 // Canal único com o painel: a porta PANEL_PORT_NAME. Nenhum onMessage, onMessageExternal nem
 // onConnectExternal é registrado (SR-10).
+import { createAnalysisService } from "../api/analysis-service";
 import { createWorkerAuth } from "../auth/worker-auth";
 import { extractorRunner, platformForUrl } from "../capture/capture";
-import { CAPTURE_STORAGE_KEY, CaptureStateSchema, createCaptureService } from "../capture/capture-service";
+import { CAPTURE_STORAGE_KEY, CaptureStateSchema, createCaptureService, readyJob } from "../capture/capture-service";
 import { CONSENT_STORAGE_KEY, ConsentRecordSchema, createConsentService } from "../consent/consent-service";
 import { sessionStore } from "../messaging/session-store";
 import { handlePanelConnection } from "../messaging/worker-port";
@@ -18,15 +19,7 @@ export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(forcePanelBehavior);
   browser.runtime.onStartup.addListener(forcePanelBehavior);
 
-  // Os logs levam só motivos de lista fechada, nunca texto de vaga nem URL (T23; ADR-024 D6).
-  const capture = createCaptureService({
-    store: sessionStore(CAPTURE_STORAGE_KEY, CaptureStateSchema),
-    runExtractor: extractorRunner(browser.scripting),
-    now: Date.now,
-    logFailure: (motivo) => console.warn("[trampo] captura falhou:", motivo),
-  });
-  const internalFailure = (): void => console.warn("[trampo] falha interna na captura");
-  // Consentimento antes da 1ª transmissão (ADR-025 D2). O envio à API (parte 2) consulta consent.isGranted().
+  // Consentimento antes da 1ª transmissão (ADR-025 D2). O envio à API consulta consent.isGranted().
   const consent = createConsentService({ store: sessionStore(CONSENT_STORAGE_KEY, ConsentRecordSchema), now: Date.now });
   const consentFailure = (): void => console.warn("[trampo] falha interna no consentimento");
 
@@ -38,6 +31,30 @@ export default defineBackground(() => {
     { log: (motivo) => console.warn("[trampo] sessão:", motivo) },
   );
   const sessionFailure = (): void => console.warn("[trampo] falha interna na sessão");
+
+  // Envio da vaga (F1-EXT-04 parte 2; ADR-025 §6 D10 a D13): o consentimento, a vaga pronta e o token da mesma sessão,
+  // pelo api-client da composição. O painel recebe só eventos do contrato; o log, só o motivo da lista fechada (T23).
+  const captureStore = sessionStore(CAPTURE_STORAGE_KEY, CaptureStateSchema);
+  const analysis = createAnalysisService({
+    api: auth.api,
+    auth,
+    consent,
+    job: readyJob(captureStore),
+    randomUUID: () => crypto.randomUUID(),
+    log: (motivo) => console.warn("[trampo] análise:", motivo),
+  });
+  const analysisFailure = (): void => console.warn("[trampo] falha interna na análise");
+
+  // Os logs levam só motivos de lista fechada, nunca texto de vaga nem URL (T23; ADR-024 D6). A captura que muda
+  // cancela a análise em curso antes de gravar e de avisar o painel (ADR-025 §6 D10).
+  const capture = createCaptureService({
+    store: captureStore,
+    runExtractor: extractorRunner(browser.scripting),
+    now: Date.now,
+    logFailure: (motivo) => console.warn("[trampo] captura falhou:", motivo),
+    onChange: () => analysis.cancel(),
+  });
+  const internalFailure = (): void => console.warn("[trampo] falha interna na captura");
 
   browser.action.onClicked.addListener((tab) => {
     if (tab.id === undefined) return;
@@ -62,6 +79,8 @@ export default defineBackground(() => {
         .attach(port)
         .then(() => consent.attach(port))
         .then(() => auth.attach(port))
+        // Depois do handshake: a porta só recebe os eventos das análises seguintes (o handshake não muda).
+        .then(() => analysis.attach(port))
         .catch(internalFailure);
     },
     onPaste: (texto: string) => {
@@ -79,6 +98,10 @@ export default defineBackground(() => {
     },
     onLogout: () => {
       auth.logout().catch(sessionFailure);
+    },
+    // Nunca rejeita e sempre termina com um terminal no painel (ou é ignorado com outra em curso); o catch é a 2ª trava.
+    onAnalyze: (mode: Parameters<typeof analysis.analyze>[0]) => {
+      analysis.analyze(mode).catch(analysisFailure);
     },
   };
   browser.runtime.onConnect.addListener((port) => handlePanelConnection(port, ctx));

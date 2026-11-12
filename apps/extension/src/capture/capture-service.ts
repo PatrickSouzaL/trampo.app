@@ -7,7 +7,7 @@ import type { CaptureView } from "../messaging/protocol";
 import type { SessionStore } from "../messaging/session-store";
 import type { PanelPort } from "../messaging/worker-port";
 import type { ExtractorPlatform } from "../extraction/job-extractor";
-import { CaptureFailureSchema, CapturedJobSchema, captureFromTab, capturePasted, type CaptureFailure, type CaptureOutcome, type ExtractorRunner } from "./capture";
+import { CaptureFailureSchema, CapturedJobSchema, captureFromTab, capturePasted, type CaptureFailure, type CaptureOutcome, type CapturedJob, type ExtractorRunner } from "./capture";
 import { countCodePoints } from "./job-text";
 
 /** Chave única em storage.session: só a última captura existe (ADR-001 §5.0 passo 5). */
@@ -48,6 +48,11 @@ export interface CaptureServiceDeps {
   readonly now: () => number;
   /** Registra só o motivo, nunca texto de vaga nem mensagem de erro do navegador (T23). */
   readonly logFailure: (motivo: CaptureFailure) => void;
+  /**
+   * A captura vai mudar (F1-EXT-04 parte 2; ADR-025 §6 D10): chamado antes de gravar o estado novo e de avisar o
+   * painel, para a análise da vaga anterior parar antes de o `captura` limpar a tela.
+   */
+  readonly onChange?: () => void;
 }
 
 export interface CaptureService {
@@ -61,15 +66,25 @@ export interface CaptureService {
   tabClosed(tabId: number): Promise<void>;
 }
 
+/** A vaga da captura `pronto`, a única que pode ir à API (F1-EXT-04 parte 2). */
+export function readyJob(store: SessionStore<typeof CaptureStateSchema>): () => Promise<CapturedJob | undefined> {
+  return async () => {
+    const state = await store.get();
+    return state?.estado === "pronto" ? state.vaga : undefined;
+  };
+}
+
 export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
   const hub = createPanelHub();
   // Dois cliques seguidos: só a captura mais recente grava o resultado.
   let generation = 0;
+  const changing = deps.onChange ?? (() => undefined);
 
   const broadcast = (state: CaptureState | undefined): void => {
     hub.broadcast({ kind: "captura", captura: captureView(state) });
   };
   const publish = async (state: CaptureState): Promise<void> => {
+    changing();
     await deps.store.set(state);
     broadcast(state);
   };
@@ -104,6 +119,7 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
       const state = await deps.store.get();
       if (state === undefined || tabOf(state) !== tabId) return;
       generation += 1;
+      changing();
       await deps.store.remove();
       broadcast(undefined);
     },

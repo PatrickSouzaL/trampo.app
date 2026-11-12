@@ -49,6 +49,7 @@ function hooks(logRejection: (r: RejectReason) => void) {
     onRevoke: vi.fn(),
     onLogin: vi.fn(),
     onLogout: vi.fn(),
+    onAnalyze: vi.fn(),
   };
 }
 
@@ -131,6 +132,16 @@ describe("handlePanelConnection", () => {
     expect(c.port.disconnect).not.toHaveBeenCalled();
   });
 
+  test.each(["auto", "aprofundada"] as const)("analisar (%s) chega ao Service Worker só com o modo, sem resposta direta (ADR-025 §6 D12)", (mode) => {
+    const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
+    c.deliver({ kind: "analisar", mode });
+    expect(c.ctx.onAnalyze).toHaveBeenCalledExactlyOnceWith(mode);
+    expect(c.ctx.onLogin).not.toHaveBeenCalled();
+    expect(c.ctx.onReady).not.toHaveBeenCalled();
+    expect(c.port.postMessage).not.toHaveBeenCalled();
+    expect(c.port.disconnect).not.toHaveBeenCalled();
+  });
+
   test("sair chega ao Service Worker sem resposta direta", () => {
     const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
     c.deliver({ kind: "sair" });
@@ -179,6 +190,14 @@ describe("handlePanelConnection", () => {
     ["entrar sem provedor", { kind: "entrar" }],
     ["sair com payload", { kind: "sair", escopo: "local" }],
     ["sessao vinda do painel", { kind: "sessao", sessao: { autenticado: true, erro: null } }],
+    // Envio (ADR-025 §6 D12): só o modo do contrato; texto, requestId, plataforma e token são do SW.
+    ["analisar sem modo", { kind: "analisar" }],
+    ["analisar com modo desconhecido", { kind: "analisar", mode: "turbo" }],
+    ["analisar com modo em outra caixa", { kind: "analisar", mode: "Auto" }],
+    ["analisar com texto", { kind: "analisar", mode: "auto", texto: "vaga" }],
+    ["analisar com requestId", { kind: "analisar", mode: "auto", requestId: "6f1c2a52-3b7e-4c1d-9a55-0d6b3f4e8a11" }],
+    ["analisar com token", { kind: "analisar", mode: "auto", accessToken: "a.b.c" }],
+    ["stream vindo do painel", { kind: "stream", event: { type: "stage", stage: "recebido", elapsedMs: 0 } }],
   ];
   test.each(invalid)("mensagem inválida (%s) derruba a porta sem resposta", (_label, msg) => {
     const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
@@ -192,6 +211,7 @@ describe("handlePanelConnection", () => {
     expect(c.ctx.onRevoke).not.toHaveBeenCalled();
     expect(c.ctx.onLogin).not.toHaveBeenCalled();
     expect(c.ctx.onLogout).not.toHaveBeenCalled();
+    expect(c.ctx.onAnalyze).not.toHaveBeenCalled();
   });
 
   test("o log de recusa recebe só o motivo, nunca o conteúdo", () => {

@@ -1,7 +1,7 @@
 // Contrato PRIVADO da extensão entre o Side Panel e o Service Worker (F1-EXT-02).
 // Fica fora do @trampo/contracts porque não cruza a rede. Estrito dos dois lados: chave extra,
 // tipo desconhecido ou versão errada derrubam a porta (SR-10).
-import { AnalysisStreamEventSchema, ApiErrorCodeSchema } from "@trampo/contracts/api";
+import { AnalysisStreamEventSchema, AnalyzeJobRequestSchema, ApiErrorCodeSchema } from "@trampo/contracts/api";
 import { JOB_TEXT_MAX_CHARS } from "@trampo/contracts/limits";
 import { z } from "zod";
 
@@ -65,6 +65,13 @@ export function toSessaoView(view: SessaoView): SessaoView {
   return parsed.success ? parsed.data : SESSAO_FALHA_INTERNA;
 }
 
+/**
+ * O modo da análise (ADR-025 §6 D12), o mesmo do contrato público: "aprofundada" é o "Reanalisar com IA". É tudo o que
+ * o painel manda no `analisar`; o texto, o `requestId`, a plataforma e o token são do Service Worker.
+ */
+export const AnalysisModeSchema = AnalyzeJobRequestSchema.shape.mode;
+export type AnalysisMode = z.infer<typeof AnalysisModeSchema>;
+
 export const PanelToWorkerSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("hello"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
   // Fallback "colar o texto" (ADR-001 D10; ADR-024 D5). O texto é dado, nunca comando.
@@ -75,6 +82,8 @@ export const PanelToWorkerSchema = z.discriminatedUnion("kind", [
   // Sessão (ADR-004 D12): o painel só pede. O login, o token e o logout vivem no Service Worker.
   z.strictObject({ kind: z.literal("entrar"), provedor: z.enum(AUTH_PROVIDERS) }),
   z.strictObject({ kind: z.literal("sair") }),
+  // Envio da vaga (F1-EXT-04 parte 2): só o modo. O SW confere o consentimento, a vaga e a sessão.
+  z.strictObject({ kind: z.literal("analisar"), mode: AnalysisModeSchema }),
 ]);
 export type PanelToWorker = z.infer<typeof PanelToWorkerSchema>;
 

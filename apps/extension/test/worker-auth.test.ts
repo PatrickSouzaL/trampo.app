@@ -76,7 +76,23 @@ const NAO_LOGADO: SessaoView = { autenticado: false, erro: null };
 describe("createWorkerAuth", () => {
   test("devolve o serviço sem o view(): a visão só sai pelo canal, saneada (D10 B6)", () => {
     const auth = createWorkerAuth({ apiOrigin: API, supabaseOrigin: SUPABASE }, recorder());
-    expect(Object.keys(auth).sort()).toStrictEqual(["accessToken", "attach", "login", "logout", "onUnauthorized"]);
+    expect(Object.keys(auth).sort()).toStrictEqual(["accessToken", "api", "attach", "login", "logout", "onUnauthorized"]);
+  });
+
+  test("o api da composição é o mesmo cliente da sessão, e não existe sem as duas origens (ADR-025 §6 D13)", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => (calls.push(url), new Response(null, { status: 204 })));
+    try {
+      const auth = createWorkerAuth({ apiOrigin: API, supabaseOrigin: SUPABASE }, recorder());
+      expect(typeof auth.api?.analyze).toBe("function");
+      expect(typeof auth.api?.post).toBe("function");
+      await auth.api?.post({ path: "/v1/auth/logout", body: { schemaVersion: 1 }, accessToken: "a.b.c" });
+      expect(calls).toStrictEqual([`${API}/v1/auth/logout`]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(createWorkerAuth({ apiOrigin: "", supabaseOrigin: SUPABASE }, recorder()).api).toBeUndefined();
+    expect(createWorkerAuth({ apiOrigin: API, supabaseOrigin: "" }, recorder()).api).toBeUndefined();
   });
 
   test("handshake: sem sessão, a porta recebe { false, null }; com sessão local válida, { true, null } (D12)", async () => {
