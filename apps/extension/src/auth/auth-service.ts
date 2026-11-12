@@ -2,6 +2,8 @@
 // só circula entre o storage.session (pelo authSessionStore), este módulo e o api-client. O painel recebe só
 // a SessaoView, por callback, e o log só motivos da lista fechada do D3: nunca código, verifier, `state`,
 // token, envelope, URL nem texto de resposta (T23).
+// F1-EXT-07 (revisão adversarial de auth): o 401 da análise só vale para a sessão do token que o levou (E-02), e a
+// sessão que a troca cria depois de um "Sair" é encerrada no servidor em melhor esforço (E-03).
 import { ApiErrorSchema } from "@trampo/contracts/api";
 import { AUTH_ROUTES, AUTH_SCHEMA_VERSION, type AuthSessionResponse, AuthSessionResponseSchema } from "@trampo/contracts/auth";
 
@@ -65,10 +67,12 @@ export interface AuthService {
   /** O token para o envio à API, renovado antes se faltar 60 s ou menos (D11.1). Nunca rejeita. */
   accessToken(): Promise<string | undefined>;
   /**
-   * A análise recebeu 401 (D11.4): na 1ª vez, uma renovação, e o token novo vai no reenvio com o mesmo
-   * `requestId`; na 2ª, a sessão é apagada. O tipo do argumento impede o laço. Nunca rejeita.
+   * A análise recebeu 401 (D11.4) com o token `usado`: na 1ª vez, uma renovação, e o token novo vai no reenvio com o
+   * mesmo `requestId`; na 2ª, a sessão é apagada. O tipo do argumento impede o laço. Só vale para a sessão atual
+   * (E-02): se o token não é mais o dela, nada é renovado nem apagado, e só o token que a renovação desta mesma
+   * sessão trocou recebe o atual. Nunca rejeita.
    */
-  onUnauthorized(tentativa: 1 | 2): Promise<string | undefined>;
+  onUnauthorized(tentativa: 1 | 2, usado: string): Promise<string | undefined>;
 }
 
 type Outcome =
@@ -138,6 +142,9 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
   // a geração ainda for a do início: um refresh em voo não ressuscita a sessão (D11.2).
   let generation = 0;
   let refreshing: { readonly gen: number; readonly promise: Promise<StoredSession | undefined> } | undefined;
+  // O access que a última renovação trocou, com a geração dela: o 401 atrasado desse token recebe o atual sem renovar
+  // de novo, e só enquanto a sessão for a mesma (E-02).
+  let replaced: { readonly gen: number; readonly token: string } | undefined;
   // Falha transitória da última renovação: a sessão continua, e o painel vê o código até a próxima renovação boa.
   let degraded: "SERVICO_INDISPONIVEL" | "LIMITE_DE_TAXA" | null = null;
   // Sessão de um logout cuja parte remota falhou duas vezes: só em memória, para o "Tentar sair de novo" (D11.5).
@@ -150,6 +157,8 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     return { v: 1, accessToken: response.accessToken, refreshToken: response.refreshToken, obtainedAt, accessExpiresAt: obtainedAt + response.expiresIn * 1_000 };
   };
   const needsRenewal = (session: StoredSession): boolean => deps.now() >= session.accessExpiresAt - policy.renewThresholdMs;
+  /** O logout da API encerrou a sessão, ou ela já não existia. */
+  const endedRemotely = (result: ApiResult): boolean => result.ok && (result.status === 204 || result.status === 401);
 
   /** Fecha a tentativa: apaga o verifier, registra e emite. Só a tentativa da vez fecha. */
   const finish = (a: Attempt, view: SessaoView, motivo?: AuthLogReason): void => {
@@ -169,6 +178,19 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     } catch {
       // Origem fora da forma ou sem `crypto.subtle`: o ambiente não tem o que o login precisa.
       return undefined;
+    }
+  };
+
+  /**
+   * A troca criou uma sessão que o "Sair" já descartou (E-03): logout remoto em melhor esforço, uma tentativa, com o
+   * access recebido. Nada é gravado nem emitido, e o access morre aqui. Nunca rejeita.
+   */
+  const revokeOrphan = async (api: ApiClient, accessToken: string): Promise<void> => {
+    try {
+      const result = await api.post({ path: AUTH_ROUTES.logout, body: { schemaVersion: AUTH_SCHEMA_VERSION }, accessToken });
+      if (!endedRemotely(result)) deps.log("auth_logout_remoto_falhou");
+    } catch {
+      // O api-client nunca rejeita. Fora do contrato, a sessão fica com o residual "Sessão órfã" (ADR-004 §3).
     }
   };
 
@@ -227,6 +249,8 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
       return;
     }
     if (gen !== generation) {
+      // "Sair" com a troca em voo: a sessão recém-criada não é gravada e não fica viva no servidor (E-03; T48).
+      void revokeOrphan(config.api, outcome.response.accessToken);
       finish(a, NAO_LOGADO);
       return;
     }
@@ -263,6 +287,7 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     if (outcome.kind === "ok") {
       const renewed = toStored(outcome.response);
       await deps.store.set(renewed);
+      replaced = { gen, token: session.accessToken };
       if (degraded !== null) {
         degraded = null;
         deps.emit(AUTENTICADO);
@@ -302,7 +327,7 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
       current = toStored(outcome.response);
     }
     const result = await api.post({ path: AUTH_ROUTES.logout, body: { schemaVersion: AUTH_SCHEMA_VERSION }, accessToken: current.accessToken });
-    return result.ok && (result.status === 204 || result.status === 401) ? undefined : current;
+    return endedRemotely(result) ? undefined : current;
   };
 
   const endRemotely = async (api: ApiClient, session: StoredSession): Promise<void> => {
@@ -375,10 +400,16 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
       }
     },
 
-    async onUnauthorized(tentativa) {
+    async onUnauthorized(tentativa, usado) {
       try {
         const session = await deps.store.get();
         if (session === undefined || deps.config === undefined) return undefined;
+        if (session.accessToken !== usado) {
+          // 401 atrasado (E-02): o token não é o da sessão atual. Se foi a renovação desta mesma sessão que o trocou, o
+          // reenvio leva o atual; de outra sessão ("Sair", 401 ou login novo no meio), nada é renovado nem apagado.
+          const sameSession = replaced !== undefined && replaced.gen === generation && replaced.token === usado;
+          return tentativa === 1 && sameSession ? session.accessToken : undefined;
+        }
         if (tentativa === 2) {
           await drop();
           return undefined;

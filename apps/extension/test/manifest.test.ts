@@ -239,6 +239,15 @@ describe("artefato: a sessão só no background.js (D10 B2 e B5)", () => {
   });
 });
 
+// F1-EXT-07 (revisão adversarial de auth, E-01): o lint barra `setAccessLevel` no código-fonte, e o artefato inteiro,
+// background.js incluído, é conferido aqui (uma forma que o lint não veja ainda deixaria o nome no artefato).
+describe("artefato: storage.session nunca é aberto a content scripts (T22; E-01)", () => {
+  test.each(["fechado", "completo"] as const)("build %s: nenhum arquivo, nem o background.js, tem setAccessLevel", (name) => {
+    expect(get(name).all.has("background.js")).toBe(true);
+    for (const [path, text] of get(name).all) expect(text.includes("setAccessLevel"), `setAccessLevel em ${path}`).toBe(false);
+  });
+});
+
 describe("painel: meta CSP do D10 B4 e fecho exato do B5", () => {
   const B4 = "connect-src 'none'; form-action 'none'; base-uri 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 

@@ -2,6 +2,7 @@
 // mora num arquivo só (identity no adapter do login, storage.onChanged em src/auth, executeScript na captura,
 // tabs.create no background.ts), e os canais laterais ficam proibidos em todo o src/, inclusive nesses arquivos.
 // F1-EXT-05b, 05b-1 (ADR-004 D10 B1): o painel não lê armazenamento, não importa a sessão, não navega e não tem rede.
+// F1-EXT-07 (revisão adversarial de auth, E-01): `setAccessLevel` é recusado em qualquer forma de acesso, em todo arquivo.
 import { fileURLToPath } from "node:url";
 
 import { ESLint } from "eslint";
@@ -245,5 +246,65 @@ describe("lint B1: o painel não lê armazenamento, não importa a sessão e nã
     for (const [, code, rule] of PANEL_FORMS.filter(([, , rule]) => rule !== IMPORT)) {
       expect(await ruleHits(code, "test/lint-fixture.test.ts"), code).not.toContain(rule);
     }
+  });
+});
+
+// F1-EXT-07 (E-01): `storage.session.setAccessLevel` abriria a sessão aos content scripts (T22 e T46). A forma literal já
+// era recusada; o acesso computado e a desestruturação passavam.
+const OPEN = '{ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" }';
+/** [forma, código, se a regra de propriedades também a pega nos arquivos de src/]. */
+const SET_ACCESS_LEVEL_FORMS: ReadonlyArray<readonly [form: string, code: string, byProperty: boolean]> = [
+  ["browser.storage.session.setAccessLevel", `export const f = () => browser.storage.session.setAccessLevel(${OPEN});\n`, true],
+  ["chrome.storage.session.setAccessLevel", `export const f = () => chrome.storage.session.setAccessLevel(${OPEN});\n`, true],
+  ['session["setAccessLevel"]', `export const f = () => browser.storage.session["setAccessLevel"](${OPEN});\n`, true],
+  ["session[`setAccessLevel`]", `export const f = () => browser.storage.session[\`setAccessLevel\`](${OPEN});\n`, true],
+  ["encadeamento opcional", `export const f = () => browser.storage.session?.setAccessLevel?.(${OPEN});\n`, true],
+  ["referência sem chamada", "export const f = browser.storage.session.setAccessLevel;\n", true],
+  ["área numa variável", `const area = browser.storage.session;\nexport const f = () => area.setAccessLevel(${OPEN});\n`, true],
+  ["storage numa variável", `const { storage } = browser;\nexport const f = () => storage.session.setAccessLevel(${OPEN});\n`, true],
+  ["desestruturação", "const { setAccessLevel } = browser.storage.session;\nexport const f = setAccessLevel;\n", true],
+  ["desestruturação com outro nome", "const { setAccessLevel: abrir } = browser.storage.session;\nexport const f = abrir;\n", true],
+  ["desestruturação com a chave em string", 'const { "setAccessLevel": abrir } = browser.storage.session;\nexport const f = abrir;\n', true],
+  ["desestruturação aninhada", "const {\n  session: { setAccessLevel },\n} = browser.storage;\nexport const f = setAccessLevel;\n", true],
+  ["desestruturação no parâmetro", "export const f = ({ setAccessLevel }: { setAccessLevel: unknown }) => setAccessLevel;\n", false],
+  ["desestruturação na atribuição", "let abrir: unknown;\n({ setAccessLevel: abrir } = browser.storage.session);\nexport const f = () => abrir;\n", true],
+];
+const EVERY_FILE = [...ELSEWHERE, BACKGROUND, API_CLIENT, IDENTITY, CAPTURE, "test/lint-fixture.test.ts", "test/e2e/support/lint-fixture.ts"];
+
+describe("lint: setAccessLevel em qualquer forma de acesso (F1-EXT-07, E-01; T22)", () => {
+  beforeAll(async () => {
+    await ruleHits("export {};", IDENTITY);
+  }, 60_000);
+
+  test.each(EVERY_FILE.flatMap((file) => SET_ACCESS_LEVEL_FORMS.map(([form, code]) => [file, form, code] as const)))("%s: %s é recusado", async (file, _f, code) => {
+    expect(await ruleHits(code, file)).toContain(SYNTAX);
+  });
+
+  // A segunda barreira, só em src/: a regra de propriedades, que não depende do seletor.
+  test.each(
+    [...ELSEWHERE.filter((file) => !file.startsWith("src/extraction/")), BACKGROUND, API_CLIENT, IDENTITY, CAPTURE].flatMap((file) =>
+      SET_ACCESS_LEVEL_FORMS.filter(([, , byProperty]) => byProperty).map(([form, code]) => [file, form, code] as const),
+    ),
+  )("%s: %s também cai na regra de propriedades", async (file, _f, code) => {
+    expect(await ruleHits(code, file)).toContain(PROP);
+  });
+
+  test("cada forma é recusada por exatamente um seletor do setAccessLevel, e não só por outra regra", async () => {
+    for (const [form, code] of SET_ACCESS_LEVEL_FORMS) {
+      const [result] = await eslint.lintText(code, { filePath: "test/lint-fixture.test.ts" });
+      // A chave computada por template literal também cai no seletor do preset (sink de HTML): conta só a mensagem daqui.
+      const messages = (result?.messages ?? []).filter((m) => m.ruleId === SYNTAX && m.message.startsWith("setAccessLevel é proibido"));
+      expect(messages, form).toHaveLength(1);
+    }
+  });
+
+  test("nomes vizinhos e o texto solto não são recusados", async () => {
+    const ok = [
+      'export const aviso = "setAccessLevel é proibido";\n',
+      "export const f = (area: { accessLevel: string }) => area.accessLevel;\n",
+      "export const f = (area: { setAccessLevels(): void }) => area.setAccessLevels();\n",
+      'export const f = () => browser.storage.session.get("k");\n',
+    ];
+    for (const code of ok) expect(await ruleHits(code, "src/messaging/lint-fixture.ts"), code).toStrictEqual([]);
   });
 });
