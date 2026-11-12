@@ -137,8 +137,11 @@ export type {
 export type { IdGenerator } from "./ports/id-generator.js";
 export type { RateLimitClass, RateLimitDecision, RateLimiter, RateLimitSubject } from "./ports/rate-limiter.js";
 export {
+  AUTH_OPERATIONS,
+  AUTH_RESULTS,
   AnalysisCacheStatusSchema,
   AnalysisEventSchema,
+  AuthEventSchema,
   LlmExtractionEventSchema,
   TELEMETRY_LATENCY_MAX_MS,
   TELEMETRY_GUARD_NORMALIZATION_MAX,
@@ -146,10 +149,14 @@ export {
   TelemetryEventSchema,
   type AnalysisCacheStatus,
   type AnalysisEvent,
+  type AuthEvent,
+  type AuthOperation,
+  type AuthResult,
   type LlmExtractionEvent,
   type Telemetry,
   type TelemetryEvent,
 } from "./ports/telemetry.js";
+export { authEvent, authSessionResult, endSessionResult } from "./telemetry/auth-telemetry.js";
 export {
   METRIC_CATALOG,
   llmExtractionEvent,

@@ -39,6 +39,7 @@ import {
   extractorVersionTag,
   parseLlmProviderChain,
   type JobFactsExtractor,
+  type Telemetry,
 } from "../application/index.js";
 import {
   DeterministicPreFilter,
@@ -105,6 +106,8 @@ export interface ComposeOptions {
   readonly llm?: LlmComposition;
   /** Só para os testes capturarem ou calarem o log. */
   readonly logger?: BuildAppOptions["logger"];
+  /** Só para os testes lerem os contadores. Sem a opção, a telemetria em memória do processo (ADR-010 D6). */
+  readonly telemetry?: Telemetry;
 }
 
 export type Environment = Readonly<Record<string, string | undefined>>;
@@ -152,7 +155,9 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
 
   // Um verificador só: o das rotas protegidas é o mesmo que confere o token do GoTrue antes de repassar (ADR-004 D6).
   const verifier = createJoseAccessTokenVerifier({ ...auth, allowedAmr });
-  const authRoutes = composeAuth({ verifier, supabaseOrigin, publishableKey, authSession, pseudonymizer, now });
+  // Uma telemetria só por processo: a análise e o BFF de autenticação contam no mesmo lugar (ADR-010 D6; 07i).
+  const telemetry = options.telemetry ?? new InMemoryTelemetry();
+  const authRoutes = composeAuth({ verifier, supabaseOrigin, publishableKey, authSession, pseudonymizer, telemetry, now });
 
   const extractorVersion = extractorVersionTag({
     prompt: options.llm?.promptVersion ?? NO_EXTRACTOR_PROMPT_VERSION,
@@ -179,7 +184,7 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
     cache: llm?.cache ?? null,
     extraction: llm?.router ?? null,
     extractorVersion,
-    telemetry: new InMemoryTelemetry(),
+    telemetry,
     clock: systemClock,
     now,
     ids: cryptoIdGenerator,
@@ -208,6 +213,7 @@ interface AuthCompositionInput {
   readonly publishableKey: string;
   readonly authSession: AuthSessionConfig;
   readonly pseudonymizer: KeyPseudonymizer;
+  readonly telemetry: Telemetry;
   readonly now: () => number;
 }
 
@@ -228,6 +234,7 @@ function composeAuth(input: AuthCompositionInput): AuthRouteOptions {
     logout: new EndSession({ gateway, egress }),
     preAuthLimiter: createPreAuthLimiter(systemClock, input.pseudonymizer),
     logSampler: createAuthLogSampler(systemClock),
+    telemetry: input.telemetry,
   };
 }
 

@@ -3,6 +3,8 @@
 // falsos que devolvem cada resultado do 07f. Prova o mapa do D7 linha a linha (M-14), as listas da borda (M-15), o
 // `no-store` em toda resposta e as linhas amostradas. A pilha real (GoTrue simulado, jose, AEAD, orçamento e o Redis
 // simulado) está em test/compose-app.test.ts.
+// F1-API-07 07i (D8 item 7): cada operação que chega ao handler ou ao limitador local conta uma vez em
+// `auth_<operação>_total{resultado}`, pelo mesmo mapa do D7, sem nada da requisição na série.
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { serializerCompiler, validatorCompiler } from "@fastify/type-provider-zod";
@@ -14,7 +16,9 @@ import { afterEach, describe, expect, test } from "vitest";
 import type { AuthSessionOutcome, AuthUnavailableReason } from "../src/application/auth/auth-session.js";
 import type { EndSessionOutcome } from "../src/application/auth/end-session.js";
 import type { Clock } from "../src/application/ports/clock.js";
+import type { Telemetry } from "../src/application/ports/telemetry.js";
 import { createHmacKeyPseudonymizer } from "../src/infrastructure/crypto/hmac-key-pseudonymizer.js";
+import { InMemoryTelemetry } from "../src/infrastructure/telemetry/in-memory-telemetry.js";
 import { buildApp } from "../src/presentation/build-app.js";
 import { EXTENSION_ONLY_ROUTES, ORIGIN_REQUIRED_ROUTES } from "../src/presentation/edge/cors.js";
 import { createPreAuthLimiter, type PreAuthLimiter } from "../src/presentation/edge/pre-auth-limit.js";
@@ -100,8 +104,9 @@ afterEach(async () => {
   app = undefined;
 });
 
-function authApp(options: { limiter?: PreAuthLimiter } = {}) {
+function authApp(options: { limiter?: PreAuthLimiter; telemetry?: Telemetry } = {}) {
   const clock = new ManualClock();
+  const telemetry = new InMemoryTelemetry();
   const exchange = scriptedSession();
   const refresh = scriptedSession();
   const logout = scriptedLogout();
@@ -119,6 +124,7 @@ function authApp(options: { limiter?: PreAuthLimiter } = {}) {
       logout: logout.useCase,
       preAuthLimiter: options.limiter ?? createPreAuthLimiter(clock, createHmacKeyPseudonymizer(randomBytes(32).toString("base64url"))),
       logSampler: createAuthLogSampler(clock),
+      telemetry: options.telemetry ?? telemetry,
     },
   });
   app = instance;
@@ -129,6 +135,7 @@ function authApp(options: { limiter?: PreAuthLimiter } = {}) {
     exchange,
     refresh,
     logout,
+    telemetry,
     verifierCalls: verifier.calls,
     redisCalls: limits.rate.calls,
     lines,
@@ -155,6 +162,26 @@ function send(
     headers,
     payload: options.payload ?? JSON.stringify(BODIES[route]),
   });
+}
+
+const AUTH_METRICS = { exchange: "auth_troca_total", refresh: "auth_renovacao_total", logout: "auth_logout_total" } as const;
+const AUTH_METRIC_RESULTS = ["ok", "recusado", "indisponivel", "limitado"] as const;
+const AUTH_SERIES = /^auth_(troca|renovacao|logout)_total\[\["resultado","(ok|recusado|indisponivel|limitado)"\]\]$/;
+
+/** Os contadores de auth diferentes de zero, e a prova de que não há nenhuma outra série. */
+function authCounts(telemetry: InMemoryTelemetry): Record<string, number> {
+  const entries: Array<[string, number]> = [];
+  for (const name of Object.values(AUTH_METRICS)) {
+    for (const resultado of AUTH_METRIC_RESULTS) {
+      const value = telemetry.counter(name, { resultado });
+      if (value > 0) entries.push([`${name}{${resultado}}`, value]);
+    }
+  }
+  const counts: Record<string, number> = Object.fromEntries(entries);
+  expect(telemetry.seriesKeys()).toHaveLength(Object.keys(counts).length);
+  for (const key of telemetry.seriesKeys()) expect(key).toMatch(AUTH_SERIES);
+  expect(telemetry.droppedEvents).toBe(0);
+  return counts;
 }
 
 function expectError(res: { statusCode: number; body: string }, status: number, code: ApiErrorCode, retryAfterSeconds: number | null = null) {
@@ -333,6 +360,7 @@ describe("logout (ADR-004 D4: protegido, classe padrao)", () => {
 
   test("handler sem principal ou sem Bearer (quebra de invariante) → 401 sem chamar o caso de uso", async () => {
     const logout = scriptedLogout();
+    const telemetry = new InMemoryTelemetry();
     const bare = bareApp();
     await bare.register(authRoutes, {
       exchange: scriptedSession().useCase,
@@ -340,6 +368,7 @@ describe("logout (ADR-004 D4: protegido, classe padrao)", () => {
       logout: logout.useCase,
       preAuthLimiter: openLimiter,
       logSampler: createAuthLogSampler(new ManualClock()),
+      telemetry,
     } satisfies AuthRouteOptions);
     const res = await bare.inject({
       method: "POST",
@@ -349,6 +378,8 @@ describe("logout (ADR-004 D4: protegido, classe padrao)", () => {
     });
     expectError(res, 401, "NAO_AUTENTICADO");
     expect(logout.calls).toEqual([]);
+    // 07i: a quebra de invariante conta como recusa, uma vez.
+    expect(authCounts(telemetry)).toEqual({ "auth_logout_total{recusado}": 1 });
     await bare.close();
   });
 });
@@ -458,13 +489,16 @@ describe("Origin e CORS (D8 item 2; M-15)", () => {
 
   test("handler sem Origin (quebra de invariante, sem o CORS na frente) → 403 sem chamar o caso de uso", async () => {
     const exchange = scriptedSession();
+    const refresh = scriptedSession();
+    const telemetry = new InMemoryTelemetry();
     const bare = bareApp();
     await bare.register(authRoutes, {
       exchange: exchange.useCase,
-      refresh: scriptedSession().useCase,
+      refresh: refresh.useCase,
       logout: scriptedLogout().useCase,
       preAuthLimiter: openLimiter,
       logSampler: createAuthLogSampler(new ManualClock()),
+      telemetry,
     });
     const res = await bare.inject({
       method: "POST",
@@ -475,6 +509,17 @@ describe("Origin e CORS (D8 item 2; M-15)", () => {
     expectError(res, 403, "PROIBIDO");
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(exchange.calls).toEqual([]);
+    // 07i: a quebra de invariante conta como recusa, na métrica da própria rota.
+    expect(authCounts(telemetry)).toEqual({ "auth_troca_total{recusado}": 1 });
+    const renewed = await bare.inject({
+      method: "POST",
+      url: "/v1/auth/refresh",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify(BODIES.refresh),
+    });
+    expectError(renewed, 403, "PROIBIDO");
+    expect(refresh.calls).toEqual([]);
+    expect(authCounts(telemetry)).toEqual({ "auth_troca_total{recusado}": 1, "auth_renovacao_total{recusado}": 1 });
     await bare.close();
   });
 });
@@ -601,6 +646,137 @@ describe("logs amostrados (D8 item 7)", () => {
     expect(h.lines.length).toBeGreaterThan(0);
     for (const line of h.lines) {
       for (const secret of [CODE, VERIFIER, ENVELOPE, TEST_TOKEN, "canario", "127.0.0.1", EXTENSION]) expect(line).not.toContain(secret);
+    }
+  });
+});
+
+// F1-API-07 07i (ADR-004 D8 item 7; ADR-010 D6): `auth_troca_total`, `auth_renovacao_total` e `auth_logout_total`, com
+// `resultado` em ok, recusado, indisponivel e limitado.
+describe("métricas auth_*_total (D8 item 7; 07i)", () => {
+  describe.each(SESSION_ROUTES)("%s", (route) => {
+    const metric = AUTH_METRICS[route];
+
+    test.each<[string, AuthSessionOutcome, string]>([
+      ["sessao (200)", { kind: "sessao", session: SESSION }, "ok"],
+      ["nao_autenticado (401)", { kind: "nao_autenticado", reason: "auth_envelope_invalido" }, "recusado"],
+      ["entrada_invalida (400, a segunda trava)", { kind: "entrada_invalida" }, "recusado"],
+      ["indisponivel sem Retry-After (503)", { kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: null }, "indisponivel"],
+      ["indisponivel do orçamento (503 com Retry-After)", { kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: 5 }, "indisponivel"],
+      ["fora da política (503)", { kind: "indisponivel", reason: "auth_token_fora_da_politica", retryAfterSeconds: null }, "indisponivel"],
+    ])("%s conta 1 em {%s}, e só nessa série", async (_caso, outcome, resultado) => {
+      const h = authApp();
+      h[route].state.outcome = outcome;
+      await send(h, route);
+      expect(authCounts(h.telemetry)).toEqual({ [`${metric}{${resultado}}`]: 1 });
+    });
+
+    test("caso de uso que rejeita conta como indisponivel", async () => {
+      const h = authApp();
+      h[route].state.outcome = "rejeita";
+      expect((await send(h, route)).statusCode).toBe(503);
+      expect(authCounts(h.telemetry)).toEqual({ [`${metric}{indisponivel}`]: 1 });
+    });
+
+    test("o que a borda recusa antes do handler não conta: sem Origin, origem de web, 413, 415 e 400 do Zod", async () => {
+      const h = authApp();
+      expect((await send(h, route, { headers: { origin: "" } })).statusCode).toBe(403);
+      expect((await send(h, route, { headers: { origin: PORTAL } })).statusCode).toBe(403);
+      expect((await send(h, route, { payload: JSON.stringify({ ...BODIES[route], pad: "x".repeat(AUTH_BODY_MAX_BYTES) }) })).statusCode).toBe(413);
+      expect((await send(h, route, { headers: { "content-type": "text/plain" } })).statusCode).toBe(415);
+      expect((await send(h, route, { payload: JSON.stringify({ ...BODIES[route], extra: 1 }) })).statusCode).toBe(400);
+      expect(h.useCaseCalls()).toBe(0);
+      expect(authCounts(h.telemetry)).toEqual({});
+    });
+
+    test("telemetria que lança não muda a resposta: 200, 401, 503 e o 429 do limitador", async () => {
+      const hostile: Telemetry = {
+        record: () => {
+          throw new Error("telemetria caiu");
+        },
+      };
+      const limited: PreAuthLimiter = { check: () => ({ ok: false, retryAfterSeconds: 7 }) };
+      const h = authApp({ telemetry: hostile });
+      expect((await send(h, route)).statusCode).toBe(200);
+      h[route].state.outcome = { kind: "nao_autenticado", reason: "auth_envelope_invalido" };
+      expect((await send(h, route)).statusCode).toBe(401);
+      h[route].state.outcome = { kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: null };
+      expect((await send(h, route)).statusCode).toBe(503);
+      await app?.close();
+      const blocked = authApp({ telemetry: hostile, limiter: limited });
+      expectError(await send(blocked, route), 429, "LIMITE_DE_TAXA", 7);
+    });
+  });
+
+  test("limitador local: a 11ª troca conta em {limitado}, as 10 primeiras em {ok}; a renovação tem a métrica dela", async () => {
+    const h = authApp();
+    for (let i = 0; i < 13; i += 1) await send(h, "exchange");
+    for (let i = 0; i < 32; i += 1) await send(h, "refresh");
+    expect(authCounts(h.telemetry)).toEqual({
+      "auth_troca_total{ok}": 10,
+      "auth_troca_total{limitado}": 3,
+      "auth_renovacao_total{ok}": 30,
+      "auth_renovacao_total{limitado}": 2,
+    });
+    expect(h.exchange.calls).toHaveLength(10);
+  });
+
+  test("logout: encerrada conta em {ok}; indisponivel e caso de uso que rejeita, em {indisponivel}", async () => {
+    const h = authApp();
+    expect((await send(h, "logout")).statusCode).toBe(204);
+    h.logout.state.outcome = { kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: 5 };
+    expect((await send(h, "logout")).statusCode).toBe(503);
+    h.logout.state.outcome = "rejeita";
+    expect((await send(h, "logout")).statusCode).toBe(503);
+    expect(authCounts(h.telemetry)).toEqual({ "auth_logout_total{ok}": 1, "auth_logout_total{indisponivel}": 2 });
+  });
+
+  test("logout: o 401 do hook do JWT e o que a borda recusa não contam; telemetria que lança não muda o 204 nem o 503", async () => {
+    const h = authApp();
+    expect((await send(h, "logout", { headers: { authorization: "" } })).statusCode).toBe(401);
+    expect((await send(h, "logout", { headers: { origin: PORTAL } })).statusCode).toBe(403);
+    expect((await send(h, "logout", { payload: JSON.stringify({ schemaVersion: 2 }) })).statusCode).toBe(400);
+    expect(authCounts(h.telemetry)).toEqual({});
+    await app?.close();
+    const hostile = authApp({
+      telemetry: {
+        record: () => {
+          throw new Error("telemetria caiu");
+        },
+      },
+    });
+    expect((await send(hostile, "logout")).statusCode).toBe(204);
+    hostile.logout.state.outcome = { kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: null };
+    expect((await send(hostile, "logout")).statusCode).toBe(503);
+  });
+
+  test("cada requisição que chega ao handler ou ao limitador conta exatamente uma vez", async () => {
+    const h = authApp();
+    for (let i = 0; i < 12; i += 1) await send(h, "exchange");
+    h.refresh.state.outcome = { kind: "indisponivel", reason: "auth_token_fora_da_politica", retryAfterSeconds: null };
+    for (let i = 0; i < 4; i += 1) await send(h, "refresh");
+    for (let i = 0; i < 3; i += 1) await send(h, "logout");
+    const counts = authCounts(h.telemetry);
+    expect(Object.values(counts).reduce((sum, value) => sum + value, 0)).toBe(19);
+    // A renovação fora da política escreve duas linhas de log (D6), mas conta uma vez.
+    expect(counts["auth_renovacao_total{indisponivel}"]).toBe(4);
+  });
+
+  test("SR-12: nenhuma série leva código, verifier, envelope, token, Bearer, origem ou IP nos caminhos 200, 401, 429 e 503", async () => {
+    const h = authApp();
+    await send(h, "exchange");
+    await send(h, "refresh");
+    h.refresh.state.outcome = { kind: "nao_autenticado", reason: "auth_envelope_invalido" };
+    await send(h, "refresh");
+    h.exchange.state.outcome = { kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: 5 };
+    for (let i = 0; i < 11; i += 1) await send(h, "exchange", { headers: { authorization: CANARY_BEARER } });
+    await send(h, "logout");
+    const series = h.telemetry.seriesKeys();
+    expect(series.length).toBeGreaterThan(3);
+    for (const key of series) {
+      expect(key).toMatch(AUTH_SERIES);
+      for (const secret of [CODE, VERIFIER, ENVELOPE, TEST_TOKEN, "canario", "127.0.0.1", EXTENSION, "auth_envelope_invalido", "auth_provedor_indisponivel"]) {
+        expect(key).not.toContain(secret);
+      }
     }
   });
 });

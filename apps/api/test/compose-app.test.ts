@@ -38,6 +38,7 @@ import { WORKERS_AI_DEFAULT_MODEL, WorkersAiConfigError } from "../src/infrastru
 import { GROQ_MODEL as GROQ_ADAPTER_MODEL, GroqConfigError } from "../src/infrastructure/llm/groq-extractor.js";
 import { PostgrestClientConfigError } from "../src/infrastructure/supabase/postgrest-user-client.js";
 import { BehindProxyConfigError } from "../src/presentation/edge/behind-proxy-env.js";
+import { InMemoryTelemetry } from "../src/infrastructure/telemetry/in-memory-telemetry.js";
 import { systemClock } from "../src/infrastructure/time/system-clock.js";
 import { CLEAN_RAW, CLEAN_TEXT, GROQ_MODEL, REQUEST_ID } from "./application/fakes/analyze-job-harness.js";
 import { ScriptedExtractor } from "./application/fakes/scripted-extractor.js";
@@ -220,6 +221,15 @@ describe("fluxo completo com as peças reais", () => {
     expect(upstash.requests.length).toBeGreaterThan(0);
     // SR-12 e critério 4: nada do token, da chave, do dono ou da pretensão no log.
     for (const leak of [token, PUBLISHABLE, OWNER, UPSTASH_TOKEN, SALARY_KEY, PEPPER, "9000"]) expect(lines.join("")).not.toContain(leak);
+  });
+
+  test("07i: a análise conta na telemetria dada ao boot, a mesma instância que o BFF de autenticação recebe", async () => {
+    const token = await storeOwnerCriteria();
+    const telemetry = new InMemoryTelemetry();
+    const instance = boot({}, { telemetry });
+    expect((await analyze(instance, { authorization: `Bearer ${token}` })).statusCode).toBe(200);
+    expect(telemetry.seriesKeys().filter((key) => key.startsWith("analysis_total"))).toHaveLength(1);
+    expect(telemetry.seriesKeys().some((key) => key.startsWith("auth_"))).toBe(false);
   });
 
   test("sem linha de critérios: 409 CRITERIOS_NAO_CONFIGURADOS", async () => {
@@ -645,7 +655,7 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
     await gotrue.close();
   });
 
-  function bootAuth(over: Record<string, string | undefined> = {}, lines?: string[]): ComposedApp {
+  function bootAuth(over: Record<string, string | undefined> = {}, lines?: string[], telemetry?: InMemoryTelemetry): ComposedApp {
     const origin = gotrue.url.origin;
     return boot(
       {
@@ -654,7 +664,10 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
         CORS_ALLOWED_ORIGINS: EXTENSION,
         ...over,
       },
-      lines === undefined ? {} : { logger: { level: "info", stream: { write: (line) => void lines.push(line) } } },
+      {
+        ...(lines === undefined ? {} : { logger: { level: "info", stream: { write: (line) => void lines.push(line) } } }),
+        ...(telemetry === undefined ? {} : { telemetry }),
+      },
     );
   }
 
@@ -706,6 +719,37 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
     expect(gotrue.requests.at(-1)?.headers.authorization).toBe(`Bearer ${renewed.accessToken}`);
     // O logout é protegido: o rate limit da classe padrao conta no Redis depois do JWT.
     expect(upstash.requests.length).toBeGreaterThan(0);
+  });
+
+  test("07i: as 3 rotas contam na telemetria do processo, só com a operação e o resultado", async () => {
+    const telemetry = new InMemoryTelemetry();
+    const instance = bootAuth({}, undefined, telemetry);
+    gotrue.addFlow(CODE, VERIFIER);
+    const session = AuthSessionResponseSchema.parse((await post(instance, "exchange", exchangeBody())).json());
+    // O código já foi usado: o GoTrue recusa, e a troca conta como recusada.
+    expect((await post(instance, "exchange", exchangeBody())).statusCode).toBe(401);
+    const renewed = AuthSessionResponseSchema.parse((await post(instance, "refresh", { schemaVersion: 1, refreshToken: session.refreshToken })).json());
+    const forged = `r1.r1k1.${"A".repeat(16)}.${"B".repeat(40)}.${"C".repeat(22)}`;
+    expect((await post(instance, "refresh", { schemaVersion: 1, refreshToken: forged })).statusCode).toBe(401);
+    expect((await post(instance, "logout", { schemaVersion: 1 }, { authorization: `Bearer ${renewed.accessToken}` })).statusCode).toBe(204);
+    gotrue.mode = { kind: "responde", status: 500, body: "{}" };
+    expect((await post(instance, "logout", { schemaVersion: 1 }, { authorization: `Bearer ${renewed.accessToken}` })).statusCode).toBe(503);
+
+    expect(telemetry.counter("auth_troca_total", { resultado: "ok" })).toBe(1);
+    expect(telemetry.counter("auth_troca_total", { resultado: "recusado" })).toBe(1);
+    expect(telemetry.counter("auth_renovacao_total", { resultado: "ok" })).toBe(1);
+    expect(telemetry.counter("auth_renovacao_total", { resultado: "recusado" })).toBe(1);
+    expect(telemetry.counter("auth_logout_total", { resultado: "ok" })).toBe(1);
+    expect(telemetry.counter("auth_logout_total", { resultado: "indisponivel" })).toBe(1);
+    expect(telemetry.droppedEvents).toBe(0);
+    const series = telemetry.seriesKeys();
+    expect(series).toHaveLength(6);
+    for (const key of series) {
+      expect(key.startsWith("auth_")).toBe(true);
+      for (const secret of [CODE, VERIFIER, session.accessToken, session.refreshToken, renewed.refreshToken, GOTRUE_CANARIES.userId, EXTENSION, SID]) {
+        expect(key).not.toContain(secret);
+      }
+    }
   });
 
   test("0 comandos no Redis com códigos falsos, envelopes forjados e o 429 do limitador local", async () => {

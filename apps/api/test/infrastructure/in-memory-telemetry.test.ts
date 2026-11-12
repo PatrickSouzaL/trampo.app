@@ -2,7 +2,7 @@
 // nunca lança.
 import { describe, expect, test } from "vitest";
 
-import { llmExtractionEvent, type ExtractionOutcome, type TelemetryEvent } from "../../src/application/index.js";
+import { authEvent, llmExtractionEvent, type ExtractionOutcome, type TelemetryEvent } from "../../src/application/index.js";
 import { InMemoryTelemetry } from "../../src/infrastructure/telemetry/in-memory-telemetry.js";
 
 const failureAt = (latencyMs: number): TelemetryEvent =>
@@ -118,5 +118,29 @@ describe("InMemoryTelemetry", () => {
       sum: 40,
       cumulative: [1, 1, 1, 1, 1, 1, 1, 1],
     });
+  });
+
+  test("evento auth (F1-API-07 07i): um contador por operação e resultado; evento com token, sub ou motivo é descartado", () => {
+    const telemetry = new InMemoryTelemetry();
+    telemetry.record(authEvent("troca", "ok"));
+    telemetry.record(authEvent("troca", "ok"));
+    telemetry.record(authEvent("troca", "limitado"));
+    telemetry.record(authEvent("renovacao", "recusado"));
+    telemetry.record(authEvent("logout", "indisponivel"));
+    for (const extra of [{ accessToken: "CANARIO.TOKEN.x" }, { sub: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f" }, { reason: "auth_troca_recusada" }, { result: "CANARIO" }]) {
+      telemetry.record({ ...authEvent("troca", "ok"), ...extra } as unknown as TelemetryEvent);
+    }
+    expect(telemetry.droppedEvents).toBe(4);
+    expect(telemetry.counter("auth_troca_total", { resultado: "ok" })).toBe(2);
+    expect(telemetry.counter("auth_troca_total", { resultado: "limitado" })).toBe(1);
+    expect(telemetry.counter("auth_renovacao_total", { resultado: "recusado" })).toBe(1);
+    expect(telemetry.counter("auth_logout_total", { resultado: "indisponivel" })).toBe(1);
+    expect(telemetry.counter("auth_logout_total", { resultado: "ok" })).toBe(0);
+    expect(telemetry.seriesKeys().sort()).toEqual([
+      'auth_logout_total[["resultado","indisponivel"]]',
+      'auth_renovacao_total[["resultado","recusado"]]',
+      'auth_troca_total[["resultado","limitado"]]',
+      'auth_troca_total[["resultado","ok"]]',
+    ]);
   });
 });
