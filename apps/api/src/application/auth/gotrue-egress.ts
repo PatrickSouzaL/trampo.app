@@ -6,6 +6,12 @@
 // anônimo leva ao GoTrue (basta um código de formato válido), enquanto a renovação exige um envelope que abre e o
 // logout, um Bearer verificado. Os casos de uso (07f) só passam por aqui depois do Zod e, na renovação, do `open`: nada
 // é consumido antes disso, e a negação não consome nada.
+//
+// Teto de rajada (07j; D8 item 5, "Emenda do 07h"): o balde `Token` do GoTrue tem rajada fixa de 30 e repõe 0,5 ficha
+// por segundo; os 150 por 5 min são a média, não o teto de uma rajada. A janela de 300 s sozinha deixava passar 74
+// chamadas seguidas, e o IP da API ficaria bloqueado no GoTrue até a reposição. As chamadas ao `/token` (troca e
+// renovação) passam também por um balde de 15 fichas com 1 ficha a cada 4 s: metade da rajada e metade da reposição
+// do GoTrue, então o balde de lá nunca desce de 15. O logout não entra (o `/logout` não tem limitador no GoTrue).
 import type { Clock } from "../ports/clock.js";
 
 /** Partições do orçamento no `/auth/v1/token`. O logout só passa pelo *bulkhead* (o balde dele é conferido no 07h). */
@@ -25,10 +31,17 @@ export interface GotrueEgressPolicy {
   readonly trocaMaxConcurrent: number;
   /** O `retryAfterSeconds` do 503 com o *bulkhead* cheio. */
   readonly busyRetryAfterSeconds: number;
+  /** Fichas do balde de rajada do `/token`: o máximo de chamadas seguidas (07j). */
+  readonly burstCapacity: number;
+  /** Reposição do balde de rajada: uma ficha a cada tantos ms. */
+  readonly burstRefillIntervalMs: number;
 }
 
-/** Limites do Supabase Auth por IP no projeto real (P19, HITL-036): por 5 min. */
-export const SUPABASE_AUTH_IP_LIMITS = { windowMs: 300_000, tokenRefresh: 150, signIn: 30 } as const;
+/**
+ * Limites do Supabase Auth por IP no projeto real (P19, HITL-036): por 5 min. O `tokenBurst` é a rajada fixa do balde
+ * `Token` no código do GoTrue (07h): 31 chamadas seguidas já levam 429.
+ */
+export const SUPABASE_AUTH_IP_LIMITS = { windowMs: 300_000, tokenRefresh: 150, signIn: 30, tokenBurst: 30 } as const;
 
 export const GOTRUE_EGRESS_POLICY: GotrueEgressPolicy = {
   windowMs: 300_000,
@@ -38,6 +51,8 @@ export const GOTRUE_EGRESS_POLICY: GotrueEgressPolicy = {
   maxConcurrent: 4,
   trocaMaxConcurrent: 3,
   busyRetryAfterSeconds: 5,
+  burstCapacity: 15,
+  burstRefillIntervalMs: 4_000,
 };
 
 export type EgressDenialReason = "orcamento_esgotado" | "bulkhead_cheio";
@@ -72,7 +87,16 @@ const positiveInt = (value: number): boolean => Number.isSafeInteger(value) && v
  * pelo menos uma vaga do *bulkhead* para quem já está logado.
  */
 function assertPolicy(policy: GotrueEgressPolicy): void {
-  const ints = [policy.windowMs, policy.trocaMax, policy.tokenTotalMax, policy.maxConcurrent, policy.trocaMaxConcurrent, policy.busyRetryAfterSeconds];
+  const ints = [
+    policy.windowMs,
+    policy.trocaMax,
+    policy.tokenTotalMax,
+    policy.maxConcurrent,
+    policy.trocaMaxConcurrent,
+    policy.busyRetryAfterSeconds,
+    policy.burstCapacity,
+    policy.burstRefillIntervalMs,
+  ];
   const reserveOk = Number.isSafeInteger(policy.renovacaoReserve) && policy.renovacaoReserve >= 0;
   const slotKept = policy.trocaMaxConcurrent < policy.maxConcurrent;
   if (!ints.every(positiveInt) || !reserveOk || policy.renovacaoReserve >= policy.tokenTotalMax || !slotKept) throw new EgressPolicyError();
@@ -91,6 +115,13 @@ export function createGotrueEgress(clock: Clock, policy: GotrueEgressPolicy = GO
   let spent: Spent[] = [];
   let inFlight = 0;
   let trocasInFlight = 0;
+  // Balde de rajada em ms inteiros, sem fração de ficha: `burstFullAtMs` é o instante em que o balde volta a estar
+  // cheio. Cada chamada o empurra um intervalo, e a chamada passa enquanto ele não ficar além de uma capacidade inteira.
+  let burstFullAtMs = Number.NEGATIVE_INFINITY;
+  const burstSpanMs = (policy.burstCapacity - 1) * policy.burstRefillIntervalMs;
+
+  /** Milissegundos até haver uma ficha; 0 com ficha disponível. */
+  const burstWaitMs = (nowMs: number): number => Math.max(0, burstFullAtMs - burstSpanMs - nowMs);
 
   const allows = (partition: EgressPartition, troca: number, renovacao: number): boolean =>
     partition === "renovacao"
@@ -120,10 +151,14 @@ export function createGotrueEgress(clock: Clock, policy: GotrueEgressPolicy = GO
     spent = spent.filter((entry) => entry.atMs > nowMs - policy.windowMs);
     const troca = spent.filter((entry) => entry.partition === "troca").length;
     const renovacao = spent.length - troca;
-    if (!allows(partition, troca, renovacao)) {
-      return { ok: false, reason: "orcamento_esgotado", retryAfterSeconds: retryAfterSeconds(partition, nowMs, troca, renovacao) };
+    // A chamada precisa passar na janela e na rajada. Negada por uma, não gasta a outra, e o Retry-After é o maior.
+    const windowWaitSeconds = allows(partition, troca, renovacao) ? 0 : retryAfterSeconds(partition, nowMs, troca, renovacao);
+    const burstWaitSeconds = Math.ceil(burstWaitMs(nowMs) / MS_PER_SECOND);
+    if (windowWaitSeconds > 0 || burstWaitSeconds > 0) {
+      return { ok: false, reason: "orcamento_esgotado", retryAfterSeconds: Math.max(windowWaitSeconds, burstWaitSeconds) };
     }
     spent.push({ atMs: nowMs, partition });
+    burstFullAtMs = Math.max(burstFullAtMs, nowMs) + policy.burstRefillIntervalMs;
     return null;
   }
 

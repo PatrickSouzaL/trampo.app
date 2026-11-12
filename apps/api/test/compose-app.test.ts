@@ -752,6 +752,20 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
     }
   });
 
+  test("07j: o boot usa o teto de rajada: a 16ª chamada seguida ao /token leva 503 com Retry-After, sem chegar ao GoTrue", async () => {
+    const instance = bootAuth();
+    // Envelope genuíno que o GoTrue não conhece: cada renovação vai ao /token e volta 401.
+    const refreshToken = sealedEnvelope(nowSeconds() - 60, nowSeconds() - 60);
+    for (let i = 0; i < 15; i += 1) expect((await post(instance, "refresh", { schemaVersion: 1, refreshToken })).statusCode).toBe(401);
+    const denied = await post(instance, "refresh", { schemaVersion: 1, refreshToken });
+    expect(denied.statusCode).toBe(503);
+    const retryAfter = ApiErrorSchema.parse(denied.json()).retryAfterSeconds;
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(4);
+    expect(denied.headers["retry-after"]).toBe(String(retryAfter));
+    expect(tokenCalls()).toHaveLength(15);
+  });
+
   test("0 comandos no Redis com códigos falsos, envelopes forjados e o 429 do limitador local", async () => {
     const instance = bootAuth();
     for (let i = 0; i < 10; i += 1) expect((await post(instance, "exchange", exchangeBody())).statusCode).toBe(401);

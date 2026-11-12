@@ -71,6 +71,12 @@ export function newSealKey(): string {
   return randomBytes(32).toString("base64url");
 }
 
+/**
+ * A política real com a rajada do tamanho do total da janela: nos testes dos casos de uso, só a janela e o *bulkhead*
+ * decidem. O teto de rajada (07j) tem os testes dele no gotrue-egress.test.ts.
+ */
+export const WINDOW_ONLY_EGRESS_POLICY: GotrueEgressPolicy = { ...GOTRUE_EGRESS_POLICY, burstCapacity: GOTRUE_EGRESS_POLICY.tokenTotalMax };
+
 export class AuthHarness {
   /** Relógio de parede, epoch em ms. */
   nowMs = START_SECONDS * 1_000;
@@ -97,7 +103,7 @@ export class AuthHarness {
   readonly realSealer: RefreshSealer = createAeadRefreshSealer(parseRefreshKeyring(`k1:${this.sealKey}`, "k1"));
   readonly realEgress: GotrueEgress;
 
-  constructor(policy: GotrueEgressPolicy = GOTRUE_EGRESS_POLICY) {
+  constructor(policy: GotrueEgressPolicy = WINDOW_ONLY_EGRESS_POLICY) {
     this.realEgress = createGotrueEgress(this.clock, policy);
   }
 
