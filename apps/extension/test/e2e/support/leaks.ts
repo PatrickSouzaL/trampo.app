@@ -86,7 +86,8 @@ export function consoleText({ method, params }: ConsoleEvent): string {
 
 /**
  * §4.5 item 10, no total do que os falsos receberam: cada pedido que fere a regra, descrito sem valor. A troca e a
- * renovação vão sem `Authorization` e sem `Cookie`; o logout (o POST) leva o Bearer; o BFF só ouve a origem exata da
+ * renovação vão sem `Authorization` e sem `Cookie`; o logout e a análise (os POST) levam o Bearer, e só eles (cenário 12
+ * do §4.4, 04b-3); o BFF só ouve a origem exata da
  * extensão; o Supabase falso só vê a navegação do `authorize`, sem `Authorization` e sem `Origin` de extensão; o chromiumapp
  * só o GET do retorno, sem nada (§4.4, "Emenda do 05c-1").
  */
@@ -98,8 +99,10 @@ export function requestViolations(state: FakeState, extensionOrigin: string, chr
       if (r.origin !== extensionOrigin) flag(r, "origem diferente da extensão");
       if (r.cookie) flag(r, "Cookie");
       const isLogout = r.method === "POST" && r.path === "/v1/auth/logout";
+      const isAnalyze = r.method === "POST" && r.path === "/v1/analyze";
       if (isLogout && !r.authorization) flag(r, "logout sem Bearer");
-      if (!isLogout && r.authorization) flag(r, "Authorization fora do logout");
+      if (isAnalyze && !r.authorization) flag(r, "análise sem Bearer");
+      if (!isLogout && !isAnalyze && r.authorization) flag(r, "Authorization fora do logout e da análise");
     } else if (r.server === "supabase") {
       if (r.method !== "GET" || r.path !== "/auth/v1/authorize") flag(r, "fora do authorize");
       if (r.authorization) flag(r, "Authorization");
