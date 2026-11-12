@@ -47,7 +47,7 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const BUILD_VARS = ["TRAMPO_API_ORIGIN", "TRAMPO_SUPABASE_ORIGIN", "TRAMPO_EXTENSION_KEY"] as const;
 
 async function buildVariant(outDir: string, vars: Partial<Record<(typeof BUILD_VARS)[number], string>>): Promise<string> {
-  const previous = new Map([...BUILD_VARS, "NODE_ENV"].map((name) => [name, process.env[name]]));
+  const previous = new Map([...BUILD_VARS, "NODE_ENV", "TRAMPO_IGNORE_DOTENV"].map((name) => [name, process.env[name]]));
   const assign = (name: string, value: string | undefined) => {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
@@ -56,6 +56,8 @@ async function buildVariant(outDir: string, vars: Partial<Record<(typeof BUILD_V
   // O vitest define NODE_ENV=test, e o Vite respeita um NODE_ENV já definido: sem isto, o build sairia com o React de
   // desenvolvimento (StrictMode rodando os efeitos duas vezes), e não o da loja (ADR-025 D6).
   assign("NODE_ENV", "production");
+  // F1-EXT-06: o wxt.config.ts lê o `.env` da pasta da extensão. O build do E2E só leva o que está declarado aqui.
+  assign("TRAMPO_IGNORE_DOTENV", "1");
   try {
     await build({ root, outDir, mode: "production" });
   } finally {
@@ -65,9 +67,9 @@ async function buildVariant(outDir: string, vars: Partial<Record<(typeof BUILD_V
 }
 
 /**
- * F1-EXT-05c, 05c-3: o build é o declarado, conferido no artefato. O `wxt build` também lê o `.env` da pasta da extensão
- * (hoje depois do `wxt.config.ts`, então sem efeito no build), e uma chave ou uma origem real que chegasse ao build do
- * teste levaria o E2E para fora da máquina. Se o manifesto ou a origem do Supabase falso divergir, o E2E para aqui.
+ * F1-EXT-05c, 05c-3: o build é o declarado, conferido no artefato. O build real lê o `.env` da pasta da extensão
+ * (F1-EXT-06; aqui a leitura fica desligada pelo `TRAMPO_IGNORE_DOTENV=1`), e uma chave ou uma origem real que chegasse
+ * ao build do teste levaria o E2E para fora da máquina. Se o manifesto ou a origem do Supabase falso divergir, o E2E para aqui.
  */
 function assertBuilt(dir: string, expected: { readonly key?: string; readonly apiOrigin?: string; readonly supabaseOrigin?: string }): void {
   const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as Record<string, unknown>;
