@@ -33,7 +33,7 @@ const msg = (raw: unknown): PanelAction => {
   return { type: "mensagem", message };
 };
 const run = (...actions: PanelAction[]): PanelState => actions.reduce(reducePanel, INITIAL_PANEL_STATE);
-const ready = msg({ kind: "ready", protocolVersion: 1 });
+const ready = msg({ kind: "ready", protocolVersion: 1, envio: false });
 const captura = (c: CaptureView) => msg({ kind: "captura", captura: c } satisfies WorkerToPanel);
 const pronto: CaptureView = { estado: "pronto", origem: "pagina", caracteres: 900, truncado: false };
 const sessao = (view: SessaoView) => msg({ kind: "sessao", sessao: view } satisfies WorkerToPanel);
@@ -49,16 +49,18 @@ describe("fixtures do stream", () => {
 });
 
 describe("reducePanel", () => {
-  test("começa conectando, na porta da geração 0, sem captura, sem consentimento nem sessão conhecidos e sem análise", () => {
+  test("começa conectando, na porta da geração 0, sem API, sem captura, sem consentimento nem sessão conhecidos, sem análise e sem envio", () => {
     expect(INITIAL_PANEL_STATE).toStrictEqual({
       geracao: 0,
       conexao: "conectando",
       queda: null,
+      api: false,
       captura: { estado: "ocioso" },
       consentimento: null,
       sessao: null,
       entrandoDesde: null,
       pediuSair: false,
+      enviandoDesde: null,
       analise: { estado: "nenhuma" },
     });
   });
@@ -118,7 +120,7 @@ describe("reducePanel", () => {
 
 describe("parseWorkerMessage", () => {
   test("devolve a mensagem do contrato e null para o resto", () => {
-    expect(parseWorkerMessage({ kind: "ready", protocolVersion: 1 })).toEqual({ kind: "ready", protocolVersion: 1 });
+    expect(parseWorkerMessage({ kind: "ready", protocolVersion: 1, envio: false })).toEqual({ kind: "ready", protocolVersion: 1, envio: false });
     expect(parseWorkerMessage({ kind: "stream", event: { type: "stage", stage: "pontuando", elapsedMs: -1 } })).toBeNull();
     expect(parseWorkerMessage({ kind: "captura", captura: { estado: "pronto", origem: "pagina", caracteres: 1, truncado: false, texto: "vaga" } })).toBeNull();
   });

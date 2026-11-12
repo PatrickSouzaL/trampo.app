@@ -5,20 +5,14 @@
 import { useEffect, useReducer, useRef, useState, type FormEvent } from "react";
 import { browser } from "wxt/browser";
 
-import { CONSENT_VERSION, PANEL_PORT_NAME, PASTE_MAX_UTF16, PROTOCOL_VERSION, type AuthProvider, type PanelToWorker } from "../../messaging/protocol";
-import { ENTRANDO_TIQUE_MS, INITIAL_PANEL_STATE, analyzeBlock, canReconnect, parseWorkerMessage, reducePanel, type PanelState } from "../../panel/panel-state";
-import { SESSION_ACTION_LABELS, describeCapture, describeConnection } from "../../panel/texts";
-import { AnalyzeButton, Consent, ErrorNotice, Progress, Report } from "./Analysis";
+import { CONSENT_VERSION, PANEL_PORT_NAME, PASTE_MAX_UTF16, PROTOCOL_VERSION, type AnalysisMode, type AuthProvider, type PanelToWorker } from "../../messaging/protocol";
+import { ENTRANDO_TIQUE_MS, INITIAL_PANEL_STATE, analysisControl, canReconnect, parseWorkerMessage, reducePanel, type PanelState } from "../../panel/panel-state";
+import { ANALYZE_LABELS, SESSION_ACTION_LABELS, describeCapture, describeConnection } from "../../panel/texts";
+import { AnalyzeButton, Consent, ErrorNotice, Progress, Report, Sending } from "./Analysis";
 import { Session } from "./Session";
 
 type Port = ReturnType<typeof browser.runtime.connect>;
 type Post = (message: PanelToWorker) => void;
-
-/**
- * O envio à API só existe na F1-EXT-04 parte 2: até lá, o "Analisar" fica sempre desabilitado (ADR-004 D12). O painel
- * não lê o build, e a fonte deste valor passa pelo [APPSEC] (ADR-004 D10 B6).
- */
-const API_DO_ENVIO = false;
 
 function PasteForm({ post }: { post: Post }) {
   const [texto, setTexto] = useState("");
@@ -38,25 +32,38 @@ function PasteForm({ post }: { post: Post }) {
   );
 }
 
-function AnalysisArea({ state, post }: { state: PanelState; post: Post }) {
+/**
+ * A área da análise (ADR-025 §6.4 D19 e D20). O controle (nada, o aviso ou o botão) sai do `analysisControl`, a mesma
+ * função com que o redutor aceita o clique: o botão que a lógica não oferece não existe na tela.
+ */
+function AnalysisArea({ state, post, onAnalisar }: { state: PanelState; post: Post; onAnalisar: (mode: AnalysisMode) => void }) {
   const { analise } = state;
-  const bloqueio = analyzeBlock(API_DO_ENVIO, state);
+  const oferta = analysisControl(state);
+  const controle =
+    oferta === null ? null : oferta === "aviso" ? (
+      <Consent onAccept={() => post({ kind: "consentir", versao: CONSENT_VERSION })} />
+    ) : (
+      <AnalyzeButton label={ANALYZE_LABELS[oferta.mode]} bloqueio={oferta.bloqueio} onClick={() => onAnalisar(oferta.mode)} />
+    );
   switch (analise.estado) {
     case "andamento":
       return <Progress analise={analise} />;
     case "erro":
-      return <ErrorNotice error={analise.error} />;
+      return (
+        <>
+          <ErrorNotice error={analise.error} />
+          {controle}
+        </>
+      );
     case "concluida":
       return (
         <>
           <Report report={analise.report} />
-          <AnalyzeButton label="Reanalisar com IA" bloqueio={bloqueio} />
+          {controle}
         </>
       );
     case "nenhuma":
-      if (state.captura.estado !== "pronto" || state.consentimento === null) return null;
-      if (!state.consentimento) return <Consent onAccept={() => post({ kind: "consentir", versao: CONSENT_VERSION })} />;
-      return <AnalyzeButton label="Analisar vaga" bloqueio={bloqueio} />;
+      return state.enviandoDesde !== null ? <Sending /> : controle;
   }
 }
 
@@ -100,13 +107,14 @@ export function App() {
     };
   }, [state.geracao]);
 
-  // O relógio do "entrando" (ADR-004 D12): armado só enquanto ele estiver ligado. O tique não sai do painel.
-  const entrando = state.entrandoDesde !== null;
+  // O relógio do "entrando" (ADR-004 D12) e do "enviando" (ADR-025 §6.4 D20): um intervalo só, armado enquanto um dos
+  // dois estiver ligado. O tique não sai do painel.
+  const relogio = state.entrandoDesde !== null || state.enviandoDesde !== null;
   useEffect(() => {
-    if (!entrando) return;
+    if (!relogio) return;
     const timer = setInterval(() => dispatch({ type: "tique", agora: Date.now() }), ENTRANDO_TIQUE_MS);
     return () => clearInterval(timer);
-  }, [entrando]);
+  }, [relogio]);
 
   const post: Post = (message) => portRef.current?.postMessage(message);
   // Os botões da sessão só existem quando o sessionActions os oferece; o redutor confere de novo.
@@ -117,6 +125,11 @@ export function App() {
   const sair = (): void => {
     dispatch({ type: "sair" });
     post({ kind: "sair" });
+  };
+  // O painel manda só o modo (ADR-025 §6 D12): o texto, o pedido e o token são do Service Worker.
+  const analisar = (mode: AnalysisMode): void => {
+    dispatch({ type: "analisar", mode, agora: Date.now() });
+    post({ kind: "analisar", mode });
   };
   const online = state.conexao === "pronto";
   const status = describeCapture(state.captura);
@@ -134,7 +147,7 @@ export function App() {
       <Session state={state} onEntrar={entrar} onSair={sair} />
       {status !== null && <p data-captura={state.captura.estado}>{status}</p>}
       {online && state.captura.estado === "falhou" && <PasteForm post={post} />}
-      {online && <AnalysisArea state={state} post={post} />}
+      {online && <AnalysisArea state={state} post={post} onAnalisar={analisar} />}
       {online && state.consentimento === true && (
         <p className="rodape">
           <button type="button" className="secundario" onClick={() => post({ kind: "revogar" })}>

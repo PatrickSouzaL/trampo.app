@@ -54,6 +54,8 @@ export function checkPanelPort(port: Pick<PanelPort, "name" | "sender">, runtime
 export interface PortContext {
   readonly runtimeId: string;
   readonly extensionBaseUrl: string;
+  /** A composição tem o cliente da API (as duas origens do build): vai no `ready`, para o portão do "Analisar" (ADR-025 §6.4 D18). */
+  readonly envio: boolean;
   /** Registra só o motivo, nunca o conteúdo da mensagem (threat-model T23). */
   readonly logRejection: (reason: RejectReason) => void;
   /** Porta confiável depois do `hello`: passa a receber o estado da captura (ADR-024 D4). */
@@ -90,7 +92,7 @@ export function handlePanelConnection(port: PanelPort, ctx: PortContext): void {
     }
     switch (parsed.data.kind) {
       case "hello":
-        port.postMessage({ kind: "ready", protocolVersion: PROTOCOL_VERSION });
+        port.postMessage({ kind: "ready", protocolVersion: PROTOCOL_VERSION, envio: ctx.envio });
         ctx.onReady(port);
         break;
       case "colar":

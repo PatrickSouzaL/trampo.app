@@ -11,6 +11,7 @@ import {
   ERROR_TEXTS,
   OUTCOME_LABELS,
   STAGE_LABELS,
+  SENDING_TEXT,
   STAGE_ORDER,
   VERDICT_LABELS,
   WARNING_LABELS,
@@ -40,12 +41,12 @@ export function Consent({ onAccept }: { onAccept: () => void }) {
 
 /**
  * "Analisar vaga" e "Reanalisar com IA", pelo portão do analyzeBlock (ADR-004 D12): desabilitados, com o motivo, sem a
- * API, o consentimento ou a sessão. Até a F1-EXT-04 parte 2 (que traz o clique), o motivo é sempre o `sem_api`.
+ * API, o consentimento ou a sessão. O clique só avisa o App, que despacha a ação e posta o `analisar` (ADR-025 §6.4).
  */
-export function AnalyzeButton({ label, bloqueio }: { label: string; bloqueio: BloqueioAnalise | null }) {
+export function AnalyzeButton({ label, bloqueio, onClick }: { label: string; bloqueio: BloqueioAnalise | null; onClick: () => void }) {
   return (
     <div data-acao={label}>
-      <button type="button" disabled={bloqueio !== null} aria-describedby={bloqueio === null ? undefined : "analise-bloqueada"}>
+      <button type="button" disabled={bloqueio !== null} aria-describedby={bloqueio === null ? undefined : "analise-bloqueada"} onClick={onClick}>
         {label}
       </button>
       {bloqueio !== null && (
@@ -54,6 +55,15 @@ export function AnalyzeButton({ label, bloqueio }: { label: string; bloqueio: Bl
         </p>
       )}
     </div>
+  );
+}
+
+/** O "enviando", entre o clique aceito e o 1º estágio do stream (ADR-025 §6.4 D20 e D21). */
+export function Sending() {
+  return (
+    <section data-analise="enviando" aria-live="polite">
+      <p>{SENDING_TEXT}</p>
+    </section>
   );
 }
 

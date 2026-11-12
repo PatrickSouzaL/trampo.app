@@ -44,7 +44,8 @@ const afterHandshake = async ([name, messages]: [string, unknown[]]): Promise<Po
   return { received, disconnected };
 };
 
-const READY = { kind: "ready", protocolVersion: 1 };
+// O build sem as origens não tem a API: o `ready` diz `envio: false` (ADR-025 §6.4 D18). O build auth diz `true` (session.ts).
+const READY = { kind: "ready", protocolVersion: 1, envio: false };
 const OCIOSO = { kind: "captura", captura: { estado: "ocioso" } };
 const SEM_CONSENTIMENTO = { kind: "consentimento", dado: false };
 const sessao = (autenticado: boolean, erro: string | null) => ({ kind: "sessao", sessao: { autenticado, erro } });

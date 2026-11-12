@@ -77,6 +77,8 @@ export default defineBackground(() => {
   const ctx = {
     runtimeId: browser.runtime.id,
     extensionBaseUrl: browser.runtime.getURL("/"),
+    // Só o SW sabe se o build tem a origem da API; o painel recebe um booleano no `ready` (ADR-025 §6.4 D18).
+    envio: auth.api !== undefined,
     logRejection: (reason: string) => console.warn("[trampo] porta ou mensagem recusada:", reason),
     // Em sequência, para o painel receber sempre [ready, captura, consentimento, sessao] nesta ordem (ADR-004 D12).
     onReady: (port: Parameters<typeof capture.attach>[0]) => {

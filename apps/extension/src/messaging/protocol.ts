@@ -105,7 +105,8 @@ export const CaptureViewSchema = z.discriminatedUnion("estado", [
 export type CaptureView = z.infer<typeof CaptureViewSchema>;
 
 export const WorkerToPanelSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("ready"), protocolVersion: z.literal(PROTOCOL_VERSION) }),
+  // `envio`: a composição do Service Worker tem a API (ADR-025 §6 D14 e §6.4 D18). Só um booleano, nunca a origem (B6).
+  z.strictObject({ kind: z.literal("ready"), protocolVersion: z.literal(PROTOCOL_VERSION), envio: z.boolean() }),
   z.strictObject({ kind: z.literal("captura"), captura: CaptureViewSchema }),
   z.strictObject({ kind: z.literal("consentimento"), dado: z.boolean() }),
   // Último do handshake ([ready, captura, consentimento, sessao]) e reemitida a cada mudança (ADR-004 D12).
