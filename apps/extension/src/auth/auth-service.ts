@@ -37,8 +37,12 @@ export const AUTH_LOG_REASONS = [
 ] as const;
 export type AuthLogReason = (typeof AUTH_LOG_REASONS)[number];
 
+/** O que o serviço da sessão usa do api-client. */
+type AuthApi = Pick<ApiClient, "post">;
+
 export interface AuthConfig {
-  readonly api: ApiClient;
+  /** Só o `post`: o envio da vaga (`analyze`) é do analysis-service (ADR-025 §6 D13). */
+  readonly api: AuthApi;
   /** Origem https exata do projeto Supabase (`TRAMPO_SUPABASE_ORIGIN`). */
   readonly supabaseOrigin: string;
 }
@@ -185,7 +189,7 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
    * A troca criou uma sessão que o "Sair" já descartou (E-03): logout remoto em melhor esforço, uma tentativa, com o
    * access recebido. Nada é gravado nem emitido, e o access morre aqui. Nunca rejeita.
    */
-  const revokeOrphan = async (api: ApiClient, accessToken: string): Promise<void> => {
+  const revokeOrphan = async (api: AuthApi, accessToken: string): Promise<void> => {
     try {
       const result = await api.post({ path: AUTH_ROUTES.logout, body: { schemaVersion: AUTH_SCHEMA_VERSION }, accessToken });
       if (!endedRemotely(result)) deps.log("auth_logout_remoto_falhou");
@@ -268,11 +272,11 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     deps.emit({ autenticado: false, erro: "NAO_AUTENTICADO" });
   };
 
-  const postRefresh = (api: ApiClient, refreshToken: string): Promise<ApiResult> =>
+  const postRefresh = (api: AuthApi, refreshToken: string): Promise<ApiResult> =>
     api.post({ path: AUTH_ROUTES.refresh, body: { schemaVersion: AUTH_SCHEMA_VERSION, refreshToken } });
 
   /** Uma única nova tentativa, sequencial e 2 s depois, só sem resposta HTTP (D11.3; P10). */
-  const refreshWithRetry = async (api: ApiClient, refreshToken: string): Promise<Outcome> => {
+  const refreshWithRetry = async (api: AuthApi, refreshToken: string): Promise<Outcome> => {
     let result = await postRefresh(api, refreshToken);
     if (!result.ok && result.reason === "sem_resposta") {
       await wait(policy.retryDelayMs);
@@ -281,7 +285,7 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     return classify(result);
   };
 
-  const renew = async (api: ApiClient, session: StoredSession, gen: number): Promise<StoredSession | undefined> => {
+  const renew = async (api: AuthApi, session: StoredSession, gen: number): Promise<StoredSession | undefined> => {
     const outcome = await refreshWithRetry(api, session.refreshToken);
     if (gen !== generation) return undefined;
     if (outcome.kind === "ok") {
@@ -306,7 +310,7 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
   };
 
   /** *Single-flight* por geração: todos os chamadores da mesma geração dividem a mesma renovação (T9.3). */
-  const renewShared = (api: ApiClient, session: StoredSession): Promise<StoredSession | undefined> => {
+  const renewShared = (api: AuthApi, session: StoredSession): Promise<StoredSession | undefined> => {
     if (refreshing !== undefined && refreshing.gen === generation) return refreshing.promise;
     const gen = generation;
     const promise = renew(api, session, gen).finally(() => {
@@ -317,7 +321,7 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
   };
 
   /** Parte remota do logout. A renovação, se precisar, fica só em memória e nunca grava (D11.5 passo 2). */
-  const logoutRemote = async (api: ApiClient, session: StoredSession): Promise<StoredSession | undefined> => {
+  const logoutRemote = async (api: AuthApi, session: StoredSession): Promise<StoredSession | undefined> => {
     let current = session;
     if (needsRenewal(current)) {
       const outcome = classify(await postRefresh(api, current.refreshToken));
@@ -330,7 +334,7 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     return endedRemotely(result) ? undefined : current;
   };
 
-  const endRemotely = async (api: ApiClient, session: StoredSession): Promise<void> => {
+  const endRemotely = async (api: AuthApi, session: StoredSession): Promise<void> => {
     let remaining = await logoutRemote(api, session);
     if (remaining === undefined) return;
     await wait(policy.retryDelayMs);

@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 
-import { CAPTURE_STORAGE_KEY, CaptureStateSchema, captureView, createCaptureService, type CaptureState } from "../src/capture/capture-service";
+import { CAPTURE_STORAGE_KEY, CaptureStateSchema, captureView, createCaptureService, readyJob, type CaptureState } from "../src/capture/capture-service";
 import type { ExtractorRunner } from "../src/capture/capture";
 import type { WorkerToPanel } from "../src/messaging/protocol";
 import { sessionStore } from "../src/messaging/session-store";
@@ -254,5 +254,77 @@ describe("createCaptureService", () => {
     pending.resolve(okFrames(PAGE_TEXT));
     await reading;
     expect(await stored()).toBeUndefined();
+  });
+});
+
+// F1-EXT-04 parte 2, 04b-1 (ADR-025 §6 D10): a captura que muda cancela a análise em curso ANTES de gravar o estado novo
+// e de avisar o painel, para nenhum evento da vaga antiga chegar depois do `captura` que limpa a tela.
+describe("onChange e readyJob (F1-EXT-04 parte 2)", () => {
+  beforeEach(() => fakeBrowser.reset());
+
+  function withChange(runExtractor: ExtractorRunner = () => Promise.resolve(okFrames(PAGE_TEXT))) {
+    const store = sessionStore(CAPTURE_STORAGE_KEY, CaptureStateSchema);
+    const order: string[] = [];
+    const onChange = vi.fn(() => void order.push("onChange"));
+    const set = store.set.bind(store);
+    const remove = store.remove.bind(store);
+    const tracked = { ...store, set: async (v: Parameters<typeof set>[0]) => (order.push(`set:${v.estado}`), set(v)), remove: async () => (order.push("remove"), remove()) };
+    const service = createCaptureService({ store: tracked, runExtractor, now: () => 1, logFailure: vi.fn(), onChange });
+    return { service, store, order, onChange };
+  }
+
+  test("clique na aba: onChange antes do 'lendo' e antes do resultado", async () => {
+    const { service, order } = withChange();
+    await service.captureTab(3, "generico");
+    expect(order).toEqual(["onChange", "set:lendo", "onChange", "set:pronto"]);
+  });
+
+  test("captura que falha também cancela", async () => {
+    const { service, order } = withChange(() => Promise.reject(new Error("sem acesso")));
+    await service.captureTab(3, "generico");
+    expect(order).toEqual(["onChange", "set:lendo", "onChange", "set:falhou"]);
+  });
+
+  test("texto colado: onChange antes de gravar", async () => {
+    const { service, order } = withChange();
+    await service.paste(PAGE_TEXT);
+    expect(order).toEqual(["onChange", "set:pronto"]);
+  });
+
+  test("aba da captura fechada: onChange antes de apagar; outra aba fechada não cancela", async () => {
+    const { service, order, onChange } = withChange();
+    await service.captureTab(3, "generico");
+    order.length = 0;
+    onChange.mockClear();
+    await service.tabClosed(4);
+    expect(onChange).not.toHaveBeenCalled();
+    await service.tabClosed(3);
+    expect(order).toEqual(["onChange", "remove"]);
+  });
+
+  test("um painel que se liga não cancela nada", async () => {
+    const { service, onChange } = withChange();
+    await service.paste(PAGE_TEXT);
+    onChange.mockClear();
+    await service.attach({ name: "p", postMessage: vi.fn(), disconnect: vi.fn(), onMessage: { addListener: vi.fn() }, onDisconnect: { addListener: vi.fn() } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  test("sem onChange, nada muda (o padrão é não fazer nada)", async () => {
+    const { service, stored } = setup();
+    await service.paste(PAGE_TEXT);
+    expect((await stored())?.estado).toBe("pronto");
+  });
+
+  test("readyJob: só a vaga do estado pronto", async () => {
+    const { service, store } = withChange();
+    const job = readyJob(store);
+    expect(await job()).toBeUndefined();
+    await service.paste(PAGE_TEXT);
+    expect(await job()).toMatchObject({ platform: "texto_colado", extractorVersion: "colado-1", tabId: null });
+    await store.set({ estado: "lendo", tabId: 1 });
+    expect(await job()).toBeUndefined();
+    await store.set({ estado: "falhou", tabId: 1, motivo: "erro" });
+    expect(await job()).toBeUndefined();
   });
 });

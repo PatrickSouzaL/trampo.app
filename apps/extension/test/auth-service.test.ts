@@ -90,7 +90,7 @@ function manualClock(start = T0) {
 function fakeApi() {
   const calls: ApiCall[] = [];
   const replies: Array<(call: ApiCall) => Promise<ApiResult>> = [];
-  const api: ApiClient = {
+  const api: Pick<ApiClient, "post"> = {
     post: (call) => {
       calls.push(call);
       const next = replies.shift();
