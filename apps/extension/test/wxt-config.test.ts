@@ -18,7 +18,8 @@ test("o wxt.config.ts lê as variáveis pelo loadBuildEnv, com o process.env e o
   expect(manifest?.content_security_policy).toStrictEqual({
     extension_pages: "script-src 'self'; object-src 'self'; default-src 'self'; connect-src https://api.ligacao.test",
   });
-});
+  // Importar o wxt.config.ts carrega o WXT inteiro: segundos com a máquina ocupada (o turbo em série, o CI).
+}, 60_000);
 
 test("os testes de unidade rodam isolados do .env do desenvolvedor: leitura desligada e variáveis do build vazias", () => {
   expect(process.env["TRAMPO_IGNORE_DOTENV"]).toBe("1");
