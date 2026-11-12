@@ -111,6 +111,51 @@ describe("consentimento no Service Worker", () => {
     expect(b.received).toEqual([consent(false), consent(true), consent(false)]);
   });
 
+  describe("onRevoke (ADR-025 §6.3 D17): a análise em curso para antes de o registro sair", () => {
+    function withHook() {
+      const p = fakePort();
+      const onRevoke = vi.fn();
+      const store = sessionStore(CONSENT_STORAGE_KEY, ConsentRecordSchema);
+      const remove = vi.spyOn(store, "remove");
+      const service = createConsentService({ store, now: () => 1234, onRevoke });
+      return { service, onRevoke, remove, p };
+    }
+
+    test("o revoke chama o gancho uma vez, antes de apagar o registro e de avisar o painel", async () => {
+      const { service, onRevoke, remove, p } = withHook();
+      await service.grant();
+      await service.attach(p.port);
+      const before = p.received.length;
+      let painelNoGancho: number | undefined;
+      let removeNoGancho: number | undefined;
+      onRevoke.mockImplementation(() => {
+        painelNoGancho = p.received.length;
+        removeNoGancho = remove.mock.calls.length;
+      });
+      await service.revoke();
+      expect(onRevoke).toHaveBeenCalledTimes(1);
+      expect(removeNoGancho).toBe(0);
+      expect(painelNoGancho).toBe(before);
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(p.received.at(-1)).toEqual(consent(false));
+    });
+
+    test("o aceite, a leitura e a conexão do painel não chamam o gancho", async () => {
+      const { service, onRevoke, p } = withHook();
+      await service.grant();
+      await service.attach(p.port);
+      await service.isGranted();
+      expect(onRevoke).not.toHaveBeenCalled();
+    });
+
+    test("o registro de um aviso antigo, apagado na leitura, não chama o gancho", async () => {
+      const { service, onRevoke } = withHook();
+      await fakeBrowser.storage.session.set({ [CONSENT_STORAGE_KEY]: { versao: "aviso-0", dadoEm: 1 } });
+      expect(await service.isGranted()).toBe(false);
+      expect(onRevoke).not.toHaveBeenCalled();
+    });
+  });
+
   test("porta que cai antes de ler o estado não recebe nada", async () => {
     const { service } = setup();
     const p = fakePort();

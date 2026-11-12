@@ -19,8 +19,13 @@ export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(forcePanelBehavior);
   browser.runtime.onStartup.addListener(forcePanelBehavior);
 
-  // Consentimento antes da 1ª transmissão (ADR-025 D2). O envio à API consulta consent.isGranted().
-  const consent = createConsentService({ store: sessionStore(CONSENT_STORAGE_KEY, ConsentRecordSchema), now: Date.now });
+  // Consentimento antes da 1ª transmissão (ADR-025 D2). O envio à API consulta consent.isGranted(), e a retirada
+  // cancela a análise em curso antes de apagar o registro e de avisar o painel (ADR-025 §6.3 D17).
+  const consent = createConsentService({
+    store: sessionStore(CONSENT_STORAGE_KEY, ConsentRecordSchema),
+    now: Date.now,
+    onRevoke: () => analysis.cancel(),
+  });
   const consentFailure = (): void => console.warn("[trampo] falha interna no consentimento");
 
   // Sessão (ADR-004 D3, D11 e D12): o token vive só aqui e no storage.session. O config só existe com as duas
@@ -72,6 +77,8 @@ export default defineBackground(() => {
   const ctx = {
     runtimeId: browser.runtime.id,
     extensionBaseUrl: browser.runtime.getURL("/"),
+    // Só o SW sabe se o build tem a origem da API; o painel recebe um booleano no `ready` (ADR-025 §6.4 D18).
+    envio: auth.api !== undefined,
     logRejection: (reason: string) => console.warn("[trampo] porta ou mensagem recusada:", reason),
     // Em sequência, para o painel receber sempre [ready, captura, consentimento, sessao] nesta ordem (ADR-004 D12).
     onReady: (port: Parameters<typeof capture.attach>[0]) => {

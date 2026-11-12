@@ -42,6 +42,7 @@ function hooks(logRejection: (r: RejectReason) => void) {
   return {
     runtimeId: ID,
     extensionBaseUrl: BASE,
+    envio: false,
     logRejection,
     onReady: vi.fn(),
     onPaste: vi.fn(),
@@ -92,11 +93,18 @@ describe("handlePanelConnection", () => {
     const c = connect(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
     expect(c.ctx.onReady).not.toHaveBeenCalled();
     c.deliver({ kind: "hello", protocolVersion: 1 });
-    expect(c.port.postMessage).toHaveBeenCalledWith({ kind: "ready", protocolVersion: 1 });
+    expect(c.port.postMessage).toHaveBeenCalledExactlyOnceWith({ kind: "ready", protocolVersion: 1, envio: false });
     expect(c.ctx.onReady).toHaveBeenCalledExactlyOnceWith(c.port);
     expect(c.ctx.onPaste).not.toHaveBeenCalled();
     expect(c.port.disconnect).not.toHaveBeenCalled();
     expect(c.rejections).toEqual([]);
+  });
+
+  test("o ready leva o envio da composição: true só quando o contexto diz que há API (ADR-025 §6.4 D18)", () => {
+    const fp = fakePort(PANEL_PORT_NAME, { id: ID, url: PANEL_URL });
+    handlePanelConnection(fp.port, { ...hooks(() => undefined), envio: true });
+    fp.deliver({ kind: "hello", protocolVersion: 1 });
+    expect(fp.port.postMessage).toHaveBeenCalledExactlyOnceWith({ kind: "ready", protocolVersion: 1, envio: true });
   });
 
   test("texto colado chega ao Service Worker sem resposta direta", () => {
@@ -261,7 +269,12 @@ describe("WorkerToPanelSchema (revalidação no painel)", () => {
   });
 
   test("aceita ready, consentimento e eventos de stream do contrato público", () => {
-    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1 }).success).toBe(true);
+    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, envio: true }).success).toBe(true);
+    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, envio: false }).success).toBe(true);
+    // O envio é só booleano (B6), e obrigatório: o ready antigo, sem o campo, derruba a porta.
+    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1 }).success).toBe(false);
+    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, envio: "true" }).success).toBe(false);
+    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, envio: 1 }).success).toBe(false);
     expect(WorkerToPanelSchema.safeParse({ kind: "consentimento", dado: true }).success).toBe(true);
     expect(WorkerToPanelSchema.safeParse({ kind: "consentimento", dado: "sim" }).success).toBe(false);
     expect(WorkerToPanelSchema.safeParse({ kind: "consentimento", dado: false, versao: CONSENT_VERSION }).success).toBe(false);
@@ -273,7 +286,8 @@ describe("WorkerToPanelSchema (revalidação no painel)", () => {
     expect(WorkerToPanelSchema.safeParse({ kind: "stream", event: { type: "debug", stack: "x" } }).success).toBe(false);
     const htmlError = { type: "error", error: { code: "ERRO_INTERNO", message: "<img src=x onerror=1>", requestId: null, retryAfterSeconds: null } };
     expect(WorkerToPanelSchema.safeParse({ kind: "stream", event: htmlError }).success).toBe(false);
-    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, html: "<b>" }).success).toBe(false);
+    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, envio: true, html: "<b>" }).success).toBe(false);
+    expect(WorkerToPanelSchema.safeParse({ kind: "ready", protocolVersion: 1, envio: true, apiOrigin: "https://api.trampo.test" }).success).toBe(false);
     expect(WorkerToPanelSchema.safeParse({ kind: "render", html: "<b>" }).success).toBe(false);
   });
 });

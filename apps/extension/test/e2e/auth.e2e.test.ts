@@ -78,6 +78,7 @@ describe("login com o IdP falso no build com as origens e a chave efêmera (ADR-
       exchange: { ok: 1, recusado: 0 },
       refresh: { ok: 0, recusado: 0 },
       logout: { ok: 0, recusado: 0 },
+      analyze: { ok: 0, recusado: 0 },
     });
     expect(state.auth.refusals).toEqual([]);
     // O BFF falso conferiu S256(verifier) contra o challenge do authorize; o verifier tem a forma do SW (32 bytes).

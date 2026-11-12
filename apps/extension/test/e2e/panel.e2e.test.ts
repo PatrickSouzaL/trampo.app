@@ -7,6 +7,9 @@
 // F1-EXT-05b, 05b-3 (ADR-004 D12 e §4.4; CA-14): a sessão no React de produção. A porta falsa aceita várias conexões
 // e a queda pelo lado do Service Worker; os casos conferem as mensagens exatas enviadas, o texto de cada SessaoView,
 // o "entrando" com o relógio do painel, o "Tentar sair de novo" e o "Reconectar", que refaz o handshake numa porta nova.
+// F1-EXT-04 parte 2, 04b-2 (ADR-025 §6.4): com o `ready.envio`, os botões postam exatamente { analisar, mode }; o
+// "enviando" liga no clique, desliga no terminal, na captura e no teto de 55 s, e os relatórios hostis seguem derrubando
+// a porta com os botões ativos.
 import { ApiErrorCodeSchema } from "@trampo/contracts/api";
 import type { Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
@@ -14,11 +17,13 @@ import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
 import { SESSION_STORAGE_KEY } from "../../src/auth/session-schema";
 import { CONSENT_STORAGE_KEY } from "../../src/consent/consent-service";
 import { AUTH_PROVIDERS, CONSENT_VERSION, PANEL_PORT_NAME, SessaoErroSchema, SessaoViewSchema, type SessaoView } from "../../src/messaging/protocol";
-import { ENTRANDO_TETO_MS } from "../../src/panel/panel-state";
+import { ENTRANDO_TETO_MS, ENVIANDO_TETO_MS } from "../../src/panel/panel-state";
 import {
   ANALYZE_BLOCKED_TEXTS,
+  ANALYZE_LABELS,
   ERROR_TEXTS,
   LOGOUT_UNCONFIRMED_TEXT,
+  SENDING_TEXT,
   SESSION_ACTION_LABELS,
   SESSION_TEXTS,
   SIGNING_IN_TEXT,
@@ -102,7 +107,9 @@ const installFakePort = (): void => {
   };
 };
 
-const READY = { kind: "ready", protocolVersion: 1 };
+/** O `ready` de um Service Worker sem a API (o build sem as origens) e o de um com ela (ADR-025 §6.4 D18). */
+const READY = { kind: "ready", protocolVersion: 1, envio: false };
+const READY_COM_API = { kind: "ready", protocolVersion: 1, envio: true };
 const OCIOSO = { kind: "captura", captura: { estado: "ocioso" } };
 const PRONTO = { kind: "captura", captura: { estado: "pronto", origem: "pagina", caracteres: 1800, truncado: false } };
 const consentimento = (dado: boolean) => ({ kind: "consentimento", dado });
@@ -114,6 +121,8 @@ const DENTRO: SessaoView = { autenticado: true, erro: null };
 const INDISPONIVEL: SessaoView = { autenticado: false, erro: "SERVICO_INDISPONIVEL" };
 /** Handshake inteiro ([ready, captura, consentimento, sessao]) com a sessão dada. */
 const handshake = (view: SessaoView, captura: unknown = OCIOSO, dado = false) => [READY, captura, consentimento(dado), sessao(view)];
+/** O mesmo handshake com a API ligada, a vaga pronta e o consentimento dado: tudo o que o botão exige, menos a sessão. */
+const handshakeComApi = (view: SessaoView) => [READY_COM_API, PRONTO, consentimento(true), sessao(view)];
 
 /** Todas as SessaoView válidas: o produto de autenticado e erro que passa no schema (M-08). */
 const VALID_VIEWS: SessaoView[] = [true, false].flatMap((autenticado) =>
@@ -445,7 +454,7 @@ describe("sessão no painel de produção, com a porta falsa (ADR-004 D12; CA-14
     await page.close();
   });
 
-  test("com sessão e consentimento, o Analisar segue desabilitado pelo portão: o envio à API é da F1-EXT-04 parte 2", async () => {
+  test("com sessão e consentimento, mas sem a API no ready, o Analisar segue desabilitado pelo portão (o build sem as origens)", async () => {
     const page = await fakePanel(l!, ...handshake(DENTRO, PRONTO, true));
     const analisar = page.getByRole("button", { name: "Analisar vaga" });
     await expect.poll(() => analisar.count()).toBe(1);
@@ -454,6 +463,248 @@ describe("sessão no painel de produção, com a porta falsa (ADR-004 D12; CA-14
     expect(await page.locator("[data-bloqueio]").innerText()).toBe(ANALYZE_BLOCKED_TEXTS.sem_api);
     await page.close();
   });
+});
+
+describe("envio no painel de produção, com a porta falsa (ADR-025 §6.4)", () => {
+  let l: Loaded | undefined;
+  beforeAll(async () => {
+    l = await loadExtension(cfg.extNoOrigin);
+  });
+  afterAll(() => unload(l));
+
+  const analisar = (page: Page) => page.getByRole("button", { name: ANALYZE_LABELS.auto });
+  const reanalisar = (page: Page) => page.getByRole("button", { name: ANALYZE_LABELS.aprofundada });
+  const enviando = (page: Page) => page.locator('[data-analise="enviando"]');
+  /** Só os botões da área da análise (o rodapé tem o de retirar o consentimento). */
+  const analysisButtons = (page: Page) => page.locator("[data-acao] button").allInnerTexts();
+
+  test("Analisar vaga posta exatamente { analisar, auto }; o enviando vira progresso e relatório; Reanalisar posta { analisar, aprofundada }", async () => {
+    const page = await fakePanel(l!, ...handshakeComApi(DENTRO));
+    await expect.poll(() => analisar(page).count()).toBe(1);
+    expect(await analisar(page).isEnabled()).toBe(true);
+    expect(await page.locator("[data-bloqueio]").count()).toBe(0);
+
+    await analisar(page).click();
+    await expect.poll(() => sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+    await expect.poll(() => enviando(page).allInnerTexts()).toEqual([SENDING_TEXT]);
+    expect(await analysisButtons(page)).toEqual([]);
+
+    // O stage troca o texto pelo progresso, e o botão segue fora da tela.
+    await emit(page, stage("recebido", 10));
+    await expect.poll(() => page.locator('[data-analise="andamento"]').count()).toBe(1);
+    expect(await enviando(page).count()).toBe(0);
+    expect(await analysisButtons(page)).toEqual([]);
+
+    // O terminal devolve o botão, agora o Reanalisar, habilitado.
+    await emit(page, result(REPORT));
+    await expect.poll(() => page.locator('[data-analise="concluida"]').count()).toBe(1);
+    expect(await analysisButtons(page)).toEqual([ANALYZE_LABELS.aprofundada]);
+    expect(await reanalisar(page).isEnabled()).toBe(true);
+
+    await reanalisar(page).click();
+    await expect.poll(() => sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }, { kind: "analisar", mode: "aprofundada" }]);
+    // O relatório antigo sai da tela com o envio novo.
+    await expect.poll(() => enviando(page).count()).toBe(1);
+    expect(await page.locator('[data-analise="concluida"]').count()).toBe(0);
+    expect(await linkLike(page)).toEqual([]);
+    expect(await dropped(page)).toBe(0);
+    await page.close();
+  });
+
+  test("o duplo clique manda um analisar só, e nada mais", async () => {
+    const page = await fakePanel(l!, ...handshakeComApi(DENTRO));
+    await analisar(page).dblclick();
+    await expect.poll(() => enviando(page).count()).toBe(1);
+    await page.waitForTimeout(200);
+    expect(await sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+    await page.close();
+  });
+
+  test("o erro do stream devolve o Analisar vaga ao lado do texto do catálogo, sem o message do servidor", async () => {
+    const page = await fakePanel(l!, ...handshakeComApi(DENTRO));
+    await analisar(page).click();
+    await expect.poll(() => enviando(page).count()).toBe(1);
+    await emit(page, apiError("LIMITE_DE_TAXA", 120));
+    const aviso = page.locator('[data-erro="LIMITE_DE_TAXA"]');
+    await expect.poll(() => aviso.count()).toBe(1);
+    expect(await aviso.innerText()).toContain(ERROR_TEXTS.LIMITE_DE_TAXA.titulo);
+    expect(await mainText(page)).not.toContain("Mensagem do servidor");
+    expect(await analysisButtons(page)).toEqual([ANALYZE_LABELS.auto]);
+    // Tentar de novo manda outro analisar, no modo auto.
+    await analisar(page).click();
+    await expect.poll(() => sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }, { kind: "analisar", mode: "auto" }]);
+    await expect.poll(() => aviso.count()).toBe(0);
+    await page.close();
+  });
+
+  test("o enviando desliga no teto de 55 s pelo relógio do painel, com o erro do catálogo e o botão de volta, sem mandar nada ao SW", async () => {
+    const inicio = Date.UTC(2026, 10, 12, 12);
+    const page = await fakePanelWith(
+      l!,
+      async (p) => {
+        await p.clock.install({ time: inicio });
+        await p.addInitScript(trackIntervals);
+      },
+      ...handshakeComApi(DENTRO),
+    );
+    const intervals = () => page.evaluate(() => globalThis.__trampoIntervals!());
+    await page.clock.pauseAt(inicio + 60_000);
+    // O tique só fica armado durante o envio.
+    expect(await intervals()).toBe(0);
+    await analisar(page).click();
+    await expect.poll(() => enviando(page).count()).toBe(1);
+    await expect.poll(intervals).toBe(1);
+
+    // Um stage no meio não desliga nem rearma o relógio.
+    await page.clock.runFor(20_000);
+    await emit(page, stage("extraindo_fatos", 20_000));
+    await expect.poll(() => page.locator('[data-analise="andamento"]').count()).toBe(1);
+    expect(await intervals()).toBe(1);
+
+    // Um segundo antes do teto, ainda em andamento.
+    await page.clock.runFor(ENVIANDO_TETO_MS - 21_000);
+    await page.waitForTimeout(200);
+    expect(await page.locator('[data-analise="andamento"]').count()).toBe(1);
+    expect(await analysisButtons(page)).toEqual([]);
+    // No teto, o erro do catálogo (sem código do pedido) e o botão, e o tique é desarmado.
+    await page.clock.runFor(1_000);
+    const aviso = page.locator('[data-erro="SERVICO_INDISPONIVEL"]');
+    await expect.poll(() => aviso.count()).toBe(1);
+    expect(await aviso.innerText()).toContain(ERROR_TEXTS.SERVICO_INDISPONIVEL.titulo);
+    expect(await aviso.innerText()).not.toMatch(/Código do pedido/);
+    expect(await analysisButtons(page)).toEqual([ANALYZE_LABELS.auto]);
+    await expect.poll(intervals).toBe(0);
+    // O relógio não manda nada: só o clique saiu.
+    expect(await sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+
+    // O terminal que chega depois do teto ainda vale.
+    await emit(page, result(REPORT));
+    await expect.poll(() => page.locator('[data-analise="concluida"]').count()).toBe(1);
+    expect(await aviso.count()).toBe(0);
+    await page.close();
+  });
+
+  test("a captura nova limpa o envio em curso, e a vaga pronta devolve o Analisar vaga", async () => {
+    const page = await fakePanel(l!, ...handshakeComApi(DENTRO));
+    await analisar(page).click();
+    await emit(page, stage("recebido", 10));
+    await expect.poll(() => page.locator('[data-analise="andamento"]').count()).toBe(1);
+    await emit(page, { kind: "captura", captura: { estado: "lendo" } });
+    await expect.poll(() => page.locator("[data-analise]").count()).toBe(0);
+    expect(await analysisButtons(page)).toEqual([]);
+    await emit(page, PRONTO);
+    await expect.poll(() => analysisButtons(page)).toEqual([ANALYZE_LABELS.auto]);
+    expect(await analisar(page).isEnabled()).toBe(true);
+    expect(await sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+    await page.close();
+  });
+
+  test("a retirada do consentimento no meio do envio traz o aviso de volta; com o relatório na tela, o aviso fica ao lado dele", async () => {
+    const page = await fakePanel(l!, ...handshakeComApi(DENTRO));
+    await analisar(page).click();
+    await expect.poll(() => enviando(page).count()).toBe(1);
+    await emit(page, consentimento(false));
+    await expect.poll(() => page.locator("[data-consentimento]").count()).toBe(1);
+    expect(await page.locator("[data-analise]").count()).toBe(0);
+    expect(await analysisButtons(page)).toEqual([]);
+
+    await emit(page, consentimento(true));
+    await emit(page, result(REPORT));
+    await expect.poll(() => analysisButtons(page)).toEqual([ANALYZE_LABELS.aprofundada]);
+    await emit(page, consentimento(false));
+    await expect.poll(() => page.locator("[data-consentimento]").count()).toBe(1);
+    expect(await page.locator('[data-analise="concluida"]').count()).toBe(1);
+    expect(await analysisButtons(page)).toEqual([]);
+    await page.close();
+  });
+
+  test("sem sessão, o botão fica bloqueado com o motivo e o clique não manda nada; sem API, o motivo é o da versão", async () => {
+    const page = await fakePanel(l!, ...handshakeComApi(FORA));
+    await expect.poll(() => analisar(page).count()).toBe(1);
+    expect(await analisar(page).isDisabled()).toBe(true);
+    expect(await page.locator("[data-bloqueio]").getAttribute("data-bloqueio")).toBe("sem_sessao");
+    expect(await page.locator("[data-bloqueio]").innerText()).toBe(ANALYZE_BLOCKED_TEXTS.sem_sessao);
+    await analisar(page).click({ force: true });
+    await page.waitForTimeout(200);
+    expect(await sent(page)).toEqual([HELLO]);
+    expect(await enviando(page).count()).toBe(0);
+
+    // A sessão chega: o botão habilita. A sessão sai no meio do envio: o botão volta bloqueado.
+    await emit(page, sessao(DENTRO));
+    await expect.poll(() => analisar(page).isEnabled()).toBe(true);
+    await analisar(page).click();
+    await expect.poll(() => enviando(page).count()).toBe(1);
+    await emit(page, sessao(FORA));
+    await expect.poll(() => page.locator("[data-bloqueio]").getAttribute("data-bloqueio")).toBe("sem_sessao");
+    expect(await sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+    await page.close();
+
+    const semApi = await fakePanel(l!, ...handshake(DENTRO, PRONTO, true));
+    await expect.poll(() => semApi.locator("[data-bloqueio]").getAttribute("data-bloqueio")).toBe("sem_api");
+    await analisar(semApi).click({ force: true });
+    await semApi.waitForTimeout(200);
+    expect(await sent(semApi)).toEqual([HELLO]);
+    await semApi.close();
+  });
+
+  test("a queda da porta no meio do envio deixa só o Reconectar; a porta nova começa sem envio, e o clique sai por ela", async () => {
+    const page = await fakePanel(l!, ...handshakeComApi(DENTRO));
+    await analisar(page).click();
+    await expect.poll(() => enviando(page).count()).toBe(1);
+    await fall(page);
+    await expect.poll(() => buttons(page)).toEqual([SESSION_ACTION_LABELS.reconectar]);
+    expect(await enviando(page).count()).toBe(0);
+    await page.getByRole("button", { name: SESSION_ACTION_LABELS.reconectar }).click();
+    await expect.poll(async () => (await ports(page)).length).toBe(2);
+    // Antes do `ready` novo, o painel não sabe da API: nenhum botão.
+    expect(await analysisButtons(page)).toEqual([]);
+    for (const m of handshakeComApi(DENTRO)) await emit(page, m);
+    await expect.poll(() => analysisButtons(page)).toEqual([ANALYZE_LABELS.auto]);
+    await analisar(page).click();
+    await expect.poll(() => sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+    expect(await sent(page, 0)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+    await page.close();
+  });
+
+  test.each([
+    ["sem o campo envio", { kind: "ready", protocolVersion: 1 }],
+    ["envio que não é booleano", { kind: "ready", protocolVersion: 1, envio: "true" }],
+    ["chave extra", { kind: "ready", protocolVersion: 1, envio: true, origem: "https://api.trampo.test" }],
+  ])("ready fora do contrato (%s) derruba a porta, sem botão nenhum", async (_caso, ready) => {
+    const page = await fakePanel(l!, ready, PRONTO, consentimento(true), sessao(DENTRO));
+    await expect.poll(() => connection(page).getAttribute("data-connection")).toBe("desconectado");
+    expect(await dropped(page)).toBe(1);
+    expect(await mainText(page)).toMatch(/paramos por segurança/);
+    expect(await buttons(page)).toEqual([]);
+    expect(await sent(page)).toEqual([HELLO]);
+    await page.close();
+  });
+
+  test.each(HOSTILE_REPORTS.map(([label, report]) => [label, report] as const))(
+    "relatório hostil com os botões ativos (%s): a porta cai, nada é renderizado nem postado depois",
+    async (_label, report) => {
+      const page = await fakePanel(l!, ...handshakeComApi(DENTRO));
+      await analisar(page).click();
+      await expect.poll(() => enviando(page).count()).toBe(1);
+      await emit(page, stage("pontuando", 900));
+      await emit(page, result(report));
+      await expect.poll(() => connection(page).getAttribute("data-connection")).toBe("desconectado");
+      expect(await dropped(page)).toBe(1);
+      const texto = await mainText(page);
+      expect(texto).toMatch(/paramos por segurança/);
+      expect(texto).not.toContain(HOSTILE_CANARY);
+      expect(await page.locator("[data-analise], [data-acao], [data-sessao], [data-consentimento], img").count()).toBe(0);
+      expect(await linkLike(page)).toEqual([]);
+      expect(await buttons(page)).toEqual([]);
+      expect(await ports(page)).toHaveLength(1);
+      // Depois da queda, nem um relatório válido é renderizado, e nada mais sai pela porta.
+      await emit(page, result(REPORT));
+      await page.waitForTimeout(100);
+      expect(await page.locator('[data-analise="concluida"]').count()).toBe(0);
+      expect(await sent(page)).toEqual([HELLO, { kind: "analisar", mode: "auto" }]);
+      await page.close();
+    },
+  );
 });
 
 describe("sessão com o Service Worker real (build sem as origens)", () => {

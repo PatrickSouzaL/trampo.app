@@ -5,6 +5,9 @@
 // GitHub, 13, 14, 8, 7 nas três formas, 1 com o Google e a captura com a sessão ativa) e só então confere os itens 1 a 4
 // e 6 a 10 do §4.5. O 6 (recarga e reinício) troca o navegador e o 9 não gera canário: ficam nos arquivos deles. Cada "0"
 // tem o seu controle positivo (condição 3 do [APPSEC]), e os controles nunca são canários.
+// F1-EXT-04 parte 2, 04b-3 (ADR-025 §6.5 D25): os cenários 12, 3, 5 e 4 do envio entram na sequência, com a vaga capturada
+// na aba e um texto de vaga canário. Ele chega ao BFF falso (controle positivo, pelo hash) e fica só no storage.session do
+// SW e na própria aba: nunca na porta, no DOM nem no heap do painel, no console de nenhum alvo, nem em local e sync.
 import { randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -13,13 +16,14 @@ import { afterAll, beforeAll, describe, expect, inject, test } from "vitest";
 import { CAPTURE_STORAGE_KEY } from "../../src/capture/capture-service";
 import { SESSION_STORAGE_KEY } from "../../src/auth/session-schema";
 import { LOGOUT_UNCONFIRMED_TEXT, SESSION_ACTION_LABELS, SESSION_TEXTS, SIGN_IN_LABELS, type SessionText } from "../../src/panel/texts";
+import { REPORT } from "../fixtures/stream";
 import { browserPath, clickAction, loadExtension, stopWorker, unload, type Loaded } from "./browser";
 import type { TapEvent, TapRequest } from "./cdp-tap";
 import { SPIED_APIS, SPY_CONTROL_CALLS, dumpWorld, exerciseSpiedApis, heapText, inIsolated, isolatedDump, panelSpy, spyReport } from "./probes";
 import { connection, expectedLines, observeSessions, originStorage, panelDump, removeStorage, sessionButtons, sessionLines, setStorage, storage } from "./session";
 import { LONG_TOKEN, findCanaries } from "./support/canaries";
-import type { AuthorizeScript } from "./support/fake-auth";
-import { fakeControl } from "./support/fake-servers";
+import { type AuthorizeScript, textDigest } from "./support/fake-auth";
+import { ANALYZE_PATH, fakeControl } from "./support/fake-servers";
 import { canaryFragments, consoleText, findCanaryFragments, requestViolations } from "./support/leaks";
 import { p20ModeFor } from "./support/p20";
 
@@ -38,9 +42,11 @@ declare const chrome: (typeof import("wxt/browser"))["browser"];
 /** Controle positivo: nunca canário, sempre novo, e com cara de texto do teste. */
 const newControl = (what: string) => `CONTROLE-${what}-${randomBytes(12).toString("hex")}`;
 
+/** O texto de vaga canário (04b-3), montado em tempo de execução: vai à API falsa e nunca ao painel. */
+const JOB_CANARY = `CANARIO-VAGA-${randomBytes(12).toString("hex")}`;
 const JOB_TEXT =
   "Buscamos pessoa desenvolvedora TypeScript pleno para o time de plataforma. Você vai manter a API em Node.js, " +
-  "escrever testes automatizados e revisar código com o time. Requisitos: TypeScript, React, Node.js e filas. Regime CLT, remoto.";
+  `escrever testes automatizados e revisar código com o time. Requisitos: TypeScript, React, Node.js e filas. Regime CLT, remoto. Referência ${JOB_CANARY}.`;
 const JOB_PAGE = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Vaga</title></head>
 <body><main><h1>Desenvolvedora TypeScript Pleno</h1><p>${JOB_TEXT}</p></main></body></html>`;
 
@@ -96,6 +102,17 @@ async function scripted(script: AuthorizeScript, view: { autenticado: false; err
 }
 
 const canaries = async () => (await control.state()).auth.canaries;
+/** O que nunca pode aparecer no painel nem em log: os canários dos falsos e o texto de vaga canário. */
+const secrets = async () => [...(await canaries()), JOB_CANARY];
+
+const analysisButton = () => l!.panel.locator("[data-acao] button");
+const report = () => l!.panel.locator('[data-analise="concluida"]');
+/** Clica no botão da análise que a tela oferece e espera o que o teste disser. */
+async function analyze(): Promise<void> {
+  await expect.poll(() => analysisButton().count()).toBe(1);
+  await analysisButton().click();
+}
+const capturedText = async () => ((await storage(l!, "session"))[CAPTURE_STORAGE_KEY] as { vaga?: { text?: string } } | undefined)?.vaga?.text;
 const panelTargetId = async (): Promise<string> => {
   const cdp = await l!.ctx.newCDPSession(l!.panel);
   try {
@@ -162,8 +179,82 @@ describe("os cenários que geram canário, em sequência, no mesmo navegador (AD
       exchange: { ok: 2, recusado: 1 },
       refresh: { ok: 0, recusado: 0 },
       logout: { ok: 1, recusado: 2 },
+      analyze: { ok: 0, recusado: 0 },
     });
     expect(state.auth.roteiro).toEqual(["logout:503", "logout:503", "authorize:cancelar", "authorize:outro_caminho", "authorize:fragmento", "authorize:outro_challenge"]);
+  });
+
+  test("cenário 12 e o envio: a vaga capturada na aba vai à API falsa com o Bearer da sessão, e o texto canário chega lá (controle positivo)", async () => {
+    await l!.panel.getByRole("button", { name: /^Concordo/ }).click();
+    await analyze();
+    await expect.poll(() => report().count(), { timeout: 10_000 }).toBe(1);
+    const captured = await capturedText();
+    // O canário está no texto capturado, e o hash do que o BFF falso recebeu é o dele.
+    expect(captured).toContain(JOB_CANARY);
+    const state = await control.state();
+    expect(state.auth.analyses).toHaveLength(1);
+    expect(state.auth.analyses[0]).toMatchObject({ textDigest: textDigest(String(captured)), textLength: String(captured).length, platform: "generico", resposta: "stream" });
+    expect(state.auth.accessTokens[state.auth.analyses[0]?.access ?? -1]).toBe(((await storage(l!, "session"))[SESSION_STORAGE_KEY] as { accessToken: string }).accessToken);
+  });
+
+  test("cenário 3: o 401 com a renovação e o reenvio, e depois a renovação presa com a análise em curso; os canários seguem fora do painel", async () => {
+    await control.script({ expiresIn: 30, analyze: ["401"] });
+    await analyze();
+    await expect.poll(async () => (await control.state()).auth.analyses.length, { timeout: 10_000 }).toBe(3);
+    await expect.poll(() => report().count(), { timeout: 10_000 }).toBe(1);
+
+    // O par novo vive 30 s: o próximo accessToken() renova, e a renovação fica presa com a análise em curso.
+    await control.script({ refresh: ["segurar"] });
+    await analyze();
+    await expect.poll(async () => (await control.state()).segurados).toBe(1);
+    await expect.poll(() => l!.panel.locator('[data-analise="enviando"]').count()).toBe(1);
+    expect(findCanaries(await panelDump(l!), await secrets())).toEqual([]);
+    expect(await control.release()).toBe(1);
+    await expect.poll(() => report().count(), { timeout: 10_000 }).toBe(1);
+    expect((await control.state()).auth.counters).toMatchObject({ refresh: { ok: 2, recusado: 0 }, analyze: { ok: 3, recusado: 1 } });
+    expect(findCanaries(await panelDump(l!), await secrets())).toEqual([]);
+  });
+
+  test("cenário 5: 503 na renovação com a sessão viva, a recuperação na análise seguinte, e um erro fora do contrato com texto canário", async () => {
+    await control.script({ refresh: ["503"] });
+    const before = (await sessoes()).length;
+    await analyze();
+    await expect.poll(sessoes, { timeout: 10_000 }).toHaveLength(before + 1);
+    expect((await sessoes()).at(-1)).toEqual({ autenticado: true, erro: "SERVICO_INDISPONIVEL" });
+    // O token guardado ainda não venceu: a análise sai com ele.
+    await expect.poll(() => report().count(), { timeout: 10_000 }).toBe(1);
+    await analyze();
+    await expect.poll(sessoes, { timeout: 10_000 }).toHaveLength(before + 2);
+    expect((await sessoes()).at(-1)).toEqual({ autenticado: true, erro: null });
+    await expect.poll(() => report().count(), { timeout: 10_000 }).toBe(1);
+
+    await control.script({ analyze: ["fora_do_contrato"] });
+    await analyze();
+    await expect.poll(() => l!.panel.locator('[data-erro="SERVICO_INDISPONIVEL"]').count(), { timeout: 10_000 }).toBe(1);
+    expect((await canaries()).at(-1)).toMatch(/^CANARIO-ERR-/);
+  });
+
+  test("cenário 4: a sessão revogada no servidor; a renovação leva 401, a sessão é apagada, e um login novo volta a analisar", async () => {
+    expect(await control.revoke()).toBe(1);
+    await analyze();
+    await expect.poll(() => sessionLines(l!), { timeout: 10_000 }).toEqual(expectedLines(SESSION_TEXTS.desconectado.NAO_AUTENTICADO));
+    expect((await sessoes()).at(-1)).toEqual({ autenticado: false, erro: "NAO_AUTENTICADO" });
+    expect((await storage(l!, "session"))[SESSION_STORAGE_KEY]).toBeUndefined();
+
+    // As provas contam com a sessão aberta e com um relatório na tela: o prazo volta aos 900 s para o par novo.
+    await control.script({ expiresIn: 900 });
+    await signIn("github");
+    await analyze();
+    await expect.poll(() => report().count(), { timeout: 10_000 }).toBe(1);
+    const state = await control.state();
+    expect(state.auth.counters).toEqual({
+      authorize: { ok: 7, recusado: 0 },
+      exchange: { ok: 3, recusado: 1 },
+      refresh: { ok: 4, recusado: 2 },
+      logout: { ok: 1, recusado: 2 },
+      analyze: { ok: 6, recusado: 2 },
+    });
+    expect(state.auth.roteiro.slice(6)).toEqual(["analyze:401", "refresh:segurar", "refresh:503", "analyze:fora_do_contrato", "revogar"]);
   });
 });
 
@@ -178,9 +269,14 @@ describe("provas negativas do §4.5, depois de todos os cenários (SR-23, CA-04)
     const state = await control.state();
     expect(requestViolations(state, ORIGIN, CHROMIUMAPP_PATHS)).toEqual([]);
     const posts = (path: string) => state.requests.filter((r) => r.server === "bff" && r.method === "POST" && r.path === path).length;
-    expect({ exchange: posts("/v1/auth/exchange"), logout: posts("/v1/auth/logout"), refresh: posts("/v1/auth/refresh") }).toEqual({ exchange: 3, logout: 3, refresh: 0 });
+    expect({ exchange: posts("/v1/auth/exchange"), logout: posts("/v1/auth/logout"), refresh: posts("/v1/auth/refresh"), analyze: posts(ANALYZE_PATH) }).toEqual({
+      exchange: 4,
+      logout: 3,
+      refresh: 6,
+      analyze: 8,
+    });
     const authorize = state.requests.filter((r) => r.server === "supabase");
-    expect(authorize).toHaveLength(6);
+    expect(authorize).toHaveLength(7);
     // Observação para o P14 (cookies do perfil no fluxo do IdP), sem asserção: o Supabase falso pode ver o cookie.
     console.info(`[05c-3] authorize com o cookie do perfil: ${authorize.filter((r) => r.cookie).length} de ${authorize.length}`);
 
@@ -199,16 +295,21 @@ describe("provas negativas do §4.5, depois de todos os cenários (SR-23, CA-04)
     // A porta do painel, a do observador e a do Reconectar: o espião viu o tráfego (o controle positivo do registro).
     expect(report.calls["runtime.connect"]).toBeGreaterThanOrEqual(3);
     expect(report.messages.filter((m) => m.startsWith("in ") && m.includes('"kind":"sessao"')).length).toBeGreaterThan(5);
-    expect(report.messages.filter((m) => m.startsWith("out ") && m.includes('"kind":"entrar"')).length).toBe(6);
+    expect(report.messages.filter((m) => m.startsWith("out ") && m.includes('"kind":"entrar"')).length).toBe(7);
+    // Os 8 cliques da análise saíram só com o modo, e os eventos do stream chegaram (controle positivo do registro).
+    expect(report.messages.filter((m) => m.startsWith("out ") && m.includes('"kind":"analisar"')).length).toBe(8);
+    expect(report.messages.filter((m) => m.startsWith("in ") && m.includes('"kind":"stream"')).length).toBeGreaterThan(8);
     const text = report.messages.join("\n");
-    expect(findCanaries(text, await canaries())).toEqual([]);
+    expect(findCanaries(text, await secrets())).toEqual([]);
     expect(text).not.toMatch(LONG_TOKEN);
   });
 
   test("item 2: o texto e os atributos do DOM do painel, no fim, sem canário", async () => {
     const dump = await panelDump(l!);
     expect(dump).toContain(SESSION_TEXTS.conectado.nenhum.estado);
-    expect(findCanaries(dump, await canaries())).toEqual([]);
+    // O relatório da última análise está na tela (controle positivo), sem o texto da vaga.
+    expect(dump).toContain(REPORT.summary);
+    expect(findCanaries(dump, await secrets())).toEqual([]);
     expect(dump).not.toMatch(LONG_TOKEN);
   });
 
@@ -235,6 +336,8 @@ describe("provas negativas do §4.5, depois de todos os cenários (SR-23, CA-04)
 
   test("item 3: o heap snapshot do painel e o da aba sem nenhum trecho de 16 caracteres de canário; os controles aparecem", async () => {
     const fragments = canaryFragments(await canaries());
+    // O painel tem um canário a mais para não ter: o texto da vaga, que a aba tem por definição.
+    const panelFragments = canaryFragments(await secrets());
     const panelControl = newControl("HEAP");
     // A forma em que um canário chegaria ao painel: texto plano de mensagem ou de JSON.
     await l!.panel.evaluate((value) => {
@@ -242,7 +345,7 @@ describe("provas negativas do §4.5, depois de todos os cenários (SR-23, CA-04)
     }, panelControl);
     const panelHeap = await heapText(l!.ctx, l!.panel);
     const tabHeap = await heapText(l!.ctx, tab());
-    expect(findCanaryFragments(panelHeap, fragments)).toEqual([]);
+    expect(findCanaryFragments(panelHeap, panelFragments)).toEqual([]);
     expect(findCanaryFragments(tabHeap, fragments)).toEqual([]);
     // Controles: o do painel no heap do painel; os dois mundos da aba (item 6) no heap da aba, que é um só para os dois.
     expect(findCanaryFragments(panelHeap, canaryFragments([panelControl]))).toEqual([panelControl]);
@@ -262,6 +365,8 @@ describe("provas negativas do §4.5, depois de todos os cenários (SR-23, CA-04)
     expect(await storage(l!, "local")).toEqual({});
     expect(await storage(l!, "sync")).toEqual({});
     expect(await originStorage(l!)).toEqual({ localStorage: [], indexedDB: [], cacheStorage: [] });
+    // O texto da vaga fica só no storage.session do SW (ADR-024 D4): o controle positivo do leitor para o canário dele.
+    expect(findCanaries(JSON.stringify(await storage(l!, "session")), [JOB_CANARY])).toEqual([JOB_CANARY]);
 
     for (const area of ["local", "sync"] as const) {
       await setStorage(l!, area, { controle: "1" });
@@ -348,7 +453,7 @@ describe("provas negativas do §4.5, depois de todos os cenários (SR-23, CA-04)
 
     const events = l!.tap!.console();
     const text = events.map(consoleText).join("\n");
-    expect(findCanaries(text, await canaries())).toEqual([]);
+    expect(findCanaries(text, await secrets())).toEqual([]);
     expect(text).not.toMatch(LONG_TOKEN);
     console.info(`[05c-3] console: ${events.length} eventos de ${new Set(events.map((e) => e.target.targetId)).size} alvos, sem canário`);
   });

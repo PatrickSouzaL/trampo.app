@@ -105,8 +105,9 @@ const handshakeIn = ([name]: [string]) =>
 
 export const handshake = (l: Loaded): Promise<unknown[]> => l.panel.evaluate(handshakeIn, [PANEL_PORT_NAME] as [string]);
 
+/** O handshake do build auth, que tem as duas origens: o `ready` diz `envio: true` (ADR-025 §6.4 D18). */
 export const handshakeWith = (sessao: { autenticado: boolean; erro: string | null }): unknown[] => [
-  { kind: "ready", protocolVersion: 1 },
+  { kind: "ready", protocolVersion: 1, envio: true },
   { kind: "captura", captura: { estado: "ocioso" } },
   { kind: "consentimento", dado: false },
   { kind: "sessao", sessao },

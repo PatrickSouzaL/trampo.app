@@ -133,7 +133,7 @@ const req = (r: Partial<RequestRecord> & Pick<RequestRecord, "server" | "path">)
   cookie: false,
   ...r,
 });
-const stateWith = (requests: RequestRecord[]): FakeState => ({ requests, segurados: 0, auth: {} as FakeState["auth"] });
+const stateWith = (requests: RequestRecord[]): FakeState => ({ requests, segurados: 0, analises: { abertas: 0, abortadas: 0 }, auth: {} as FakeState["auth"] });
 
 describe("o total do que os falsos receberam (§4.5 item 10)", () => {
   const clean = [
@@ -143,6 +143,9 @@ describe("o total do que os falsos receberam (§4.5 item 10)", () => {
     req({ server: "bff", path: "/v1/auth/refresh" }),
     req({ server: "bff", method: "OPTIONS", path: "/v1/auth/logout" }),
     req({ server: "bff", path: "/v1/auth/logout", authorization: true }),
+    // 04b-3, cenário 12: a análise leva o Bearer, e o preflight dela não.
+    req({ server: "bff", method: "OPTIONS", path: "/v1/analyze" }),
+    req({ server: "bff", path: "/v1/analyze", authorization: true }),
   ];
 
   test("o caminho de sempre não fere regra nenhuma (o Supabase pode ver o cookie do IdP)", () => {
@@ -154,10 +157,13 @@ describe("o total do que os falsos receberam (§4.5 item 10)", () => {
     [req({ server: "bff", path: "/v1/auth/exchange", origin: "chrome-extension://outra" }), "bff POST /v1/auth/exchange: origem diferente da extensão"],
     [req({ server: "bff", path: "/v1/auth/exchange", origin: null }), "bff POST /v1/auth/exchange: origem diferente da extensão"],
     [req({ server: "bff", path: "/v1/auth/refresh", cookie: true }), "bff POST /v1/auth/refresh: Cookie"],
-    [req({ server: "bff", path: "/v1/auth/exchange", authorization: true }), "bff POST /v1/auth/exchange: Authorization fora do logout"],
-    [req({ server: "bff", path: "/v1/auth/refresh", authorization: true }), "bff POST /v1/auth/refresh: Authorization fora do logout"],
-    [req({ server: "bff", method: "OPTIONS", path: "/v1/auth/logout", authorization: true }), "bff OPTIONS /v1/auth/logout: Authorization fora do logout"],
+    [req({ server: "bff", path: "/v1/auth/exchange", authorization: true }), "bff POST /v1/auth/exchange: Authorization fora do logout e da análise"],
+    [req({ server: "bff", path: "/v1/auth/refresh", authorization: true }), "bff POST /v1/auth/refresh: Authorization fora do logout e da análise"],
+    [req({ server: "bff", method: "OPTIONS", path: "/v1/auth/logout", authorization: true }), "bff OPTIONS /v1/auth/logout: Authorization fora do logout e da análise"],
     [req({ server: "bff", path: "/v1/auth/logout" }), "bff POST /v1/auth/logout: logout sem Bearer"],
+    [req({ server: "bff", path: "/v1/analyze" }), "bff POST /v1/analyze: análise sem Bearer"],
+    [req({ server: "bff", method: "OPTIONS", path: "/v1/analyze", authorization: true }), "bff OPTIONS /v1/analyze: Authorization fora do logout e da análise"],
+    [req({ server: "bff", method: "GET", path: "/v1/health", authorization: true }), "bff GET /v1/health: Authorization fora do logout e da análise"],
     [req({ server: "supabase", method: "POST", path: "/auth/v1/authorize" }), "supabase POST /auth/v1/authorize: fora do authorize"],
     [req({ server: "supabase", method: "GET", path: "/auth/v1/token" }), "supabase GET /auth/v1/token: fora do authorize"],
     [req({ server: "supabase", method: "GET", path: "/auth/v1/authorize", authorization: true }), "supabase GET /auth/v1/authorize: Authorization"],

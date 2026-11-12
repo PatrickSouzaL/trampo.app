@@ -48,9 +48,11 @@ function fakePort() {
 function setup(scripts: Script[] = [{ sse: [frame(STAGE), frame(RESULT)] }], over: Partial<AnalysisServiceDeps> = {}) {
   const calls: AnalyzeCall[] = [];
   const controls: StreamControl[][] = [];
+  const signals: Array<AbortSignal | undefined> = [];
   const queue = [...scripts];
-  const analyze = vi.fn(async (call: AnalyzeCall, onText: (text: string) => StreamControl): Promise<AnalyzeResult> => {
+  const analyze = vi.fn(async (call: AnalyzeCall, onText: (text: string) => StreamControl, signal?: AbortSignal): Promise<AnalyzeResult> => {
     calls.push(structuredClone(call));
+    signals.push(signal);
     const step = queue.shift() ?? { sse: [] };
     if (!("sse" in step)) return step;
     const seen: StreamControl[] = [];
@@ -75,7 +77,7 @@ function setup(scripts: Script[] = [{ sse: [frame(STAGE), frame(RESULT)] }], ove
   const service = createAnalysisService(deps);
   const panel = fakePort();
   service.attach(panel.port);
-  return { service, deps, calls, controls, analyze, logs, panel, events: panel.events };
+  return { service, deps, calls, controls, signals, analyze, logs, panel, events: panel.events };
 }
 
 const expectedBody = (mode: "auto" | "aprofundada", job: CapturedJob = JOB): AnalyzeJobRequestInput => ({
@@ -221,6 +223,7 @@ describe("stream (D8 e D10)", () => {
     ["sem resposta", { ok: false, reason: "sem_resposta" }, "SERVICO_INDISPONIVEL", "analise_indisponivel"],
     ["resposta ilegível", { ok: false, reason: "resposta_ilegivel" }, "ERRO_INTERNO", "analise_violacao"],
     ["pedido recusado", { ok: false, reason: "pedido_recusado" }, "ERRO_INTERNO", "analise_violacao"],
+    ["cancelado sem ninguém ter cancelado", { ok: false, reason: "cancelado" }, "ERRO_INTERNO", "analise_violacao"],
   ] as const)("%s: %s", async (_nome, script, code, motivo) => {
     const { service, events, logs } = setup([script as Script]);
     await service.analyze("auto");
@@ -489,6 +492,83 @@ describe("cancelamento e concorrência (D10)", () => {
     await service.analyze("auto");
     expect(events()).toEqual([local("ERRO_INTERNO", null), RESULT]);
     expect(logs).toEqual(["analise_falha_interna"]);
+  });
+});
+
+describe("cancelamento imediato (ADR-025 §6.3 D16)", () => {
+  const unauthorized: AnalyzeResult = { ok: true, stream: false, status: 401, body: JSON.stringify(apiError("NAO_AUTENTICADO", ID)) };
+
+  /** Uma API que fica em silêncio até o abort de quem chama, como o `api-client` de verdade. */
+  function silentApi() {
+    const signals: AbortSignal[] = [];
+    const analyze = vi.fn(
+      (_call: AnalyzeCall, _onText: (t: string) => StreamControl, signal?: AbortSignal): Promise<AnalyzeResult> =>
+        new Promise((resolve) => {
+          if (signal === undefined) return;
+          signals.push(signal);
+          signal.addEventListener("abort", () => resolve({ ok: false, reason: "cancelado" }));
+        }),
+    );
+    return { analyze, signals };
+  }
+
+  test("o envio leva um sinal vivo, e o cancel o aborta na hora, sem esperar o próximo pedaço", async () => {
+    const { analyze, signals } = silentApi();
+    const { service, events, logs } = setup([], { api: { analyze } });
+    const running = service.analyze("auto");
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    expect(signals[0]?.aborted).toBe(false);
+    service.cancel();
+    expect(signals[0]?.aborted).toBe(true);
+    await running;
+    expect(events()).toEqual([]);
+    expect(logs).toEqual([]);
+  });
+
+  test("cada análise tem o seu sinal: a nova não nasce abortada, e o cancel de antes não a atinge", async () => {
+    const { analyze, signals } = silentApi();
+    const { service } = setup([], { api: { analyze } });
+    const first = service.analyze("auto");
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    service.cancel();
+    await first;
+    const second = service.analyze("aprofundada");
+    await vi.waitFor(() => expect(signals).toHaveLength(2));
+    expect(signals[1]).not.toBe(signals[0]);
+    expect(signals[1]?.aborted).toBe(false);
+    service.cancel();
+    expect(signals[1]?.aborted).toBe(true);
+    await second;
+  });
+
+  test("o reenvio do 401 leva o mesmo sinal do envio", async () => {
+    const { service, signals } = setup([unauthorized, { sse: [frame(RESULT)] }]);
+    await service.analyze("auto");
+    expect(signals).toHaveLength(2);
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+    expect(signals[1]).toBe(signals[0]);
+    expect(signals[0]?.aborted).toBe(false);
+  });
+
+  test("cancelada com o reenvio em voo: o mesmo sinal cai, e nada chega ao painel", async () => {
+    const silent = silentApi();
+    const analyze = vi.fn().mockResolvedValueOnce(unauthorized).mockImplementation(silent.analyze);
+    const { service, events } = setup([], { api: { analyze } });
+    const running = service.analyze("auto");
+    await vi.waitFor(() => expect(silent.signals).toHaveLength(1));
+    service.cancel();
+    expect(silent.signals[0]?.aborted).toBe(true);
+    await running;
+    expect(events()).toEqual([]);
+  });
+
+  test("cancelar duas vezes, ou depois do fim, não lança nem muda a análise seguinte", async () => {
+    const { service, events } = setup([{ sse: [frame(RESULT)] }, { sse: [frame(STAGE), frame(RESULT)] }]);
+    await service.analyze("auto");
+    service.cancel();
+    service.cancel();
+    await service.analyze("auto");
+    expect(events()).toEqual([RESULT, STAGE, RESULT]);
   });
 });
 

@@ -5,7 +5,7 @@
 import type { AnalysisWarning, DecisionPath, DimensionOutcome, ScoreDimension, Verdict } from "@trampo/contracts/analysis-report";
 import type { ApiErrorCode } from "@trampo/contracts/api";
 
-import type { AuthProvider, CaptureView, SessaoErro, SessaoView } from "../messaging/protocol";
+import type { AnalysisMode, AuthProvider, CaptureView, SessaoErro, SessaoView } from "../messaging/protocol";
 import { logoutUnconfirmed, type AcaoSessao, type AnaliseView, type BloqueioAnalise, type PanelState } from "./panel-state";
 
 export type Stage = Extract<AnaliseView, { estado: "andamento" }>["etapa"];
@@ -187,7 +187,13 @@ export const SESSION_ACTION_LABELS: Record<Exclude<AcaoSessao, "entrar"> | "reco
   reconectar: "Reconectar",
 };
 
-/** Por que o "Analisar" está desabilitado (D12). O `sem_api` é o aviso de hoje (ADR-025 D5). */
+/** Os botões da análise (ADR-025 §6.4 D19): um rótulo por modo do contrato. "aprofundada" é o "Reanalisar com IA". */
+export const ANALYZE_LABELS: Record<AnalysisMode, string> = { auto: "Analisar vaga", aprofundada: "Reanalisar com IA" };
+
+/** O "enviando", antes do 1º estágio do stream (ADR-025 §6.4 D21). Estado local do painel. */
+export const SENDING_TEXT = "Enviando a vaga ao Trampo…";
+
+/** Por que o "Analisar" está desabilitado (D12). O `sem_api` é o do build sem a origem da API (ADR-025 D5). */
 export const ANALYZE_BLOCKED_TEXTS: Record<BloqueioAnalise, string> = {
   sem_api: "A ligação com o servidor do Trampo ainda não está ativa nesta versão.",
   sem_consentimento: "Aceite o aviso de envio para analisar a vaga.",

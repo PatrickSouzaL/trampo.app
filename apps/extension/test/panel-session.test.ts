@@ -7,7 +7,7 @@ import { containsUrlLike } from "@trampo/contracts/primitives";
 import { describe, expect, test } from "vitest";
 
 import { AUTH_SERVICE_POLICY } from "../src/auth/auth-service";
-import { AUTH_PROVIDERS, SessaoErroSchema, SessaoViewSchema, type SessaoView, type WorkerToPanel } from "../src/messaging/protocol";
+import { AUTH_PROVIDERS, AnalysisModeSchema, SessaoErroSchema, SessaoViewSchema, type SessaoView, type WorkerToPanel } from "../src/messaging/protocol";
 import {
   ENTRANDO_TETO_MS,
   ENTRANDO_TIQUE_MS,
@@ -15,6 +15,8 @@ import {
   analyzeBlock,
   canReconnect,
   logoutUnconfirmed,
+  ENVIANDO_TETO_MS,
+  analysisControl,
   parseWorkerMessage,
   reducePanel,
   sessionActions,
@@ -33,6 +35,7 @@ import {
   describeSession,
   type SessionText,
 } from "../src/panel/texts";
+import { REPORT, apiError, result, stage } from "./fixtures/stream";
 
 const msg = (raw: WorkerToPanel): PanelAction => {
   const message = parseWorkerMessage(raw);
@@ -51,7 +54,7 @@ const INDISPONIVEL: SessaoView = { autenticado: false, erro: "SERVICO_INDISPONIV
 
 /** Handshake completo ([ready, captura, consentimento, sessao]) com a sessão dada. */
 const pronto = (view: SessaoView, consentimento = true): PanelState =>
-  run(INITIAL_PANEL_STATE, msg({ kind: "ready", protocolVersion: 1 }), msg({ kind: "captura", captura: { estado: "ocioso" } }), msg({ kind: "consentimento", dado: consentimento }), sessao(view));
+  run(INITIAL_PANEL_STATE, msg({ kind: "ready", protocolVersion: 1, envio: true }), msg({ kind: "captura", captura: { estado: "ocioso" } }), msg({ kind: "consentimento", dado: consentimento }), sessao(view));
 
 /** Todas as SessaoView válidas: o produto de autenticado e erro que passa no schema (M-08). */
 const VALID_VIEWS: SessaoView[] = [true, false].flatMap((autenticado) =>
@@ -70,7 +73,7 @@ describe("estado inicial da sessão", () => {
   });
 
   test("conectado, mas sem a `sessao` do handshake: nenhum botão nem texto (como o consentimento null)", () => {
-    const s = run(INITIAL_PANEL_STATE, msg({ kind: "ready", protocolVersion: 1 }), msg({ kind: "consentimento", dado: true }));
+    const s = run(INITIAL_PANEL_STATE, msg({ kind: "ready", protocolVersion: 1, envio: true }), msg({ kind: "consentimento", dado: true }));
     expect(s.conexao).toBe("pronto");
     expect(sessionActions(s)).toStrictEqual([]);
     expect(describeSession(s)).toBeNull();
@@ -241,9 +244,9 @@ describe("Reconectar (ADR-004 D12: só da porta fechada; resposta_invalida conti
     const caido = run(pronto(DENTRO), SAIR, { type: "desconectou" });
     const novo = reducePanel(caido, { type: "reconectar" });
     expect(novo).toStrictEqual({ ...INITIAL_PANEL_STATE, geracao: 1 });
-    expect(run(novo, msg({ kind: "ready", protocolVersion: 1 }), sessao(DENTRO))).toMatchObject({ geracao: 1, conexao: "pronto", sessao: DENTRO, pediuSair: false });
+    expect(run(novo, msg({ kind: "ready", protocolVersion: 1, envio: true }), sessao(DENTRO))).toMatchObject({ geracao: 1, conexao: "pronto", sessao: DENTRO, pediuSair: false });
     // Cada queda da porta seguida do clique abre a geração seguinte; a geração atravessa o handshake e a queda.
-    const segunda = run(novo, msg({ kind: "ready", protocolVersion: 1 }), { type: "desconectou" });
+    const segunda = run(novo, msg({ kind: "ready", protocolVersion: 1, envio: true }), { type: "desconectou" });
     expect(segunda.geracao).toBe(1);
     expect(reducePanel(segunda, { type: "reconectar" })).toStrictEqual({ ...INITIAL_PANEL_STATE, geracao: 2 });
   });
@@ -396,29 +399,45 @@ describe("rótulos dos botões da sessão (ADR-004 D12)", () => {
   });
 });
 
-describe("invariantes do redutor (todos os estados alcançáveis com as ações da sessão)", () => {
+describe("invariantes do redutor (todos os estados alcançáveis com as ações da sessão e do envio)", () => {
+  const stream = (raw: unknown): PanelAction => msg(raw as WorkerToPanel);
   const ACTIONS: PanelAction[] = [
     ...VALID_VIEWS.map(sessao),
     entrar(10),
     SAIR,
     tique(10 + ENTRANDO_TETO_MS),
+    tique(10 + ENVIANDO_TETO_MS),
     tique(0),
+    // 04b-2 (ADR-025 §6.4): o clique nos dois modos e tudo o que liga, desliga ou muda o que a tela oferece.
+    ...AnalysisModeSchema.options.map((mode): PanelAction => ({ type: "analisar", mode, agora: 10 })),
+    msg({ kind: "ready", protocolVersion: 1, envio: false }),
+    msg({ kind: "captura", captura: { estado: "pronto", origem: "pagina", caracteres: 900, truncado: false } }),
+    msg({ kind: "captura", captura: { estado: "lendo" } }),
+    msg({ kind: "consentimento", dado: true }),
+    msg({ kind: "consentimento", dado: false }),
+    stream(stage("recebido", 0)),
+    stream(result(REPORT)),
+    stream(apiError("SERVICO_INDISPONIVEL")),
     { type: "desconectou" },
     { type: "recusada" },
     { type: "reconectar" },
-    msg({ kind: "ready", protocolVersion: 1 }),
+    msg({ kind: "ready", protocolVersion: 1, envio: true }),
   ];
 
   /**
    * Busca em largura até o ponto fixo: cada estado alcançável a partir do inicial e de cada handshake. A geração da
    * porta cresce a cada Reconectar e fica fora da chave; as outras invariantes não dependem dela.
    */
-  const reachable = (): PanelState[] => {
+  let found: PanelState[] | undefined;
+  const reachable = (): PanelState[] => (found ??= search());
+  const search = (): PanelState[] => {
     const seen = new Map<string, PanelState>();
     const queue: PanelState[] = [INITIAL_PANEL_STATE, ...VALID_VIEWS.map((view) => pronto(view))];
-    while (queue.length > 0) {
-      const s = queue.shift() as PanelState;
-      const key = JSON.stringify({ ...s, geracao: 0 });
+    // A fila só cresce e é lida por índice: tirar do começo custaria a fila inteira a cada estado.
+    for (let next = 0; next < queue.length; next += 1) {
+      const s = queue[next] as PanelState;
+      // O relatório é sempre o mesmo: só o estado da análise entra na chave (a busca fica rápida).
+      const key = JSON.stringify({ ...s, geracao: 0, analise: s.analise.estado === "erro" ? s.analise.error.message : s.analise.estado });
       if (seen.has(key)) continue;
       seen.set(key, s);
       for (const action of ACTIONS) queue.push(reducePanel(s, action));
@@ -435,6 +454,40 @@ describe("invariantes do redutor (todos os estados alcançáveis com as ações 
     expect(states.some((s) => logoutUnconfirmed(s))).toBe(true);
     expect(states.some((s) => s.queda === "porta_fechada")).toBe(true);
     expect(states.some((s) => s.queda === "resposta_invalida")).toBe(true);
+  });
+
+  test("o enviando só vale com conexão, API, consentimento, sessão e vaga pronta (ADR-025 §6.4 D20)", () => {
+    const enviando = reachable().filter((s) => s.enviandoDesde !== null);
+    expect(enviando.length).toBeGreaterThan(0);
+    for (const s of enviando) {
+      const label = JSON.stringify({ ...s, analise: s.analise.estado });
+      expect(s.conexao, label).toBe("pronto");
+      expect(s.api, label).toBe(true);
+      expect(s.consentimento, label).toBe(true);
+      expect(s.sessao?.autenticado, label).toBe(true);
+      expect(s.captura.estado, label).toBe("pronto");
+      expect(s.entrandoDesde, label).toBeNull();
+      expect(s.analise.estado === "nenhuma" || s.analise.estado === "andamento", label).toBe(true);
+    }
+    // A busca passa pelo envio com o progresso na tela e pelo erro local do teto.
+    expect(enviando.some((s) => s.analise.estado === "andamento")).toBe(true);
+    expect(reachable().some((s) => s.analise.estado === "erro" && s.analise.error.requestId === null)).toBe(true);
+  });
+
+  test("só o clique que a tela oferece liga o enviando: nenhuma mensagem, tique nem outro clique", () => {
+    let ligou = 0;
+    for (const s of reachable()) {
+      const controle = analysisControl(s);
+      for (const action of ACTIONS) {
+        const depois = reducePanel(s, action);
+        if (s.enviandoDesde !== null || depois.enviandoDesde === null) continue;
+        ligou += 1;
+        const label = `${JSON.stringify({ ...s, analise: s.analise.estado })} ${action.type}`;
+        expect(action.type, label).toBe("analisar");
+        expect(controle !== null && controle !== "aviso" && controle.bloqueio === null && action.type === "analisar" && controle.mode === action.mode, label).toBe(true);
+      }
+    }
+    expect(ligou).toBeGreaterThan(0);
   });
 
   test("a geração da porta só muda com o Reconectar aceito, e de 1 em 1: nenhuma mensagem, tique ou clique reabre a porta", () => {

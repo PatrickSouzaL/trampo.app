@@ -487,7 +487,7 @@ describe("fake-servers: canal de controle", () => {
     const control = fakeControl(url, token);
     expect((await control.state()).requests).toHaveLength(1);
     await control.reset();
-    expect(await control.state()).toEqual({ auth: createFakeAuth({ extensionId: ID, now: () => 0 }).snapshot(), requests: [], segurados: 0 });
+    expect(await control.state()).toEqual({ auth: createFakeAuth({ extensionId: ID, now: () => 0 }).snapshot(), requests: [], segurados: 0, analises: { abertas: 0, abortadas: 0 } });
     await expect(fakeControl(url, "errado").state()).rejects.toThrow(/respondeu 403 em \/estado/);
   });
 
