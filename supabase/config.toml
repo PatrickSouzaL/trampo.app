@@ -290,9 +290,12 @@ max_frequency = "5s"
 # uri = "pg-functions://postgres/auth/before-user-created-hook"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
-# [auth.hook.custom_access_token]
-# enabled = true
-# uri = "pg-functions://<database>/<schema>/<hook_name>"
+# F1-DB-02 (ADR-026; ADR-004 D5): toda emissão do GoTrue local passa pela função da migration
+# 20261112210000_custom_access_token_hook.sql, que recusa a sessão com mais de 24 h. O projeto real liga o mesmo hook
+# pelo painel (HITL-040). O @trampo/ci-policy prende este bloco.
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/trampo_hooks/custom_access_token"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
