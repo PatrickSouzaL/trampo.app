@@ -6,17 +6,24 @@ import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
 import {
+  AUTH_OPERATIONS,
+  AUTH_RESULTS,
   AnalysisEventSchema,
+  AuthEventSchema,
   LlmExtractionEventSchema,
   METRIC_CATALOG,
   TELEMETRY_GUARD_NORMALIZATION_MAX,
   TELEMETRY_LATENCY_MAX_MS,
   TELEMETRY_STEPS_MAX,
   TelemetryEventSchema,
+  authEvent,
+  authSessionResult,
+  endSessionResult,
   llmExtractionEvent,
   telemetryMetricSamples,
   telemetryMs,
   type AnalysisEvent,
+  type AuthEvent,
   type ExtractionFailureReason,
   type ExtractionOutcome,
   type LlmExtractionEvent,
@@ -152,7 +159,7 @@ describe("TelemetryEventSchema (estrito)", () => {
     expect(TELEMETRY_LATENCY_MAX_MS).toBe(120_000);
     expect(TELEMETRY_STEPS_MAX).toBe(6);
     expect(TELEMETRY_GUARD_NORMALIZATION_MAX).toBe(8_192);
-    expect(TelemetryEventSchema.options).toEqual([LlmExtractionEventSchema, AnalysisEventSchema]);
+    expect(TelemetryEventSchema.options).toEqual([LlmExtractionEventSchema, AnalysisEventSchema, AuthEventSchema]);
   });
 
   test.each([
@@ -252,6 +259,9 @@ describe("catálogo de métricas (ADR-010 D6)", () => {
       analysis_injection_level_total: { type: "counter", labels: ["level"] },
       analysis_accept_eligible_total: { type: "counter", labels: ["eligible"] },
       analysis_warning_total: { type: "counter", labels: ["warning"] },
+      auth_troca_total: { type: "counter", labels: ["resultado"] },
+      auth_renovacao_total: { type: "counter", labels: ["resultado"] },
+      auth_logout_total: { type: "counter", labels: ["resultado"] },
     });
   });
 
@@ -444,5 +454,89 @@ describe("telemetryMs", () => {
     [TELEMETRY_LATENCY_MAX_MS + 10, TELEMETRY_LATENCY_MAX_MS],
   ])("%d → %d", (input, expected) => {
     expect(telemetryMs(input)).toBe(expected);
+  });
+});
+
+// F1-API-07 07i (ADR-004 D8 item 7; ADR-010 D5 e D6): o evento de autenticação só tem a operação e o resultado, de listas
+// fechadas. Nenhum motivo em texto, token, envelope, código, `sub`, sessão, origem ou IP cabe nele (SR-12).
+describe("evento auth (ADR-004 D8 item 7; F1-API-07 07i)", () => {
+  const EVENT: AuthEvent = { kind: "auth", operation: "troca", result: "ok" };
+
+  test("as listas são fechadas: 3 operações e 4 resultados", () => {
+    expect(AUTH_OPERATIONS).toEqual(["troca", "renovacao", "logout"]);
+    expect(AUTH_RESULTS).toEqual(["ok", "recusado", "indisponivel", "limitado"]);
+  });
+
+  test("válido na união e no schema próprio, com exatamente 3 chaves", () => {
+    expect(AuthEventSchema.parse(EVENT)).toEqual(EVENT);
+    expect(TelemetryEventSchema.parse(EVENT)).toEqual(EVENT);
+    expect(Object.keys(authEvent("logout", "indisponivel")).sort()).toEqual(["kind", "operation", "result"]);
+    expect(authEvent("renovacao", "limitado")).toEqual({ kind: "auth", operation: "renovacao", result: "limitado" });
+  });
+
+  test.each([
+    ["userId", { userId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f" }],
+    ["sub", { sub: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f" }],
+    ["sessionId", { sessionId: "0b1c2d3e-4f50-4a6b-9c7d-8e9fa0b1c2d3" }],
+    ["accessToken", { accessToken: CANARY }],
+    ["refreshToken", { refreshToken: CANARY }],
+    ["motivo em texto", { reason: "auth_troca_recusada" }],
+    ["origem", { origin: "chrome-extension://abcdefghijklmnopabcdefghijklmnop" }],
+    ["ip", { ip: "203.0.113.7" }],
+    ["e-mail", { email: "pessoa@example.com" }],
+    ["reqId", { reqId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f" }],
+    ["operação fora da lista", { operation: "signup" }],
+    ["operação com o canário", { operation: CANARY }],
+    ["resultado fora da lista", { result: "erro" }],
+    ["resultado numérico", { result: 200 }],
+    ["resultado ausente", { result: undefined }],
+    ["operação ausente", { operation: undefined }],
+  ])("recusa %s (strictObject e enums fechados)", (_caso, over) => {
+    expect(AuthEventSchema.safeParse({ ...EVENT, ...over }).success).toBe(false);
+    expect(TelemetryEventSchema.safeParse({ ...EVENT, ...over }).success).toBe(false);
+  });
+
+  test.each([
+    ["troca", "auth_troca_total"],
+    ["renovacao", "auth_renovacao_total"],
+    ["logout", "auth_logout_total"],
+  ] as const)("métrica da %s: uma amostra por evento, no contador %s, só com o rótulo resultado", (operation, name) => {
+    for (const result of AUTH_RESULTS) {
+      expect(telemetryMetricSamples(authEvent(operation, result))).toEqual([{ name, labels: { resultado: result }, value: 1 }]);
+    }
+  });
+
+  test("propriedade: toda operação e todo resultado dão 1 amostra do catálogo, e o evento passa no schema estrito", () => {
+    fc.assert(
+      fc.property(fc.constantFrom(...AUTH_OPERATIONS), fc.constantFrom(...AUTH_RESULTS), (operation, result) => {
+        const event = authEvent(operation, result);
+        expect(TelemetryEventSchema.safeParse(event).success).toBe(true);
+        const samples = telemetryMetricSamples(event);
+        expect(samples).toHaveLength(1);
+        for (const sample of samples) {
+          expect(Object.keys(sample.labels)).toEqual([...METRIC_CATALOG[sample.name].labels]);
+          expect(AUTH_RESULTS).toContain(sample.labels["resultado"]);
+          expect(sample.name).toBe(`auth_${operation}_total`);
+        }
+      }),
+    );
+  });
+
+  test("mapa do D7 para o resultado da troca e da renovação", () => {
+    const session = { schemaVersion: 1, accessToken: CANARY, refreshToken: CANARY, expiresIn: 600 } as const;
+    expect(authSessionResult({ kind: "sessao", session })).toBe("ok");
+    for (const reason of ["auth_troca_recusada", "auth_renovacao_recusada", "auth_envelope_invalido", "auth_sessao_idade_maxima", "auth_sessao_inativa"] as const) {
+      expect(authSessionResult({ kind: "nao_autenticado", reason })).toBe("recusado");
+    }
+    for (const reason of ["auth_chaves_indisponiveis", "auth_provedor_indisponivel", "auth_token_fora_da_politica"] as const) {
+      expect(authSessionResult({ kind: "indisponivel", reason, retryAfterSeconds: null })).toBe("indisponivel");
+      expect(authSessionResult({ kind: "indisponivel", reason, retryAfterSeconds: 5 })).toBe("indisponivel");
+    }
+    expect(authSessionResult({ kind: "entrada_invalida" })).toBe("recusado");
+  });
+
+  test("mapa do D7 para o resultado do logout", () => {
+    expect(endSessionResult({ kind: "encerrada" })).toBe("ok");
+    expect(endSessionResult({ kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: null })).toBe("indisponivel");
   });
 });

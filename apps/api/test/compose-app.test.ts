@@ -38,6 +38,7 @@ import { WORKERS_AI_DEFAULT_MODEL, WorkersAiConfigError } from "../src/infrastru
 import { GROQ_MODEL as GROQ_ADAPTER_MODEL, GroqConfigError } from "../src/infrastructure/llm/groq-extractor.js";
 import { PostgrestClientConfigError } from "../src/infrastructure/supabase/postgrest-user-client.js";
 import { BehindProxyConfigError } from "../src/presentation/edge/behind-proxy-env.js";
+import { InMemoryTelemetry } from "../src/infrastructure/telemetry/in-memory-telemetry.js";
 import { systemClock } from "../src/infrastructure/time/system-clock.js";
 import { CLEAN_RAW, CLEAN_TEXT, GROQ_MODEL, REQUEST_ID } from "./application/fakes/analyze-job-harness.js";
 import { ScriptedExtractor } from "./application/fakes/scripted-extractor.js";
@@ -220,6 +221,15 @@ describe("fluxo completo com as peças reais", () => {
     expect(upstash.requests.length).toBeGreaterThan(0);
     // SR-12 e critério 4: nada do token, da chave, do dono ou da pretensão no log.
     for (const leak of [token, PUBLISHABLE, OWNER, UPSTASH_TOKEN, SALARY_KEY, PEPPER, "9000"]) expect(lines.join("")).not.toContain(leak);
+  });
+
+  test("07i: a análise conta na telemetria dada ao boot, a mesma instância que o BFF de autenticação recebe", async () => {
+    const token = await storeOwnerCriteria();
+    const telemetry = new InMemoryTelemetry();
+    const instance = boot({}, { telemetry });
+    expect((await analyze(instance, { authorization: `Bearer ${token}` })).statusCode).toBe(200);
+    expect(telemetry.seriesKeys().filter((key) => key.startsWith("analysis_total"))).toHaveLength(1);
+    expect(telemetry.seriesKeys().some((key) => key.startsWith("auth_"))).toBe(false);
   });
 
   test("sem linha de critérios: 409 CRITERIOS_NAO_CONFIGURADOS", async () => {
@@ -645,7 +655,7 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
     await gotrue.close();
   });
 
-  function bootAuth(over: Record<string, string | undefined> = {}, lines?: string[]): ComposedApp {
+  function bootAuth(over: Record<string, string | undefined> = {}, lines?: string[], telemetry?: InMemoryTelemetry): ComposedApp {
     const origin = gotrue.url.origin;
     return boot(
       {
@@ -654,7 +664,10 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
         CORS_ALLOWED_ORIGINS: EXTENSION,
         ...over,
       },
-      lines === undefined ? {} : { logger: { level: "info", stream: { write: (line) => void lines.push(line) } } },
+      {
+        ...(lines === undefined ? {} : { logger: { level: "info", stream: { write: (line) => void lines.push(line) } } }),
+        ...(telemetry === undefined ? {} : { telemetry }),
+      },
     );
   }
 
@@ -708,6 +721,51 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
     expect(upstash.requests.length).toBeGreaterThan(0);
   });
 
+  test("07i: as 3 rotas contam na telemetria do processo, só com a operação e o resultado", async () => {
+    const telemetry = new InMemoryTelemetry();
+    const instance = bootAuth({}, undefined, telemetry);
+    gotrue.addFlow(CODE, VERIFIER);
+    const session = AuthSessionResponseSchema.parse((await post(instance, "exchange", exchangeBody())).json());
+    // O código já foi usado: o GoTrue recusa, e a troca conta como recusada.
+    expect((await post(instance, "exchange", exchangeBody())).statusCode).toBe(401);
+    const renewed = AuthSessionResponseSchema.parse((await post(instance, "refresh", { schemaVersion: 1, refreshToken: session.refreshToken })).json());
+    const forged = `r1.r1k1.${"A".repeat(16)}.${"B".repeat(40)}.${"C".repeat(22)}`;
+    expect((await post(instance, "refresh", { schemaVersion: 1, refreshToken: forged })).statusCode).toBe(401);
+    expect((await post(instance, "logout", { schemaVersion: 1 }, { authorization: `Bearer ${renewed.accessToken}` })).statusCode).toBe(204);
+    gotrue.mode = { kind: "responde", status: 500, body: "{}" };
+    expect((await post(instance, "logout", { schemaVersion: 1 }, { authorization: `Bearer ${renewed.accessToken}` })).statusCode).toBe(503);
+
+    expect(telemetry.counter("auth_troca_total", { resultado: "ok" })).toBe(1);
+    expect(telemetry.counter("auth_troca_total", { resultado: "recusado" })).toBe(1);
+    expect(telemetry.counter("auth_renovacao_total", { resultado: "ok" })).toBe(1);
+    expect(telemetry.counter("auth_renovacao_total", { resultado: "recusado" })).toBe(1);
+    expect(telemetry.counter("auth_logout_total", { resultado: "ok" })).toBe(1);
+    expect(telemetry.counter("auth_logout_total", { resultado: "indisponivel" })).toBe(1);
+    expect(telemetry.droppedEvents).toBe(0);
+    const series = telemetry.seriesKeys();
+    expect(series).toHaveLength(6);
+    for (const key of series) {
+      expect(key.startsWith("auth_")).toBe(true);
+      for (const secret of [CODE, VERIFIER, session.accessToken, session.refreshToken, renewed.refreshToken, GOTRUE_CANARIES.userId, EXTENSION, SID]) {
+        expect(key).not.toContain(secret);
+      }
+    }
+  });
+
+  test("07j: o boot usa o teto de rajada: a 16ª chamada seguida ao /token leva 503 com Retry-After, sem chegar ao GoTrue", async () => {
+    const instance = bootAuth();
+    // Envelope genuíno que o GoTrue não conhece: cada renovação vai ao /token e volta 401.
+    const refreshToken = sealedEnvelope(nowSeconds() - 60, nowSeconds() - 60);
+    for (let i = 0; i < 15; i += 1) expect((await post(instance, "refresh", { schemaVersion: 1, refreshToken })).statusCode).toBe(401);
+    const denied = await post(instance, "refresh", { schemaVersion: 1, refreshToken });
+    expect(denied.statusCode).toBe(503);
+    const retryAfter = ApiErrorSchema.parse(denied.json()).retryAfterSeconds;
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(4);
+    expect(denied.headers["retry-after"]).toBe(String(retryAfter));
+    expect(tokenCalls()).toHaveLength(15);
+  });
+
   test("0 comandos no Redis com códigos falsos, envelopes forjados e o 429 do limitador local", async () => {
     const instance = bootAuth();
     for (let i = 0; i < 10; i += 1) expect((await post(instance, "exchange", exchangeBody())).statusCode).toBe(401);
@@ -735,22 +793,32 @@ describe("BFF de autenticação no boot (F1-API-07 07g; ADR-004 D4 a D8)", () =>
     expect(tokenCalls()).toHaveLength(1);
   });
 
-  test("um só GotrueEgress por processo: com 4 trocas em voo, a renovação leva 503 com retryAfterSeconds 5", async () => {
+  test("um só GotrueEgress por processo: 3 trocas e 1 renovação em voo enchem o bulkhead das duas rotas (503, retryAfterSeconds 5)", async () => {
     const instance = bootAuth();
     const refreshToken = sealedEnvelope(nowSeconds() - 60, nowSeconds() - 60);
     gotrue.mode = { kind: "lento", delayMs: 1_500 };
     const codes = ["a1b2c3d4-0001", "a1b2c3d4-0002", "a1b2c3d4-0003", "a1b2c3d4-0004"];
     for (const code of codes) gotrue.addFlow(code, VERIFIER);
-    const inFlight = codes.map((code) => post(instance, "exchange", exchangeBody(code)));
-    const deadline = Date.now() + HAPPY_PATH_TIMEOUT_MS;
-    while (tokenCalls().length < 4 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+    const waitTokenCalls = async (n: number): Promise<void> => {
+      const deadline = Date.now() + HAPPY_PATH_TIMEOUT_MS;
+      while (tokenCalls().length < n && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(tokenCalls()).toHaveLength(n);
+    };
+    const expectBusy = (res: Awaited<ReturnType<typeof post>>): void => {
+      expect(res.statusCode).toBe(503);
+      expect(ApiErrorSchema.parse(res.json()).retryAfterSeconds).toBe(5);
+      expect(res.headers["retry-after"]).toBe("5");
+    };
+    const trocas = codes.slice(0, 3).map((code) => post(instance, "exchange", exchangeBody(code)));
+    await waitTokenCalls(3);
+    // A 4ª troca para no teto dela (A-03), e a vaga que sobra é da renovação.
+    expectBusy(await post(instance, "exchange", exchangeBody(codes[3] ?? "")));
+    const renovacao = post(instance, "refresh", { schemaVersion: 1, refreshToken });
+    await waitTokenCalls(4);
+    // A rota da renovação vê as trocas da outra rota: o bulkhead é um só.
+    expectBusy(await post(instance, "refresh", { schemaVersion: 1, refreshToken }));
     expect(tokenCalls()).toHaveLength(4);
-    const busy = await post(instance, "refresh", { schemaVersion: 1, refreshToken });
-    expect(busy.statusCode).toBe(503);
-    expect(ApiErrorSchema.parse(busy.json()).retryAfterSeconds).toBe(5);
-    expect(busy.headers["retry-after"]).toBe("5");
-    expect(tokenCalls()).toHaveLength(4);
-    await Promise.all(inFlight);
+    await Promise.all([...trocas, renovacao]);
   });
 
   test("com TRUST_PROXY e API_BEHIND_PROXY=true, dois X-Forwarded-For do proxy caem em baldes distintos", async () => {

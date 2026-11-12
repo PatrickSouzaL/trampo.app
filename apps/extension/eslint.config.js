@@ -32,6 +32,7 @@ function boundaryImports(allowed, extraPatterns = []) {
 
 // Armazenamento só em storage.session (ADR-001 §5.0.1; threat-model T22).
 const NON_SESSION_AREAS = "local|sync|managed";
+const SET_ACCESS_LEVEL = "setAccessLevel";
 const storageSelectors = [
   {
     selector: `MemberExpression[object.property.name="storage"][property.name=/^(${NON_SESSION_AREAS})$/]`,
@@ -45,10 +46,20 @@ const storageSelectors = [
     selector: `VariableDeclarator[init.property.name="storage"] > ObjectPattern > Property[key.name=/^(${NON_SESSION_AREAS})$/]`,
     message: "Só storage.session: storage.local/sync/managed são proibidos (T22).",
   },
-  {
-    selector: `MemberExpression[property.name="setAccessLevel"]`,
+  // `setAccessLevel` em qualquer forma de acesso e em qualquer profundidade (F1-EXT-07, E-01): o nome, o acesso computado
+  // por string ou por template e a desestruturação, com ou sem outro nome. Montar o nome em tempo de execução
+  // (`"set" + "AccessLevel"`) e o alias de `storage` ficam fora do alcance do lint: residual coberto pelo E2E
+  // (auth-negative, item 7) e pelo marcador no artefato (manifest.test.ts).
+  ...[
+    `MemberExpression[property.name="${SET_ACCESS_LEVEL}"]`,
+    `MemberExpression[property.value="${SET_ACCESS_LEVEL}"]`,
+    `MemberExpression > TemplateLiteral > TemplateElement[value.cooked="${SET_ACCESS_LEVEL}"]`,
+    `ObjectPattern > Property[key.name="${SET_ACCESS_LEVEL}"]`,
+    `ObjectPattern > Property[key.value="${SET_ACCESS_LEVEL}"]`,
+  ].map((selector) => ({
+    selector,
     message: "setAccessLevel é proibido: storage.session fica restrito a contextos confiáveis (T22).",
-  },
+  })),
 ];
 
 // Lint por módulo do Service Worker (ADR-004 D10 B2), em todo o src/. Cada capacidade sensível mora num arquivo só:
@@ -68,6 +79,8 @@ const FORBIDDEN_GLOBALS = [
 // Por propriedade, para pegar também `self.X`, `globalThis["X"]` e a desestruturação, que a regra de globais não vê.
 const FORBIDDEN_PROPERTIES = [
   { property: "sendBeacon", message: EGRESS },
+  // Segunda barreira do E-01, só em src/: pega `x.setAccessLevel`, `x["setAccessLevel"]` e a desestruturação.
+  { property: SET_ACCESS_LEVEL, message: "setAccessLevel é proibido: storage.session fica restrito a contextos confiáveis (T22)." },
   ...[
     "onMessageExternal",
     "onConnectExternal",

@@ -9,6 +9,10 @@
 // A rota só traduz o resultado dos casos de uso pelo mapa do D7, sem regra nova. O motivo vai só para a linha de log
 // amostrada (D8 item 7), sem campo além do contador. `Cache-Control: no-store` vale em toda resposta das três rotas,
 // inclusive nos erros dos hooks globais. Código, verifier, tokens, envelope e IP nunca vão a log (SR-12).
+//
+// Métricas (D8 item 7; 07i): cada requisição que chega ao handler ou é barrada pelo limitador local conta uma vez em
+// `auth_troca_total`, `auth_renovacao_total` ou `auth_logout_total`, com o `resultado` do mesmo mapa do D7. O que a
+// borda recusa antes (CORS, tipo de mídia, tamanho, Zod, JWT e o rate limit do Redis no logout) não conta aqui.
 import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import {
   AUTH_BODY_MAX_BYTES,
@@ -22,6 +26,8 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import type { AuthSessionOutcome, AuthUnavailable } from "../../application/auth/auth-session.js";
 import type { EndSessionOutcome } from "../../application/auth/end-session.js";
+import type { AuthOperation, AuthResult, Telemetry } from "../../application/ports/telemetry.js";
+import { authEvent, authSessionResult, endSessionResult } from "../../application/telemetry/auth-telemetry.js";
 import { sendApiError } from "../api-error.js";
 import { bearerToken, unauthenticated } from "../edge/auth.js";
 import { createPreAuthLimitHook, type PreAuthLimiter } from "../edge/pre-auth-limit.js";
@@ -44,9 +50,11 @@ export interface AuthRouteOptions {
   /** Um só por processo, compartilhado pelas duas rotas públicas (07e). */
   readonly preAuthLimiter: PreAuthLimiter;
   readonly logSampler: AuthLogSampler;
+  /** A mesma do processo (ADR-010 D6): recebe um evento `auth` por operação, só com a operação e o resultado. */
+  readonly telemetry: Telemetry;
 }
 
-type SessionFlow = "troca" | "renovacao";
+type SessionFlow = Exclude<AuthOperation, "logout">;
 
 /** O caso de uso rejeitou (quebrou a promessa de nunca rejeitar): falha fechada, 503, nunca 500 nem 200. */
 const USE_CASE_THREW: AuthUnavailable = { kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: null };
@@ -58,6 +66,11 @@ function safely(write: () => void): void {
   } catch {
     // Sem log possível: o próprio log falhou.
   }
+}
+
+/** Um evento por operação, só com os dois enums. A porta promete não lançar; se lançar, a resposta não muda. */
+function recordAuth(telemetry: Telemetry, operation: AuthOperation, result: AuthResult): void {
+  safely(() => telemetry.record(authEvent(operation, result)));
 }
 
 /** Linha amostrada do catálogo: 1 por motivo a cada 60 s, com o contador das suprimidas e nenhum outro campo. */
@@ -120,21 +133,29 @@ async function runLogout(useCase: EndSessionUseCase, accessToken: string): Promi
  * Handler da troca e da renovação. O `Origin` já foi exigido e conferido pelo CORS (D8 item 2) e entra no AAD do
  * envelope; ausente aqui é quebra de invariante: 403, sem chamar o caso de uso.
  */
-export function createSessionHandler(useCase: AuthSessionUseCase, sampler: AuthLogSampler, flow: SessionFlow) {
+export function createSessionHandler(useCase: AuthSessionUseCase, sampler: AuthLogSampler, telemetry: Telemetry, flow: SessionFlow) {
   return async function sessionHandler(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const origin = request.headers.origin;
-    if (origin === undefined) return sendApiError(reply, request.id, "PROIBIDO");
+    if (origin === undefined) {
+      recordAuth(telemetry, flow, "recusado");
+      return sendApiError(reply, request.id, "PROIBIDO");
+    }
     const outcome = await runSession(useCase, request.body, origin);
+    recordAuth(telemetry, flow, authSessionResult(outcome));
     return sendSessionOutcome(request, reply, sampler, flow, outcome);
   };
 }
 
 /** Handler do logout: o Bearer já verificado vai ao GoTrue; sem principal ou sem token, quebra de invariante: 401. */
-export function createLogoutHandler(useCase: EndSessionUseCase, sampler: AuthLogSampler) {
+export function createLogoutHandler(useCase: EndSessionUseCase, sampler: AuthLogSampler, telemetry: Telemetry) {
   return async function logoutHandler(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const accessToken = bearerToken(request.headers.authorization);
-    if (request.principal === null || accessToken === null) return unauthenticated(request, reply);
+    if (request.principal === null || accessToken === null) {
+      recordAuth(telemetry, "logout", "recusado");
+      return unauthenticated(request, reply);
+    }
     const outcome = await runLogout(useCase, accessToken);
+    recordAuth(telemetry, "logout", endSessionResult(outcome));
     if (outcome.kind === "encerrada") return reply.code(204).send();
     logSampled(sampler, request, outcome.reason);
     return sendUnavailable(request, reply, outcome.retryAfterSeconds);
@@ -149,15 +170,20 @@ async function noStore(_request: FastifyRequest, reply: FastifyReply, payload: u
 
 export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, options) => {
   const sampler = options.logSampler;
-  const onLimited = (request: FastifyRequest): void => logSampled(sampler, request, "auth_limite_local");
-  const exchangeHandler = createSessionHandler(options.exchange, sampler, "troca");
-  const refreshHandler = createSessionHandler(options.refresh, sampler, "renovacao");
-  const logoutHandler = createLogoutHandler(options.logout, sampler);
+  const { telemetry } = options;
+  /** O 429 do limitador local: a linha amostrada e o `limitado` da métrica da própria rota. */
+  const onLimited = (flow: SessionFlow) => (request: FastifyRequest): void => {
+    logSampled(sampler, request, "auth_limite_local");
+    recordAuth(telemetry, flow, "limitado");
+  };
+  const exchangeHandler = createSessionHandler(options.exchange, sampler, telemetry, "troca");
+  const refreshHandler = createSessionHandler(options.refresh, sampler, telemetry, "renovacao");
+  const logoutHandler = createLogoutHandler(options.logout, sampler, telemetry);
 
   app.post(
     AUTH_ROUTES.exchange,
     {
-      onRequest: createPreAuthLimitHook(options.preAuthLimiter, "auth_troca", onLimited),
+      onRequest: createPreAuthLimitHook(options.preAuthLimiter, "auth_troca", onLimited("troca")),
       bodyLimit: AUTH_BODY_MAX_BYTES,
       schema: { body: AuthExchangeRequestSchema, response: { 200: AuthSessionResponseSchema } },
       onSend: noStore,
@@ -167,7 +193,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     AUTH_ROUTES.refresh,
     {
-      onRequest: createPreAuthLimitHook(options.preAuthLimiter, "auth_renovacao", onLimited),
+      onRequest: createPreAuthLimitHook(options.preAuthLimiter, "auth_renovacao", onLimited("renovacao")),
       bodyLimit: AUTH_BODY_MAX_BYTES,
       schema: { body: AuthRefreshRequestSchema, response: { 200: AuthSessionResponseSchema } },
       onSend: noStore,

@@ -1,6 +1,8 @@
 // F1-EXT-05a, 05a-3 (ADR-004 D3, D11, D12 e §4.1; M-03 a M-06): login com um fluxo por vez, prazo de 5 min e
 // verifier apagado depois do envio; renovação preguiçosa com single-flight e geração; logout local primeiro.
 // Relógio, api-client e AuthCodeSource falsos; a sessão vai ao authSessionStore real, sobre o storage falso.
+// F1-EXT-07 (revisão adversarial de auth, E-02 e E-03): o 401 atrasado de outra sessão não renova nem apaga a sessão
+// atual, e a sessão que a troca criou depois de um "Sair" é encerrada no servidor em melhor esforço.
 import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, expectTypeOf, test, vi } from "vitest";
@@ -384,7 +386,7 @@ describe("D12: cada linha do SW na tabela vira um teste nomeado (CA-14)", () => 
   test("D12 | Segundo 401 na análise → { false, NAO_AUTENTICADO } | apaga", async () => {
     const { service, api, emitted, logs } = setup();
     await plant(session());
-    expect(await service.onUnauthorized(2)).toBeUndefined();
+    expect(await service.onUnauthorized(2, TOKEN_1)).toBeUndefined();
     expect(api.calls).toStrictEqual([]);
     expect(emitted).toStrictEqual([{ autenticado: false, erro: "NAO_AUTENTICADO" }]);
     expect(logs).toStrictEqual(["auth_renovacao_recusada"]);
@@ -590,10 +592,107 @@ describe("login (ADR-004 D3)", () => {
     void service.login("github");
     await flush();
     await service.logout();
+    api.reply(http(204));
     exchange.resolve(OK_SESSION);
     await flush();
     expect(await stored()).toBeUndefined();
     expect(emitted).toStrictEqual([NAO_LOGADO, NAO_LOGADO]);
+  });
+
+  // --- F1-EXT-07, E-03: a sessão que a troca criou depois do "Sair" não fica órfã no servidor ---
+  /** "Sair" com a troca em voo; a troca responde `exchanged` e o logout da sessão órfã, se sair, recebe `revoked`. */
+  async function logoutDuringExchange(exchanged: ApiResult, revoked?: ApiResult) {
+    const env = setup();
+    const exchange = env.api.hold();
+    void env.service.login("github");
+    await flush();
+    await env.service.logout();
+    if (revoked !== undefined) env.api.reply(revoked);
+    exchange.resolve(exchanged);
+    await flush();
+    return env;
+  }
+
+  test("E-03: \"Sair\" com a troca em voo: a sessão que chega é encerrada no servidor com o access recebido, sem gravar nem emitir", async () => {
+    const { api, emitted, logs } = await logoutDuringExchange(OK_SESSION, http(204));
+    expect(api.paths()).toStrictEqual(["/v1/auth/exchange", "/v1/auth/logout"]);
+    expect(api.calls[1]).toStrictEqual({ path: "/v1/auth/logout", body: { schemaVersion: 1 }, accessToken: TOKEN_2 });
+    expect(await stored()).toBeUndefined();
+    expect(emitted).toStrictEqual([NAO_LOGADO, NAO_LOGADO]);
+    expect(logs).toStrictEqual([]);
+  });
+
+  test("E-03: o logout da sessão órfã corre em segundo plano: o fluxo fecha na hora e o próximo clique já abre outro", async () => {
+    const { service, api, idp, emitted } = setup();
+    const exchange = api.hold();
+    void service.login("github");
+    await flush();
+    await service.logout();
+    const revoke = api.hold();
+    exchange.resolve(OK_SESSION);
+    await flush();
+    // O logout remoto ainda não respondeu, e o painel já viu o fim do fluxo.
+    expect(api.paths()).toStrictEqual(["/v1/auth/exchange", "/v1/auth/logout"]);
+    expect(emitted).toStrictEqual([NAO_LOGADO, NAO_LOGADO]);
+    api.reply(http(200, sessionBody(TOKEN_3)));
+    await service.login("github");
+    expect(idp.requests).toHaveLength(2);
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_3 });
+    // A resposta tardia do logout da órfã não toca a sessão nova.
+    revoke.resolve(http(503));
+    await flush();
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_3 });
+    expect(emitted).toStrictEqual([NAO_LOGADO, NAO_LOGADO, AUTENTICADO]);
+  });
+
+  test("E-03: o 401 do logout da sessão órfã conta como encerrada (nada a registrar)", async () => {
+    const { api, logs } = await logoutDuringExchange(OK_SESSION, http(401, apiError("NAO_AUTENTICADO")));
+    expect(api.calls).toHaveLength(2);
+    expect(logs).toStrictEqual([]);
+  });
+
+  test.each<[string, ApiResult]>([
+    ["503", http(503)],
+    ["429", http(429)],
+    ["200 (fora do contrato do logout)", http(200)],
+    ["sem resposta", SEM_RESPOSTA],
+  ])("E-03: logout da sessão órfã com %s: uma tentativa só, o motivo no log, nada no painel e nada gravado", async (_caso, revoked) => {
+    const { clock, api, emitted, logs } = await logoutDuringExchange(OK_SESSION, revoked);
+    await clock.advance(RETRY * 2);
+    expect(api.paths()).toStrictEqual(["/v1/auth/exchange", "/v1/auth/logout"]);
+    expect(logs).toStrictEqual(["auth_logout_remoto_falhou"]);
+    expect(emitted).toStrictEqual([NAO_LOGADO, NAO_LOGADO]);
+    expect(await stored()).toBeUndefined();
+  });
+
+  test("E-03: cliente que rejeita (fora do contrato) no logout da sessão órfã: nada escapa, nada é gravado nem emitido", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const { api, emitted, logs } = await logoutDuringExchange(OK_SESSION);
+      await flush();
+      expect(api.calls).toHaveLength(2);
+      expect(emitted).toStrictEqual([NAO_LOGADO, NAO_LOGADO]);
+      expect(logs).toStrictEqual([]);
+      expect(await stored()).toBeUndefined();
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  test("E-03: sem sessão criada (a troca falhou depois do \"Sair\"), nenhum logout sai", async () => {
+    const { api, logs } = await logoutDuringExchange(UNAUTHORIZED);
+    expect(api.paths()).toStrictEqual(["/v1/auth/exchange"]);
+    expect(logs).toStrictEqual(["auth_troca_recusada"]);
+  });
+
+  test("E-03: o login que conclui não chama o logout", async () => {
+    const { service, api } = setup();
+    api.reply(OK_SESSION);
+    await service.login("github");
+    expect(api.paths()).toStrictEqual(["/v1/auth/exchange"]);
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_2 });
   });
 
   test.each<[string, ApiResult]>([
@@ -767,7 +866,7 @@ describe("renovação (ADR-004 D11.1 a D11.3)", () => {
     const held = api.hold();
     const token = service.accessToken();
     await flush();
-    await service.onUnauthorized(2);
+    await service.onUnauthorized(2, TOKEN_1);
     held.resolve(OK_SESSION);
     expect(await token).toBeUndefined();
     expect(await stored()).toBeUndefined();
@@ -847,11 +946,11 @@ describe("renovação (ADR-004 D11.1 a D11.3)", () => {
   test("sem sessão ou sem configuração, nenhum token e nenhuma rede", async () => {
     const semSessao = setup();
     expect(await semSessao.service.accessToken()).toBeUndefined();
-    expect(await semSessao.service.onUnauthorized(1)).toBeUndefined();
+    expect(await semSessao.service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
     await plant(session());
     const semConfig = setup({ config: false });
     expect(await semConfig.service.accessToken()).toBeUndefined();
-    expect(await semConfig.service.onUnauthorized(1)).toBeUndefined();
+    expect(await semConfig.service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
     expect(semSessao.api.calls).toStrictEqual([]);
   });
 
@@ -860,7 +959,7 @@ describe("renovação (ADR-004 D11.1 a D11.3)", () => {
     const get = vi.fn(() => Promise.reject(new Error("storage")));
     const { service } = setup({ store: { ...real, get } });
     expect(await service.accessToken()).toBeUndefined();
-    expect(await service.onUnauthorized(1)).toBeUndefined();
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
     expect(await service.view()).toStrictEqual(ERRO_INTERNO);
   });
 });
@@ -871,7 +970,7 @@ describe("onUnauthorized (ADR-004 D11.4)", () => {
     const { service, api } = setup();
     await plant(session());
     api.reply(OK_SESSION);
-    expect(await service.onUnauthorized(1)).toBe(TOKEN_2);
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBe(TOKEN_2);
     expect(api.paths()).toStrictEqual(["/v1/auth/refresh"]);
     expect(await stored()).toMatchObject({ accessToken: TOKEN_2 });
   });
@@ -882,7 +981,7 @@ describe("onUnauthorized (ADR-004 D11.4)", () => {
     const held = api.hold();
     const token = service.accessToken();
     await flush();
-    const retried = service.onUnauthorized(1);
+    const retried = service.onUnauthorized(1, TOKEN_1);
     held.resolve(OK_SESSION);
     expect(await token).toBe(TOKEN_2);
     expect(await retried).toBe(TOKEN_2);
@@ -893,8 +992,117 @@ describe("onUnauthorized (ADR-004 D11.4)", () => {
     const { service, api } = setup();
     await plant(session());
     api.reply(UNAUTHORIZED);
-    expect(await service.onUnauthorized(1)).toBeUndefined();
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
     expect(await stored()).toBeUndefined();
+  });
+
+  // --- F1-EXT-07, E-02: o 401 vale só para a sessão do token que o levou ---
+  /** Sessão A gravada; "Sair" (204) e login novo, que grava a sessão B com o TOKEN_3. */
+  async function sessionReplacedByNewLogin(env: ReturnType<typeof setup>): Promise<void> {
+    env.api.reply(http(204));
+    await env.service.logout();
+    env.api.reply(http(200, sessionBody(TOKEN_3)));
+    await env.service.login("github");
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_3 });
+    env.api.calls.length = 0;
+    env.emitted.length = 0;
+  }
+
+  test("E-02: o 2º 401 de uma sessão anterior não apaga a sessão de um login novo", async () => {
+    const env = setup();
+    await plant(session());
+    await sessionReplacedByNewLogin(env);
+    expect(await env.service.onUnauthorized(2, TOKEN_1)).toBeUndefined();
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_3 });
+    expect(env.api.calls).toStrictEqual([]);
+    expect(env.emitted).toStrictEqual([]);
+    expect(env.logs).toStrictEqual([]);
+  });
+
+  test("E-02: o 1º 401 de uma sessão anterior não renova a sessão nova nem recebe o token dela", async () => {
+    const env = setup();
+    await plant(session());
+    await sessionReplacedByNewLogin(env);
+    expect(await env.service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
+    expect(env.api.calls).toStrictEqual([]);
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_3 });
+  });
+
+  test("E-02: token renovado numa sessão anterior não recebe o token da sessão nova (a troca vale só na geração dela)", async () => {
+    const env = setup();
+    await plant(session());
+    env.api.reply(OK_SESSION);
+    expect(await env.service.onUnauthorized(1, TOKEN_1)).toBe(TOKEN_2);
+    await sessionReplacedByNewLogin(env);
+    expect(await env.service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
+    expect(await env.service.onUnauthorized(1, TOKEN_2)).toBeUndefined();
+    expect(env.api.calls).toStrictEqual([]);
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_3 });
+  });
+
+  test("E-02: 1º 401 atrasado da mesma sessão, já renovada: o token atual volta sem outra renovação", async () => {
+    const { service, api } = setup();
+    await plant(session());
+    api.reply(OK_SESSION);
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBe(TOKEN_2);
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBe(TOKEN_2);
+    expect(api.paths()).toStrictEqual(["/v1/auth/refresh"]);
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_2 });
+  });
+
+  test("E-02: a renovação preguiçosa também registra o token trocado", async () => {
+    const { service, api } = setup();
+    await plant(session(TOKEN_1, T0, MIN));
+    api.reply(OK_SESSION);
+    expect(await service.accessToken()).toBe(TOKEN_2);
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBe(TOKEN_2);
+    expect(api.calls).toHaveLength(1);
+  });
+
+  test("E-02: 2º 401 atrasado, com o token já trocado pela renovação, não apaga a sessão", async () => {
+    const { service, api, emitted, logs } = setup();
+    await plant(session());
+    api.reply(OK_SESSION);
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBe(TOKEN_2);
+    expect(await service.onUnauthorized(2, TOKEN_1)).toBeUndefined();
+    expect(await stored()).toMatchObject({ accessToken: TOKEN_2 });
+    expect(emitted).toStrictEqual([]);
+    expect(logs).toStrictEqual([]);
+    // O 2º 401 do token atual segue apagando.
+    expect(await service.onUnauthorized(2, TOKEN_2)).toBeUndefined();
+    expect(await stored()).toBeUndefined();
+    expect(emitted).toStrictEqual([{ autenticado: false, erro: "NAO_AUTENTICADO" }]);
+  });
+
+  test.each<[string, boolean]>([
+    ["sem renovação nenhuma", false],
+    ["depois de uma renovação", true],
+  ])("E-02: token que a sessão nunca teve (%s): nenhum token, nenhuma rede e a sessão fica", async (_caso, renewFirst) => {
+    const { service, api, emitted } = setup();
+    await plant(session());
+    if (renewFirst) {
+      api.reply(OK_SESSION);
+      await service.onUnauthorized(1, TOKEN_1);
+    }
+    const before = api.calls.length;
+    for (const tentativa of [1, 2] as const) expect(await service.onUnauthorized(tentativa, TOKEN_3)).toBeUndefined();
+    expect(api.calls).toHaveLength(before);
+    expect(await stored()).toMatchObject({ accessToken: renewFirst ? TOKEN_2 : TOKEN_1 });
+    expect(emitted).toStrictEqual([]);
+  });
+
+  test("E-02: o token trocado não vale depois que a sessão caiu por 401 e outra entrou", async () => {
+    const { service, api } = setup();
+    await plant(session());
+    api.reply(OK_SESSION);
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBe(TOKEN_2);
+    // A sessão cai pelo 2º 401 (sem "Sair"), e o login seguinte grava outra.
+    await service.onUnauthorized(2, TOKEN_2);
+    api.reply(http(200, sessionBody(TOKEN_3)));
+    await service.login("github");
+    api.calls.length = 0;
+    expect(await service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
+    expect(api.calls).toStrictEqual([]);
   });
 });
 

@@ -97,9 +97,27 @@ export const AnalysisEventSchema = z.strictObject({
 });
 export type AnalysisEvent = z.infer<typeof AnalysisEventSchema>;
 
-/** União fechada: um tipo novo de evento entra por ADR (ADR-010 D5; `analysis` pelo ADR-017 D5). */
-export const TelemetryEventSchema = z.discriminatedUnion("kind", [LlmExtractionEventSchema, AnalysisEventSchema]);
-export type TelemetryEvent = LlmExtractionEvent | AnalysisEvent;
+/** As 3 operações do BFF de autenticação (ADR-004 D4): uma métrica `auth_<operação>_total` para cada. */
+export const AUTH_OPERATIONS = ["troca", "renovacao", "logout"] as const;
+/** Os 4 valores do rótulo `resultado` (ADR-004 D8 item 7). `limitado` é o 429 do limitador local pré-JWT. */
+export const AUTH_RESULTS = ["ok", "recusado", "indisponivel", "limitado"] as const;
+export type AuthOperation = (typeof AUTH_OPERATIONS)[number];
+export type AuthResult = (typeof AUTH_RESULTS)[number];
+
+/**
+ * Uma operação do BFF de autenticação (ADR-004 D8 item 7; F1-API-07 07i). Só os dois enums: o motivo fica na linha de
+ * log amostrada, e nada da requisição, do usuário ou da sessão cabe aqui (SR-12).
+ */
+export const AuthEventSchema = z.strictObject({
+  kind: z.literal("auth"),
+  operation: z.enum(AUTH_OPERATIONS),
+  result: z.enum(AUTH_RESULTS),
+});
+export type AuthEvent = z.infer<typeof AuthEventSchema>;
+
+/** União fechada: um tipo novo de evento entra por ADR (ADR-010 D5; `analysis` pelo ADR-017 D5; `auth` pelo ADR-004 D8). */
+export const TelemetryEventSchema = z.discriminatedUnion("kind", [LlmExtractionEventSchema, AnalysisEventSchema, AuthEventSchema]);
+export type TelemetryEvent = LlmExtractionEvent | AnalysisEvent | AuthEvent;
 
 export interface Telemetry {
   /** Nunca lança: a contabilidade não pode derrubar uma análise. */

@@ -9,6 +9,8 @@ import {
   TELEMETRY_GUARD_NORMALIZATION_MAX,
   TELEMETRY_LATENCY_MAX_MS,
   type AnalysisEvent,
+  type AuthEvent,
+  type AuthOperation,
   type LlmExtractionEvent,
   type TelemetryEvent,
 } from "../ports/telemetry.js";
@@ -80,6 +82,10 @@ export const METRIC_CATALOG = {
   analysis_injection_level_total: { type: "counter", labels: ["level"] },
   analysis_accept_eligible_total: { type: "counter", labels: ["eligible"] },
   analysis_warning_total: { type: "counter", labels: ["warning"] },
+  // ADR-004 D8 item 7 (F1-API-07 07i): uma série por operação do BFF, só com o resultado.
+  auth_troca_total: { type: "counter", labels: ["resultado"] },
+  auth_renovacao_total: { type: "counter", labels: ["resultado"] },
+  auth_logout_total: { type: "counter", labels: ["resultado"] },
 } as const;
 export type MetricName = keyof typeof METRIC_CATALOG;
 
@@ -90,8 +96,26 @@ export interface MetricSample {
   readonly value: number;
 }
 
+/** O contador de cada operação do BFF (ADR-004 D8 item 7). */
+const AUTH_METRICS = {
+  troca: "auth_troca_total",
+  renovacao: "auth_renovacao_total",
+  logout: "auth_logout_total",
+} as const satisfies Record<AuthOperation, MetricName>;
+
 export function telemetryMetricSamples(event: TelemetryEvent): MetricSample[] {
-  return event.kind === "analysis" ? analysisSamples(event) : extractionSamples(event);
+  switch (event.kind) {
+    case "analysis":
+      return analysisSamples(event);
+    case "auth":
+      return authSamples(event);
+    case "llm_extraction":
+      return extractionSamples(event);
+  }
+}
+
+function authSamples(event: AuthEvent): MetricSample[] {
+  return [{ name: AUTH_METRICS[event.operation], labels: { resultado: event.result }, value: 1 }];
 }
 
 function analysisSamples(event: AnalysisEvent): MetricSample[] {

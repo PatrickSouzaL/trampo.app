@@ -3,9 +3,11 @@
 // atualização deste teste. Dois builds próprios, em pasta temporária: o "fechado", sem nenhuma variável, e o
 // "completo", com as duas origens e a `key` (a forma do build do E2E). A chave é gerada na hora e não vai ao git.
 // F1-EXT-05b, 05b-1: a meta CSP do D10 B4 nas páginas e o fecho exato do painel (B5), nos dois builds.
+// F1-EXT-06: o `.env` da extensão lido por lista fechada, provado em builds reais com um arquivo de teste (a config
+// test/support/wxt.dotenv.config.ts usa a mesma fábrica do wxt.config.ts). Os outros builds rodam com a leitura desligada.
 import { execFileSync } from "node:child_process";
 import { createHash, generateKeyPairSync } from "node:crypto";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,21 +20,28 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const API = "https://api.trampo.test";
 const SUPABASE = "https://projeto.supabase.test";
 const KEY = generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ type: "spki", format: "der" }).toString("base64");
-const BUILD_SCRIPT = "import { build } from 'wxt'; await build({ root: process.cwd(), outDir: process.env.MANIFEST_TEST_OUT_DIR, mode: 'production' });";
+const BUILD_SCRIPT =
+  "import { build } from 'wxt'; const configFile = process.env.MANIFEST_TEST_CONFIG; await build({ root: process.cwd(), outDir: process.env.MANIFEST_TEST_OUT_DIR, mode: 'production', ...(configFile ? { configFile } : {}) });";
+const DOTENV_CONFIG = fileURLToPath(new URL("./support/wxt.dotenv.config.ts", import.meta.url));
 
 /** O ambiente do teste sem nenhuma variável do Trampo nem do Vitest: só o que cada build declara entra. */
 function cleanEnv(vars: Record<string, string>): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const [name, value] of Object.entries(process.env)) if (!/^(TRAMPO_|VITEST)/.test(name)) env[name] = value;
+  for (const [name, value] of Object.entries(process.env)) if (!/^(TRAMPO_|VITEST|MANIFEST_TEST_)/.test(name)) env[name] = value;
   // O Vite respeita um NODE_ENV já definido: sem isto, o build sairia com o React de desenvolvimento.
   return { ...env, ...vars, NODE_ENV: "production" };
 }
 
-/** `wxt build` de produção em processo próprio (o Vitest já registrou um WXT neste). */
-function runBuild(outDir: string, vars: Record<string, string>): void {
+/**
+ * `wxt build` de produção em processo próprio (o Vitest já registrou um WXT neste). Sem `dotenv`, é o wxt.config.ts real
+ * com a leitura do `.env` desligada (o arquivo do desenvolvedor nunca entra num teste). Com `dotenv`, é a config de teste,
+ * que lê o arquivo dado pelo mesmo leitor de lista fechada.
+ */
+function runBuild(outDir: string, vars: Record<string, string>, dotenv?: string): void {
+  const source = dotenv === undefined ? { TRAMPO_IGNORE_DOTENV: "1" } : { MANIFEST_TEST_CONFIG: DOTENV_CONFIG, MANIFEST_TEST_DOTENV: dotenv };
   execFileSync(process.execPath, ["--input-type=module", "-e", BUILD_SCRIPT], {
     cwd: root,
-    env: cleanEnv({ ...vars, MANIFEST_TEST_OUT_DIR: outDir }),
+    env: cleanEnv({ ...source, ...vars, MANIFEST_TEST_OUT_DIR: outDir }),
     stdio: "pipe",
   });
 }
@@ -119,17 +128,39 @@ function panelClosure(files: ReadonlyMap<string, string>, page: string): Set<str
 /** O que nunca pode estar fora do background.js (D10 B5). */
 const SESSION_MARKERS = ["launchWebAuthFlow", "getRedirectURL", ".identity.", "storage.session", "/v1/auth/", SUPABASE];
 
+// F1-EXT-06: o `.env` de teste. As 3 chaves do build e, em volta, o que um `.env` copiado da API traria: nada disso pode
+// chegar ao artefato. Os canários são montados aqui, e nenhum tem forma de chave.
+const API_FILE = "https://api.arquivo.test";
+const SUPABASE_FILE = "https://projeto.arquivo.test";
+const DOTENV_CANARY = ["CANARIO", "SEGREDO", "DO", "ARQUIVO"].join("-");
+const DOTENV_EXTRA_KEYS = ["SUPABASE_SECRET_KEY", "AUTH_REFRESH_SEAL_KEYS", "GROQ_API_KEY", "VITE_CANARIO", "WXT_CANARIO", "TRAMPO_OUTRA"];
+const DOTENV_TEXT = [
+  "# .env de teste do manifest.test.ts",
+  ...DOTENV_EXTRA_KEYS.map((name) => `${name}=${DOTENV_CANARY}`),
+  `TRAMPO_API_ORIGIN=${API_FILE}`,
+  `TRAMPO_SUPABASE_ORIGIN=${SUPABASE_FILE}`,
+  `TRAMPO_EXTENSION_KEY=${KEY}`,
+  "",
+].join("\n");
+
+type BuildName = "fechado" | "completo" | "arquivo" | "precedencia" | "ignorado";
 let work = "";
-const builds = new Map<"fechado" | "completo", Built>();
-const get = (name: "fechado" | "completo"): Built => builds.get(name) as Built;
+let dotenvFile = "";
+const builds = new Map<BuildName, Built>();
+const get = (name: BuildName): Built => builds.get(name) as Built;
 
 beforeAll(() => {
   work = mkdtempSync(join(tmpdir(), "trampo-manifest-"));
+  dotenvFile = join(work, "extensao.env");
+  writeFileSync(dotenvFile, DOTENV_TEXT);
   runBuild(join(work, "fechado"), {});
   runBuild(join(work, "completo"), { TRAMPO_API_ORIGIN: API, TRAMPO_SUPABASE_ORIGIN: SUPABASE, TRAMPO_EXTENSION_KEY: KEY });
-  builds.set("fechado", readBuilt(join(work, "fechado")));
-  builds.set("completo", readBuilt(join(work, "completo")));
-}, 180_000);
+  // As 3 variáveis só do arquivo; a origem da API explícita no ambiente, por cima do arquivo; e a leitura desligada.
+  runBuild(join(work, "arquivo"), {}, dotenvFile);
+  runBuild(join(work, "precedencia"), { TRAMPO_API_ORIGIN: API }, dotenvFile);
+  runBuild(join(work, "ignorado"), { TRAMPO_IGNORE_DOTENV: "1" }, dotenvFile);
+  for (const name of ["fechado", "completo", "arquivo", "precedencia", "ignorado"] as const) builds.set(name, readBuilt(join(work, name)));
+}, 300_000);
 
 afterAll(() => {
   if (work !== "") rmSync(work, { recursive: true, force: true });
@@ -239,6 +270,15 @@ describe("artefato: a sessão só no background.js (D10 B2 e B5)", () => {
   });
 });
 
+// F1-EXT-07 (revisão adversarial de auth, E-01): o lint barra `setAccessLevel` no código-fonte, e o artefato inteiro,
+// background.js incluído, é conferido aqui (uma forma que o lint não veja ainda deixaria o nome no artefato).
+describe("artefato: storage.session nunca é aberto a content scripts (T22; E-01)", () => {
+  test.each(["fechado", "completo"] as const)("build %s: nenhum arquivo, nem o background.js, tem setAccessLevel", (name) => {
+    expect(get(name).all.has("background.js")).toBe(true);
+    for (const [path, text] of get(name).all) expect(text.includes("setAccessLevel"), `setAccessLevel em ${path}`).toBe(false);
+  });
+});
+
 describe("painel: meta CSP do D10 B4 e fecho exato do B5", () => {
   const B4 = "connect-src 'none'; form-action 'none'; base-uri 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
@@ -306,6 +346,61 @@ describe("Service Worker gerado", () => {
   test.each(["fechado", "completo"] as const)("build %s: sem eval nem código remoto", (name) => {
     expect(get(name).background).not.toMatch(/\beval\(|new Function\(|importScripts\(/);
   });
+});
+
+describe("F1-EXT-06: o .env da extensão por lista fechada, no build real (§4.6)", () => {
+  const csp = (name: BuildName) => (get(name).manifest["content_security_policy"] as { extension_pages: string }).extension_pages;
+
+  test("as 3 variáveis saem do arquivo: key, connect-src na API e as duas origens no background.js", () => {
+    expect(get("arquivo").manifest["key"]).toBe(KEY);
+    expect(csp("arquivo")).toMatch(/(^|; )connect-src https:\/\/api\.arquivo\.test$/);
+    expect(get("arquivo").background).toContain(API_FILE);
+    expect(get("arquivo").background).toContain(SUPABASE_FILE);
+  });
+
+  test("precedência: a variável do ambiente vence a do arquivo, e as outras duas seguem do arquivo", () => {
+    expect(csp("precedencia")).toMatch(/(^|; )connect-src https:\/\/api\.trampo\.test$/);
+    expect(get("precedencia").background).toContain(API);
+    expect(get("precedencia").background).not.toContain(API_FILE);
+    expect(get("precedencia").background).toContain(SUPABASE_FILE);
+    expect(get("precedencia").manifest["key"]).toBe(KEY);
+  });
+
+  test("TRAMPO_IGNORE_DOTENV=1: o arquivo não é lido, e o build sai fechado", () => {
+    expect(get("ignorado").manifest).not.toHaveProperty("key");
+    expect(csp("ignorado")).toMatch(/(^|; )connect-src 'none'$/);
+    expect(get("ignorado").background).not.toMatch(/arquivo\.test/);
+  });
+
+  test.each(["arquivo", "precedencia", "ignorado"] as const)("build %s: nenhuma chave fora da lista chega ao artefato, nem o nome nem o valor", (name) => {
+    expect(get(name).all.size).toBeGreaterThan(3);
+    for (const [path, text] of get(name).all) {
+      for (const marker of [DOTENV_CANARY, ...DOTENV_EXTRA_KEYS, "TRAMPO_IGNORE_DOTENV", "MANIFEST_TEST"]) expect(text.includes(marker), `${marker} em ${path}`).toBe(false);
+    }
+  });
+
+  test.each(["arquivo", "precedencia"] as const)("build %s: as origens do arquivo ficam só no background.js (grep do D10 B5)", (name) => {
+    for (const [path, text] of get(name).others) {
+      for (const marker of [...SESSION_MARKERS, SUPABASE_FILE]) expect(text.includes(marker), `${marker} em ${path}`).toBe(false);
+    }
+  });
+
+  test("variável inválida no arquivo derruba o build, com o nome dela e sem o valor", () => {
+    const value = "http://canario-do-arquivo.trampo.test";
+    const invalid = join(work, "invalido.env");
+    writeFileSync(invalid, `TRAMPO_SUPABASE_ORIGIN=${value}\n`);
+    let failure: { status?: number | null; stderr?: Buffer; stdout?: Buffer } | undefined;
+    try {
+      runBuild(join(work, "falha-arquivo"), {}, invalid);
+    } catch (error) {
+      failure = error as typeof failure;
+    }
+    expect(failure?.status).not.toBe(0);
+    const output = `${failure?.stderr?.toString() ?? ""}${failure?.stdout?.toString() ?? ""}`;
+    expect(output).toContain("TRAMPO_SUPABASE_ORIGIN");
+    expect(output).not.toContain(value);
+    expect(output).not.toContain("canario-do-arquivo");
+  }, 60_000);
 });
 
 describe("variável fora da forma derruba o build, sem ecoar o valor (§4.6)", () => {

@@ -5,8 +5,11 @@
 // - lista fechada de cabeçalhos de saída: nada de `X-Forwarded-For`, `X-Real-IP`, `Forwarded` nem cabeçalho do
 //   cliente (condição 2 do `[APPSEC]` no §6.3);
 // - projeção de 4 campos: `user`, `provider_token` e e-mail canários nunca chegam ao resultado;
-// - a classificação do D7 com a emenda do HITL-035: 404 só é `recusado` com o corpo JSON do GoTrue e `error_code`
-//   string, que nunca sai do adapter; "pode ter rotacionado" quando o GoTrue processou e a resposta se perdeu (M-13);
+// - a classificação do D7 com as emendas do HITL-035 e da F1-API-08 (achados A-01 e A-02): 400, 401, 403, 404 e 422
+//   só são `recusado` com o corpo JSON do GoTrue e `error_code` string, que nunca sai do adapter; sem esse corpo (o
+//   `Invalid API key` do gateway, HTML de WAF ou de proxy), `nao_recebido`. No logout, só o 2xx e o 403
+//   `session_not_found` são sessão encerrada: o 401 nunca é. "Pode ter rotacionado" quando o GoTrue processou e a
+//   resposta se perdeu (M-13);
 // - falha fechado sem rejeitar, sem retry e sem seguir redirecionamento.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -33,6 +36,29 @@ const CLIENT_ORIGIN_HEADERS = ["x-forwarded-for", "x-real-ip", "forwarded", "x-f
 const RECUSADO = { ok: false, reason: "recusado" };
 const NAO_RECEBIDO = { ok: false, reason: "nao_recebido" };
 const PODE_TER_ROTACIONADO = { ok: false, reason: "pode_ter_rotacionado" };
+
+/** Os status que o GoTrue usa para dizer "não" (D7). Todos só valem como recusa com o corpo dele. */
+const REFUSAL_STATUSES = [400, 401, 403, 404, 422] as const;
+/** O que o gateway do Supabase responde à *publishable* revogada ou errada: JSON, mas sem o `error_code` do GoTrue. */
+const INVALID_API_KEY = JSON.stringify({ message: "Invalid API key", hint: "Double check your Supabase `anon` or `service_role` API key." });
+/** Página de bloqueio de um WAF ou proxy na frente do Supabase. */
+const WAF_PAGE = "<html><body><h1>403 Forbidden</h1>Request blocked.</body></html>";
+
+/** Respostas sem o corpo JSON do GoTrue: nenhuma vira recusa, em nenhum dos 5 status (A-02). */
+const WITHOUT_GOTRUE_BODY = [
+  ["Invalid API key do gateway", INVALID_API_KEY, "application/json"],
+  ["HTML de WAF ou proxy", WAF_PAGE, "text/html"],
+  ["vazio", "", "application/json"],
+  ["vazio sem content-type", "", null],
+  ["JSON sem error_code", JSON.stringify({ message: "not found" }), "application/json"],
+  ["error_code numérico", JSON.stringify({ error_code: 404 }), "application/json"],
+  ["error_code nulo", JSON.stringify({ error_code: null }), "application/json"],
+  ["array", JSON.stringify([{ error_code: "flow_state_not_found" }]), "application/json"],
+  ["string JSON", JSON.stringify("flow_state_not_found"), "application/json"],
+  ["corpo do GoTrue com content-type de texto", JSON.stringify({ error_code: "flow_state_not_found" }), "text/plain"],
+  ["JSON inválido", '{"error_code":', "application/json"],
+  ["__proto__", '{"error_code":"x","__proto__":{"admin":true}}', "application/json"],
+] as const;
 
 let gotrue: FakeGotrue;
 let other: FakeGotrue | undefined;
@@ -215,14 +241,15 @@ describe("troca: recusas do GoTrue viram `recusado`, sem nova tentativa", () => 
     await expect(exchange("codigo-que-nao-existe")).resolves.toEqual(RECUSADO);
   });
 
-  test.each([[400], [401], [403], [422]])("%d é recusa mesmo sem corpo (só o 404 exige o corpo do GoTrue)", async (status) => {
-    gotrue.mode = { kind: "responde", status, body: "", contentType: null };
+  test.each(REFUSAL_STATUSES)("%d com o corpo mínimo do GoTrue (só o error_code string): recusado", async (status) => {
+    gotrue.mode = { kind: "responde", status, body: JSON.stringify({ error_code: "qualquer" }) };
     await expect(exchange()).resolves.toEqual(RECUSADO);
+    expect(gotrue.requests).toHaveLength(1);
   });
 
-  test("o error_code do GoTrue nunca sai do adapter nem vai a log", async () => {
+  test.each(REFUSAL_STATUSES)("%d: o error_code do GoTrue nunca sai do adapter nem vai a log", async (status) => {
     const logs = [vi.spyOn(console, "log"), vi.spyOn(console, "info"), vi.spyOn(console, "warn"), vi.spyOn(console, "error"), vi.spyOn(console, "debug")];
-    gotrue.mode = { kind: "responde", status: 404, body: JSON.stringify({ code: 404, error_code: GOTRUE_CANARIES.errorCode, msg: GOTRUE_CANARIES.email }) };
+    gotrue.mode = { kind: "responde", status, body: JSON.stringify({ code: status, error_code: GOTRUE_CANARIES.errorCode, msg: GOTRUE_CANARIES.email }) };
     const result = await exchange();
     expect(result).toEqual(RECUSADO);
     expect(Object.keys(result).sort()).toEqual(["ok", "reason"]);
@@ -231,35 +258,34 @@ describe("troca: recusas do GoTrue viram `recusado`, sem nova tentativa", () => 
   });
 });
 
-describe("troca: 404 sem o corpo JSON do GoTrue é `nao_recebido` (emenda do HITL-035; M-13)", () => {
-  test.each([
-    ["HTML de proxy", "<html><body>404 Not Found</body></html>", "text/html"],
-    ["vazio", "", "application/json"],
-    ["vazio sem content-type", "", null],
-    ["JSON sem error_code", JSON.stringify({ message: "not found" }), "application/json"],
-    ["error_code numérico", JSON.stringify({ error_code: 404 }), "application/json"],
-    ["error_code nulo", JSON.stringify({ error_code: null }), "application/json"],
-    ["array", JSON.stringify([{ error_code: "flow_state_not_found" }]), "application/json"],
-    ["string JSON", JSON.stringify("flow_state_not_found"), "application/json"],
-    ["corpo do GoTrue com content-type de texto", JSON.stringify({ error_code: "flow_state_not_found" }), "text/plain"],
-    ["JSON inválido", '{"error_code":', "application/json"],
-    ["__proto__", '{"error_code":"x","__proto__":{"admin":true}}', "application/json"],
-  ])("%s", async (_name, body, contentType) => {
-    gotrue.mode = { kind: "responde", status: 404, body, contentType };
-    await expect(exchange()).resolves.toEqual(NAO_RECEBIDO);
+describe("troca: sem o corpo JSON do GoTrue, nenhum status de recusa é `recusado` (emendas do HITL-035 e da F1-API-08; A-02)", () => {
+  // O motivo da emenda do 404 vale igual para o resto: um desvio de configuração (a publishable recusada no gateway,
+  // um WAF na frente) não pode virar laço de relogin (T30). O GoTrue sem o cabeçalho de versão sempre manda o corpo.
+  describe.each(REFUSAL_STATUSES)("%d", (status) => {
+    test.each(WITHOUT_GOTRUE_BODY)("%s: nao_recebido, 1 chamada", async (_name, body, contentType) => {
+      gotrue.mode = { kind: "responde", status, body, contentType };
+      await expect(exchange()).resolves.toEqual(NAO_RECEBIDO);
+      expect(gotrue.requests).toHaveLength(1);
+    });
+
+    test("UTF-8 inválido no corpo", async () => {
+      const body = Buffer.concat([Buffer.from('{"error_code":"'), Buffer.from([0xff]), Buffer.from('"}')]);
+      gotrue.mode = { kind: "responde", status, body };
+      await expect(exchange()).resolves.toEqual(NAO_RECEBIDO);
+    });
+
+    test("corpo acima de 32 KiB", async () => {
+      const body = JSON.stringify({ error_code: "flow_state_not_found", pad: "a".repeat(GOTRUE_CLIENT_POLICY.maxResponseBytes) });
+      gotrue.mode = { kind: "responde", status, body };
+      await expect(exchange()).resolves.toEqual(NAO_RECEBIDO);
+    });
+  });
+
+  test("a publishable errada leva o 401 Invalid API key do gateway: nao_recebido, e o fluxo segue vivo para a troca certa", async () => {
+    const wrongKey = createGotrueTokenClient({ url: gotrue.url, publishableKey: "sb_publishable_ChaveRevogada-0000", timeoutMs: HAPPY_PATH_TIMEOUT_MS });
+    await expect(wrongKey.exchangePkce(CODE, VERIFIER)).resolves.toEqual(NAO_RECEBIDO);
     expect(gotrue.requests).toHaveLength(1);
-  });
-
-  test("UTF-8 inválido no corpo do 404", async () => {
-    const body = Buffer.concat([Buffer.from('{"error_code":"'), Buffer.from([0xff]), Buffer.from('"}')]);
-    gotrue.mode = { kind: "responde", status: 404, body };
-    await expect(exchange()).resolves.toEqual(NAO_RECEBIDO);
-  });
-
-  test("corpo do 404 acima de 32 KiB", async () => {
-    const body = JSON.stringify({ error_code: "flow_state_not_found", pad: "a".repeat(GOTRUE_CLIENT_POLICY.maxResponseBytes) });
-    gotrue.mode = { kind: "responde", status: 404, body };
-    await expect(exchange()).resolves.toEqual(NAO_RECEBIDO);
+    await expect(exchange()).resolves.toMatchObject({ ok: true });
   });
 
   test("rota errada (o simulado responde 404 em HTML fora de /auth/v1/token)", async () => {
@@ -476,6 +502,30 @@ describe("renovação (grant_type=refresh_token)", () => {
     await expect(client.refresh("r3fr3sh")).resolves.toEqual(NAO_RECEBIDO);
   });
 
+  test.each(REFUSAL_STATUSES)("%d com o corpo do GoTrue: recusado", async (status) => {
+    gotrue.mode = { kind: "responde", status, body: JSON.stringify({ code: status, error_code: "refresh_token_not_found", msg: "x" }) };
+    await expect(client.refresh("r3fr3sh")).resolves.toEqual(RECUSADO);
+  });
+
+  describe.each(REFUSAL_STATUSES)("%d sem o corpo do GoTrue (A-02)", (status) => {
+    test.each([
+      ["Invalid API key do gateway", INVALID_API_KEY, "application/json"],
+      ["HTML de WAF ou proxy", WAF_PAGE, "text/html"],
+      ["vazio", "", null],
+    ] as const)("%s: nao_recebido (503 sem apagar a sessão no caso de uso)", async (_name, body, contentType) => {
+      gotrue.mode = { kind: "responde", status, body, contentType };
+      await expect(client.refresh("r3fr3sh")).resolves.toEqual(NAO_RECEBIDO);
+      expect(gotrue.requests).toHaveLength(1);
+    });
+  });
+
+  test("a publishable errada leva o 401 Invalid API key do gateway: nao_recebido, e o refresh segue valendo no GoTrue", async () => {
+    const session = gotrue.addSession();
+    const wrongKey = createGotrueTokenClient({ url: gotrue.url, publishableKey: "sb_publishable_ChaveRevogada-0000", timeoutMs: HAPPY_PATH_TIMEOUT_MS });
+    await expect(wrongKey.refresh(session.refreshToken)).resolves.toEqual(NAO_RECEBIDO);
+    expect(gotrue.activeRefreshTokens.has(session.refreshToken)).toBe(true);
+  });
+
   test.each([
     ["vazio", ""],
     ["acima de 512", "r".repeat(513)],
@@ -516,7 +566,7 @@ describe("logout (scope=global)", () => {
     expect(gotrue.requests).toHaveLength(2);
   });
 
-  test.each([[200], [204], [401]])("%d: ok (o 401 vale sem corpo)", async (status) => {
+  test.each([[200], [204], [205]])("%d: ok", async (status) => {
     gotrue.mode = { kind: "responde", status, body: "" };
     await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual({ ok: true });
   });
@@ -528,35 +578,60 @@ describe("logout (scope=global)", () => {
     await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual({ ok: true });
   });
 
+  // A-01: o 401 nunca é sessão encerrada. O do GoTrue (`no_authorization`) diz que o Bearer não chegou; o do gateway
+  // (`Invalid API key`) diz que o GoTrue nem viu o pedido. Nos dois, a sessão pode seguir viva, e o 204 seria mentira.
   test.each([
-    ["sem corpo", "", "application/json"],
-    ["corpo vazio de JSON", "{}", "application/json"],
+    ["sem corpo (o 204 de antes da F1-API-08)", "", null, NAO_RECEBIDO],
+    ["Invalid API key do gateway", INVALID_API_KEY, "application/json", NAO_RECEBIDO],
+    ["HTML de proxy", WAF_PAGE, "text/html", NAO_RECEBIDO],
+    ["no_authorization do GoTrue (o Bearer não chegou)", JSON.stringify({ code: 401, error_code: "no_authorization", msg: "x" }), "application/json", RECUSADO],
+    ["session_not_found num 401 (só o 403 vale)", JSON.stringify({ error_code: "session_not_found" }), "application/json", RECUSADO],
+  ] as const)("401 %s: nunca ok", async (_name, body, contentType, expected) => {
+    gotrue.mode = { kind: "responde", status: 401, body, contentType };
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(expected);
+  });
+
+  test("a publishable errada leva o 401 Invalid API key do gateway: nao_recebido, e a sessão segue viva no GoTrue (A-01)", async () => {
+    const session = gotrue.addSession();
+    const wrongKey = createGotrueTokenClient({ url: gotrue.url, publishableKey: "sb_publishable_ChaveRevogada-0000", timeoutMs: HAPPY_PATH_TIMEOUT_MS });
+    await expect(wrongKey.logout(session.accessToken)).resolves.toEqual(NAO_RECEBIDO);
+    expect(gotrue.liveAccessTokens.has(session.accessToken)).toBe(true);
+    expect(gotrue.activeRefreshTokens.has(session.refreshToken)).toBe(true);
+  });
+
+  test.each([
     ["bad_jwt (assinatura recusada pelo GoTrue)", JSON.stringify({ error_code: "bad_jwt" }), "application/json"],
+    ["user_not_found", JSON.stringify({ code: 403, error_code: "user_not_found", msg: "x" }), "application/json"],
     ["session_not_found em outra caixa", JSON.stringify({ error_code: "SESSION_NOT_FOUND" }), "application/json"],
-    ["session_not_found fora de JSON", JSON.stringify({ error_code: "session_not_found" }), "text/html"],
-    ["session_not_found sem content-type", JSON.stringify({ error_code: "session_not_found" }), null],
-    ["JSON quebrado", '{"error_code":"session_not_found"', "application/json"],
-    ["session_not_found com __proto__", '{"error_code":"session_not_found","__proto__":{"x":1}}', "application/json"],
-  ] as const)("403 %s: recusado", async (_name, body, contentType) => {
+    ["session_not_found com espaço", JSON.stringify({ error_code: "session_not_found " }), "application/json"],
+  ] as const)("403 com o corpo do GoTrue e outro error_code (%s): recusado", async (_name, body, contentType) => {
     gotrue.mode = { kind: "responde", status: 403, body, contentType };
     await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
   });
 
-  test("403 com session_not_found acima do teto de 32 KiB: recusado", async () => {
+  test.each([
+    ["sem corpo", "", "application/json"],
+    ["corpo vazio de JSON", "{}", "application/json"],
+    ["HTML de WAF", WAF_PAGE, "text/html"],
+    ["session_not_found fora de JSON", JSON.stringify({ error_code: "session_not_found" }), "text/html"],
+    ["session_not_found sem content-type", JSON.stringify({ error_code: "session_not_found" }), null],
+    ["JSON quebrado", '{"error_code":"session_not_found"', "application/json"],
+    ["session_not_found com __proto__", '{"error_code":"session_not_found","__proto__":{"x":1}}', "application/json"],
+  ] as const)("403 sem o corpo do GoTrue (%s): nao_recebido", async (_name, body, contentType) => {
+    gotrue.mode = { kind: "responde", status: 403, body, contentType };
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(NAO_RECEBIDO);
+  });
+
+  test("403 com session_not_found acima do teto de 32 KiB: nao_recebido", async () => {
     const body = JSON.stringify({ error_code: "session_not_found", pad: "x".repeat(GOTRUE_CLIENT_POLICY.maxResponseBytes) });
     gotrue.mode = { kind: "responde", status: 403, body };
-    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(NAO_RECEBIDO);
   });
 
-  test.each([[400], [422]])("%d: recusado", async (status) => {
+  test.each([[400], [404], [422]])("%d com o corpo do GoTrue: recusado (mesmo com session_not_found); sem ele: nao_recebido", async (status) => {
     gotrue.mode = { kind: "responde", status, body: JSON.stringify({ error_code: "session_not_found" }) };
     await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
-  });
-
-  test("404 com o corpo do GoTrue: recusado; sem ele: nao_recebido", async () => {
-    gotrue.mode = { kind: "responde", status: 404, body: JSON.stringify({ error_code: "session_not_found" }) };
-    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(RECUSADO);
-    gotrue.mode = { kind: "responde", status: 404, body: "", contentType: null };
+    gotrue.mode = { kind: "responde", status, body: "", contentType: null };
     await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(NAO_RECEBIDO);
   });
 
@@ -619,19 +694,22 @@ describe("classificação dos erros do fetch (fetch substituído)", () => {
     await expect(exchange()).resolves.toEqual(PODE_TER_ROTACIONADO);
   });
 
-  test("404 sem corpo: nao_recebido", async () => {
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 404, headers: { "content-type": "application/json" } })));
+  test.each(REFUSAL_STATUSES)("%d sem corpo: nao_recebido", async (status) => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status, headers: { "content-type": "application/json" } })));
     await expect(exchange()).resolves.toEqual(NAO_RECEBIDO);
+    await expect(client.logout("aaa.bbb.ccc")).resolves.toEqual(NAO_RECEBIDO);
   });
 
   test.each([
     ["500 da troca", 500, "troca", NAO_RECEBIDO],
     ["404 da troca (o corpo do GoTrue não chega a ser lido)", 404, "troca", NAO_RECEBIDO],
+    ["401 da troca (o corpo do GoTrue não chega a ser lido)", 401, "troca", NAO_RECEBIDO],
     ["200 da troca", 200, "troca", PODE_TER_ROTACIONADO],
     ["202 da troca", 202, "troca", PODE_TER_ROTACIONADO],
     ["200 do logout", 200, "logout", { ok: true }],
     ["503 do logout", 503, "logout", NAO_RECEBIDO],
-    ["403 do logout (o session_not_found nunca chega)", 403, "logout", RECUSADO],
+    ["401 do logout", 401, "logout", NAO_RECEBIDO],
+    ["403 do logout (o session_not_found nunca chega)", 403, "logout", NAO_RECEBIDO],
   ] as const)("%s com o stream do corpo já em erro: classifica sem rejeitar", async (_name, status, call, expected) => {
     const broken = new ReadableStream<Uint8Array>({ start: (controller) => controller.error(new Error("socket")) });
     vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response(broken, { status, headers: { "content-type": "application/json" } })));

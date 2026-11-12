@@ -17,7 +17,7 @@ function setup() {
 }
 
 describe("EndSession", () => {
-  test("GoTrue ok (2xx, ou 401 de sessão já revogada no adapter): encerrada (204), 1 chamada com o Bearer", async () => {
+  test("GoTrue ok (2xx, ou 403 session_not_found no adapter): encerrada (204), 1 chamada com o Bearer", async () => {
     const { h, run } = setup();
     expect(await run()).toEqual({ kind: "encerrada" });
     expect(h.calls).toEqual([{ method: "logout", args: [TOKEN], signal: undefined }]);
@@ -48,10 +48,21 @@ describe("EndSession", () => {
     const { h, run } = setup();
     const release: (() => void)[] = [];
     const hold = Array.from({ length: GOTRUE_EGRESS_POLICY.maxConcurrent }, () =>
-      h.realEgress.run("troca", () => new Promise<void>((resolve) => release.push(resolve))),
+      h.realEgress.run("renovacao", () => new Promise<void>((resolve) => release.push(resolve))),
     );
     expect(await run()).toEqual({ kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: 5 });
     expect(h.calls).toEqual([]);
+    for (const done of release) done();
+    await Promise.all(hold);
+  });
+
+  test("trocas no teto do bulkhead não barram o logout: ele usa a vaga que a troca nunca ocupa (A-03)", async () => {
+    const { h, run } = setup();
+    const release: (() => void)[] = [];
+    const hold = Array.from({ length: GOTRUE_EGRESS_POLICY.trocaMaxConcurrent }, () =>
+      h.realEgress.run("troca", () => new Promise<void>((resolve) => release.push(resolve))),
+    );
+    expect(await run()).toEqual({ kind: "encerrada" });
     for (const done of release) done();
     await Promise.all(hold);
   });

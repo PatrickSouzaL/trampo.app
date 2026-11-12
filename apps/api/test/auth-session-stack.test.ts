@@ -71,8 +71,11 @@ async function nextToken(overrides: Claims = {}): Promise<void> {
   tokenQueue.push(await signToken(key, supabaseClaims(jwks.issuer, overrides)));
 }
 
-function stack(timeoutMs = HAPPY_PATH_TIMEOUT_MS) {
-  const gateway: AuthTokenGateway = createGotrueTokenClient({ url: gotrue.url, publishableKey: PUBLISHABLE, timeoutMs });
+/** Uma *publishable* que o GoTrue simulado não conhece: o gateway responde 401 `Invalid API key`, sem o corpo do GoTrue. */
+const WRONG_PUBLISHABLE = "sb_publishable_ChaveRevogada-0000";
+
+function stack(timeoutMs = HAPPY_PATH_TIMEOUT_MS, publishableKey = PUBLISHABLE) {
+  const gateway: AuthTokenGateway = createGotrueTokenClient({ url: gotrue.url, publishableKey, timeoutMs });
   const sealer: RefreshSealer = createAeadRefreshSealer(parseRefreshKeyring(`k1:${randomBytes(32).toString("base64url")}`, "k1"));
   // Verificador novo por pilha: cache do JWKS vazio, como no boot.
   const verifier = createJoseAccessTokenVerifier({ issuer: jwks.issuer, jwksUrl: jwks.jwksUrl, allowedAmr: ["oauth"] });
@@ -126,6 +129,8 @@ describe("ExchangeSession com as peças reais", () => {
     ["lento (processa e responde depois do prazo)", { kind: "lento", delayMs: SLOW_MS }],
     ["corta (processa e derruba o socket)", { kind: "corta" }],
     ["404 sem o corpo do GoTrue", { kind: "responde", status: 404, body: "<html>404</html>", contentType: "text/html" }],
+    ["401 Invalid API key do gateway (A-02)", { kind: "responde", status: 401, body: JSON.stringify({ message: "Invalid API key" }) }],
+    ["403 text/html de WAF (A-02)", { kind: "responde", status: 403, body: "<html>403 Forbidden</html>", contentType: "text/html" }],
   ] as const)("%s: 503 com exatamente 1 chamada (sem nova tentativa na troca)", async (_name, mode) => {
     const s = stack(SHORT_TIMEOUT_MS);
     gotrue.addFlow(CODE, VERIFIER);
@@ -218,6 +223,34 @@ describe("RefreshSession com as peças reais", () => {
     expect(gotrue.activeRefreshTokens.has(refreshToken)).toBe(true);
   });
 
+  // A-02: com a publishable recusada no gateway, o 401 fazia o SW apagar a sessão de todo usuário. O 503 a mantém
+  // (D11.3: só o 401 com o `ApiError` `NAO_AUTENTICADO` apaga), e o refresh segue valendo no GoTrue.
+  test.each([
+    ["publishable errada (o gateway responde 401 Invalid API key)", WRONG_PUBLISHABLE, { kind: "normal" }],
+    ["403 text/html de WAF", PUBLISHABLE, { kind: "responde", status: 403, body: "<html>403 Forbidden</html>", contentType: "text/html" }],
+    ["400 sem corpo", PUBLISHABLE, { kind: "responde", status: 400, body: "", contentType: null }],
+    ["422 com JSON sem error_code", PUBLISHABLE, { kind: "responde", status: 422, body: JSON.stringify({ message: "x" }) }],
+  ] as const)("%s: 503 sem apagar a sessão, 1 chamada e nenhuma nova tentativa", async (_name, publishableKey, mode) => {
+    const s = stack(HAPPY_PATH_TIMEOUT_MS, publishableKey);
+    const { refreshToken } = gotrue.addSession();
+    gotrue.requests.length = 0;
+    gotrue.mode = mode;
+    const outcome = await s.refresh.execute({ request: { schemaVersion: 1, refreshToken: s.envelopeFor(refreshToken) }, origin: ORIGIN });
+    expect(outcome).toEqual({ kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: null });
+    expect(tokenRequests()).toHaveLength(1);
+    expect(gotrue.activeRefreshTokens.has(refreshToken)).toBe(true);
+  });
+
+  test("refresh já usado (400 com o corpo do GoTrue): 401, a recusa legítima continua apagando", async () => {
+    const s = stack();
+    const { refreshToken } = gotrue.addSession();
+    await s.refresh.execute({ request: { schemaVersion: 1, refreshToken: s.envelopeFor(refreshToken) }, origin: ORIGIN });
+    gotrue.requests.length = 0;
+    const outcome = await s.refresh.execute({ request: { schemaVersion: 1, refreshToken: s.envelopeFor(refreshToken) }, origin: ORIGIN });
+    expect(outcome).toEqual({ kind: "nao_autenticado", reason: "auth_renovacao_recusada" });
+    expect(tokenRequests()).toHaveLength(1);
+  });
+
   test("sid divergente: 401 depois de 1 chamada, e o refresh novo não sai da API", async () => {
     const s = stack();
     const { refreshToken } = gotrue.addSession();
@@ -262,11 +295,40 @@ describe("EndSession com as peças reais", () => {
     expect(gotrue.activeRefreshTokens.has(refreshToken)).toBe(false);
   });
 
-  test("sessão já revogada (401): encerrada, idempotente", async () => {
+  test("sessão já revogada (403 session_not_found, como o GoTrue real): encerrada, idempotente", async () => {
     const s = stack();
     const { accessToken } = gotrue.addSession();
     await s.end.execute({ accessToken });
     expect(await s.end.execute({ accessToken })).toEqual({ kind: "encerrada" });
+  });
+
+  // A-01: com a publishable rotacionada ou desligada, o "Sair" dizia "saiu" (204) e a sessão seguia viva no GoTrue.
+  test("publishable errada (401 Invalid API key do gateway): 503, nunca 204, e a sessão segue viva no GoTrue", async () => {
+    const s = stack(HAPPY_PATH_TIMEOUT_MS, WRONG_PUBLISHABLE);
+    const { accessToken, refreshToken } = gotrue.addSession();
+    gotrue.requests.length = 0;
+    expect(await s.end.execute({ accessToken })).toEqual({
+      kind: "indisponivel",
+      reason: "auth_provedor_indisponivel",
+      retryAfterSeconds: null,
+    });
+    expect(gotrue.requests).toHaveLength(1);
+    expect(gotrue.liveAccessTokens.has(accessToken)).toBe(true);
+    expect(gotrue.activeRefreshTokens.has(refreshToken)).toBe(true);
+  });
+
+  test.each([
+    ["401 sem corpo", { kind: "responde", status: 401, body: "", contentType: null }],
+    ["401 no_authorization do GoTrue (o Bearer não chegou)", { kind: "responde", status: 401, body: JSON.stringify({ code: 401, error_code: "no_authorization", msg: "x" }) }],
+  ] as const)("%s: 503, nunca 204", async (_name, mode) => {
+    const s = stack();
+    const { accessToken } = gotrue.addSession();
+    gotrue.mode = mode;
+    expect(await s.end.execute({ accessToken })).toEqual({
+      kind: "indisponivel",
+      reason: "auth_provedor_indisponivel",
+      retryAfterSeconds: null,
+    });
   });
 
   test("GoTrue 500: 503", async () => {
