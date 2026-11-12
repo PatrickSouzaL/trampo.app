@@ -89,18 +89,23 @@ export type StreamControl = "seguir" | "parar";
  * - `stream: true`: o 200 em `text/event-stream`, com o fim `completo` (o servidor fechou), `parado` (o leitor pediu),
  *   `queda` (rede ou prazo depois do status) ou `ilegivel` (teto ou UTF-8);
  * - `stream: false`: outro status, com o corpo inteiro até 16 KiB (o `ApiError`);
- * - os motivos do `post`; o 200 em outro tipo de conteúdo é `resposta_ilegivel`.
+ * - os motivos do `post`; o 200 em outro tipo de conteúdo é `resposta_ilegivel`;
+ * - `cancelado`: quem chamou abortou (ADR-025 §6.3 D15), antes do status, durante o stream ou durante o corpo de erro.
+ *   Depois do abort, é sempre este o resultado, mesmo que a resposta já tivesse chegado.
  */
 export type AnalyzeResult =
   | { readonly ok: true; readonly stream: true; readonly fim: "completo" | "parado" | "queda" | "ilegivel" }
   | { readonly ok: true; readonly stream: false; readonly status: number; readonly body: string }
-  | { readonly ok: false; readonly reason: "pedido_recusado" | "sem_resposta" | "resposta_ilegivel" };
+  | { readonly ok: false; readonly reason: "pedido_recusado" | "sem_resposta" | "resposta_ilegivel" | "cancelado" };
 
 export interface ApiClient {
   /** Nunca rejeita. */
   post(call: ApiCall): Promise<ApiResult>;
-  /** O `POST /v1/analyze` em SSE, com os prazos e tetos do D9. Nunca rejeita. */
-  analyze(call: AnalyzeCall, onText: (text: string) => StreamControl): Promise<AnalyzeResult>;
+  /**
+   * O `POST /v1/analyze` em SSE, com os prazos e tetos do D9. O `signal` de quem chama derruba o `fetch` na hora
+   * (D15); depois dele, o `onText` não é mais chamado. Nunca rejeita.
+   */
+  analyze(call: AnalyzeCall, onText: (text: string) => StreamControl, signal?: AbortSignal): Promise<AnalyzeResult>;
 }
 
 export interface ApiClientOptions {
@@ -113,6 +118,7 @@ export interface ApiClientOptions {
 const PEDIDO_RECUSADO = Object.freeze({ ok: false, reason: "pedido_recusado" } as const);
 const SEM_RESPOSTA = Object.freeze({ ok: false, reason: "sem_resposta" } as const);
 const RESPOSTA_ILEGIVEL = Object.freeze({ ok: false, reason: "resposta_ilegivel" } as const);
+const CANCELADO = Object.freeze({ ok: false, reason: "cancelado" } as const);
 
 interface Prepared {
   readonly path: string;
@@ -175,8 +181,8 @@ function isEventStream(contentType: string | null): boolean {
 
 type StreamEnd = Extract<AnalyzeResult, { stream: true }>["fim"];
 
-/** Cada pedaço do 200, decodificado em UTF-8 estrito, vai ao leitor até o teto. */
-async function pumpStream(body: ReadableStream<Uint8Array>, onText: (text: string) => StreamControl, onChunk: () => void): Promise<StreamEnd> {
+/** Cada pedaço do 200, decodificado em UTF-8 estrito, vai ao leitor até o teto. Depois do `stopped`, nenhum vai. */
+async function pumpStream(body: ReadableStream<Uint8Array>, onText: (text: string) => StreamControl, onChunk: () => void, stopped: () => boolean): Promise<StreamEnd> {
   const reader = body.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: true });
   let total = 0;
@@ -188,6 +194,8 @@ async function pumpStream(body: ReadableStream<Uint8Array>, onText: (text: strin
       // Rede, ou o abort de um prazo.
       return "queda";
     }
+    // O pedaço lido antes do abort de quem chama e entregue depois dele não chega ao leitor (D15).
+    if (stopped()) return "queda";
     let text: string;
     try {
       if (chunk.done) {
@@ -246,7 +254,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       }
     },
 
-    async analyze(call, onText) {
+    async analyze(call, onText, signal) {
       let prepared: Prepared | undefined;
       try {
         prepared = prepare({ path: ANALYZE_PATH, body: call.body, accessToken: call.accessToken });
@@ -254,9 +262,18 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         prepared = undefined;
       }
       if (prepared === undefined) return PEDIDO_RECUSADO;
+      if (signal?.aborted === true) return CANCELADO;
+      const { path, headers, body: payload } = prepared;
       const policy = ANALYZE_STREAM_POLICY;
       const controller = new AbortController();
       const abort = (): void => controller.abort();
+      // O abort de quem chama (D15) cai no mesmo controlador dos prazos; o `fetch` só conhece o sinal interno.
+      let cancelled = false;
+      const cancel = (): void => {
+        cancelled = true;
+        controller.abort();
+      };
+      signal?.addEventListener("abort", cancel);
       const total = setTimeout(abort, policy.totalMs);
       // O primeiro prazo é o do status; cada pedaço do corpo troca por um prazo de inatividade novo.
       let idle = setTimeout(abort, policy.statusMs);
@@ -264,19 +281,21 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         clearTimeout(idle);
         idle = setTimeout(abort, policy.idleMs);
       };
-      try {
+      const attempt = async (): Promise<AnalyzeResult> => {
         let response: Response;
         try {
-          response = await send(`${apiOrigin}${prepared.path}`, {
+          response = await send(`${apiOrigin}${path}`, {
             method: "POST",
-            headers: prepared.headers,
-            body: prepared.body,
+            headers,
+            body: payload,
             ...API_CLIENT_POLICY.init,
             signal: controller.signal,
           });
         } catch {
           return SEM_RESPOSTA;
         }
+        // A resposta que chega depois do abort não é lida.
+        if (cancelled) return CANCELADO;
         touch();
         if (response.status !== 200) {
           const body = await readBody(response, policy.errorMaxBytes, touch);
@@ -285,11 +304,17 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         }
         if (!isEventStream(response.headers.get("content-type"))) return RESPOSTA_ILEGIVEL;
         if (response.body === null) return { ok: true, stream: true, fim: "completo" };
-        return { ok: true, stream: true, fim: await pumpStream(response.body, onText, touch) };
+        return { ok: true, stream: true, fim: await pumpStream(response.body, onText, touch, () => cancelled) };
+      };
+      try {
+        const result = await attempt();
+        // Depois do abort de quem chama, o resultado é sempre `cancelado`, em qualquer fase.
+        return cancelled ? CANCELADO : result;
       } finally {
         clearTimeout(total);
         clearTimeout(idle);
         controller.abort();
+        signal?.removeEventListener("abort", cancel);
       }
     },
   };

@@ -53,7 +53,10 @@ export interface AnalysisService {
   attach(port: PanelPort): void;
   /** Clique em "Analisar vaga" ou "Reanalisar com IA". Nunca rejeita. */
   analyze(mode: AnalysisMode): Promise<void>;
-  /** A captura mudou: a análise em curso não chega mais ao painel, e uma nova já pode começar. */
+  /**
+   * A captura mudou, ou o consentimento foi retirado: o `fetch` em voo cai na hora, a análise em curso não chega mais
+   * ao painel, e uma nova já pode começar.
+   */
   cancel(): void;
 }
 
@@ -92,11 +95,19 @@ type Sent =
 
 const CANCELADO: Sent = { kind: "cancelado" };
 
+/** Uma análise aceita: a geração em que nasceu e o sinal que o `cancel()` aborta. */
+interface Run {
+  readonly gen: number;
+  readonly signal: AbortSignal;
+}
+
 export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisService {
   const hub = createPanelHub();
   // A captura que muda soma a geração: nada da análise antiga chega mais ao painel.
   let generation = 0;
   let running = false;
+  // O controlador da análise aceita mais recente: um por análise, o mesmo no envio e no reenvio do 401.
+  let inFlight: AbortController | undefined;
 
   // Só sai o que a geração vigente produziu: o leitor recebe pedaço só com ela (o `onText` responde `parar` depois do
   // cancelamento), e o terminal só sai depois de conferi-la.
@@ -132,16 +143,17 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
   };
 
   /** Uma transmissão: o consentimento e a geração conferidos logo antes, e o stream lido pelo leitor estrito. */
-  const transmit = async (gen: number, api: Pick<ApiClient, "analyze">, body: AnalyzeJobRequestInput, token: string, first: boolean): Promise<Sent> => {
+  const transmit = async (run: Run, api: Pick<ApiClient, "analyze">, body: AnalyzeJobRequestInput, token: string, first: boolean): Promise<Sent> => {
+    const { gen, signal } = run;
     if (!(await deps.consent.isGranted())) return fail("analise_sem_consentimento", "ERRO_INTERNO", first ? null : body.requestId);
     if (gen !== generation) return CANCELADO;
     const reader = createSseReader(emit);
-    const result = await api.analyze({ body, accessToken: token }, (text) => (gen === generation && reader.push(text) === "seguir" ? "seguir" : "parar"));
+    const result = await api.analyze({ body, accessToken: token }, (text) => (gen === generation && reader.push(text) === "seguir" ? "seguir" : "parar"), signal);
     if (gen !== generation) return CANCELADO;
     return classify(result, body.requestId, () => reader.end());
   };
 
-  const run = async (gen: number, mode: AnalysisMode): Promise<Sent> => {
+  const run = async (current: Run, mode: AnalysisMode): Promise<Sent> => {
     const api = deps.api;
     if (api === undefined) return fail("analise_sem_api", "ERRO_INTERNO", null);
     if (!(await deps.consent.isGranted())) return fail("analise_sem_consentimento", "ERRO_INTERNO", null);
@@ -156,12 +168,13 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
       job: { titleHint: null, text: job.text, clientTruncated: job.truncated },
       mode,
     };
-    const sent = await transmit(gen, api, body, token, true);
+    const sent = await transmit(current, api, body, token, true);
     if (sent.kind !== "nao_autenticado") return sent;
     // D11.4: o token que levou o 401 é o capturado no envio, nunca um lido depois.
     const renewed = await deps.auth.onUnauthorized(1, token);
     if (renewed === undefined) return fail("analise_recusada", "NAO_AUTENTICADO", body.requestId);
-    const again = await transmit(gen, api, body, renewed, false);
+    // O reenvio leva o mesmo sinal: o cancelamento derruba o que estiver em voo (§6.3 D16).
+    const again = await transmit(current, api, body, renewed, false);
     if (again.kind !== "nao_autenticado") return again;
     await deps.auth.onUnauthorized(2, renewed);
     return fail("analise_recusada", "NAO_AUTENTICADO", body.requestId);
@@ -178,9 +191,10 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
       }
       running = true;
       const gen = generation;
+      inFlight = new AbortController();
       let sent: Sent;
       try {
-        sent = await run(gen, mode);
+        sent = await run({ gen, signal: inFlight.signal }, mode);
       } catch {
         sent = fail("analise_falha_interna", "ERRO_INTERNO", null);
       }
@@ -194,6 +208,8 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
     cancel() {
       generation += 1;
       running = false;
+      // Na hora, sem esperar o próximo pedaço: o `fetch` em voo cai e solta a vaga da análise na API (§6.3 D16).
+      inFlight?.abort();
     },
   };
 }

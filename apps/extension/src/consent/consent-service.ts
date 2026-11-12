@@ -19,6 +19,11 @@ export const ConsentRecordSchema = z.strictObject({
 export interface ConsentServiceDeps {
   readonly store: SessionStore<typeof ConsentRecordSchema>;
   readonly now: () => number;
+  /**
+   * O consentimento vai ser retirado (ADR-025 §6.3 D17): chamado antes de apagar o registro e de avisar o painel, para
+   * a análise em curso parar antes de o `consentimento` chegar à tela.
+   */
+  readonly onRevoke?: () => void;
 }
 
 export interface ConsentService {
@@ -47,6 +52,7 @@ export function createConsentService(deps: ConsentServiceDeps): ConsentService {
       hub.broadcast({ kind: "consentimento", dado: true });
     },
     async revoke() {
+      deps.onRevoke?.();
       await deps.store.remove();
       hub.broadcast({ kind: "consentimento", dado: false });
     },

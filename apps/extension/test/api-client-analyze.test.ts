@@ -348,3 +348,177 @@ describe("stream 200", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe("abort de quem chama (ADR-025 §6.3 D15)", () => {
+  const CANCELADO = { ok: false, reason: "cancelado" };
+  const client = (fetch: FetchLike) => createApiClient({ apiOrigin: ORIGIN, fetch });
+
+  /** Um `fetch` que só responde quando o teste manda, e que rejeita no abort como o do navegador. */
+  function pendingFetch() {
+    let inner: AbortSignal | undefined;
+    let answer: ((response: Response) => void) | undefined;
+    const calls: RequestInit[] = [];
+    const fetch: FetchLike = (_url, init) =>
+      new Promise((resolve, reject) => {
+        calls.push(init);
+        inner = init.signal ?? undefined;
+        answer = resolve;
+        inner?.addEventListener("abort", () => reject(new DOMException("abortado", "AbortError")));
+      });
+    return { fetch, calls, answer: (response: Response) => answer?.(response), inner: () => inner };
+  }
+
+  /** Uma resposta com o corpo que o teste alimenta; guarda o sinal interno que o `fetch` recebeu. */
+  function fedResponse(status: number) {
+    let body: Body | undefined;
+    let inner: AbortSignal | undefined;
+    const fetch: FetchLike = async (_url, init) => {
+      inner = init.signal ?? undefined;
+      body = controlledBody(init.signal);
+      return new Response(body.body, { status, headers: status === 200 ? SSE : {} });
+    };
+    return { fetch, body: () => body as Body, inner: () => inner };
+  }
+
+  /** Uma resposta cujo leitor entrega o que o teste manda mesmo depois do abort (o pedaço que já tinha sido lido). */
+  function scriptedResponse(status: number) {
+    const reads: Array<(chunk: ReadableStreamReadResult<Uint8Array>) => void> = [];
+    const getReader = vi.fn(() => ({ read: () => new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) => reads.push(resolve)) }));
+    const response = { status, headers: new Headers(status === 200 ? SSE : {}), body: { getReader } } as unknown as Response;
+    return { response, getReader, deliver: (chunk: ReadableStreamReadResult<Uint8Array>) => reads.shift()?.(chunk), waiting: () => reads.length };
+  }
+
+  test("sinal já abortado na chamada: cancelado, e nada sai", async () => {
+    vi.useFakeTimers();
+    const { fetch, calls } = pendingFetch();
+    const onText = vi.fn(() => "seguir" as const);
+    expect(await client(fetch).analyze({ body: BODY, accessToken: TOKEN }, onText, AbortSignal.abort())).toEqual(CANCELADO);
+    expect(calls).toHaveLength(0);
+    expect(onText).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test("pedido fora do contrato com o sinal já abortado: continua pedido_recusado", async () => {
+    const { fetch, calls } = pendingFetch();
+    expect(await client(fetch).analyze({ body: BODY, accessToken: "" }, () => "seguir", AbortSignal.abort())).toEqual({ ok: false, reason: "pedido_recusado" });
+    expect(calls).toHaveLength(0);
+  });
+
+  test("o fetch recebe só o sinal interno, nunca o de quem chama", async () => {
+    const { fetch, calls, answer } = pendingFetch();
+    const caller = new AbortController();
+    const result = client(fetch).analyze({ body: BODY, accessToken: TOKEN }, () => "seguir", caller.signal);
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.signal).toBeInstanceOf(AbortSignal);
+    expect(calls[0]?.signal).not.toBe(caller.signal);
+    answer(new Response(null, { status: 200, headers: SSE }));
+    expect(await result).toEqual({ ok: true, stream: true, fim: "completo" });
+  });
+
+  test("abort antes do status: cancelado na hora, o fetch cai e nenhum relógio sobra", async () => {
+    vi.useFakeTimers();
+    const { fetch, calls, inner } = pendingFetch();
+    const caller = new AbortController();
+    const result = client(fetch).analyze({ body: BODY, accessToken: TOKEN }, () => "seguir", caller.signal);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls).toHaveLength(1);
+    expect(inner()?.aborted).toBe(false);
+    caller.abort();
+    expect(inner()?.aborted).toBe(true);
+    expect(await result).toEqual(CANCELADO);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test("resposta que chega depois do abort: cancelado, e o corpo nem é lido", async () => {
+    const scripted = scriptedResponse(200);
+    let answer: ((response: Response) => void) | undefined;
+    const caller = new AbortController();
+    const onText = vi.fn(() => "seguir" as const);
+    const result = client(() => new Promise((resolve) => (answer = resolve))).analyze({ body: BODY, accessToken: TOKEN }, onText, caller.signal);
+    await vi.waitFor(() => expect(answer).toBeDefined());
+    caller.abort();
+    answer?.(scripted.response);
+    expect(await result).toEqual(CANCELADO);
+    expect(scripted.getReader).not.toHaveBeenCalled();
+    expect(onText).not.toHaveBeenCalled();
+  });
+
+  test("abort durante o stream, com o servidor em silêncio: cancelado na hora, e nenhum relógio sobra", async () => {
+    vi.useFakeTimers();
+    const fed = fedResponse(200);
+    const caller = new AbortController();
+    const seen: string[] = [];
+    const result = client(fed.fetch).analyze({ body: BODY, accessToken: TOKEN }, (text) => (seen.push(text), "seguir"), caller.signal);
+    await vi.advanceTimersByTimeAsync(0);
+    fed.body().push(encode("event: stage\n"));
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(seen).toEqual(["event: stage\n"]);
+    expect(await pending(result)).toBe(true);
+    caller.abort();
+    expect(await result).toEqual(CANCELADO);
+    expect(fed.inner()?.aborted).toBe(true);
+    expect(seen).toEqual(["event: stage\n"]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test("abort durante o corpo de erro: cancelado, e nenhum relógio sobra", async () => {
+    vi.useFakeTimers();
+    const fed = fedResponse(503);
+    const caller = new AbortController();
+    const result = client(fed.fetch).analyze({ body: BODY, accessToken: TOKEN }, () => "seguir", caller.signal);
+    await vi.advanceTimersByTimeAsync(0);
+    fed.body().push(encode('{"code":'));
+    expect(await pending(result)).toBe(true);
+    caller.abort();
+    expect(await result).toEqual(CANCELADO);
+    expect(fed.inner()?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test("pedaço lido antes do abort e entregue depois: não chega ao leitor", async () => {
+    const scripted = scriptedResponse(200);
+    const caller = new AbortController();
+    const onText = vi.fn(() => "seguir" as const);
+    const result = client(async () => scripted.response).analyze({ body: BODY, accessToken: TOKEN }, onText, caller.signal);
+    await vi.waitFor(() => expect(scripted.waiting()).toBe(1));
+    caller.abort();
+    scripted.deliver({ done: false, value: encode("event: result\n") });
+    expect(await result).toEqual(CANCELADO);
+    expect(onText).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["o stream que fecha", 200],
+    ["o corpo de erro que termina", 503],
+  ])("%s depois do abort: cancelado, nunca completo nem o corpo", async (_nome, status) => {
+    const scripted = scriptedResponse(status);
+    const caller = new AbortController();
+    const result = client(async () => scripted.response).analyze({ body: BODY, accessToken: TOKEN }, () => "seguir", caller.signal);
+    await vi.waitFor(() => expect(scripted.waiting()).toBe(1));
+    caller.abort();
+    scripted.deliver({ done: true, value: undefined });
+    expect(await result).toEqual(CANCELADO);
+  });
+
+  test("o ouvinte sai do sinal no fim", async () => {
+    const caller = new AbortController();
+    const add = vi.spyOn(caller.signal, "addEventListener");
+    const remove = vi.spyOn(caller.signal, "removeEventListener");
+    const api = client(async () => new Response(null, { status: 200, headers: SSE }));
+    expect(await api.analyze({ body: BODY, accessToken: TOKEN }, () => "seguir", caller.signal)).toEqual({ ok: true, stream: true, fim: "completo" });
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(add.mock.calls[0]?.[0]).toBe("abort");
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove.mock.calls[0]).toEqual(["abort", add.mock.calls[0]?.[1]]);
+  });
+
+  test("os prazos seguem valendo com o sinal de quem chama: 20 s de silêncio ainda é queda", async () => {
+    vi.useFakeTimers();
+    const fed = fedResponse(200);
+    const caller = new AbortController();
+    const result = client(fed.fetch).analyze({ body: BODY, accessToken: TOKEN }, () => "seguir", caller.signal);
+    await vi.advanceTimersByTimeAsync(ANALYZE_STREAM_POLICY.idleMs);
+    expect(await result).toEqual({ ok: true, stream: true, fim: "queda" });
+    expect(caller.signal.aborted).toBe(false);
+  });
+});
