@@ -49,7 +49,18 @@ begin
     );
   end if;
 
-  -- As claims voltam como vieram: o hook não acrescenta nem tira claim.
+  -- O GoTrue (v2.197.0) só liga o `jwt.MarshalSingleStringAsArray = false` dentro do SignJWT, e o evento deste hook é
+  -- montado antes: no 1º token depois de cada partida do processo, o `aud` chega como lista de uma string só. Ela volta
+  -- como a string, que é o que o GoTrue emite sem o hook e o que o verificador da API exige (ADR-013 D4; emenda do
+  -- ADR-026 D2). Lista vazia, com mais de um item ou com item que não é string volta como veio. Os `if` aninhados
+  -- garantem a ordem: o `jsonb_array_length` só roda numa lista, e a função nunca lança por dado de entrada.
+  if jsonb_typeof(v_claims -> 'aud') = 'array' then
+    if jsonb_array_length(v_claims -> 'aud') = 1 and jsonb_typeof(v_claims -> 'aud' -> 0) = 'string' then
+      v_claims := jsonb_set(v_claims, '{aud}', v_claims -> 'aud' -> 0);
+    end if;
+  end if;
+
+  -- Fora isso, as claims voltam como vieram: o hook não acrescenta nem tira claim.
   return jsonb_build_object('claims', v_claims);
 end;
 $$;

@@ -189,6 +189,32 @@ describe("a função chamada direto, como supabase_auth_admin (ADR-026 D2 e D3)"
     expect(callHook(eventFor(claims))).toEqual({ claims });
   });
 
+  test("aud em lista de uma string só (1º token depois da partida do GoTrue) volta como a string; o resto, igual", () => {
+    expect(callHook(eventFor({ ...userClaims, aud: ["authenticated"] }))).toEqual({ claims: { ...userClaims, aud: "authenticated" } });
+    expect(callHookAtAge({ ...userClaims, aud: ["outro"] }, "60")).toEqual({ claims: { ...userClaims, aud: "outro" } });
+    expect(callHookAtAge({ ...userClaims, aud: ["authenticated"] }, String(MAX_AGE_SECONDS + 1))).toEqual(REFUSED);
+  });
+
+  test.each([
+    ["string", "authenticated"],
+    ["lista vazia", []],
+    ["lista com dois", ["authenticated", "outro"]],
+    ["lista com número", [42]],
+    ["lista com nulo", [null]],
+    ["lista com lista", [["authenticated"]]],
+    ["objeto", { aud: "authenticated" }],
+    ["número", 7],
+    ["nulo", null],
+  ])("aud %s: volta como veio, sem exceção", (_name, aud) => {
+    const claims = { ...userClaims, aud };
+    expect(callHook(eventFor(claims))).toEqual({ claims });
+  });
+
+  test("sem aud: volta sem aud", () => {
+    const claims = Object.fromEntries(Object.entries(userClaims).filter(([name]) => name !== "aud"));
+    expect(callHook(eventFor(claims))).toEqual({ claims });
+  });
+
   test("limite exato, com o relógio do banco parado: 86.400 s passa; 86.401 s e 86.400 s mais 1 microssegundo recusam", () => {
     expect(callHookAtAge(userClaims, String(MAX_AGE_SECONDS))).toEqual({ claims: userClaims });
     expect(callHookAtAge(userClaims, String(MAX_AGE_SECONDS - 1))).toEqual({ claims: userClaims });
@@ -312,7 +338,8 @@ describe("GoTrue de verdade com o hook ligado", () => {
     if (!verified.ok) return;
     expect(verified.lifetime.expiresAt - verified.lifetime.issuedAt).toBe(900);
     expect(Object.keys(userClaims).sort()).toEqual(GOTRUE_CLAIMS);
-    expect(userClaims).toMatchObject({ sub: user.userId, role: "authenticated", aal: "aal1", is_anonymous: false });
+    // `aud` string mesmo quando este é o 1º token desde a partida do GoTrue (a função normaliza a lista; ADR-026 D2).
+    expect(userClaims).toMatchObject({ sub: user.userId, aud: "authenticated", role: "authenticated", aal: "aal1", is_anonymous: false });
     expect(z.array(z.object({ method: z.string() })).parse(userClaims["amr"]).map((entry) => entry.method)).toEqual(["password"]);
   });
 
