@@ -76,7 +76,7 @@ const NAO_LOGADO: SessaoView = { autenticado: false, erro: null };
 describe("createWorkerAuth", () => {
   test("devolve o serviço sem o view(): a visão só sai pelo canal, saneada (D10 B6)", () => {
     const auth = createWorkerAuth({ apiOrigin: API, supabaseOrigin: SUPABASE }, recorder());
-    expect(Object.keys(auth).sort()).toStrictEqual(["accessToken", "api", "attach", "login", "logout", "onUnauthorized"]);
+    expect(Object.keys(auth).sort()).toStrictEqual(["accessToken", "api", "attach", "hasSession", "login", "logout", "onUnauthorized"]);
   });
 
   test("o api da composição é o mesmo cliente da sessão, e não existe sem as duas origens (ADR-025 §6 D13)", async () => {

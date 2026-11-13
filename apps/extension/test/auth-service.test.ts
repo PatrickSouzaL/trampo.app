@@ -1107,6 +1107,62 @@ describe("onUnauthorized (ADR-004 D11.4)", () => {
 });
 
 // ==========================================================================================================
+describe("hasSession (ADR-025 §6.6 D26)", () => {
+  test("com sessão local: true, sem rede, sem emissão e sem mexer no storage", async () => {
+    const { service, api, emitted } = setup();
+    await plant(session());
+    await expect(service.hasSession()).resolves.toBe(true);
+    expect(api.calls).toStrictEqual([]);
+    expect(emitted).toStrictEqual([]);
+    expect(await stored()).toStrictEqual(session());
+  });
+
+  test("sem sessão, ou com o valor adulterado (o sessionStore apaga): false", async () => {
+    const { service } = setup();
+    await expect(service.hasSession()).resolves.toBe(false);
+    await plant({ ...session(), token: "intruso" });
+    await expect(service.hasSession()).resolves.toBe(false);
+    expect(await stored()).toBeUndefined();
+  });
+
+  test("devolve só o booleano, nunca o token, e não renova a sessão vencida", async () => {
+    const { service, api, clock } = setup();
+    await plant(session(TOKEN_1, T0, MIN));
+    await clock.advance(2 * MIN);
+    const result: unknown = await service.hasSession();
+    expect(result).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(TOKEN_1);
+    expect(api.calls).toStrictEqual([]);
+  });
+
+  test("sem a configuração do build, só lê: a sessão gravada conta", async () => {
+    await plant(session());
+    const { service } = setup({ config: false });
+    await expect(service.hasSession()).resolves.toBe(true);
+  });
+
+  test("storage que falha: true, sem rejeitar (a dúvida nunca empurra para um novo login, T30)", async () => {
+    const real = authSessionStore();
+    const get = vi.fn(() => Promise.reject(new Error("storage")));
+    const { service } = setup({ store: { ...real, get } });
+    await expect(service.hasSession()).resolves.toBe(true);
+  });
+
+  test("depois da renovação recusada (401), false; depois da transitória (503), true", async () => {
+    const recusada = setup();
+    await plant(session(TOKEN_1, T0, MIN));
+    recusada.api.reply(UNAUTHORIZED);
+    expect(await recusada.service.accessToken()).toBeUndefined();
+    await expect(recusada.service.hasSession()).resolves.toBe(false);
+
+    const transitoria = setup();
+    await plant(session(TOKEN_1, T0, MIN));
+    transitoria.api.reply(http(503, apiError("SERVICO_INDISPONIVEL")));
+    expect(await transitoria.service.onUnauthorized(1, TOKEN_1)).toBeUndefined();
+    await expect(transitoria.service.hasSession()).resolves.toBe(true);
+  });
+});
+
 describe("logout (ADR-004 D11.5)", () => {
   test("204 ou 401 encerram sem nova chamada", async () => {
     for (const status of [204, 401]) {

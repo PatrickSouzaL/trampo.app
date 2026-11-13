@@ -34,6 +34,13 @@ description = "Anel do envelope do refresh (AUTH_REFRESH_SEAL_KEYS) com material
 regex = '''AUTH_REFRESH_SEAL_KEYS["'`\]]{0,2}[ \t]*(?:=>|:=|=|:)\s*["'`]?[A-Za-z0-9_-]{1,32}:[A-Za-z0-9_+/-]{32,}'''
 keywords = ["auth_refresh_seal_keys"]
 
+# Anel do selo dos cookies do portal (ADR-027 D4): a mesma forma, num anel separado. Mesmas restrições da regra acima.
+[[rules]]
+id = "trampo-portal-seal-keys"
+description = "Anel do selo dos cookies do portal (PORTAL_SEAL_KEYS) com material de chave literal (32+ caracteres): dotenv, YAML (inclusive na linha de baixo), JSON, código e shell"
+regex = '''PORTAL_SEAL_KEYS["'`\]]{0,2}[ \t]*(?:=>|:=|=|:)\s*["'`]?[A-Za-z0-9_-]{1,32}:[A-Za-z0-9_+/-]{32,}'''
+keywords = ["portal_seal_keys"]
+
 [[rules]]
 id = "trampo-auth-seal-keys-files"
 description = "Arquivo de chave privada pelo caminho: qualquer .pem e o signing_keys.json do GoTrue local (gerado no job db, nunca versionado)"

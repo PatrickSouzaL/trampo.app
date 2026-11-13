@@ -97,6 +97,36 @@ export async function upsert(
 }
 
 /**
+ * Uma chamada de RPC pedindo um schema pelo `Content-Profile` (F1-DB-02, ADR-026 condição 1): o PostgREST só serve
+ * os schemas de `[api] schemas`, então um schema fora da lista é recusado para qualquer papel.
+ */
+export async function rpcInSchema(
+  stack: LocalStack,
+  schema: string,
+  name: string,
+  user: StackUser | null,
+  body: unknown,
+): Promise<RestResponse> {
+  const headers: Record<string, string> = {
+    apikey: stack.publishableKey,
+    accept: "application/json",
+    "content-type": "application/json",
+    "content-profile": schema,
+  };
+  if (user !== null) headers["authorization"] = `Bearer ${user.accessToken}`;
+  return send(stack, `/rest/v1/rpc/${name}`, { method: "POST", headers, body: JSON.stringify(body) });
+}
+
+/**
+ * A mesma pilha, com outro papel do banco local na URI (F1-DB-02): o GoTrue local conecta como
+ * `supabase_auth_admin` com a senha do banco local, e é assim que o teste chama o hook e envelhece uma sessão. Só
+ * troca o usuário; o host continua o 127.0.0.1 já conferido pelo `parseLocalStackEnv`.
+ */
+export function stackAs(stack: LocalStack, role: string): LocalStack {
+  return Object.freeze({ ...stack, dbUrl: stack.dbUrl.replace(/\/\/\w+:/, `//${role}:`) });
+}
+
+/**
  * Roda um script no Postgres local pelo psql e devolve o JSON da única linha impressa. O ambiente do processo é
  * limpo (só o PATH): nenhuma PGHOST, PGHOSTADDR ou PGSERVICE do runner redireciona a conexão para outro banco.
  * As variáveis entram com `--set` e são lidas no script como `:'nome'` (literal citado pelo próprio psql).

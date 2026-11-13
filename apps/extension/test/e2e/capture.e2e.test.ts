@@ -193,10 +193,14 @@ describe("captura no build de produção", () => {
     await expect.poll(() => l!.panel.locator("[data-captura]").count()).toBe(0);
   });
 
+  // QA-04 (F1-EXT-08): o Chrome 157 aborta o `edge://version/`. O `chrome://version/` abre nos dois, e o Edge reporta
+  // `edge://version/`: o clique procura a aba pela URL que o próprio navegador diz, e o teste confere que ela é restrita.
   test("página restrita: sem_acesso, e o painel oferece colar o texto", async () => {
     const page = await l!.ctx.newPage();
-    await page.goto("edge://version/");
-    await clickAction(l!, "edge://version/");
+    await page.goto("chrome://version/");
+    const restricted = page.url();
+    expect(["chrome://version/", "edge://version/"]).toContain(restricted);
+    await clickAction(l!, restricted);
     expect(await settledState(l!)).toMatchObject({ estado: "falhou", motivo: "sem_acesso" });
     await expect.poll(() => l!.panel.locator("textarea").count()).toBe(1);
     await page.close();

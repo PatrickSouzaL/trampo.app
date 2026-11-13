@@ -389,15 +389,17 @@ describe("cenários 4 e 5: revogação e BFF fora, pelo caminho da análise (ADR
     expect(analyzePosts(state)).toHaveLength(analyzePosts(before).length + 2);
   });
 
-  test("cenário 4 pela renovação antes do envio: a sessão é apagada, nada sai para a análise, e ela diz SERVICO_INDISPONIVEL (D10, portão 4)", async () => {
+  test("cenário 4 pela renovação antes do envio: a sessão é apagada, nada sai para a análise, e ela diz NAO_AUTENTICADO como a sessão (§6.6 D27)", async () => {
     await control.script({ expiresIn: 30 });
     await signIn(l!);
     // A sessão do teste anterior morreu só no SW (o onUnauthorized(2) é local): no falso ela ainda vivia.
     expect(await control.revoke()).toBe(2);
     const before = await control.state();
     await clickAnalyze(l!.panel);
-    await expect.poll(() => errorOf(l!.panel, "SERVICO_INDISPONIVEL").count(), { timeout: 10_000 }).toBe(1);
+    await expect.poll(() => errorOf(l!.panel, "NAO_AUTENTICADO").count(), { timeout: 10_000 }).toBe(1);
+    expect(await errorOf(l!.panel, "SERVICO_INDISPONIVEL").count()).toBe(0);
     expect((await sessoes()).at(-1)).toEqual({ autenticado: false, erro: "NAO_AUTENTICADO" });
+    await expect.poll(() => sessionLines(l!)).toEqual(expectedLines(SESSION_TEXTS.desconectado.NAO_AUTENTICADO));
     expect((await storage(l!, "session"))[SESSION_STORAGE_KEY]).toBeUndefined();
     const state = await control.state();
     expect(analyzePosts(state)).toHaveLength(analyzePosts(before).length);
@@ -449,5 +451,29 @@ describe("cenários 4 e 5: revogação e BFF fora, pelo caminho da análise (ADR
     expect(authorizes(state)).toBe(authorizes(before));
     expect(analyzePosts(state)).toHaveLength(analyzePosts(before).length);
     expect(requestViolations(state, ORIGIN)).toEqual([]);
+  });
+
+  test("401 da análise com a renovação 503: a sessão segue Conectado com o serviço indisponível, e a análise diz o mesmo (§6.6 D27)", async () => {
+    // Token de vida normal de novo: a renovação antes do envio dá certo, e a análise sai (controle positivo).
+    await control.script({ expiresIn: 900 });
+    await clickAnalyze(l!.panel);
+    await expect.poll(() => report(l!.panel).count(), { timeout: 10_000 }).toBe(1);
+    expect((await sessoes()).at(-1)).toEqual({ autenticado: true, erro: null });
+
+    await control.script({ analyze: ["401"], refresh: ["503"] });
+    const before = await control.state();
+    const access = await storedAccess(l!);
+    await clickAnalyze(l!.panel);
+    await expect.poll(() => errorOf(l!.panel, "SERVICO_INDISPONIVEL").count(), { timeout: 10_000 }).toBe(1);
+    expect(await errorOf(l!.panel, "NAO_AUTENTICADO").count()).toBe(0);
+    expect((await sessoes()).at(-1)).toEqual({ autenticado: true, erro: "SERVICO_INDISPONIVEL" });
+    await expect.poll(() => sessionLines(l!)).toEqual(expectedLines(SESSION_TEXTS.conectado.SERVICO_INDISPONIVEL));
+    expect(await storedAccess(l!)).toBe(access);
+    const state = await control.state();
+    // Um envio (401), uma renovação (503, sem nova tentativa depois de resposta HTTP) e nenhum reenvio.
+    expect(analyzePosts(state)).toHaveLength(analyzePosts(before).length + 1);
+    expect(refreshPosts(state)).toHaveLength(refreshPosts(before).length + 1);
+    expect(state.auth.roteiro.slice(-2)).toEqual(["analyze:401", "refresh:503"]);
+    expect(authorizes(state)).toBe(authorizes(before));
   });
 });

@@ -151,6 +151,39 @@ describe("pilha local do Supabase: espelho da produção e chave fora do git (AD
     expect(setting("sign_in_sign_ups")).toEqual(["30"]);
   });
 
+  /** As linhas ativas (sem comentário nem branco) de cada seção do TOML, na ordem do arquivo. */
+  const sections = (): Map<string, string[]> => {
+    const found = new Map<string, string[]>();
+    let current: string[] = [];
+    for (const line of config.split("\n").map((text) => text.trim())) {
+      if (line === "" || line.startsWith("#")) continue;
+      const header = /^\[([\w.]+)\]$/.exec(line);
+      if (header?.[1] === undefined) {
+        current.push(line);
+        continue;
+      }
+      current = [];
+      found.set(header[1], current);
+    }
+    return found;
+  };
+
+  it("o Custom Access Token Hook está ligado na função da migration, e é o único hook de auth (F1-DB-02, ADR-026 D7)", () => {
+    const all = sections();
+    expect([...all.keys()].filter((name) => name.startsWith("auth.hook"))).toEqual(["auth.hook.custom_access_token"]);
+    expect(all.get("auth.hook.custom_access_token")).toEqual([
+      "enabled = true",
+      'uri = "pg-functions://postgres/trampo_hooks/custom_access_token"',
+    ]);
+    // A função da URI é a que a migration cria, e o schema dela não é servido pelo PostgREST.
+    const migration = readFileSync(`${ROOT_DIR}supabase/migrations/20261112210000_custom_access_token_hook.sql`, "utf8");
+    expect(migration).toContain("create or replace function trampo_hooks.custom_access_token(event jsonb)");
+    expect(all.get("api")).toContain('schemas = ["public", "graphql_public"]');
+    // O limite nativo do GoTrue (timebox, do plano Pro) fica desligado: ligado, ele recusaria antes do hook, e o
+    // job db deixaria de provar a função.
+    expect(all.has("auth.sessions")).toBe(false);
+  });
+
   it("o .gitignore barra a chave do GoTrue local e qualquer .pem", () => {
     const ignored = readFileSync(`${ROOT_DIR}.gitignore`, "utf8").replaceAll("\r\n", "\n").split("\n");
     expect(ignored).toContain("supabase/signing_keys.json");

@@ -40,7 +40,8 @@ type LocalCode = keyof typeof LOCAL_ERROR_MESSAGES;
 export interface AnalysisServiceDeps {
   /** O cliente da composição (ADR-025 §6 D13); ausente no build sem as duas origens. */
   readonly api: Pick<ApiClient, "analyze"> | undefined;
-  readonly auth: Pick<AuthService, "accessToken" | "onUnauthorized">;
+  /** O `hasSession` é só um booleano, lido nos caminhos sem token (ADR-025 §6.6 D26). */
+  readonly auth: Pick<AuthService, "accessToken" | "onUnauthorized" | "hasSession">;
   readonly consent: Pick<ConsentService, "isGranted">;
   /** A vaga da captura `pronto`, ou nada. */
   readonly job: () => Promise<CapturedJob | undefined>;
@@ -142,6 +143,15 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
     return { kind: "terminal", event: terminal, motivo: null };
   };
 
+  /**
+   * Sem token: o código acompanha a sessão (§6.6 D27). Sem sessão local, a renovação foi recusada e a apagou
+   * (`NAO_AUTENTICADO`); com ela, ou na dúvida, a falha foi transitória (`SERVICO_INDISPONIVEL`, T30).
+   */
+  const withoutToken = async (motivoSemSessao: AnalysisLogReason, motivoComSessao: AnalysisLogReason, requestId: string | null): Promise<Sent> =>
+    (await deps.auth.hasSession().catch(() => true))
+      ? fail(motivoComSessao, "SERVICO_INDISPONIVEL", requestId)
+      : fail(motivoSemSessao, "NAO_AUTENTICADO", requestId);
+
   /** Uma transmissão: o consentimento e a geração conferidos logo antes, e o stream lido pelo leitor estrito. */
   const transmit = async (run: Run, api: Pick<ApiClient, "analyze">, body: AnalyzeJobRequestInput, token: string, first: boolean): Promise<Sent> => {
     const { gen, signal } = run;
@@ -160,7 +170,7 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
     const job = await deps.job();
     if (job === undefined) return fail("analise_sem_vaga", "ERRO_INTERNO", null);
     const token = await deps.auth.accessToken();
-    if (token === undefined) return fail("analise_sem_token", "SERVICO_INDISPONIVEL", null);
+    if (token === undefined) return withoutToken("analise_sem_token", "analise_sem_token", null);
     const body: AnalyzeJobRequestInput = {
       schemaVersion: 1,
       requestId: deps.randomUUID(),
@@ -172,7 +182,7 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
     if (sent.kind !== "nao_autenticado") return sent;
     // D11.4: o token que levou o 401 é o capturado no envio, nunca um lido depois.
     const renewed = await deps.auth.onUnauthorized(1, token);
-    if (renewed === undefined) return fail("analise_recusada", "NAO_AUTENTICADO", body.requestId);
+    if (renewed === undefined) return withoutToken("analise_recusada", "analise_indisponivel", body.requestId);
     // O reenvio leva o mesmo sinal: o cancelamento derruba o que estiver em voo (§6.3 D16).
     const again = await transmit(current, api, body, renewed, false);
     if (again.kind !== "nao_autenticado") return again;
