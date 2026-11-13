@@ -67,7 +67,11 @@ function setup(scripts: Script[] = [{ sse: [frame(STAGE), frame(RESULT)] }], ove
   const logs: string[] = [];
   const deps: AnalysisServiceDeps = {
     api: { analyze },
-    auth: { accessToken: vi.fn(async () => TOKEN), onUnauthorized: vi.fn(async (tentativa: 1 | 2) => (tentativa === 1 ? RENOVADO : undefined)) },
+    auth: {
+      accessToken: vi.fn(async () => TOKEN),
+      onUnauthorized: vi.fn(async (tentativa: 1 | 2) => (tentativa === 1 ? RENOVADO : undefined)),
+      hasSession: vi.fn(async () => true),
+    },
     consent: { isGranted: vi.fn(async () => true) },
     job: vi.fn(async () => JOB),
     randomUUID: vi.fn(() => ID),
@@ -123,14 +127,40 @@ describe("portões, antes de qualquer rede (D10)", () => {
     expect(logs).toEqual(["analise_sem_vaga"]);
   });
 
-  test("sem token: SERVICO_INDISPONIVEL (nunca NAO_AUTENTICADO, T30), sem envio", async () => {
+  test("sem token e com sessão local (renovação transitória): SERVICO_INDISPONIVEL, sem envio (§6.6 D27)", async () => {
     const accessToken = vi.fn(async () => undefined);
-    const { service, deps, events, analyze, logs } = setup([], { auth: { accessToken, onUnauthorized: vi.fn() } });
+    const { service, deps, events, analyze, logs } = setup([], { auth: { accessToken, onUnauthorized: vi.fn(), hasSession: vi.fn(async () => true) } });
     await service.analyze("auto");
     expect(events()).toEqual([local("SERVICO_INDISPONIVEL", null)]);
     expect(analyze).not.toHaveBeenCalled();
     expect(deps.auth.onUnauthorized).not.toHaveBeenCalled();
+    expect(deps.auth.hasSession).toHaveBeenCalledTimes(1);
     expect(logs).toEqual(["analise_sem_token"]);
+  });
+
+  test("sem token e sem sessão (a renovação recusada a apagou): NAO_AUTENTICADO, como a sessão diz (§6.6 D27)", async () => {
+    const accessToken = vi.fn(async () => undefined);
+    const { service, events, analyze, logs } = setup([], { auth: { accessToken, onUnauthorized: vi.fn(), hasSession: vi.fn(async () => false) } });
+    await service.analyze("auto");
+    expect(events()).toEqual([local("NAO_AUTENTICADO", null)]);
+    expect(analyze).not.toHaveBeenCalled();
+    expect(logs).toEqual(["analise_sem_token"]);
+  });
+
+  test("sem token e a leitura da sessão lança: conta como sessão, SERVICO_INDISPONIVEL e nunca rejeita (T30)", async () => {
+    const accessToken = vi.fn(async () => undefined);
+    const hasSession = vi.fn(async () => Promise.reject(new Error("storage")));
+    const { service, events, logs } = setup([], { auth: { accessToken, onUnauthorized: vi.fn(), hasSession } });
+    await expect(service.analyze("auto")).resolves.toBeUndefined();
+    expect(events()).toEqual([local("SERVICO_INDISPONIVEL", null)]);
+    expect(logs).toEqual(["analise_sem_token"]);
+  });
+
+  test("com token, a sessão local nem é lida: o hasSession só existe nos caminhos sem token", async () => {
+    const { service, deps, events } = setup();
+    await service.analyze("auto");
+    expect(events()).toEqual([STAGE, RESULT]);
+    expect(deps.auth.hasSession).not.toHaveBeenCalled();
   });
 
   test("ordem: consentimento, vaga, token, consentimento de novo e só então o envio", async () => {
@@ -344,13 +374,50 @@ describe("401 da análise (ADR-004 D11.4, Emenda da F1-EXT-07)", () => {
     expect(deps.auth.onUnauthorized).toHaveBeenCalledWith(1, TOKEN);
   });
 
-  test("sem token novo: NAO_AUTENTICADO, sem reenvio", async () => {
+  test("sem token novo e sem sessão (a renovação recusada a apagou): NAO_AUTENTICADO, sem reenvio", async () => {
     const onUnauthorized = vi.fn(async () => undefined);
-    const { service, calls, events, logs } = setup([unauthorized], { auth: { accessToken: vi.fn(async () => TOKEN), onUnauthorized } });
+    const auth = { accessToken: vi.fn(async () => TOKEN), onUnauthorized, hasSession: vi.fn(async () => false) };
+    const { service, calls, events, logs } = setup([unauthorized], { auth });
     await service.analyze("auto");
     expect(calls).toHaveLength(1);
     expect(events()).toEqual([local("NAO_AUTENTICADO", ID)]);
     expect(logs).toEqual(["analise_recusada"]);
+  });
+
+  test("sem token novo e com a sessão viva (renovação transitória): SERVICO_INDISPONIVEL, sem reenvio (§6.6 D27)", async () => {
+    const onUnauthorized = vi.fn(async () => undefined);
+    const auth = { accessToken: vi.fn(async () => TOKEN), onUnauthorized, hasSession: vi.fn(async () => true) };
+    const { service, calls, events, logs } = setup([unauthorized], { auth });
+    await service.analyze("auto");
+    expect(calls).toHaveLength(1);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(events()).toEqual([local("SERVICO_INDISPONIVEL", ID)]);
+    expect(logs).toEqual(["analise_indisponivel"]);
+  });
+
+  test("sem token novo e a leitura da sessão lança: SERVICO_INDISPONIVEL (T30)", async () => {
+    const auth = { accessToken: vi.fn(async () => TOKEN), onUnauthorized: vi.fn(async () => undefined), hasSession: vi.fn(async () => Promise.reject(new Error("storage"))) };
+    const { service, events, logs } = setup([unauthorized], { auth });
+    await service.analyze("auto");
+    expect(events()).toEqual([local("SERVICO_INDISPONIVEL", ID)]);
+    expect(logs).toEqual(["analise_indisponivel"]);
+  });
+
+  test("cancelada durante a leitura da sessão: nada no painel, e a próxima análise roda", async () => {
+    const read = deferred<boolean>();
+    const hasSession = vi.fn(() => read.promise);
+    const auth = { accessToken: vi.fn(async () => TOKEN), onUnauthorized: vi.fn(async () => undefined), hasSession };
+    const { service, calls, events, logs } = setup([unauthorized, { sse: [frame(RESULT)] }], { auth });
+    const running = service.analyze("auto");
+    await vi.waitFor(() => expect(hasSession).toHaveBeenCalled());
+    service.cancel();
+    read.resolve(true);
+    await running;
+    expect(events()).toEqual([]);
+    expect(logs).toEqual([]);
+    await service.analyze("auto");
+    expect(calls).toHaveLength(2);
+    expect(events()).toEqual([RESULT]);
   });
 
   test("2º 401: onUnauthorized(2) com o token do reenvio, NAO_AUTENTICADO e nunca um 3º envio", async () => {
@@ -363,6 +430,8 @@ describe("401 da análise (ADR-004 D11.4, Emenda da F1-EXT-07)", () => {
     ]);
     expect(events()).toEqual([local("NAO_AUTENTICADO", ID)]);
     expect(logs).toEqual(["analise_recusada"]);
+    // O 2º 401 já apagou a sessão do token usado: a leitura não decide nada aqui.
+    expect(deps.auth.hasSession).not.toHaveBeenCalled();
   });
 
   test("o reenvio confere o consentimento de novo: retirado, nada sai", async () => {
@@ -377,7 +446,7 @@ describe("401 da análise (ADR-004 D11.4, Emenda da F1-EXT-07)", () => {
   test("captura que muda durante a renovação: sem reenvio e sem nada no painel", async () => {
     const renewal = deferred<string | undefined>();
     const onUnauthorized = vi.fn(() => renewal.promise);
-    const { service, calls, events } = setup([unauthorized, { sse: [frame(RESULT)] }], { auth: { accessToken: vi.fn(async () => TOKEN), onUnauthorized } });
+    const { service, calls, events } = setup([unauthorized, { sse: [frame(RESULT)] }], { auth: { accessToken: vi.fn(async () => TOKEN), onUnauthorized, hasSession: vi.fn(async () => true) } });
     const running = service.analyze("auto");
     await vi.waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
     service.cancel();
@@ -454,7 +523,7 @@ describe("cancelamento e concorrência (D10)", () => {
 
   test("cancelada durante o accessToken: nada sai", async () => {
     const token = deferred<string | undefined>();
-    const { service, analyze, events } = setup([], { auth: { accessToken: vi.fn(() => token.promise), onUnauthorized: vi.fn() } });
+    const { service, analyze, events } = setup([], { auth: { accessToken: vi.fn(() => token.promise), onUnauthorized: vi.fn(), hasSession: vi.fn(async () => true) } });
     const running = service.analyze("auto");
     await vi.waitFor(() => expect(token).toBeDefined());
     await Promise.resolve();

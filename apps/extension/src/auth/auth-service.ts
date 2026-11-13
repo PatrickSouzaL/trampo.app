@@ -77,6 +77,12 @@ export interface AuthService {
    * sessão trocou recebe o atual. Nunca rejeita.
    */
   onUnauthorized(tentativa: 1 | 2, usado: string): Promise<string | undefined>;
+  /**
+   * Há sessão local gravada? Só o booleano, nunca o token, sem rede e sem renovar (ADR-025 §6.6 D26): é o que a análise
+   * sem token usa para escolher o código. A leitura que lança conta como sessão: a dúvida nunca empurra para um novo
+   * login (T30). Nunca rejeita.
+   */
+  hasSession(): Promise<boolean>;
 }
 
 type Outcome =
@@ -421,6 +427,14 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
         return (await renewShared(deps.config.api, session))?.accessToken;
       } catch {
         return undefined;
+      }
+    },
+
+    async hasSession() {
+      try {
+        return (await deps.store.get()) !== undefined;
+      } catch {
+        return true;
       }
     },
   };
