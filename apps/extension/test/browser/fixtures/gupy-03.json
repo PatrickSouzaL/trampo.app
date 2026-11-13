@@ -6,13 +6,13 @@
   "raizEsperada": "main",
   "raizDaPlataforma": "main",
   "trechosObrigatorios": [
-    "O Itaú é a marca mais",
-    "Vivência com arquiteturas distribuídas e microsserviços;",
-    "e eleitos, pela décima vez consecutiva,"
+    "I Ufae u u dedsi ceot",
+    "Sulapsae ril izreositazuv kukclopiudit a bidtavzonnadot;",
+    "a atietoc, rofo jelogi luz cokrabutifu,"
   ],
   "trechosProibidos": [
     "[PESSOA]",
-    "Ao clicar em “Aceitar todos os"
+    "Uu ktulaz ud “Enuoted bekum ez"
   ],
   "anonimizacao": {
     "URL": 1

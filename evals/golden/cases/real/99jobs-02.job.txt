@@ -1,7 +1,7 @@
 
-# GLPI | Desenvolvedor .NET Angular
+# ITOP | Desenvolvedor .NET Angular
 
-- **Empresa:** GLPI
+- **Empresa:** ITOP
 - **Título da vaga:** Desenvolvedor .NET Angular
 - **Localidade:** São Paulo, SP, Brasil
 - **Regime de atuação:** Híbrido
@@ -10,15 +10,15 @@
 ---
 
 ### Sobre a vaga
-Atuação no desenvolvimento Full Stack com foco em integração de soluções corporativas e Inteligência Artificial Generativa, trabalhando próximo às áreas de negócio para mapear processos jurídicos/corporativos e convertê-los em automações com arquitetura em nuvem e modelos de linguagem.
+Posição Full Stack voltada a integrar soluções corporativas com Inteligência Artificial Generativa, em contato direto com as áreas de negócio para entender fluxos jurídicos e corporativos e transformá-los em automações apoiadas em arquitetura de nuvem e modelos de linguagem.
 
 ### Responsabilidades e atribuições
-- Atuar junto às áreas de negócio na identificação de oportunidades de automação com Inteligência Artificial.
-- Conduzir e participar de levantamentos de requisitos com advogados, gestores e usuários finais.
-- Traduzir regras de negócio complexas em soluções técnicas escaláveis.
-- Desenvolver e manter aplicações Full Stack utilizando ecossistema .NET e Angular.
-- Projetar e implementar APIs RESTful.
-- Desenvolver integrações entre sistemas legados/internos e serviços em nuvem.
-- Desenvolver soluções baseadas em IA Generativa utilizando Amazon Bedrock e modelos LLM na AWS.
-- Participar da definição arquitetural, sustentação de sistemas críticos e evolução contínua da base de código.
-- Produ
+- Identificar, lado a lado com as áreas de negócio, onde a Inteligência Artificial pode automatizar tarefas.
+- Conduzir ou apoiar o levantamento de requisitos com advogados, gestores e quem usa os sistemas no dia a dia.
+- Converter regras de negócio intrincadas em soluções técnicas que suportem crescimento.
+- Construir e manter aplicações Full Stack com o ecossistema .NET e Angular.
+- Desenhar e entregar APIs RESTful.
+- Criar integrações entre sistemas legados ou internos e serviços hospedados em nuvem.
+- Construir soluções de IA Generativa com Amazon Bedrock e modelos LLM na AWS.
+- Contribuir com as decisões de arquitetura, a sustentação de sistemas críticos e a melhoria constante do código.
+- Elabo

@@ -1,6 +1,6 @@
-# GOLD CREDIT SECURITIZADORA S/A | Analista de Desenvolvimento de Sistemas
+# TORVALE CREDIT SECURITIZADORA S/A | Analista de Desenvolvimento de Sistemas
 
-- **Empresa:** GOLD CREDIT SECURITIZADORA S/A
+- **Empresa:** TORVALE CREDIT SECURITIZADORA S/A
 - **Título da vaga:** Analista de Desenvolvimento de Sistemas
 - **Localidade:** Registro, SP, Brasil
 - **Regime de atuação:** Presencial
@@ -9,33 +9,33 @@
 ---
 
 ### Sobre a vaga
-Atuação na análise, desenvolvimento, integração e sustentação de soluções tecnológicas voltadas à operação da securitizadora, contemplando automação de processos de crédito e cobrança, criação de APIs, integrações com ERPs e instituições bancárias, além da aplicação de boas práticas de segurança da informação e governança de dados.
+A pessoa vai entender, construir, integrar e manter as soluções de tecnologia que movem a securitizadora: automação dos fluxos de crédito e cobrança, criação de APIs, conexões com ERPs e bancos parceiros e cuidado com a segurança da informação e com a governança dos dados.
 
 ### Responsabilidades e atribuições
-- Realizar o levantamento e mapeamento de demandas operacionais com áreas de negócio, traduzindo-as em especificações técnicas e fluxos sistêmicos.
-- Desenvolver, sustentar e evoluir sistemas internos, APIs RESTful e integrações com bancos, ERPs e plataformas de cobrança.
-- Automatizar e otimizar rotinas operacionais (cadastro de operações, cálculo de antecipação de recebíveis, conciliações e relatórios administrativos).
-- Executar testes funcionais, correções de bugs e validações para garantir estabilidade, segurança e performance das aplicações.
-- Monitorar a saúde de integrações e rotinas batch, analisando logs de aplicação para identificação e correção de instabilidades.
-- Apoiar na extração de dados e elaboração de relatórios, dashboards e indicadores gerenciais/financeiros.
-- Prestar suporte técnico e funcional de nível avançado aos usuários internos sobre ferramentas e integrações.
-- Elaborar e atualizar documentação técnica de código, manuais de uso e mapeamentos de processos.
-- Implementar controles de acesso, políticas de senhas seguras, autenticação multifator (MFA) e proteção de dados em conformidade com a LGPD.
-- Apoiar pontualmente demandas básicas de infraestrutura de TI corporativa (suporte a redes locais, estações de trabalho e periféricos).
+- Conversar com as áreas de negócio para levantar e mapear necessidades, transformando-as em especificações técnicas e fluxos de sistema.
+- Construir e manter sistemas internos, integrações com ERPs, bancos e sistemas de cobrança e APIs RESTful.
+- Automatizar e agilizar tarefas do dia a dia (conciliações, relatórios administrativos, cadastro de operações e cálculo de antecipação de recebíveis).
+- Testar funcionalidades, corrigir bugs e validar entregas para manter as aplicações estáveis, seguras e rápidas.
+- Acompanhar a saúde das integrações e dos processos batch, lendo logs para achar e corrigir instabilidades.
+- Ajudar a extrair dados e montar relatórios, painéis e indicadores gerenciais/financeiros.
+- Atender os usuários internos com suporte técnico e funcional avançado sobre ferramentas e integrações.
+- Escrever e manter em dia a documentação do código, os manuais de uso e os mapas de processos.
+- Implantar controles de acesso, regras de senhas fortes, autenticação multifator (MFA) e proteção de dados de acordo com a LGPD.
+- Apoiar pontualmente pedidos simples de infraestrutura de TI do escritório (redes locais, computadores e periféricos).
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Formação superior (Bacharelado ou Tecnólogo) em Tecnologia da Informação, Ciência da Computação, Análise e Desenvolvimento de Sistemas ou áreas afins.
-- Conhecimento em ciclo de vida de desenvolvimento de software, construção de integrações, criação de APIs e rotinas automatizadas.
-- Habilidade técnica na análise de logs para diagnóstico e resolução de incidentes sistêmicos.
-- Conhecimentos aplicados em desenvolvimento seguro, controle de permissões por perfil e normas de privacidade (LGPD).
-- Capacidade analítica para resolução de problemas técnicos em sistemas, integrações e ambiente de TI do usuário final.
-- Boa comunicação interpessoal para interface com stakeholders operacionais e de negócios.
+- Curso superior (Bacharelado ou Tecnólogo) em Ciência da Computação, Tecnologia da Informação, Análise e Desenvolvimento de Sistemas ou cursos relacionados.
+- Domínio do ciclo de vida de desenvolvimento de software, de integrações, de APIs e de rotinas automáticas.
+- Facilidade para ler logs e, a partir deles, diagnosticar e resolver falhas de sistema.
+- Conhecimento prático de desenvolvimento seguro, permissões por perfil e regras de privacidade (LGPD).
+- Raciocínio analítico para resolver problemas em sistemas, integrações e no ambiente de TI de quem usa.
+- Comunicação clara para dialogar com stakeholders da operação e do negócio.
 
 **Desejáveis / Diferenciais:**
-- Vivência prévia no segmento financeiro, securitizadoras, factoring ou cobrança.
-- Noções de bancos de dados relacionais e modelagem de queries.
+- Passagem anterior pelo mercado financeiro, securitizadoras, factoring ou cobrança.
+- Familiaridade com bancos relacionais e com a escrita de queries.
 
 ### Benefícios
 - Vale-Alimentação

@@ -1,7 +1,7 @@
 
-# Peopleware Tecnologia | Analista de Produção
+# Quartzo Azul Tecnologia | Analista de Produção
 
-- **Empresa:** Peopleware Tecnologia
+- **Empresa:** Quartzo Azul Tecnologia
 - **Título da vaga:** Analista de Produção
 - **Localidade:** Rio de Janeiro, RJ (ou Niterói / São Paulo)
 - **Regime de atuação:** Híbrido
@@ -10,31 +10,31 @@
 ---
 
 ### Sobre a vaga
-Atuação na sustentação, automação e evolução de ambientes operacionais, com foco na estabilidade e execução de ciclos de processamento em produção e homologação, automação de rotinas via scripts e gestão de incidentes críticos de nível 3.
+A posição cuida do dia a dia dos ambientes operacionais: mantê-los estáveis, garantir que os ciclos de processamento de produção e de homologação rodem sem falhas, transformar tarefas manuais em scripts e responder por incidentes críticos que chegam ao nível 3.
 
 ### Responsabilidades e atribuições
-- Analisar, desenvolver e otimizar rotinas de automação em Shell Script, propondo melhorias contínuas no ambiente operacional.
-- Executar e monitorar ciclos de processamento de produção, homologação e rotinas batch eventuais, garantindo integridade e conformidade com os SLAs.
-- Criar, aplicar e homologar Requisições de Mudanças (RDM) com versionamento via GitLab.
-- Atuar no suporte operacional de Nível 3 para novos produtos e ambiente de sustentação, diagnosticando causas-raiz e executando correções de incidentes.
-- Realizar atendimento técnico a clientes em reuniões online para alinhamento operacional e esclarecimento de dúvidas.
-- Manter, configurar e prestar suporte a ferramentas de monitoramento e observabilidade (APS, Zabbix e Grafana).
-- Atuar em regime de escala de sobreaviso e acionamento pontual (plantão/fins de semana/madrugadas) para contenção de incidentes críticos.
+- Escrever, revisar e tornar mais eficientes as automações em Shell Script, sugerindo ajustes constantes na operação.
+- Disparar e acompanhar os ciclos de processamento de produção, de homologação e os lotes batch esporádicos, zelando pelos SLAs combinados.
+- Elaborar, executar e validar as Requisições de Mudanças (RDM), mantendo o histórico versionado no GitLab.
+- Prestar suporte de Nível 3 a produtos recém-lançados e à sustentação, investigando a origem dos problemas e aplicando as correções.
+- Participar de reuniões online com clientes para alinhar a operação e tirar dúvidas técnicas.
+- Configurar e dar suporte ao ferramental de monitoramento e de observabilidade (APS, Zabbix e Grafana).
+- Compor a escala de sobreaviso, podendo ser acionado em plantão, fins de semana ou madrugadas para conter incidentes críticos.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Graduação completa em Análise e Desenvolvimento de Sistemas, Ciência da Computação ou áreas correlatas de Tecnologia da Informação.
-- Experiência prévia em operações de sustentação, processamento batch e gestão de chamados.
-- Domínio prático no desenvolvimento e manutenção de automações em Shell Script.
-- Experiência sólida com versionamento de código via Git.
-- Vivência prática com plataformas de ITSM e atendimento (ex.: Znuny).
-- Experiência em configuração e operação de ferramentas de monitoramento e observabilidade.
+- Formação superior concluída em Ciência da Computação, Análise e Desenvolvimento de Sistemas ou cursos afins da área de Tecnologia da Informação.
+- Bagagem anterior em sustentação de operações, processamento batch e tratamento de chamados.
+- Prática real na criação e na manutenção de automações em Shell Script.
+- Boa experiência com controle de versão de código usando Git.
+- Uso no dia a dia de plataformas de ITSM e atendimento (ex.: Znuny).
+- Experiência configurando e operando ferramentas de monitoramento e observabilidade.
 
 **Desejáveis / Diferenciais:**
-- Conhecimentos de programação em Python ou JavaScript.
-- Noções de comandos e manipulação de banco de dados relacional (MySQL).
-- Vivência com recursos avançados de GitLab (esteiras CI/CD e governança de repositórios).
+- Saber programar em Python ou JavaScript.
+- Noções de consultas e manipulação de dados em banco relacional (MySQL).
+- Contato com recursos mais avançados do GitLab (esteiras CI/CD e governança de repositórios).
 - Espanhol em nível de conversação avançada.
 
 ### Benefícios
@@ -45,5 +45,5 @@ Atuação na sustentação, automação e evolução de ambientes operacionais, 
 
 ### Modelo e local de trabalho
 - **Regime:** Híbrido.
-- **Escala:** Atuação regular com disponibilidade para regime de sobreaviso/acionamento para incidentes críticos.
-- **Base territorial:** Rio de Janeiro, RJ (com atuação e escritórios vinculados no RJ, Niterói e SP).
+- **Escala:** Jornada regular, com disponibilidade para sobreaviso e acionamento em caso de incidentes críticos.
+- **Base territorial:** Rio de Janeiro, RJ (com escritórios e atuação vinculados ao RJ, a Niterói e a SP).

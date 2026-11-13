@@ -1,4 +1,4 @@
-Grupo Stefanini
+Grupo Nimbara
 
 Especialista em Nuvem (CCoE)
 São Paulo - SP
@@ -6,48 +6,48 @@ Efetivo
 Híbrido
 
 Descrição da vaga
-No Grupo Stefanini, acreditamos no poder da colaboração. Co-criamos soluções inovadoras em parceria com nossos clientes, combinando tecnologia de ponta, inteligência artificial e a criatividade humana. Estamos na vanguarda da resolução de problemas de negócios, proporcionando impacto real em escala global.
+No Grupo Nimbara, apostamos no trabalho em conjunto. Desenvolvemos, lado a lado com quem atendemos, soluções que unem tecnologia avançada, inteligência artificial e o talento das pessoas. Encaramos de frente os desafios de negócio e entregamos resultados concretos em diversos países.
 
-Ao se juntar à Stefanini, você se torna parte de uma jornada global de transformação. Estamos empenhados em criar impacto positivo não apenas nos negócios, mas também na vida de nossos colaboradores. Se você procura uma oportunidade de crescimento profissional em uma empresa que valoriza inovação, respeito, autonomia e parceria, você encontra aqui!
+Quem chega à Nimbara entra em uma trajetória internacional de transformação. Queremos gerar efeitos positivos tanto para os clientes quanto para a vida de quem trabalha conosco. Se o seu objetivo é crescer na carreira em um lugar que preza por inovação, respeito, autonomia e parceria, este é o seu espaço!
 
-Junte-se a nós e seja parte da mudança!
+Venha construir essa mudança com a gente!
 
 Híbrido 2x na semana - Faria Lima/SP.
 
 Responsabilidades e atribuições
-Estamos buscando um Especialista em Nuvem para integrar nosso Cloud Center of Excellence (CCoE). Você será a principal referência técnica na construção e na sustentação das nossas políticas e procedimentos, garantindo que a infraestrutura multicloud seja escalável, segura e operada sob as melhores práticas do mercado. Atuará diretamente no código, nos pipelines e nos consoles, sendo a referência técnica nas decisões de arquitetura. Este papel exige visão estratégica, alto nível de autonomia e proficiência técnica para impulsionar a transformação digital e assegurar a excelência operacional.
+Procuramos um Especialista em Nuvem para compor nosso Cloud Center of Excellence (CCoE). Você vai ser a referência técnica central na criação e na manutenção das nossas políticas e procedimentos, assegurando que o ambiente multicloud cresça com segurança, escala e boas práticas consolidadas. O trabalho envolve mão na massa em código, pipelines e consoles, além de liderar tecnicamente as escolhas de arquitetura. A posição pede pensamento estratégico, bastante autonomia e solidez técnica para acelerar a transformação digital e manter a operação em alto padrão.
 
 Requisitos:
 
-● Políticas como código: Implementar e manter guardrails (SCPs, políticas de IAM, Azure Policy, diretrizes de rede) em Terraform, aplicados de forma consistente em dezenas de contas e assinaturas.
-● Engenharia de plataforma: Construir e evoluir os blocos de infraestrutura consumidos pelos times (redes, contas, acessos, pipelines de provisionamento), com foco em padrão, reuso e redução de trabalho manual.
-● Arquitetura que vai para produção: Desenhar arquiteturas multicloud e acompanhar sua implementação, incluindo conectividade entre provedores, segmentação de rede e resiliência.
-● Troubleshooting avançado (L3/L4): Investigar incidentes que cruzam provedores, como roteamento assimétrico, conflitos de políticas de acesso e gargalos de computação, identificando a causa raiz e implementando as correções necessárias.
-● Automação em larga escala: Escrever scripts e funções serverless para coleta de dados, inventário e aplicação de configurações em toda a organização.
+● Políticas como código: Criar e sustentar guardrails (SCPs, políticas de IAM, Azure Policy, diretrizes de rede) em Terraform, com aplicação uniforme em dezenas de contas e assinaturas.
+● Engenharia de plataforma: Desenvolver e aprimorar os componentes de infraestrutura usados pelos times (contas, acessos, redes e as pipelines que provisionam recursos), priorizando padronização, reaproveitamento e menos esforço manual.
+● Arquitetura que vai para produção: Projetar arquiteturas multicloud e seguir sua implantação, cuidando de resiliência, segmentação de rede e da ligação entre provedores.
+● Troubleshooting avançado (L3/L4): Apurar incidentes que envolvem mais de um provedor, como roteamento assimétrico, choque entre políticas de acesso e gargalos de computação, chegando à causa raiz e aplicando as correções.
+● Automação em larga escala: Desenvolver scripts e funções serverless para levantamento de dados, inventário e configuração padronizada de toda a organização.
 
 Requisitos e qualificações
-Domínio de Infraestrutura em nível administrador, com conhecimento profundo e uma visão estratégica para atuação em recursos computacionais, Networking (VPCs, VNETs, Transit Gateways, roteamento), Policies e estruturação de Organizations.
+Domínio de Infraestrutura em nível administrador, com conhecimento aprofundado e olhar estratégico sobre recursos computacionais, Networking (VPCs, VNETs, Transit Gateways, roteamento), Policies e desenho de Organizations.
 Vivência Multicloud sólida: experiência profunda com AWS e competência comprovada em Azure; conhecimentos em OCI são desejáveis, com possibilidade de aprendizado contínuo.
-Expertise em Infraestrutura como Código: experiência prática em escrever e manter código Terraform em ambientes de produção.
+Expertise em Infraestrutura como Código: vivência prática escrevendo e mantendo código Terraform em ambientes de produção.
 Habilidade com Scripting: automações complexas utilizando Shell Script, CLIs nativas das nuvens (AWS CLI, Azure CLI, OCI CLI) e funções serverless (como AWS Lambda).
-Excelente comunicação e capacidade de influência: habilidade para orientar áreas clientes, defender padrões técnicos mesmo sem apoio hierárquico e propor alternativas fundamentadas.
+Comunicação excelente e poder de influência: saber orientar áreas clientes, sustentar padrões técnicos mesmo sem respaldo hierárquico e apresentar alternativas bem embasadas.
 Inglês intermediário/avançado para leitura de documentação técnica.
 
 Diferencial:
 
-● Experiência na construção e publicação de módulos Terraform reutilizáveis desde o início.
+● Experiência criando e publicando módulos Terraform reutilizáveis desde o começo.
 ● Vivência com OCI e conhecimento em Google Cloud Platform (GCP).
 ● Experiência com práticas de FinOps.
-● Possuir certificação em qualquer uma das principais nuvens do mercado.
+● Ter certificação em alguma das principais nuvens do mercado.
 
 Informações adicionais
 🍛 Vale-alimentação ou vale-refeição;
-👨🏼‍🎓 Desconto em cursos, universidades e instituições de idiomas;
-📚 Academia Stefanini — plataforma com cursos on-line, gratuitos, atualizados e com certificado;
+👨🏼‍🎓 Descontos em cursos, faculdades e escolas de idiomas;
+📚 Academia Nimbara — plataforma de cursos on-line gratuitos, sempre atualizados e certificados;
 🗣 Mentoring;
 💉 Clube de vantagens para consultas e exames;
 🏥 Assistência médica;
 🦷 Assistência odontológica;
-💰 Clube de vantagens e descontos nos melhores estabelecimentos;
+💰 Clube de vantagens com descontos em estabelecimentos parceiros;
 🛫 Clube de viagens;
 🐶 Convênio para pets.

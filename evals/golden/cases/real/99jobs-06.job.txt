@@ -1,6 +1,6 @@
-# Banco Rendimento | Analista de Sistemas Sênior - (.NET / C# ou Java)
+# Banco Cerrado Azul | Analista de Sistemas Sênior - (.NET / C# ou Java)
 
-- **Empresa:** Banco Rendimento
+- **Empresa:** Banco Cerrado Azul
 - **Título da vaga:** Analista de Sistemas Sênior - (.NET / C# ou Java)
 - **Localidade:** São Paulo, SP, Brasil
 - **Regime de atuação:** Híbrido
@@ -9,25 +9,25 @@
 ---
 
 ### Sobre a vaga
-Atuação na sustentação, evolução e integração de aplicações e plataformas do ecossistema bancário, com foco em resiliência, segurança transacional e alta disponibilidade de serviços críticos, intermediando demandas técnicas entre áreas de negócio e fornecedores especializados.
+Posição dedicada a manter, evoluir e integrar aplicações e plataformas do ambiente bancário, priorizando resiliência, segurança nas transações e serviços críticos sempre disponíveis, além de fazer a ponte técnica entre as áreas de negócio e os fornecedores especializados.
 
 ### Responsabilidades e atribuições
-- Sustentar, evoluir e otimizar aplicações bancárias críticas, assegurando estabilidade, conformidade e alta disponibilidade operacional.
-- Conduzir o levantamento de requisitos de negócio e desenhar integrações sistêmicas end-to-end.
-- Parametrizar ferramentas do ecossistema bancário e executar modelagem e migração/carga de dados em novos projetos.
-- Estruturar e coordenar planos de testes técnicos, validação de entregas e suporte aos ciclos de homologação (UAT) com as áreas clientes.
-- Atuar como ponto focal técnico na homologação e acompanhamento de entregas de parceiros e fornecedores de tecnologia.
-- Liderar alinhamentos técnicos com stakeholders de TI e Negócios, produzindo relatórios de status e apoiando os processos de governança.
+- Manter, aprimorar e tornar mais eficientes aplicações bancárias críticas, cuidando da estabilidade, da conformidade e da disponibilidade da operação.
+- Levantar requisitos junto ao negócio e desenhar integrações entre sistemas de ponta a ponta.
+- Configurar ferramentas do ambiente bancário e cuidar da modelagem e da migração ou carga de dados em projetos novos.
+- Montar e coordenar planos de testes técnicos, validar entregas e dar suporte às áreas clientes nos ciclos de homologação (UAT).
+- Ser a referência técnica na homologação e no acompanhamento das entregas de parceiros e fornecedores de tecnologia.
+- Conduzir alinhamentos técnicos com stakeholders de TI e de Negócios, emitindo relatórios de status e apoiando a governança.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Graduação completa em Engenharia, Ciência da Computação, Sistemas de Informação ou áreas afins.
-- Experiência sólida em desenvolvimento backend utilizando C# / .NET ou Java.
-- Domínio de Programação Orientada a Objetos (POO), padrões de projeto e boas práticas de arquitetura de software.
-- Conhecimento aprofundado em banco de dados relacional Microsoft SQL Server (modelagem, consultas complexas, procedures e tuning/otimização).
-- Experiência na implementação e consumo de arquiteturas orientadas a eventos/mensageria (RabbitMQ ou Apache Kafka).
-- Domínio no desenvolvimento e consumo de APIs REST/SOAP e arquitetura de microsserviços.
+- Curso superior completo em Ciência da Computação, Engenharia, Sistemas de Informação ou cursos afins.
+- Boa experiência em desenvolvimento backend com C# / .NET ou Java.
+- Bom domínio de Programação Orientada a Objetos (POO), de padrões de projeto e de boas práticas de arquitetura.
+- Conhecimento profundo de Microsoft SQL Server como banco relacional (modelagem, consultas complexas, procedures e tuning/otimização).
+- Experiência implementando e consumindo mensageria e arquiteturas orientadas a eventos (RabbitMQ ou Apache Kafka).
+- Domínio na criação e no consumo de APIs REST/SOAP e em arquitetura de microsserviços.
 
 **Desejáveis / Diferenciais:**
 - Não informado.
@@ -42,9 +42,9 @@ Atuação na sustentação, evolução e integração de aplicações e platafor
 - Seguro de Vida
 - Participação nos Lucros e Resultados (PLR)
 - TotalPass
-- Universidade Rendimento (plataforma interna de capacitação)
+- Universidade Cerrado Azul (plataforma interna de capacitação)
 - Auxílio Creche / Babá
-- Programa Mommy Care
+- Programa Gestação Cuidada
 - Desconto em Medicamentos
 - Petlove
 - Programa de Benefícios e Fidelidade

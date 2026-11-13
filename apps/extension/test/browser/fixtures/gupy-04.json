@@ -6,13 +6,13 @@
   "raizEsperada": "main",
   "raizDaPlataforma": "main",
   "trechosObrigatorios": [
-    "A Leega é uma empresa focada",
-    "(BigQuery, Cloud Storage, Dataflow ou similares)",
-    "Somos uma consultoria de tecnologia, agnóstica"
+    "U Tueti u aso evjgozu buvuju",
+    "(ZemMoisr, Gciok Msadiki, Savalliv ou bivudeber)",
+    "Motur aso dezkejmunuu na kojdagijai, ockoczone"
   ],
   "trechosProibidos": [
     "[PESSOA]",
-    "Ao clicar em “Aceitar todos os"
+    "Uu ktulaz ud “Enuoted bekum ez"
   ],
   "anonimizacao": {}
 }

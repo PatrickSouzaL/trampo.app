@@ -1,6 +1,6 @@
-# ALTAS NETWORKS & TELECOM LTDA | Engenheiro DevOps Sênior AWS EKS e Kubernetes - Cliente Exterior
+# VELTRIX NETWORKS & TELECOM LTDA | Engenheiro DevOps Sênior AWS EKS e Kubernetes - Cliente Exterior
 
-- **Empresa:** ALTAS NETWORKS & TELECOM LTDA (Altasnet)
+- **Empresa:** VELTRIX NETWORKS & TELECOM LTDA (Veltrixnet)
 - **Título da vaga:** Engenheiro DevOps Sênior AWS EKS e Kubernetes - Cliente Exterior
 - **Localidade:** Belo Horizonte, MG, Brasil (Atuação Remota / Cliente Internacional)
 - **Regime de atuação:** Remoto
@@ -9,33 +9,33 @@
 ---
 
 ### Sobre a vaga
-Atuação sênior e em tempo integral voltada para sustentação, modernização e evolução de ambientes de aplicações conteinerizadas na AWS para cliente internacional. O escopo abrange operação avançada de clusters AWS EKS, gerenciamento de Helm Charts, modernização/conteinerização de stacks legadas em PHP e suporte à migração de bancos de dados Percona MySQL para Amazon Aurora.
+Posição sênior, com dedicação integral, para manter de pé, renovar e fazer evoluir aplicações em contêineres hospedadas na AWS de um cliente fora do país. O trabalho passa por operar clusters AWS EKS no detalhe, cuidar de Helm Charts, trazer para contêineres sistemas antigos escritos em PHP e dar suporte à mudança dos bancos Percona MySQL para Amazon Aurora.
 
 ### Responsabilidades e atribuições
-- Operar, sustentar e escalar workloads em Kubernetes gerenciado (AWS EKS) em ambiente produtivo.
-- Conduzir troubleshooting complexo e mitigação de incidentes envolvendo aplicações, APIs, bancos de dados e integrações distribuídas.
-- Desenvolver, versionar e manter Helm Charts para empacotamento e deploy automatizado de serviços.
-- Evoluir e manter esteiras de CI/CD para automação de entrega de microsserviços conteinerizados.
-- Conteinerizar stacks legadas, com ênfase em ecossistemas PHP (PHP-FPM e Apache).
-- Apoiar na execução de testes de compatibilidade e na migração de bases Percona MySQL para Amazon Aurora, orientando engenheiros de software em correções de queries e refatorações de código.
-- Automatizar e manter a infraestrutura como código (IaC) integrada à base já existente em Terraform na AWS.
-- Aprimorar rotinas de provisionamento dinâmico e efêmero de ambientes de QA segmentados por estágios.
-- Atuar em conjunto com os times de Desenvolvimento, QA e AppSec no planejamento de releases e gestão de riscos.
-- Elaborar e atualizar documentação técnica, runbooks operacionais, diagramas de arquitetura e registros de mudanças.
+- Manter, operar e ampliar cargas de trabalho em Kubernetes gerenciado (AWS EKS) rodando em produção.
+- Investigar problemas difíceis e conter incidentes que envolvam aplicações, APIs, bancos e integrações espalhadas.
+- Escrever, versionar e cuidar de Helm Charts que empacotam e publicam os serviços de forma automática.
+- Aprimorar e manter os pipelines de CI/CD que entregam os microsserviços em contêiner.
+- Levar para contêineres sistemas antigos, sobretudo os construídos em PHP (PHP-FPM e Apache).
+- Ajudar nos testes de compatibilidade e na mudança das bases Percona MySQL para Amazon Aurora, guiando os desenvolvedores nos ajustes de queries e de código.
+- Automatizar a infraestrutura como código (IaC), dando continuidade ao que já existe em Terraform na AWS.
+- Melhorar a criação sob demanda de ambientes temporários de QA, separados por etapa.
+- Planejar releases e avaliar riscos junto com Desenvolvimento, QA e AppSec.
+- Produzir e revisar documentação técnica, runbooks, desenhos de arquitetura e o histórico de mudanças.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Experiência sólida e comprovada com sustentação de workloads em AWS EKS, Kubernetes e containers Docker em produção.
-- Domínio na criação e manipulação de Helm Charts.
-- Vivência prática com Infraestrutura como Código via Terraform na nuvem AWS.
-- Experiência com pipelines de CI/CD para entrega contínua de containers.
-- Idioma inglês em nível avançado ou fluente para reuniões com clientes externos, documentação e alinhamentos técnicos do dia a dia.
-- Formação superior (concluída ou em andamento) em Ciência da Computação, Engenharia de Software ou áreas correlatas da computação.
+- Bagagem sólida e comprovada mantendo, em produção, cargas em AWS EKS e Kubernetes com containers Docker.
+- Domínio na escrita e manutenção de Helm Charts.
+- Prática real escrevendo IaC com Terraform para a nuvem AWS.
+- Vivência com pipelines de CI/CD voltados à entrega contínua de containers.
+- Inglês em nível avançado ou fluente, usado para conversar com o cliente, escrever documentação e alinhar o trabalho técnico diário.
+- Curso superior (completo ou em curso) em Engenharia de Software, Ciência da Computação ou cursos próximos da área.
 
 **Desejáveis / Diferenciais:**
-- Experiência prática na conteinerização e sustentação de aplicações legadas em PHP (PHP-FPM e Apache).
-- Conhecimentos operacionais em migração e replicação de dados entre Percona MySQL e Amazon Aurora.
+- Vivência levando para contêineres e mantendo aplicações antigas em PHP (PHP-FPM e Apache).
+- Conhecimento prático para migrar e replicar dados do Percona MySQL para o Amazon Aurora.
 
 ### Benefícios
 - Não informado no anúncio da vaga.

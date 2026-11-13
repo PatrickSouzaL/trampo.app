@@ -1,4 +1,4 @@
-Itaú Unibanco
+Banco Aurivel
 
 Engenharia de Software Pleno (SRE) | Pagar o Que Devo PJ
 São Paulo - SP
@@ -6,65 +6,65 @@ Efetivo
 Híbrido
 
 Descrição da vaga
-Sobre o Itaú Unibanco
+Sobre o Banco Aurivel
 
-O Itaú é a marca mais valiosa do Brasil, a melhor empresa para trabalhar segundo o Great Place to Work e o maior banco da América Latina. Nós impactamos diariamente mais de 98 milhões de clientes em 18 países.
+O Aurivel é uma das instituições financeiras mais lembradas do país, reconhecido em rankings de clima organizacional e presente em toda a região. Todos os dias, nosso trabalho alcança mais de 98 milhões de clientes, espalhados por 18 países.
 
-Somos feitos de pessoas e acreditamos que ter um time com pluralidade de origens, culturas, crenças, experiências, raças, deficiências, gêneros, orientações afetivo-sexuais e gerações ampliam as perspectivas e contribuem para um clima de respeito e valorização das diferenças.
+Acreditamos que somos feitos por gente, e que um time que mistura origens, culturas, crenças, histórias, raças, gêneros, gerações, pessoas com deficiência e diferentes orientações afetivo-sexuais enxerga mais longe e constrói um ambiente de respeito em que as diferenças são celebradas.
 
 Modelo de Trabalho - Híbrido Sem Escala (8x Presenciais por mês - Jabaquara/SP).
 
 Responsabilidades e atribuições
-Estamos em busca de uma pessoa com perfil de Site Reliability Engineering (SRE) para atuar na confiabilidade, disponibilidade e evolução dos nossos ambientes, contribuindo com a estabilidade e escalabilidade de soluções críticas para o negócio.
+Queremos uma pessoa de Site Reliability Engineering (SRE) que cuide da confiabilidade, da disponibilidade e da evolução dos nossos ambientes, ajudando a manter estáveis e escaláveis soluções que são vitais para o negócio.
 
 Como será o dia a dia da pessoa:
-Essa pessoa vai atuar em nossa comunidade Pagar o Que Devo PJ, time responsável pela evolução e sustentação de uma das principais plataformas de pagamentos para clientes Pessoa Jurídica do Itaú.
-Nosso ecossistema suporta milhões de transações diariamente e viabiliza jornadas relacionadas a pagamentos, folha salarial, benefícios corporativos, autorizações, consultas e contratação de produtos financeiros.
+A pessoa vai integrar a comunidade Pagar o Que Devo PJ, equipe que desenvolve e sustenta uma das plataformas de pagamento mais importantes para os clientes Pessoa Jurídica do Aurivel.
+Por esse ecossistema passam milhões de transações por dia: pagamentos, folha de salários, benefícios para empresas, autorizações, consultas e a contratação de produtos do banco.
 
-Você fará parte de uma equipe que valoriza colaboração, aprendizado contínuo, automação e excelência operacional.
+O time em que você vai entrar aposta em colaboração, troca de conhecimento, automação e operação bem feita.
 
 SUA MISSÃO VAI SER
-- Atuar como referência de infraestrutura para squads de negócio.
-- Apoiar a evolução da confiabilidade, disponibilidade e performance das aplicações.
-- Desenvolver e manter dashboards, métricas e alertas para monitoramento dos serviços.
-- Atuar na identificação e resolução de incidentes e problemas em ambientes produtivos.
-- Contribuir para a evolução da observabilidade dos sistemas.
-- Apoiar iniciativas de automação e melhoria contínua da operação.
-- Trabalhar em parceria com equipes de desenvolvimento na definição de boas práticas de arquitetura e operação.
-- Participar da implementação e evolução de soluções em ambientes cloud AWS.
-- Contribuir para a estabilidade de sistemas com alta volumetria e criticidade para o negócio.
+- Ser a referência de infraestrutura para os squads de negócio.
+- Ajudar a elevar a confiabilidade, a disponibilidade e o desempenho das aplicações.
+- Criar e cuidar de dashboards, métricas e alertas que acompanham os serviços.
+- Identificar e resolver incidentes e problemas nos ambientes de produção.
+- Fazer a observabilidade dos sistemas evoluir.
+- Impulsionar frentes de automação e de melhoria contínua da operação.
+- Definir, junto com os times de desenvolvimento, boas práticas de arquitetura e de operação.
+- Atuar na implantação e no avanço de soluções em ambientes cloud AWS.
+- Ajudar a manter estáveis sistemas de grande volume e alta criticidade para o negócio.
 
 Requisitos e qualificações
 No que você precisa mandar bem?
-- Experiência em posições com foco em SRE, Infraestrutura, Plataforma ou Cloud.
+- Trajetória em cargos focados em SRE, Infraestrutura, Plataforma ou Cloud.
 - Vivência prática em ambientes AWS.
 - Conhecimento em: ECS, EKS, Networking, Infraestrutura como Código (Terraform).
-- Experiência com observabilidade, monitoramento e gestão de alertas.
-- Conhecimento em ambientes distribuídos e arquiteturas baseadas em microsserviços.
-- Vivência com resolução de incidentes e melhoria contínua da operação.
-- Capacidade de atuar de forma colaborativa com diferentes times e stakeholders.
-- Experiência trabalhando em metodologias ágeis.
+- Bagagem com observabilidade, monitoramento e gestão de alertas.
+- Familiaridade com ambientes distribuídos e arquiteturas de microsserviços.
+- Prática na resolução de incidentes e na melhoria contínua da operação.
+- Facilidade para trabalhar em conjunto com times e stakeholders variados.
+- Vivência com metodologias ágeis.
 
 DIFERENCIAIS
-- Experiência em sistemas de pagamentos ou produtos financeiros.
-- Conhecimento em desenvolvimento utilizando Java e Spring Boot.
+- Passagem por sistemas de pagamento ou produtos financeiros.
+- Saber desenvolver utilizando Java e Spring Boot.
 - Experiência com: Kafka, Github Actions, CI/CD, Estratégias de deploy (Canary e Blue-Green).
-- Conhecimento em arquiteturas Cloud Native e Event-Driven.
-- Familiaridade com ferramentas de produtividade apoiadas por Inteligência Artificial, como GitHub Copilot, StackSpot e Devin.
+- Noções de arquiteturas Cloud Native e Event-Driven.
+- Uso de ferramentas de produtividade com Inteligência Artificial, como GitHub Copilot, StackSpot e Devin.
 - Certificações AWS.
 
 Informações adicionais
-Ao se tornar um ituber você tem:
+Ao entrar para o time Aurivel você tem:
 - Vale-Transporte
 - Vale-Refeição (Restaurantes) / Vale-Alimentação (Supermercados)
-- Plano médico (Fundação Saúde Itaú ou Central Nacional Unimed)
+- Plano médico (Fundação Saúde Aurivel ou Central Nacional Unimed)
 - Plano odontológico (Odontoprev ou Interodonto)
 - Seguro de Vida
-- PLR – Participação nos Lucros e Resultados (Mediante resultados do banco)
+- PLR – Participação nos Lucros e Resultados (conforme os resultados do banco)
 - Previdência privada
 - Descontos exclusivos em nossos produtos financeiros
 - Licença maternidade e paternidade estendida
 - Auxílio Creche / Babá (para papais e mamães)
 - Incentivo a estudos
 - Wellhub ou TotalPass
-- Acesso aos Clubes de Lazer Itaú (Guarapiranga / Itanhaém e São Sebastião)
+- Acesso aos Clubes de Lazer Aurivel (na capital e no litoral)

@@ -1,4 +1,4 @@
-Banco Daycoval
+Banco Valoris
 
 Analista DevOps Sênior
 São Paulo - SP
@@ -6,22 +6,22 @@ Efetivo
 Híbrido
 
 Descrição da vaga
-Atuação do time de DevOps do banco. 
+Vaga para compor o time de DevOps do banco.
 
 Responsabilidades e atribuições
-- Criar, padronizar e evoluir os pipelines DevOps.
-- Realizar integração com o time de desenvolvimento, arquitetura, infraestrutura e segurança.
-- Participar de discussões técnicas para melhorar o ciclo de desenvolvimento e entrega continua.
-- Suporte aos desenvolvedores.
+- Desenhar, padronizar e aprimorar os pipelines DevOps.
+- Trabalhar de forma integrada com os times de desenvolvimento, arquitetura, infraestrutura e segurança.
+- Contribuir em debates técnicos para aperfeiçoar o ciclo de desenvolvimento e a entrega contínua.
+- Apoio aos desenvolvedores.
 
 Requisitos e qualificações
-É muito importante que você tenha e/ou saiba:
+É essencial que você tenha e/ou domine:
 - Sólidos conhecimentos dos conceitos de DevOps, Docker, Kubernetes, NGINX, Linux e Git.
-- Experiência em construção de esteiras automatizadas CI/CD.
-- Experiência em construção de scripts para automatização.
+- Vivência na construção de esteiras automatizadas CI/CD.
+- Vivência na criação de scripts de automação.
 - Conhecer pelo menos uma das seguintes linguagens: Python, C# ou GO.
 
 Diferenciais:
 - Observabilidade.
-- Experiência em projetos de desenvolvimento de software.
+- Vivência em projetos de desenvolvimento de software.
 - Engenharia de plataforma.

@@ -9,26 +9,26 @@
 ---
 
 ### Sobre a vaga
-Atuação no desenvolvimento de projetos e soluções de segurança eletrônica, abrangendo levantamento técnico em campo, levantamento de requisitos, dimensionamento de infraestrutura e apoio técnico-comercial para atendimento às demandas de clientes.
+A função é criar projetos e soluções de segurança eletrônica: visitar o local para o levantamento técnico, entender o que o cliente precisa, calcular a infraestrutura necessária e dar apoio técnico ao time comercial no atendimento.
 
 ### Responsabilidades e atribuições
-- Desenvolver projetos e soluções técnicas de segurança eletrônica customizadas para clientes.
-- Realizar levantamentos técnicos em campo e análise detalhada de requisitos operacionais.
-- Elaborar memoriais descritivos, diagramas, especificações técnicas e documentações correlatas dos projetos.
-- Participar de alinhamentos e reuniões técnicas com clientes e fornecedores.
-- Realizar o dimensionamento e especificação de equipamentos, ativos de rede e infraestrutura física.
-- Assegurar a viabilidade técnica, controle de qualidade e conformidade das soluções propostas.
-- Prestar suporte técnico consultivo à equipe comercial na estruturação e apresentação de propostas.
+- Criar projetos e soluções técnicas de segurança eletrônica sob medida para cada cliente.
+- Fazer vistorias técnicas no local e estudar com cuidado as necessidades da operação.
+- Redigir memoriais descritivos, diagramas, especificações e demais documentos dos projetos.
+- Participar de reuniões técnicas com clientes e fornecedores.
+- Calcular e especificar equipamentos, ativos de rede e infraestrutura física.
+- Garantir que as soluções propostas sejam viáveis, tenham qualidade e sigam as normas.
+- Dar apoio técnico consultivo ao time comercial na montagem e na apresentação das propostas.
 
 ### Requisitos e qualificações
 
 **Obrigatórios / Requisitos da Vaga:**
-- Formação superior (concluída ou em andamento) em Engenharia, Redes de Computadores, Tecnologia da Informação, Segurança Eletrônica ou áreas afins.
-- Conhecimento técnico em sistemas de segurança eletrônica (CFTV, controle de acesso, alarmes perimétricos e automação predial/comercial).
-- Conhecimento em topologias e infraestrutura de redes (cabeamento estruturado, fibra óptica e rádio outdoor).
-- Carteira Nacional de Habilitação (CNH) categoria B ativa.
+- Curso superior (completo ou em andamento) em Engenharia, Segurança Eletrônica, Redes de Computadores, Tecnologia da Informação ou áreas próximas.
+- Domínio técnico de sistemas de segurança eletrônica (alarmes perimétricos, CFTV, controle de acesso e automação predial/comercial).
+- Conhecimento de topologias e infraestrutura de redes (fibra óptica, cabeamento estruturado e rádio outdoor).
+- CNH (Carteira Nacional de Habilitação) categoria B válida.
 - Disponibilidade para viagens técnicas.
-- Boa comunicação interpessoal e capacidade de atuação em equipes multidisciplinares.
+- Comunicação clara e facilidade para atuar com times de várias áreas.
 
 **Desejáveis / Diferenciais:**
 - Não informado separadamente.

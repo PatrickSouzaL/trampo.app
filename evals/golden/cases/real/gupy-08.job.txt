@@ -1,4 +1,4 @@
-LOCALIZA&CO
+TRILHA&CO
 
 ANALISTA DE TRANSFORMAÇÃO E DADOS PLENO
 Belo Horizonte - MG
@@ -6,39 +6,39 @@ Efetivo
 Híbrido
 
 Descrição da vaga
-LOCALIZA&CO
+TRILHA&CO
 
-Estar em constante evolução nos trouxe até aqui. Ao lado de talentos e habilidades múltiplas nos conectamos em busca da nossa motivação: construir o futuro da mobilidade sustentável. É por meio da valorização da individualidade de cada um que impulsionamos o nosso movimento para conquistar resultados extraordinários, desenvolver nossas operações e criar soluções para os nossos clientes.
+Foi a vontade de evoluir sempre que nos fez chegar até aqui. Reunimos talentos e competências diversas em torno de um propósito comum: dar forma ao futuro da mobilidade sustentável. Valorizamos o jeito único de cada pessoa, e é isso que move nossa busca por resultados acima do esperado, pelo crescimento das operações e por novas soluções para quem nos escolhe.
 
-Somos apaixonados por nossa história, por nossas ideias e pela capacidade de realizá-las. Sabemos que juntos, todos vamos mais longe.
+Temos orgulho da nossa trajetória, das nossas ideias e da nossa capacidade de tirá-las do papel. Acreditamos que, unidos, chegamos mais longe.
 
-É assim que conectamos a Localiza&Co com o futuro.
+É dessa forma que a Trilha&Co se conecta com o futuro.
 
 Responsabilidades e atribuições
-Administrar, manter e evoluir dashboards e relatórios utilizados pela área de Preparação para Venda.
-Desenvolver novos painéis e visualizações em Power BI de acordo com as necessidades do negócio.
-Monitorar indicadores e apoiar a tomada de decisão por meio de análises de dados.
-Levantar demandas junto aos clientes internos e traduzir necessidades operacionais em soluções analíticas.
-Garantir a qualidade, consistência e atualização das informações disponibilizadas nos dashboards.
-Apoiar a identificação de oportunidades de melhoria por meio da análise de indicadores operacionais.
-Atuar em parceria com diferentes áreas da operação para entendimento de processos e geração de insights.
-Construir análises e apresentações utilizando ferramentas de BI e pacote Office.
+Gerir, sustentar e aprimorar os dashboards e relatórios usados pela área de Preparação para Venda.
+Criar novos painéis e visualizações em Power BI conforme as demandas do negócio.
+Acompanhar indicadores e subsidiar decisões a partir de análises de dados.
+Mapear demandas com os clientes internos e transformar necessidades da operação em soluções analíticas.
+Assegurar que as informações publicadas nos dashboards estejam corretas, consistentes e atualizadas.
+Ajudar a encontrar oportunidades de melhoria com base na análise dos indicadores operacionais.
+Trabalhar junto às diversas áreas da operação para compreender processos e gerar insights.
+Montar análises e apresentações com ferramentas de BI e pacote Office.
 
 Requisitos e qualificações
 Ensino superior completo.
-Experiência com análise de dados e construção de dashboards.
-Vivência na criação, manutenção e evolução de indicadores de desempenho.
-Experiência no atendimento de clientes internos e suporte à tomada de decisão baseada em dados.
+Vivência em análise de dados e construção de dashboards.
+Experiência em criar, manter e evoluir indicadores de desempenho.
+Vivência no atendimento a clientes internos e no apoio a decisões orientadas por dados.
 Power BI avançado.
 Excel intermediário a avançado.
-Capacidade analítica para interpretação e construção de indicadores.
+Raciocínio analítico para interpretar e construir indicadores.
 SQL será considerado diferencial.
 
 Informações adicionais
 BENEFÍCIOS PARA VOCÊ
 
 Dress code: como você é!
-Desconto especial no aluguel de carros e compra de veículos seminovos
+Condições especiais para alugar carros e comprar seminovos
 Gympass
 Participação nos Lucros e Resultados (PLR)
 Plano de Saúde
@@ -51,8 +51,8 @@ Vale Alimentação
 Vale Refeição
 Vale Transporte
 
-E mais: Universidade Localiza (treinamentos presenciais/online para seu desenvolvimento); Programa de Apoio a Gestantes; Programa Acolher com orientações psicológicas, financeiras e jurídicas; Consultórios médicos para atendimentos emergenciais; Central exclusiva de atendimento ao colaborador; Serviços internos na sede (Academia, Esmalteria, Banco, Copiadora e Lanchonete); Ambientes de trabalho open space, dentre outros.
+Além disso: Universidade Trilha (treinamentos presenciais/online para o seu crescimento); Programa de Apoio a Gestantes; Programa Cuidar, com suporte psicológico, financeiro e jurídico; Consultórios médicos para atendimento de emergência; Central de atendimento exclusiva para colaboradores; Serviços na própria sede (Academia, Lanchonete, Banco, Esmalteria e Copiadora); Ambientes de trabalho em open space, entre outros.
 
-Se você é uma pessoa com deficiência e está em dúvida se alguma das nossas vagas é pra você, fique tranquilo. Você pode se candidatar a qualquer uma delas!
+Pessoas com deficiência são muito bem-vindas: se ficar na dúvida sobre alguma vaga, saiba que todas estão abertas para você se candidatar!
 
-Venha com a gente construir o Futuro da Mobilidade!
+Vamos juntos desenhar a mobilidade do futuro!

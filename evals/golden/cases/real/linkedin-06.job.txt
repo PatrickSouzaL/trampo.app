@@ -1,4 +1,4 @@
-Supermix Concreto S/A
+Concreteira Serra Verde S/A
 
 Analista de TI
 Belo Horizonte, Minas Gerais, Brasil
@@ -8,37 +8,37 @@ Tempo integral
 Sobre a vaga
 DESCRIÇÃO
 
-SUPERMIX CONCRETO S.A contrata ANALISTA DE TI (Pleno) para atuar em BELO HORIZONTE/MG.
+CONCRETEIRA SERRA VERDE S.A contrata ANALISTA DE TI (Pleno) para atuar em BELO HORIZONTE/MG.
 
 Atividades
 
-Liderar tecnicamente a implantação, atualização e manutenção dos módulos do ERP Totvs RM;
-Desenvolver, arquitetar e dar manutenção em processos de BPM (Workflows), formulários, datasets e widgets na plataforma Fluig;
-Atuar na sustentação avançada (Nível 3), diagnosticando e corrigindo falhas sistêmicas de alta complexidade nos produtos Totvs;
-Desenvolver e gerenciar integrações entre o ecossistema Totvs (RM/Fluig) e sistemas legados ou de terceiros (via API REST/SOAP);
-Realizar consultas e manutenção em Banco de Dados (SQL Server/Oracle) para extração de relatórios, criação de views e procedures para apoio às áreas de negócio;
-Mapear necessidades junto aos usuários chave, traduzindo requisitos de negócio em soluções técnicas viáveis dentro das plataformas;
-Garantir a performance, segurança e integridade das aplicações geridas.
+Liderar tecnicamente a implantação, as atualizações e a manutenção dos módulos do ERP Totvs RM;
+Construir, estruturar e manter formulários, widgets, datasets e processos de BPM (Workflows) na plataforma Fluig;
+Responder pela sustentação avançada (Nível 3), investigando e resolvendo falhas sistêmicas complexas nos produtos Totvs;
+Criar e administrar integrações do ecossistema Totvs (RM/Fluig) com sistemas externos ou legados (via API REST/SOAP);
+Executar consultas e manutenções no Banco de Dados (SQL Server/Oracle), com o objetivo de gerar relatórios, criar views e procedures que apoiem as áreas de negócio;
+Levantar demandas com os usuários chave e convertê-las em soluções técnicas possíveis dentro das plataformas;
+Zelar pela performance, pela segurança e pela integridade das aplicações sob sua responsabilidade.
 
 Requisitos
 
 Experiência consolidada de atuação técnica com Totvs RM (instalação, arquitetura técnica, fórmulas, planilhas, relatórios);
 Forte vivência com a plataforma Fluig (desenvolvimento de formulários web, workflows e integração de datasets);
-Conhecimentos sólidos em Banco de Dados Relacional (SQL) e criação de queries complexas;
-Conhecimentos em lógica de programação e linguagens essenciais para o Fluig (JavaScript, HTML, CSS);
+Conhecimentos sólidos em Banco de Dados Relacional (SQL), incluindo a escrita de queries complexas;
+Conhecimentos em lógica de programação e nas linguagens básicas do Fluig (JavaScript, HTML, CSS);
 Formação superior completa em TI, Ciência da Computação, Análise de Sistemas ou áreas correlatas;
-Perfil analítico e capacidade de resolver problemas com autonomia;
+Olhar analítico e autonomia para resolver problemas;
 Disponibilidade para atuação 100% presencial na Matriz em BH.
 
 Desejável
 
 Formação superior completa em TI, Ciência da Computação, Análise de Sistemas ou áreas correlatas;
-Experiência na parametrização e regras de negócio de módulos específicos do RM (ex: Labore, Chronus, Vitae);
-Conhecimento em metodologias ágeis (Scrum/Kanban) e uso de ferramentas como Jira ou Azure DevOps;
-Experiência prévia com modelagem de processos (BPMN);
-Conhecimento em ferramentas de BI (Power BI, Tableau) para integração de dados com o ERP.
+Experiência na parametrização e nas regras de negócio em módulos específicos do RM (ex: Labore, Chronus, Vitae);
+Conhecimento em metodologias ágeis (Scrum/Kanban) e em ferramentas como Jira ou Azure DevOps;
+Experiência anterior com modelagem de processos (BPMN);
+Conhecimento em ferramentas de BI (Power BI, Tableau), integrando dados ao ERP.
 
-Informamos que, para os selecionados para a próxima etapa do nosso processo seletivo, todas as comunicações serão realizadas exclusivamente por e-mail ou telefone. Solicitamos que fiquem atentos a esses canais para não perder nenhuma informação importante sobre o andamento da seleção.
+Quem avançar para a próxima etapa da seleção receberá todos os contatos somente por e-mail ou telefone. Pedimos atenção a esses canais para não perder nenhum aviso sobre o andamento do processo.
 
 - Local de trabalho: Belo Horizonte, MG
 - Regime de contratação de tipo: Efetivo – CLT

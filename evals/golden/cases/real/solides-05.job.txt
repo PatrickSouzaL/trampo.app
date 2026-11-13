@@ -1,6 +1,6 @@
-# IB2TECH SOLUTIONS LTDA | Analista de Suporte Externo N1
+# QZ4TECH SOLUTIONS LTDA | Analista de Suporte Externo N1
 
-- **Empresa:** IB2TECH SOLUTIONS LTDA
+- **Empresa:** QZ4TECH SOLUTIONS LTDA
 - **Título da vaga:** Analista de Suporte Externo N1
 - **Localidade:** Rio de Janeiro, RJ, Brasil
 - **Regime de atuação:** Presencial (Atendimento em campo / Externo)
@@ -9,35 +9,35 @@
 ---
 
 ### Sobre a vaga
-Prestação de suporte técnico de primeiro nível (N1) presencial e em campo aos clientes da empresa, executando rotinas de instalação, parametrização e manutenção preventiva/corretiva de plataformas de Ponto de Venda (PDV), infraestrutura de rede básica e periféricos de automação comercial para o setor varejista.
+Suporte técnico de primeira linha (N1) feito pessoalmente, na loja do cliente: instalar, configurar e fazer a manutenção preventiva e corretiva dos sistemas de Ponto de Venda (PDV), da rede básica e dos equipamentos de automação comercial usados pelo varejo.
 
 ### Responsabilidades e atribuições
-- Realizar atendimento técnico presencial aos clientes em campo.
-- Executar instalação, configuração e testes da plataforma proprietária de PDV e frentes de caixa.
-- Instalar e homologar periféricos de automação comercial: impressoras fiscais/não fiscais, leitores de código de barras, PinPads (TEF), balanças e gavetas de dinheiro.
-- Configurar estações de trabalho Windows, periféricos e parâmetros de rede local dos clientes.
-- Diagnosticar e solucionar incidentes técnicos de baixa complexidade em hardware, software e conectividade.
-- Orientar e treinar usuários finais sobre a correta operação da plataforma e dos dispositivos.
-- Registrar e atualizar os status de chamados em plataformas de ITSM/CRM, cumprindo métricas de SLA.
-- Apoiar equipes de Implantação em períodos de Go Live e estabilização de clientes.
-- Atuar de forma integrada com as áreas de Suporte Interno e NOC quando detectadas falhas em infraestrutura local.
-- Assegurar conformidade com políticas de Segurança da Informação e LGPD no manuseio de dados dos clientes.
+- Ir até o cliente e prestar o atendimento técnico no local.
+- Instalar, configurar e testar o sistema de PDV da casa e os caixas das lojas.
+- Ligar e validar os equipamentos de automação comercial: balanças, gavetas de dinheiro, PinPads (TEF), leitores de código de barras e impressoras fiscais/não fiscais.
+- Preparar computadores Windows, acessórios e as configurações da rede local do cliente.
+- Encontrar e resolver falhas simples de hardware, software e conexão.
+- Explicar e ensinar aos operadores como usar bem o sistema e os equipamentos.
+- Abrir e manter em dia os chamados nas ferramentas de ITSM/CRM, respeitando os prazos de SLA.
+- Reforçar o time de Implantação nos períodos de Go Live e nas primeiras semanas do cliente.
+- Trabalhar junto com o Suporte Interno e o NOC sempre que houver problema na infraestrutura da loja.
+- Seguir as regras de Segurança da Informação e da LGPD ao lidar com os dados dos clientes.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Ensino superior em andamento ou completo em Sistemas de Informação, Redes de Computadores, Tecnologia da Informação ou áreas afins.
-- Até 2 anos de experiência prévia com Suporte Técnico, Assistência Técnica ou Atendimento em Campo (Field Service).
-- Conhecimentos práticos no sistema operacional Windows.
-- Fundamentos de redes de computadores (TCP/IP, VPN e endereçamento local).
-- Noções de bancos de dados relacionais e elaboração de consultas SQL básicas.
-- Familiaridade com ferramentas de chamados ou gestão de tarefas (Jira, Azure DevOps ou CRMs).
-- Conhecimentos fundamentais em rotinas e regras de faturamento de varejo (NFC-e, SAT, frente de caixa e cadastros).
+- Graduação em curso ou concluída em Redes de Computadores, Sistemas de Informação, Tecnologia da Informação ou cursos afins.
+- Até 2 anos de experiência em Suporte Técnico, atendimento em campo (Field Service) ou assistência técnica.
+- Prática no uso do sistema operacional Windows.
+- Base de redes (endereçamento local, TCP/IP e VPN).
+- Noções de SQL básico para consultar bancos relacionais.
+- Contato com ferramentas de chamados ou de controle de tarefas (Jira, Azure DevOps ou algum CRM).
+- Entendimento das rotinas e regras fiscais do varejo (frente de caixa, cadastros, NFC-e e SAT).
 
 **Desejáveis / Diferenciais:**
-- Experiência prévia voltada a sistemas de automação comercial de varejo.
-- Cursos técnicos complementares em Redes, Hardware, Automação Comercial ou Manutenção.
-- Noções e boas práticas baseadas na metodologia ITIL.
+- Já ter trabalhado com sistemas de automação comercial para lojas.
+- Cursos técnicos extras em Redes, Hardware, Automação Comercial ou Manutenção.
+- Noções e boas práticas da metodologia ITIL.
 
 ### Benefícios
 - Salário: R$ 1.800,00 / mês

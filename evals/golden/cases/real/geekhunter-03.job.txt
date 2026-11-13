@@ -1,4 +1,4 @@
-Fujitsu
+Norvia Global
 
 Desenvolvedor Java Sênior
 Argentina
@@ -8,17 +8,17 @@ Efetivo (CLT - Argentina)
 Faixa Salarial: AR$ 3.800.000,00 a AR$ 3.900.000,00 / mês
 
 Sobre a empresa
-A Fujitsu é uma empresa global de tecnologia, com forte presença em transformação digital e serviços gerenciados. A companhia está ampliando seu time para atuar em um projeto estratégico de Application Management Services (AMS).
+A Norvia Global é uma companhia de tecnologia com atuação em vários países, conhecida por projetos de transformação digital e serviços gerenciados. Neste momento, está reforçando a equipe para uma iniciativa estratégica de Application Management Services (AMS).
 
 Sobre a vaga
-Estamos buscando uma pessoa Desenvolvedora Java Sênior para integrar o time em um projeto internacional de manutenção evolutiva e modernização de aplicações corporativas, com participação nas operações da Argentina e do Brasil.
+Procuramos uma pessoa Desenvolvedora Java Sênior para entrar no time de um projeto internacional de evolução e modernização de aplicações corporativas, com atuação tanto na operação da Argentina quanto na do Brasil.
 
 Responsabilidades
-- Realizar manutenção evolutiva e corretiva de aplicações corporativas.
-- Participar da modernização de sistemas legados e de integrações entre plataformas.
-- Desenvolver e evoluir APIs REST com Java 17 e Spring Boot.
-- Colaborar ativamente na evolução técnica das soluções junto ao time.
-- Atuar nas operações do projeto na Argentina e no Brasil.
+- Cuidar da manutenção evolutiva e corretiva das aplicações corporativas.
+- Contribuir para modernizar sistemas legados e as integrações entre plataformas.
+- Construir e aprimorar APIs REST usando Spring Boot e Java 17.
+- Colaborar de perto com o time na evolução técnica das soluções.
+- Atuar na operação do projeto na Argentina e no Brasil.
 
 Requisitos
 - Experiência avançada em Java 17.
@@ -27,11 +27,11 @@ Requisitos
 - Experiência no desenvolvimento de APIs REST.
 - Experiência com bancos de dados Oracle e PostgreSQL.
 - Experiência com AWS.
-- Experiência com integrações e modernização de sistemas.
+- Vivência com integrações e modernização de sistemas.
 
 Diferenciais
-- Vivência em projetos internacionais e ambientes multiculturais.
-- Experiência em Application Management Services (AMS).
+- Passagem por projetos internacionais e ambientes multiculturais.
+- Vivência em Application Management Services (AMS).
 
 Modelo de trabalho e local
 A vaga é 100% remota, com exigência de residência na Argentina.

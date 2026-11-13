@@ -8,17 +8,17 @@
   "raizEsperada": "main",
   "raizDaPlataforma": "[data-sdui-screen$=\".SemanticJobDetails\"] [data-testid=\"expandable-text-box\"]",
   "trechosObrigatorios": [
-    "Trabalhamos para você ser mais você",
-    "Noções de redes e conectividade: TCP/IP,",
-    "Benefício Refeição Flex (VA e/ou VR);"
+    "Hheviggunal rudu joku nud ceot joku",
+    "Fihuon na sarij a nofihlikuvire: PTZ/UZ,",
+    "Cidutogae Laguohui Gdaj (ZO a/ou VT);"
   ],
   "trechosProibidos": [
     "[PESSOA]",
-    "Como é feita a classificação das vagas promovidas",
-    "4 ex-alunos da instituição trabalham aqui",
-    "Seu perfil e currículo",
-    "Pessoas que você pode contatar",
-    "Ex-aluno da instituição de ensino na empresa [EMPRESA]"
+    "Kebu u miume u zzirlupifimue kim kujuz tpigadipon",
+    "4 oj-agumaj ro ihnbipeeroa zsahupzig inue",
+    "Ria dumbud a fuvkinuvi",
+    "Jifbaim keo joku moto nognazuc",
+    "Oj-inige ro ihnbipeeroa na ejgufo ma evjgozu [EMPRESA]"
   ],
   "anonimizacao": {
     "EMPRESA": 1,

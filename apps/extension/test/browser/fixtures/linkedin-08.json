@@ -8,22 +8,22 @@
   "raizEsperada": "main",
   "raizDaPlataforma": "[data-sdui-screen$=\".SemanticJobDetails\"] [data-testid=\"expandable-text-box\"]",
   "trechosObrigatorios": [
-    "Buscamos um(a) Engenheiro(a) de Dados Pleno",
-    "TI com forte componente de",
-    "A posição terá atuação direta na"
+    "Mafropus am(u) Ofcushuofu(u) na Neduv Tpigi",
+    "FI ril mafha jafrarotzi na",
+    "U temolii sato agoolui cilira ma"
   ],
   "trechosProibidos": [
     "[PESSOA]",
-    "Como é feita a classificação das vagas promovidas",
-    "8 ex-alunos da instituição trabalham aqui",
-    "do seu perfil e currículo",
-    "Pessoas que você pode contatar",
-    "Ex-alunos da [EMPRESA]"
+    "Kebu u miume u zzirlupifimue kim kujuz tpigadipon",
+    "8 oj-agumaj ro ihnbipeeroa zsahupzig inue",
+    "lu ria dumbud a fuvkinuvi",
+    "Jifbaim keo joku moto nognazuc",
+    "Oj-agumaj ro [EMPRESA]"
   ],
   "trechosRecolhidos": [
-    "Nosso contexto envolve projetos para segmentos",
-    "Participar de refinamentos, planning, dailies, reviews",
-    "Clube de vantagens e descontos nos"
+    "Pecza gintehki uhsinka gcimalis rudu tirdegter",
+    "Zobtoferik na sanuzelogvok, mfegfeff, muitaif, dajoonb",
+    "Bvogo na cazjebopz a fekpicsah bej"
   ],
   "anonimizacao": {
     "EMPRESA": 1

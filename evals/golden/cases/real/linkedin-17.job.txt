@@ -1,4 +1,4 @@
-WALM BH Engenharia
+Correnteza Engenharia
 
 Engenheiro(a) Hidrólogo(a) Pleno
 Belo Horizonte e Região
@@ -6,39 +6,39 @@ Híbrido
 Tempo integral
 
 Sobre a vaga
-Buscamos um(a) Engenheiro(a) Hidrólogo(a) Pleno para atuar em estudos e projetos de Hidrologia e Hidráulica aplicados à mineração, infraestrutura e recursos hídricos.
+Queremos contratar um(a) Engenheiro(a) Hidrólogo(a) Pleno, que vai trabalhar com estudos e projetos de Hidrologia e Hidráulica voltados a mineração, infraestrutura e recursos hídricos.
 
-O(a) profissional participará de todas as etapas dos projetos, da análise de dados e modelagens até a elaboração de relatórios e soluções de engenharia. Também apoiará a coordenação técnica de profissionais juniores e participará da interação com clientes e equipes multidisciplinares.
+A pessoa contratada vai se envolver em todas as fases dos projetos, desde a análise de dados e as modelagens até a redação de relatórios e a proposição de soluções de engenharia. Também vai apoiar a coordenação técnica de profissionais juniores e participar do contato com clientes e times multidisciplinares.
 
 Principais atividades:
-- Análise e consistência de dados pluviométricos e fluviométricos;
-- Elaboração de estudos hidrológicos (chuvas intensas, vazões de projeto, regionalização e disponibilidade hídrica);
-- Dimensionamento de estruturas hidráulicas (sistemas extravasores, canais, dissipadores e sistemas de drenagem de barragens e pilhas);
-- Desenvolvimento e análise de modelagens hidráulicas;
-- Estudos de ruptura hipotética de barragens (dam break);
-- Elaboração de balanços hídricos de barragens e reservatórios;
-- Participação em inspeções e avaliações de segurança de barragens;
-- Elaboração de relatórios técnicos, memórias de cálculo e documentos de engenharia;
-- Apoio na elaboração de propostas técnicas e comerciais;
-- Planejamento e acompanhamento de atividades e cronogramas;
+- Tratamento e consistência de séries pluviométricas e fluviométricas;
+- Estudos hidrológicos de chuvas intensas, vazões de projeto, disponibilidade hídrica e regionalização;
+- Dimensionamento hidráulico de canais, dissipadores, sistemas extravasores e drenagem de pilhas e barragens;
+- Construção e análise de modelagens hidráulicas;
+- Simulações de ruptura hipotética de barragem (dam break);
+- Montagem de balanços hídricos de barragens e reservatórios;
+- Apoio em vistorias e avaliações de segurança de barragens;
+- Redação de memórias de cálculo, relatórios técnicos e demais documentos de engenharia;
+- Suporte na preparação de propostas técnicas e comerciais;
+- Planejamento e controle de atividades e cronogramas;
 - Coordenação técnica e orientação de profissionais juniores;
-- Participação em reuniões técnicas com clientes e equipes multidisciplinares.
+- Presença em reuniões técnicas com clientes e times multidisciplinares.
 
 Requisitos:
-- Graduação em Engenharia Civil, Ambiental, Hídrica, de Recursos Hídricos ou áreas correlatas;
+- Formação em Engenharia Civil, Hídrica, Ambiental, de Recursos Hídricos ou em áreas afins;
 - Registro ativo no CREA;
-- De 3 a 6 anos de experiência em hidrologia e hidráulica aplicadas a estudos e projetos de engenharia;
+- De 3 a 6 anos de experiência com hidrologia e hidráulica em estudos e projetos de engenharia;
 - Domínio de HEC-HMS e HEC-RAS (1D e 2D);
 - Domínio de ArcGIS e/ou QGIS;
-- Boa redação técnica e capacidade de análise, organização e comunicação;
-- Disponibilidade para viagens e atividades de campo;
-- Interesse em atuar em equipes multidisciplinares e desenvolver profissionais mais juniores.
+- Redação técnica de qualidade e boa capacidade de análise, organização e comunicação;
+- Disponibilidade para viajar e para atividades em campo;
+- Vontade de trabalhar em times multidisciplinares e de ajudar a formar profissionais mais juniores.
 
 Diferenciais:
-- Experiência em projetos para mineração, especialmente barragens, pilhas e sistemas de drenagem;
-- Experiência em segurança de barragens (dam break, PAEBM, inspeções, revisões periódicas);
+- Vivência em projetos de mineração, sobretudo barragens, pilhas e sistemas de drenagem;
+- Vivência em segurança de barragens (inspeções, revisões periódicas, dam break, PAEBM);
 - Conhecimento de Riverflow 2D, HY-8, Flow-3D ou GoldSim;
 - Inglês intermediário ou avançado;
 - Pós-graduação em Recursos Hídricos, Hidrologia ou Hidráulica.
 
-Buscamos um(a) profissional com boa base técnica, autonomia e vontade de crescer junto com a equipe. Valorizamos curiosidade técnica, organização, espírito colaborativo e interesse em desenvolver soluções de engenharia que gerem valor para nossos clientes.
+Queremos alguém com base técnica consistente, autonomia e disposição para evoluir junto com o time. Valorizamos curiosidade técnica, organização, colaboração e o desejo de criar soluções de engenharia que tragam valor real aos nossos clientes.

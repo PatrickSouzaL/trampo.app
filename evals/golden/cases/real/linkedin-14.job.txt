@@ -1,4 +1,4 @@
-Riachuelo
+Lojas Maresia
 
 Analista de Dados Pleno
 Brasil
@@ -6,39 +6,39 @@ Remoto
 Tempo integral
 
 Sobre a vaga
-Nosso time de ECOMM CRM E FIDELIZAÇÃO está em busca de Analista de dados Pleno para contribuir com o Futuro da Riachuelo e impulsionar cada vez mais a Moda que inspira o Brasil.
+O time de ECOMM CRM E FIDELIZAÇÃO procura Analista de dados Pleno para ajudar a construir o Futuro da Lojas Maresia e levar ainda mais longe o estilo que veste o Brasil.
 
-Lembramos que nossas oportunidades são para todos. Na Riachuelo, você encontra um ambiente diverso, com respeito e empatia, em que cuidamos dos colaboradores.
+Nossas vagas são abertas a todas as pessoas. Na Lojas Maresia, o ambiente é diverso, pautado por respeito e empatia, e cuidar de quem trabalha aqui é prioridade.
 
 Os desafios da função são:
 
-Desenvolver e manter pipelines de dados em Databricks (notebooks PySpark/SQL, Jobs agendados) que geram atributos e eventos enviados à Insider.
-Escrever SQL analítico avançado — CTEs, window functions (row_number, qualify), MERGE incremental, deduplicação e regras de priorização por origem de dado.
-Criar e ajustar atributos e eventos de CRM (ex.: recompra, última compra, vencimento de fatura, status de fatura, recusa de consignado, NPS, carrinho abandonado), com alta vazão de entregas de negócio.
-Realizar upsert e integração de dados para os painéis da Insider, validando volumetria entre view de origem e dados de retorno, e otimizando volume/custo de chamadas à API.
-Implementar e evoluir alertas de observabilidade: validação de volumetria, comparação com dados de retorno e regras qualitativas; refatorar o framework de alertas (parametrização centralizada em tabela/YAML, threshold configurável por fluxo).
-Executar sustentação: verificação semanal de alertas, reprocessamentos, correção de dados (CPFs nulos, divergências de origem, timestamps/fuso) e monitoramento de fraude.
-Investigar incidentes e divergências de dados (view x retorno x painel), documentar a causa raiz e aplicar correção (ex.: ajuste de MERGE para preservar estado do evento).
-Manter regras de optin/optout (e-mail, SMS, WhatsApp) e consistência cadastral a partir do Golden Record (MDM).
-Versionar entregas em Git (pull requests) e documentar processos, jobs e regras de negócio.
+Construir e sustentar pipelines em Databricks (notebooks PySpark/SQL, Jobs agendados) para gerar os atributos e eventos que seguem para a Insider.
+Escrever consultas em SQL analítico avançado, com CTEs, MERGE incremental, window functions (row_number, qualify), deduplicação e priorização por origem do dado.
+Modelar e ajustar eventos e atributos de CRM — por exemplo recompra, última compra, status e vencimento de fatura, recusa de consignado, NPS e carrinho abandonado — com grande volume de entregas para o negócio.
+Fazer upsert e integração de dados nos painéis da Insider, conferindo a volumetria entre a view de origem e os dados de retorno e reduzindo volume e custo das chamadas à API.
+Criar e aprimorar alertas de observabilidade: checagem de volumetria, confronto com dados de retorno e regras qualitativas; reestruturar o framework de alertas (parâmetros centralizados em tabela/YAML, threshold ajustável por fluxo).
+Cuidar da sustentação: checar os alertas toda semana, reprocessar cargas, corrigir dados (CPFs nulos, timestamps/fuso, divergências de origem) e acompanhar casos de fraude.
+Investigar divergências e incidentes nos dados (comparando view, retorno e painel), registrar a causa raiz e corrigir (ex.: mudança no MERGE para manter o estado do evento).
+Zelar pelas regras de optin/optout (e-mail, SMS, WhatsApp) e pela consistência cadastral com base no Golden Record (MDM).
+Versionar as entregas em Git (pull requests) e manter documentados os processos, as regras de negócio e os jobs.
 
 É muito importante que você tenha e/ou saiba:
 
-SQL avançado (Spark SQL): CTEs, window functions, agregações, MERGE/upsert, tuning básico.
-Databricks e Apache Spark (PySpark) — construção e manutenção de notebooks e Jobs.
-Python aplicado a processamento e transformação de dados.
-Experiência com pipelines de dados (ETL/ELT), modelagem de views e camadas de dados.
-Qualidade e governança de dados: validação de volumetria, deduplicação, consistência, tratamento de dados cadastrais (telefone, e-mail, CPF, datas/fuso).
-Git e trabalho em squad ágil (Azure DevOps / Scrum-Kanban).
+SQL avançado (Spark SQL): CTEs, agregações, window functions, MERGE/upsert e tuning básico.
+Databricks e Apache Spark (PySpark) — criação e manutenção de notebooks e Jobs.
+Python voltado a processamento e transformação de dados.
+Vivência construindo pipelines (ETL/ELT), modelando views e organizando camadas de dados.
+Qualidade e governança de dados: deduplicação, consistência, checagem de volumetria e tratamento de dados cadastrais (CPF, e-mail, telefone, datas/fuso).
+Git e atuação em squad ágil (Azure DevOps / Scrum-Kanban).
 Formação superior completa em areas relacionadas.
 
 Diferenciais:
 
-Experiência com CDP / plataformas de CRM (Insider, Salesforce, Braze, Adobe ou similar) e com atributos/eventos de marketing.
-Familiaridade com dados de varejo, crédito e financeiro (cartões, Loyalty, consignado, empréstimo).
-Conhecimento em orquestração de jobs (Control-M, Airflow ou equivalente) e cloud (AWS/S3).
-Noções de observabilidade e construção de dashboards (Databricks SQL) para monitoramento.
-Experiência com integração de sistemas (ex.: alimentar Zendesk, MDM/Golden Record).
+Experiência prévia com CDP / plataformas de CRM (Insider, Salesforce, Braze, Adobe ou similar) e com eventos/atributos de marketing.
+Conhecer dados de varejo, financeiro e crédito (cartões, consignado, empréstimo, Loyalty).
+Saber orquestrar jobs (Control-M, Airflow ou equivalente) e usar cloud (AWS/S3).
+Noções de observabilidade e criação de dashboards (Databricks SQL) para monitoramento.
+Experiência integrando sistemas (ex.: alimentar Zendesk, MDM/Golden Record).
 
 E quais são os benefícios? 
 
@@ -53,10 +53,10 @@ PPR - Programa de Participação nos Resultados;
 Previdência Privada;
 Seguro de vida em grupo;
 Parcerias educacionais;
-Descontos na Riachuelo.
+Descontos na Lojas Maresia.
 
-Para conhecer todos os nossos benefícios, acesse [URL]
+Para ver a lista completa de benefícios, acesse [URL]
 
-Curtiu? Então candidate-se agora!
+Gostou? Então se candidate agora mesmo!
 
-Venha fazer parte da Moda que inspira o Brasil.
+Vem com a gente fazer o estilo que veste o Brasil.

@@ -1,4 +1,4 @@
-LEVTY
+NIVRA
 
 Engenheiro(a) de Software
 Belo Horizonte, Minas Gerais, Brasil
@@ -8,29 +8,29 @@ Tempo integral
 Sobre a vaga
 Quem somos?
 
-Na LEVTY, somos protagonistas na transformação digital corporativa. Como um dos principais parceiros estratégicos da SYDLE, dominamos a plataforma SYDLE ONE, uma solução all-in-one adotada para unificar e orquestrar toda a jornada do negócio dos nossos clientes em um ecossistema único e inteligente.
+A NIVRA conduz projetos de transformação digital em grandes empresas. Somos parceiros estratégicos de peso da SYDLE e conhecemos a fundo a plataforma SYDLE ONE, solução all-in-one que reúne e coordena toda a operação dos nossos clientes num único ecossistema inteligente.
 
-Nossos especialistas respiram tecnologia. Aqui, o alto nível técnico é construído e consolidado na prática, enfrentando desafios reais em um ecossistema que integra armazenamento Mongo-like, buscas via ElasticSearch e desenvolvimento moderno em JavaScript.
+Tecnologia é o que move nosso time. Por aqui, a maturidade técnica nasce do dia a dia, resolvendo problemas de verdade num ambiente que combina armazenamento Mongo-like, mecanismo de busca com ElasticSearch e desenvolvimento atual em JavaScript.
 
-Acreditamos que as pessoas são a alma do nosso negócio. Por isso, cultivamos um ambiente onde o clima descontraído impulsiona o crescimento profissional sustentável. Somos uma equipe em plena expansão e buscamos talentos que queiram escalar sua carreira em uma estrutura que valoriza a autonomia, a clareza e a excelência técnica.
+Para nós, as pessoas vêm em primeiro lugar. Mantemos um clima leve, que favorece uma carreira que cresce de forma consistente. O time está aumentando e queremos gente com vontade de acelerar a própria trajetória num lugar que preza autonomia, transparência e qualidade técnica.
 
 O que é preciso para entrar no nosso time?
 
-- Formação completa em ciência da computação, sistemas de informação, engenharias ou afins.
+- Graduação concluída em engenharias, ciência da computação, sistemas de informação ou cursos relacionados.
 - Experiência com desenvolvimento web / full stack.
 - Domínio de Lógica de programação.
-- Abertura para lidar e aprender novas tecnologias.
-- Ter interesse em trabalhar com IA.
+- Disposição para conhecer e aprender novas tecnologias.
+- Interesse em trabalhar com IA.
 - Disponibilidade para residir na cidade da vaga.
-- Boas habilidades de comunicação e autogestão.
+- Boa comunicação e capacidade de se autogerenciar.
 
 O que você fará em seu dia a dia?
 
-- Codificar, desenvolver e implementar as funcionalidades planejadas, com foco em qualidade e desempenho, em conjunto com o time do projeto.
-- Catalogar todas as alterações realizadas para garantir rastreabilidade e alinhamento técnico.
-- Apresentar as soluções desenvolvidas de forma estratégica ao cliente, priorizando o contato próximo, a transparência e a validação conjunta para garantir o sucesso do projeto.
-- Acompanhar o período de testes no ambiente de homologação, corrigindo ajustes quando necessário.
-- O trabalho é realizado em times colaborativos, totalmente focados em atingir os melhores resultados para cada cliente. Utilizamos metodologias ágeis e nossos Engenheiros e Engenheiras de Software possuem perfil full stack, trabalhando na plataforma SYDLE ONE. As tecnologias utilizadas são: Javascript, Elasticsearch, React, API REST, entre outras.
+- Programar, construir e entregar as funcionalidades previstas, cuidando de qualidade e desempenho junto com o time do projeto.
+- Registrar cada alteração feita, garantindo rastreabilidade e alinhamento técnico.
+- Mostrar ao cliente as soluções entregues de forma estratégica, com proximidade, transparência e validação em conjunto para o projeto dar certo.
+- Acompanhar a fase de testes no ambiente de homologação, fazendo correções quando preciso.
+- Atuamos em times colaborativos, com foco total no melhor resultado para cada cliente. Seguimos metodologias ágeis, e quem ocupa o cargo de Engenheiro ou Engenheira de Software tem perfil full stack e trabalha na plataforma SYDLE ONE. No dia a dia usamos tecnologias como: Javascript, Elasticsearch, React, API REST, entre outras.
 
 Gostou da oportunidade? Entenda nossa seleção.
 
@@ -39,23 +39,23 @@ Gostou da oportunidade? Entenda nossa seleção.
 - Bate-Papo com RH
 - Bate-Papo Técnico
 
-Nossos canais de comunicação são e-mail e whatsapp, portanto, verifique se seu contato no currículo está atualizado e confira sempre seu e-mail e telefone :)
+Falamos com você por e-mail e whatsapp, então mantenha seu contato atualizado no currículo e fique de olho no e-mail e no telefone :)
 
-Uma LEVTY para todos!
+Uma NIVRA para todos!
 
-Na LEVTY, acreditamos que respeito e diversidade não são opcionais, são fundamentais. Enxergamos o valor de cada um em sua individualidade e acreditamos que empresas diversas são mais criativas, inovadoras e humanas. Caso precise de alguma adaptação para sua participação no Processo Seletivo, informe nosso Time de RH!
+Na NIVRA, respeito e diversidade são inegociáveis. Valorizamos cada pessoa do jeito que ela é e sabemos que times diversos criam mais, inovam mais e são mais humanos. Se precisar de qualquer adaptação para participar do Processo Seletivo, fale com nosso Time de RH!
 
 Confira nossos benefícios!
 
 Vale refeição, vale transporte, plano de saúde e odontológico;
 Horário Flexível;
-Ausência de Dress Code;
-Ambiente de trabalho confortável e informal;
-Incentivos ao desenvolvimento de carreira.
+Sem Dress Code;
+Ambiente de trabalho acolhedor e informal;
+Apoio ao desenvolvimento de carreira.
 
 Uma cesta de benefícios pensada para você!
 
-Sabemos que pessoas diferentes possuem necessidades diferentes. Por isso, não há sentido em engessar nossos benefícios!
+Cada pessoa tem necessidades próprias. Por isso, não faz sentido ter benefícios engessados!
 
 Pensando em uma vida equilibrada...
 
@@ -79,11 +79,10 @@ Pensando na sua saúde e bem-estar...
 
 Pensando no seu desenvolvimento...
 
-- Política de Aprimoramento: auxílio financeiro para cursos, eventos e certificações técnicas.
-- Universidade LEVTY.
+- Política de Aprimoramento: apoio financeiro para cursos, eventos e certificações técnicas.
+- Universidade NIVRA.
 
 Pensando no seu reconhecimento e no futuro...
 
 - Política de Participação nos Lucros e Resultados (PLR).
-- Programa de Indicação: bonificação financeira para cada amigo indicado que for contratado para o time LEVTY.
-
+- Programa de Indicação: bônus em dinheiro por amigo indicado que seja contratado pelo time NIVRA.

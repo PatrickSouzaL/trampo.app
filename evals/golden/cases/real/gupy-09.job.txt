@@ -1,4 +1,4 @@
-Sicredi
+Sementra
 
 Analista de Dados | Ciclo de Crédito - Sede
 Petrolina - PE
@@ -6,54 +6,54 @@ Efetivo
 Presencial
 
 Descrição da vaga
-Buscamos um profissional dedicado e competente para atuar como Analista de Dados no setor de Ciclo de Crédito, comprometendo-se a manter as bases de dados normalizadas e atualizada, mantendo alta disponibilidade para o consumo de sistemas e dashboards. Também preparado para atuar com análise estatística para modelagem de dados com objetivo de apoiar na tomada de decisão.
+Procuramos uma pessoa comprometida e caprichosa para assumir a função de Analista de Dados na área de Ciclo de Crédito, responsável por manter as bases de dados normalizadas e em dia, sempre disponíveis para alimentar sistemas e dashboards. A pessoa também deve estar pronta para aplicar análise estatística na modelagem de dados, ajudando a embasar as decisões.
 
 Responsabilidades e atribuições
-Realizar o processo de ETL (extração, transformação e carregamento de dados);
-Elaborar estudos relacionados a crédito, spread, mix de carteira, inadimplência e volume de propostas;
-Consolidar informações estratégicas e gerenciais com foco na tomada de decisão;
-Planejar e produzir relatórios gerenciais/dashboards;
-Tabulação e análise estatística de dados;
-Monitorar indicadores relacionados a crédito, se antecipando a movimentos de mercado;
-Entender os problemas e propor soluções para aplicações de tecnologias;
-Criar apresentações;
+Executar o processo de ETL (extração, transformação e carga de dados);
+Conduzir estudos de crédito envolvendo inadimplência, spread, volume de propostas e mix de carteira;
+Reunir informações estratégicas e gerenciais que orientem a tomada de decisão;
+Planejar e montar relatórios gerenciais/dashboards;
+Tabular e analisar dados estatisticamente;
+Acompanhar indicadores de crédito, antecipando-se às tendências do mercado;
+Compreender os problemas e sugerir soluções com uso de tecnologia;
+Preparar apresentações;
 
 Requisitos e qualificações
 Habilidades necessárias:
-Superior Completo ou cursando: Estatística, Ciência de Dados, Sistemas de Informação, Ciência da Computação, Análise e Desenvolvimento de Sistemas, Matemática, Economia ou áreas correlatas;
+Graduação completa ou em andamento em: Matemática, Estatística, Economia, Ciência da Computação, Ciência de Dados, Sistemas de Informação, Análise e Desenvolvimento de Sistemas ou áreas afins;
 Experiência em Banco de Dados – SQL;
-Experiência de Excel e Power BI (Fórmulas avançadas, tabelas dinâmicas, criações de layouts e programação);
+Experiência de Excel e Power BI (programação, layouts, tabelas dinâmicas e fórmulas avançadas);
 Raciocínio Lógico;
 Conhecimento em Python ou R;
 Inglês Técnico;
 
 Qualidades apreciadas:
-Ter bom nível de concentração;
-Ser curioso e questionador;
-Pensamento analítico;
-Espírito de equipe;
-Ser disciplinado;
-Proatividade;
+Boa capacidade de concentração;
+Curiosidade e senso crítico;
+Visão analítica;
+Trabalho em equipe;
+Disciplina;
+Iniciativa;
 
 Diferenciais:
-Experiência em processamento de dados;
-Experiência em ciência de dados;
-Experiência de mercado financeiro;
-Experiência de análise de crédito;
-Experiência em desenvolvimento WEB aplicando as tecnologias PHP, HTML, Javascript e CSS;
-Experiência em projetos.
+Vivência com processamento de dados;
+Vivência com ciência de dados;
+Vivência no mercado financeiro;
+Vivência com análise de crédito;
+Experiência em desenvolvimento WEB com as tecnologias PHP, HTML, Javascript e CSS;
+Vivência com projetos.
 
 Informações adicionais
 Vale Alimentação/Refeição.
-Auxílio Filho Especial: Valor mensal, para oferecer melhor qualidade de vida aos filhos com necessidades especiais.
-Auxílio Creche/Babá: Valor mensal, para proporcionar qualidade na vida de ensino e/ ou no cuidado dos filhos.
-Seguro de Vida: O Sicredi se preocupa com nossos colaboradores e sua família, oferecendo conforto financeiro no momento de perda.
-Saúde: Somos comprometidos com a saúde e o bem-estar de nossos colaboradores e seus familiares.
+Auxílio Filho Especial: Valor mensal destinado a ampliar a qualidade de vida de filhos com necessidades especiais.
+Auxílio Creche/Babá: Valor mensal para apoiar a educação e/ou os cuidados com os filhos.
+Seguro de Vida: A Sementra cuida de quem trabalha aqui e de suas famílias, garantindo amparo financeiro em caso de perda.
+Saúde: Zelamos pela saúde e pelo bem-estar de quem trabalha conosco e de suas famílias.
 · Plano de saúde
 · Plano Odontológico
 · GYMPASS
 · Telemedicina
 · Nutricionista
 · Descontos em Farmácias
-Sicredi Previdência: Uma das formas de demonstrar preocupação com o futuro dos colaboradores.
-Folga de aniversário: Dia livre para curtir o seu aniversário!
+Sementra Previdência: Um jeito de mostrar que nos importamos com o futuro de quem trabalha conosco.
+Folga de aniversário: Um dia de descanso para comemorar o seu aniversário!
