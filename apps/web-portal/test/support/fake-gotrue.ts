@@ -75,6 +75,8 @@ export interface FakeGotrue {
   readonly jwk: JWK;
   /** Sessões vivas (id). */
   readonly liveSessions: ReadonlySet<string>;
+  /** Todo par emitido (troca, renovação e `addSession`), na ordem: os segredos que o E2E procura fora do simulado. */
+  readonly issued: ReadonlyArray<{ readonly accessToken: string; readonly refreshToken: string }>;
   close(): Promise<void>;
 }
 
@@ -128,6 +130,7 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
   const flows = new Map<string, Flow>();
   const refreshes = new Map<string, RefreshEntry>();
   const liveSessions = new Set<string>();
+  const issued: Array<{ readonly accessToken: string; readonly refreshToken: string }> = [];
   /** access → sessão, para o logout. */
   const accessSession = new Map<string, string>();
   const state = {
@@ -172,6 +175,7 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
     const accessToken = await mintAccess(sessionId);
     const refreshToken = b64(9);
     refreshes.set(refreshToken, { sessionId, usedAt: undefined });
+    issued.push({ accessToken, refreshToken });
     const body = JSON.stringify({
       access_token: accessToken,
       token_type: "bearer",
@@ -354,6 +358,7 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
     sign,
     jwk,
     liveSessions,
+    issued,
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();
