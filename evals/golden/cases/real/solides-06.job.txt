@@ -1,6 +1,6 @@
-# Contego Security | Analista de Infraestrutura
+# Velarion Security | Analista de Infraestrutura
 
-- **Empresa:** Contego Security (CONTEGO CONSULTORIA LTDA)
+- **Empresa:** Velarion Security (VELARION CONSULTORIA LTDA)
 - **Título da vaga:** Analista de Infraestrutura
 - **Localidade:** Curitiba, PR, Brasil
 - **Regime de atuação:** Presencial
@@ -9,38 +9,38 @@
 ---
 
 ### Sobre a vaga
-Atuação na sustentação, monitoramento e evolução de ambientes corporativos de infraestrutura de TI e segurança da informação, tanto internos quanto em clientes externos (modelo MSSP). O papel envolve mitigação de incidentes, administração de firewalls perimetrais, plataformas de virtualização e recursos em nuvem.
+Você vai manter, vigiar e melhorar ambientes de infraestrutura de TI e de segurança da informação, tanto da casa quanto de clientes atendidos no modelo MSSP. O dia a dia inclui conter incidentes, cuidar de firewalls de borda, plataformas de virtualização e recursos hospedados na nuvem.
 
 ### Responsabilidades e atribuições
-- Administrar e parametrizar a ferramenta de monitoramento Zabbix para acompanhamento de servidores, redes, serviços e aplicações.
-- Conduzir troubleshooting avançado, identificação de causa-raiz e resposta a incidentes operacionais.
-- Administrar e sustentar ambientes virtualizados em VMware.
-- Configurar, implantar e manter regras em firewalls perimetrais, com foco em soluções Sophos em clientes externos.
-- Administrar e monitorar recursos de infraestrutura em nuvem na AWS.
-- Apoiar na operação de ferramentas de SIEM, correlação de eventos e monitoramento de segurança com Wazuh.
-- Participar de iniciativas de hardening de sistemas operacionais, gestão de vulnerabilidades e testes de intrusão (pentest).
-- Desenvolver scripts para automação de tarefas e aplicar soluções baseadas em inteligência artificial na operação.
-- Garantir a alta disponibilidade, estabilidade e conformidade dos serviços de infraestrutura.
-- Elaborar e atualizar documentações técnicas, manuais operacionais e relatórios de implantação.
+- Configurar e ajustar a ferramenta de monitoramento Zabbix para acompanhar servidores, redes, serviços e aplicações.
+- Investigar a fundo falhas, chegar à causa-raiz e responder a incidentes de operação.
+- Cuidar e manter os ambientes virtualizados em VMware.
+- Criar, aplicar e revisar regras em firewalls de borda, principalmente soluções Sophos instaladas em clientes.
+- Gerenciar e acompanhar os recursos de infraestrutura em nuvem na AWS.
+- Ajudar a operar ferramentas de SIEM, correlação de eventos e vigilância de segurança com Wazuh.
+- Participar de ações de hardening de sistemas operacionais, tratamento de vulnerabilidades e simulações de ataque (pentest).
+- Escrever scripts para automatizar tarefas e usar soluções de inteligência artificial no dia a dia da operação.
+- Zelar para que os serviços de infraestrutura fiquem disponíveis, estáveis e em conformidade.
+- Produzir e revisar documentação técnica, manuais de operação e relatórios de implantação.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Formação superior (cursando ou completa) em Redes de Computadores, Sistemas de Informação, Tecnologia da Informação ou áreas afins.
-- Experiência sólida em sustentação de infraestrutura de TI e administração de sistemas.
-- Conhecimento prático na administração de servidores Linux e Windows Server.
-- Experiência com monitoramento de ativos via Zabbix.
+- Curso superior (em andamento ou completo) em Tecnologia da Informação, Redes de Computadores, Sistemas de Informação ou áreas próximas.
+- Bagagem sólida em manter infraestrutura de TI e administrar sistemas.
+- Prática administrando servidores Linux e Windows Server.
+- Vivência com monitoramento de ativos via Zabbix.
 - Domínio operacional de virtualização com VMware.
-- Conhecimentos práticos de configuração e suporte de firewalls.
-- Experiência com serviços e sustentação de infraestrutura em AWS.
-- Sólidos fundamentos de redes TCP/IP, roteamento, serviços básicos de rede e resolução de incidentes.
+- Prática na configuração e no suporte de firewalls.
+- Vivência com serviços e manutenção de infraestrutura em AWS.
+- Boa base de redes TCP/IP, roteamento, serviços de rede essenciais e tratamento de incidentes.
 
 **Desejáveis / Diferenciais:**
-- Experiência prévia em provedores de serviços gerenciados de segurança (MSSP) ou empresas de cibersegurança.
-- Vivência na implantação, sustentação e gestão de firewalls Sophos.
-- Conhecimento em plataformas SIEM, análise de logs e uso do Wazuh.
-- Prática com testes de invasão (pentest), execução de hardening e varreduras de vulnerabilidades.
-- Habilidade na criação de rotinas automatizadas via shell/scripts e integração com ferramentas de IA.
+- Passagem por empresas de cibersegurança ou por provedores de segurança gerenciada (MSSP).
+- Vivência na instalação, manutenção e gestão de firewalls Sophos.
+- Conhecimento em plataformas SIEM, leitura de logs e uso do Wazuh.
+- Prática com hardening, varreduras de vulnerabilidades e testes de invasão (pentest).
+- Facilidade para criar rotinas automáticas via shell/scripts e integrar ferramentas de IA.
 
 ### Benefícios
 - Vale-Alimentação de R$ 700,00 / mês (cartão iFood Benefícios, uso livre)

@@ -1,6 +1,6 @@
-# Grupo Gérbera | Analista Administrativo de Tecnologia
+# Grupo Valdrena | Analista Administrativo de Tecnologia
 
-- **Empresa:** Grupo Gérbera (Multifranqueado Grupo Boticário)
+- **Empresa:** Grupo Valdrena (Multifranqueado Rede Lirium Cosméticos)
 - **Título da vaga:** Analista Administrativo de Tecnologia (Analista de TI)
 - **Localidade:** Manaus, AM, Brasil
 - **Regime de atuação:** Presencial
@@ -9,30 +9,30 @@
 ---
 
 ### Sobre a vaga
-Atuação na administração e otimização dos recursos de Tecnologia da Informação do grupo econômico, englobando a gestão de infraestrutura de redes, servidores e conectividade, controle de inventário de ativos/licenças, administração de ambientes colaborativos (Microsoft 365 / Active Directory), gerenciamento de dispositivos móveis (MDM) e aplicação de políticas de segurança da informação e governança de acessos.
+A pessoa vai cuidar de toda a parte de Tecnologia da Informação do grupo: redes, servidores e links, o controle de equipamentos e licenças, o ambiente de colaboração (Microsoft 365 / Active Directory), a frota de celulares corporativos (MDM) e as regras de segurança da informação e de liberação de acessos.
 
 ### Responsabilidades e atribuições
-- Administrar integralmente o ciclo de vida dos dispositivos móveis corporativos (provisionamento, configuração, inventário, distribuição e políticas via MDM).
-- Gerenciar contas, grupos, caixas postais corporativas e regras de acesso no ecossistema Microsoft 365 e Active Directory.
-- Administrar perfis, níveis de permissão e credenciais de acessos em sistemas corporativos internos.
-- Sustentar a infraestrutura de TI (estações de trabalho, redes locais, servidores, sistemas operacionais e conectividade).
-- Diagnosticar e solucionar incidentes complexos de hardware, conectividade, sistemas e software corporativo.
-- Implantar e monitorar rotinas de backup, homologação de patches de segurança e controles de proteção de dados.
-- Gerenciar o inventário físico e lógico de ativos, contratos de telefonia/conectividade e conformidade de licenças.
-- Gerenciar a fila de chamados técnicos de TI, estabelecendo prioridades alinhadas aos SLAs operacionais.
-- Elaborar relatórios técnicos, dashboards operacionais e indicadores de desempenho (KPIs) da área de infraestrutura.
+- Responder por todo o ciclo dos celulares e tablets da empresa (preparação, configuração, controle, entrega e regras via MDM).
+- Criar e manter contas, grupos, caixas de e-mail e permissões no ambiente Microsoft 365 e Active Directory.
+- Cuidar de perfis, permissões e senhas de acesso aos sistemas internos.
+- Manter funcionando a infraestrutura de TI (computadores, rede local, servidores, sistemas operacionais e links).
+- Investigar e resolver problemas difíceis de hardware, rede, sistemas e programas da empresa.
+- Colocar em prática e acompanhar cópias de segurança, testes de atualizações de segurança e mecanismos de proteção de dados.
+- Controlar o inventário físico e lógico dos equipamentos, os contratos de telefonia e internet e a regularidade das licenças.
+- Organizar a fila de chamados de TI, definindo prioridades de acordo com os SLAs combinados.
+- Produzir relatórios, painéis e indicadores (KPIs) sobre o desempenho da infraestrutura.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Vaga afirmativa e exclusiva para Pessoas com Deficiência (PCD).
-- Graduação completa em Tecnologia da Informação, Ciência da Computação, Sistemas de Informação, Análise e Desenvolvimento de Sistemas ou áreas afins.
-- Experiência sólida comprovada em sustentação de infraestrutura corporativa de TI e suporte técnico de nível avançado.
-- Domínio prático de ferramentas corporativas de identidade e produtividade (Microsoft 365, Active Directory ou soluções correlatas).
-- Conhecimento avançado em gerenciamento de dispositivos móveis corporativos (soluções de MDM).
-- Conhecimento consolidado em topologias de rede, sistemas operacionais corporativos e segurança da informação (políticas de acesso e backups).
-- Experiência prévia em controle de inventário de TI, homologação de contratos e gestão de fornecedores.
-- Domínio avançado do pacote Office (com ênfase em Microsoft Excel para consolidação de relatórios e indicadores).
+- Oportunidade afirmativa, exclusiva para Pessoas com Deficiência (PCD).
+- Graduação completa em Ciência da Computação, Sistemas de Informação, Tecnologia da Informação, Análise e Desenvolvimento de Sistemas ou cursos relacionados.
+- Experiência sólida comprovada em manter infraestrutura de TI empresarial e em suporte técnico de nível avançado.
+- Domínio prático de ferramentas de identidade e colaboração (Microsoft 365, Active Directory ou soluções parecidas).
+- Conhecimento avançado na gestão de celulares e tablets corporativos (soluções de MDM).
+- Boa base em desenho de redes, sistemas operacionais de empresa e segurança da informação (regras de acesso e backups).
+- Já ter controlado inventário de TI, revisado contratos e acompanhado fornecedores.
+- Domínio avançado do pacote Office (principalmente Microsoft Excel para montar relatórios e indicadores).
 
 **Desejáveis / Diferenciais:**
 - Não informado.

@@ -1,4 +1,4 @@
-Leo Madeiras
+Tábua Viva
 
 Analista de Infra Cloud Pleno
 Barueri - SP
@@ -6,30 +6,30 @@ Efetivo
 Híbrido
 
 Descrição da vaga
-Você busca um lugar para aprender e contribuir? Venha fazer parte do time Leo Madeiras.
+Quer um ambiente onde dá para aprender e fazer a diferença? Vem para o time Tábua Viva.
 
-A Leo Madeiras é uma das maiores distribuidoras de produtos e serviços para marcenaria do Brasil, que valoriza as pessoas e oferece oportunidades de aprendizado, independentemente de sua condição física, mental, social, idade, etnia, identidade de gênero, credo ou orientação sexual. Para nós, o mais importante é que seu perfil esteja alinhado aos nossos princípios e cultura.
+A Tábua Viva está entre as principais distribuidoras de itens e serviços voltados à marcenaria no país e coloca as pessoas no centro, abrindo espaço para o aprendizado sem distinção de idade, etnia, credo, identidade de gênero, orientação sexual ou condição física, mental e social. O que mais pesa para nós é a afinidade do seu perfil com nossos princípios e nossa cultura.
 
 O Perfil que Buscamos:
 
-Buscamos uma pessoa Analista Cloud Pleno com forte atuação em GCP, Kubernetes, automação e confiabilidade operacional, para atuar na sustentação e evolução de ambientes cloud críticos e multi-cloud.
+Procuramos uma pessoa Analista Cloud Pleno com forte atuação em GCP, Kubernetes, automação e confiabilidade operacional, para cuidar da sustentação e da evolução de ambientes multi-cloud e críticos em cloud.
 
 Responsabilidades e atribuições
-Sustentar ambientes Azure e GCP, apoiando monitoramento, disponibilidade, performance e gestão de incidentes;
-Operar ambientes Kubernetes, realizando troubleshooting, manutenção de workloads, namespaces, serviços e automação de rotinas;
-Gerenciar e sustentar pipelines CI/CD no Azure DevOps, incluindo deploys automatizados, Service Connections, acessos e permissões;
-Apoiar a administração do Microsoft Fabric e Power BI, incluindo acompanhamento das capacidades Fabric no Azure;
-Prestar suporte aos ambientes Microsoft 365, principalmente Teams, Exchange e SharePoint Online, além do ambiente colaborativo Workspace;
-Apoiar atividades relacionadas à infraestrutura On-Premises, DNS e conectividade;
-Atuar na sustentação e integração de APIs e API Management, apoiando a comunicação entre gateways e serviços de backend;
-Administrar monitoramento e alertas em Azure e GCP, contribuindo para diagnóstico e tratamento de incidentes;
-Realizar troubleshooting de aplicações e serviços em IIS, Windows, Workers e Kubernetes;
-Apoiar a governança de Azure SQL Database e SQL Managed Instance, acompanhando acessos, backups, consumo e performance;
-Criar e manter documentações técnicas, procedimentos operacionais e Wiki corporativa;
-Identificar oportunidades de automação, melhoria de performance, estabilidade e otimização de custos dos ambientes.
+Dar sustentação aos ambientes Azure e GCP, com apoio em monitoramento, disponibilidade, performance e tratamento de incidentes;
+Operar ambientes Kubernetes: troubleshooting, automação de rotinas e manutenção de namespaces, serviços e workloads;
+Administrar e sustentar pipelines CI/CD no Azure DevOps, cobrindo acessos, permissões, Service Connections e deploys automatizados;
+Ajudar a administrar Microsoft Fabric e Power BI, acompanhando também as capacidades Fabric no Azure;
+Dar suporte aos ambientes Microsoft 365, sobretudo Teams, Exchange e SharePoint Online, e também ao ambiente colaborativo Workspace;
+Colaborar em atividades de infraestrutura On-Premises, DNS e conectividade;
+Sustentar e integrar APIs e API Management, viabilizando a comunicação dos gateways com os serviços de backend;
+Gerenciar monitoramento e alertas em Azure e GCP, ajudando no diagnóstico e no tratamento de incidentes;
+Fazer troubleshooting em serviços e aplicações rodando em IIS, Windows, Workers e Kubernetes;
+Apoiar a governança de Azure SQL Database e SQL Managed Instance, de olho em performance, consumo, backups e acessos;
+Produzir e atualizar documentações técnicas, procedimentos operacionais e Wiki corporativa;
+Mapear oportunidades de automação, ganho de performance, estabilidade e redução de custos dos ambientes.
 
 Requisitos e qualificações
-Experiência com infraestrutura e sustentação de ambientes Cloud;
+Vivência com infraestrutura e sustentação de ambientes Cloud;
 Conhecimento em Microsoft Azure e GCP;
 Experiência com Kubernetes;
 Conhecimento em Azure DevOps e CI/CD;
@@ -37,14 +37,14 @@ Conhecimentos em Microsoft Fabric e Power BI;
 Vivência com Microsoft 365 – Teams, Exchange e SharePoint Online;
 Conhecimentos em redes, DNS, conectividade e troubleshooting;
 Conhecimentos em IIS, Windows e Azure SQL;
-Experiência com monitoramento, observabilidade e gestão de incidentes;
-Perfil analítico, organizado e orientado à resolução de problemas.
+Vivência em monitoramento, observabilidade e gestão de incidentes;
+Perfil analítico, organizado e voltado a resolver problemas.
 
 Diferenciais
 Experiência com API Management;
 Conhecimentos em automação de infraestrutura;
 Vivência em ambientes híbridos Cloud e On-Premises;
-Experiência com otimização de performance e custos em Cloud.
+Experiência em otimizar performance e custos em Cloud.
 
 Informações adicionais
 Participação nos Resultados (PLR)

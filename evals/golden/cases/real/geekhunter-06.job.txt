@@ -1,7 +1,7 @@
 
-# Suzantur | DevOps AWS / SRE SENIOR
+# Trilhamar Transportes | DevOps AWS / SRE SENIOR
 
-- **Empresa:** Suzantur
+- **Empresa:** Trilhamar Transportes
 - **Título da vaga:** DevOps AWS / SRE SENIOR
 - **Localidade:** São Paulo, SP, Brasil
 - **Regime de atuação:** Híbrido
@@ -10,42 +10,42 @@
 ---
 
 ### Sobre a vaga
-Atuação na administração e sustentação de ambientes AWS, automação de esteiras de deploy (CI/CD) e garantia de resiliência e estabilidade da infraestrutura e aplicações em produção. O desafio envolve suporte a arquiteturas orientadas a containers, redes de nuvem e implementação de Infraestrutura como Código (IaC).
+A posição cuida da operação e da sustentação dos ambientes AWS, da automação das esteiras de entrega (CI/CD) e da estabilidade e resiliência da infraestrutura e dos sistemas em produção. No dia a dia, o trabalho passa por arquiteturas baseadas em containers, redes em nuvem e adoção de Infraestrutura como Código (IaC).
 
 ### Responsabilidades e atribuições
-- Administrar e sustentar ambientes AWS (ECS, Fargate, EC2, RDS, DynamoDB, Cognito, S3).
-- Gerenciar redes em nuvem: VPCs, subnets, tabelas de rotas, Security Groups, NAT Gateways e VPN Site-to-Site.
-- Criar, manter e otimizar pipelines CI/CD no Azure DevOps, além de automatizar rotinas operacionais.
-- Realizar troubleshooting em containers, aplicações, serviços AWS e topologias de rede.
-- Monitorar a infraestrutura e aplicações com CloudWatch e Datadog.
-- Administrar Application Load Balancers (ALB), Target Groups, Health Checks e políticas de Auto Scaling.
-- Gerenciar governança de acessos, chaves e políticas no AWS IAM e AWS Secrets Manager.
-- Apoiar equipes de engenharia/desenvolvimento na resolução de problemas de infraestrutura e deployment.
-- Implementar e versionar Infraestrutura como Código (IaC).
-- Acompanhar custos de nuvem e propor otimizações orçamentárias (FinOps).
-- Produzir e manter documentação técnica de arquitetura, configurações e relatórios de post-mortem de incidentes.
+- Operar e manter os ambientes AWS (ECS, Fargate, EC2, RDS, DynamoDB, Cognito, S3).
+- Cuidar da rede na nuvem: VPCs e subnets, Security Groups, NAT Gateways, tabelas de rotas e VPN Site-to-Site.
+- Construir e evoluir pipelines CI/CD no Azure DevOps com foco em otimização, automatizando também tarefas operacionais.
+- Diagnosticar problemas em topologias de rede, containers, aplicações e serviços AWS.
+- Acompanhar a saúde da infraestrutura e das aplicações com CloudWatch e Datadog.
+- Configurar Target Groups, Health Checks, Application Load Balancers (ALB) e regras de Auto Scaling.
+- Governar no AWS IAM e AWS Secrets Manager os acessos, as chaves e as políticas.
+- Ajudar os times de engenharia/desenvolvimento a destravar questões de infraestrutura e deployment.
+- Codificar e versionar a Infraestrutura como Código (IaC).
+- Observar os gastos com nuvem e sugerir otimizações de orçamento (FinOps).
+- Escrever e atualizar a documentação técnica de arquitetura, de configurações e os relatórios de post-mortem de incidentes.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Experiência sólida e comprovada em administração de ambientes Cloud AWS (ECS, Fargate, ECR, EC2, VPC, ALB, RDS, DynamoDB, S3, IAM, CloudWatch e CloudTrail).
+- Vivência sólida e comprovada operando ambientes Cloud AWS (ECS, Fargate, ECR, EC2, VPC, ALB, RDS, DynamoDB, S3, IAM, CloudWatch e CloudTrail).
 - Domínio em conteinerização com Docker.
-- Experiência na criação e manutenção de pipelines CI/CD com Azure DevOps e versionamento com Git.
-- Vivência prática com Infraestrutura como Código utilizando Terraform ou CloudFormation.
-- Automação via scripts com Bash, PowerShell ou Python.
-- Administração e sustentação de ambientes Linux e Windows Server.
-- Configuração de observabilidade, análise de logs e métricas com Datadog e CloudWatch.
-- Conhecimentos sólidos em redes (TCP/IP, DNS, VPN Site-to-Site), HTTP/HTTPS, APIs REST e certificados SSL/TLS.
-- Prática com estratégias de deployment e rotinas de rollback em ambientes críticos de produção.
+- Prática construindo e mantendo pipelines CI/CD com Azure DevOps e controle de versão em Git.
+- Experiência real com Infraestrutura como Código usando Terraform ou CloudFormation.
+- Scripts de automação com Bash, PowerShell ou Python.
+- Operação e suporte a servidores Linux e Windows Server.
+- Montagem de observabilidade com Datadog e CloudWatch, incluindo leitura de logs e métricas.
+- Bons conhecimentos de redes (DNS, TCP/IP, VPN Site-to-Site), HTTP/HTTPS, APIs REST e certificados SSL/TLS.
+- Vivência com estratégias de deployment e procedimentos de rollback em produção crítica.
 
 **Desejáveis / Diferenciais:**
-- Conhecimento em orquestração com Kubernetes.
-- Experiência com mensageria (RabbitMQ e Amazon MQ).
+- Noções de orquestração com Kubernetes.
+- Vivência com mensageria (RabbitMQ e Amazon MQ).
 - Bancos de dados relacionais (PostgreSQL, SQL Server).
-- Gestão de ambientes multi-account utilizando AWS Organizations.
-- Práticas de FinOps e governança de custos em nuvem.
-- Vivência de sustentação de microsserviços e aplicações construídas em ecossistema .NET.
-- Experiência consolidada em ambientes de alta disponibilidade e tolerância a falhas.
+- Administração de estruturas multi-account com AWS Organizations.
+- Cultura de FinOps e controle de custos em nuvem.
+- Sustentação de microsserviços e sistemas desenvolvidos no ecossistema .NET.
+- Bagagem com sistemas tolerantes a falhas e de alta disponibilidade.
 
 ### Benefícios
 - Não informado no anúncio da vaga.

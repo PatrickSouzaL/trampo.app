@@ -1,4 +1,4 @@
-Framework Digital
+Cobalto Digital
 
 Analista de processos de TI Pleno
 Belo Horizonte e Região
@@ -7,58 +7,58 @@ Temporário
 
 Sobre a vaga
 
-Somos a Framework! Evoluímos grandes marcas em todo o mundo com transformação digital e crescemos continuamente através de agilidade, design e tecnologia.
+Aqui é a Cobalto! Ajudamos empresas de vários países a se reinventarem no digital, e seguimos crescendo apoiados em três pilares: agilidade, design e tecnologia.
 
-Fazer parte do nosso time é saber que a sua jornada será de desafios reais, de crescimento contínuo e de contato diário com referências em tecnologia. Vem com a gente!
+Entrar para o nosso time significa encarar problemas concretos, aprender o tempo todo e conviver com gente que é referência no mercado de tecnologia. Bora com a gente!
 
-*Todas as nossas vagas são abertas para PCDs!
+*Todas as posições aceitam candidaturas de PCDs!
 
-Benefícios? É claro que temos!
+Benefícios? Claro que sim!
 
-🍝 Vale alimentação e refeição no cartão Sólides Benefícios com mais de R$ 1.200,00 mensais
-💻 Auxílio home office no valor de R$ 150,00 mensais
-🚗 Você decide entre vale-transporte ou vale-combustível, no caso de vagas híbridas e presenciais
-🏥 Plano de saúde e auxílio odontológico de alta qualidade
-❤️ Seguro de vida que cobre doenças ocupacionais
+🍝 Vale refeição e alimentação no cartão Sólides Benefícios, somando mais de R$ 1.200,00 mensais
+💻 Auxílio home office de R$ 150,00 mensais
+🚗 Para vagas híbridas e presenciais, você escolhe entre vale-transporte ou vale-combustível
+🏥 Plano de saúde e auxílio odontológico com ótima cobertura
+❤️ Seguro de vida com cobertura para doenças ocupacionais
 💸 Participação nos lucros
-💪 Total Pass para se manter saudável
-🌎 Trib Pass para trocar moedas digitais por hospedagens e passagens aéreas com cobertura mundial
+💪 Total Pass para cuidar do corpo
+🌎 Trib Pass, que converte moedas digitais em hospedagens e passagens aéreas no mundo inteiro
 👶 Licença maternidade estendida: 180 dias
 👶 Licença paternidade estendida: 30 dias
-🥦 Desconto em consultas nutricionais
+🥦 Desconto em consultas com nutricionista
 🧠 Desconto em terapia online
-🛍️ Clube de benefícios para quem gosta de comprar com descontos
-💡 Knowledge transfer através do Frame KT
+🛍️ Clube de benefícios com descontos em compras
+💡 Knowledge transfer pelo programa Cobalto KT
 💵 Bonificação por indicação de novos colaboradores
-E não paramos por aí!
+E tem mais!
 🕗 Horário flexível
 👕 No dress code
-🍎 Nas pausas presenciais, fique à vontade para comer pães, bolos e frutas
-💜 Ambiente leve, flexível e cultura colaborativa.
+🍎 Nas pausas presenciais, pães, bolos e frutas liberados
+💜 Clima leve, flexível e de cultura colaborativa.
 
-E qual será a sua missão na Framework?
+E o que você vai fazer na Cobalto?
 
-- Conduzir reuniões e entrevistas com representantes das áreas de negócio para entender necessidades e mapear o uso atual do File Server.
-- Realizar o inventário e a classificação das informações armazenadas, identificando dados que devem ser migrados, mantidos, excluídos ou direcionados para backup.
-- Desenhar, propor e documentar a nova estrutura de diretórios, atuando em conjunto com a equipe de Infraestrutura de TI para operacionalização das mudanças.
+- Organizar reuniões e entrevistas com as áreas de negócio para levantar demandas e entender como o File Server é utilizado hoje.
+- Inventariar e classificar o conteúdo armazenado, apontando o que deve ser migrado, mantido, apagado ou enviado para backup.
+- Desenhar, sugerir e registrar a nova organização de diretórios, junto com o time de Infraestrutura de TI que vai executar as mudanças.
 
 O que é preciso para fazer parte do time?
 
-- Experiência com mapeamento de processos, levantamento de requisitos e elaboração de documentação técnica e funcional.
-- Vivência ou forte entendimento de conceitos de Infraestrutura de TI, incluindo organização de File Server, permissões de acesso, retenção, backup e expurgo de dados.
-- Excelente comunicação verbal e interpessoal, perfil analítico, organização e capacidade de negociação e alinhamento com áreas de negócio e times técnicos.
+- Experiência em mapeamento de processos, levantamento de requisitos e produção de documentação técnica e funcional.
+- Vivência ou bom domínio de conceitos de Infraestrutura de TI, como estrutura de File Server, permissões de acesso, backup, retenção e expurgo de dados.
+- Ótima comunicação oral e interpessoal, olhar analítico, organização e habilidade para negociar e alinhar com áreas de negócio e equipes técnicas.
 
 Será um diferencial se você:
 
-- Possuir experiência em projetos de reestruturação ou organização de servidores de arquivos e ambientes de infraestrutura.
-- Ter vivência em projetos que envolvam revisão de processos, classificação de informações e definição de políticas de retenção de dados.
-- Possuir facilidade na elaboração de fluxos, apresentações e materiais para comunicação de mudanças.
+- Já tiver participado de projetos de reorganização ou reestruturação de servidores de arquivos e de ambientes de infraestrutura.
+- Tiver atuado em iniciativas que revisem processos, classifiquem informações e estabeleçam regras de retenção de dados.
+- Tiver jeito para montar fluxos, apresentações e materiais que comuniquem mudanças.
 
-Modelo de trabalho: Híbrido — 3x presenciais 
-Local: Belo Horizonte/MG 
+Modelo de trabalho: Híbrido — 3x presenciais
+Local: Belo Horizonte/MG
 
-A NOSSA EVOLUÇÃO É CRESCENTE!
+A GENTE NÃO PARA DE CRESCER!
 
-E, para acompanhar esse crescimento, precisamos de pessoas que agreguem propondo ideias, soluções e desafios!
+Para dar conta desse ritmo, queremos pessoas que somem com ideias, soluções e novos desafios!
 
-Gostou da oportunidade? Vamos juntos e faça parte da nossa história! 💜 #vempraframe
+Curtiu a vaga? Venha escrever essa história com a gente! 💜 #vempracobalto

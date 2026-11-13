@@ -1,7 +1,7 @@
 
-# COMPSIS | Estagiário(a) Administrativo em Projetos
+# Navia Sistemas | Estagiário(a) Administrativo em Projetos
 
-- **Empresa:** COMPSIS
+- **Empresa:** Navia Sistemas
 - **Título da vaga:** Estagiário(a) Administrativo em Projetos
 - **Localidade:** São José dos Campos, SP, Brasil
 - **Regime de atuação:** Híbrido
@@ -10,27 +10,27 @@
 ---
 
 ### Sobre a vaga
-Apoio direto aos Gerentes de Projetos nas rotinas administrativas, organização, acompanhamento e controle das atividades e prazos de projetos em empresa de tecnologia.
+Suporte próximo aos Gerentes de Projetos em tarefas administrativas, na organização, no controle das atividades e no cumprimento dos prazos dos projetos de uma empresa do setor de tecnologia.
 
 ### Responsabilidades e atribuições
-- Apoiar os Gerentes de Projetos nas rotinas administrativas do dia a dia.
-- Atualizar e organizar planilhas e controles em Excel.
-- Auxiliar no acompanhamento de prazos, atividades e pendências dos projetos.
-- Organizar documentos, registros e informações relacionadas aos projetos.
-- Apoiar a elaboração e atualização de relatórios e apresentações.
-- Consolidar informações para suporte ao monitoramento e à governança de projetos.
-- Auxiliar na organização de demandas e no monitoramento de planos de ação.
-- Facilitar a comunicação e o alinhamento de informações entre as áreas envolvidas.
+- Dar suporte aos Gerentes de Projetos nas tarefas administrativas cotidianas.
+- Manter planilhas e controles em Excel atualizados e bem organizados.
+- Ajudar a acompanhar prazos, entregas e pendências de cada projeto.
+- Arquivar e manter em ordem documentos, registros e dados dos projetos.
+- Colaborar na montagem e na revisão de relatórios e apresentações.
+- Reunir dados que sustentem o monitoramento e a governança dos projetos.
+- Ajudar a organizar as demandas e a acompanhar os planos de ação.
+- Favorecer a troca de informações e o alinhamento entre as áreas participantes.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Estar cursando graduação em Administração ou áreas correlatas.
-- Previsão de formação a partir de dezembro/2027.
+- Cursar graduação em Administração ou áreas afins.
+- Conclusão prevista a partir de dezembro/2027.
 - Conhecimentos no pacote Office (foco em Excel e Word).
-- Boa comunicação verbal e escrita.
-- Capacidade de organização, atenção a detalhes e acompanhamento de tarefas.
-- Residir em São José dos Campos, Jacareí ou Caçapava (SP).
+- Comunicação oral e escrita clara.
+- Perfil organizado, atento aos detalhes e disciplinado no acompanhamento de tarefas.
+- Morar em São José dos Campos, Jacareí ou Caçapava (SP).
 
 **Desejáveis / Diferenciais:**
 - Não exige experiência profissional prévia.
@@ -42,9 +42,9 @@ Apoio direto aos Gerentes de Projetos nas rotinas administrativas, organização
 - Seguro de Vida
 - Wellhub (Gympass)
 - Day Off no dia do aniversário
-- Acesso à plataforma Alura para desenvolvimento e trilhas de estudo
+- Acesso à plataforma Alura com trilhas de estudo e desenvolvimento
 
 ### Modelo e local de trabalho
 - **Regime:** Híbrido.
-- **Base territorial:** São José dos Campos, SP (abrangendo residentes de Jacareí e Caçapava).
+- **Base territorial:** São José dos Campos, SP (inclui quem reside em Jacareí e Caçapava).
 - **Carga horária:** Segunda a sexta-feira, das 09h às 16h (30h semanais).

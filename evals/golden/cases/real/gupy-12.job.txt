@@ -1,4 +1,4 @@
-Leega
+Veltra
 
 Especialista Cloudera Sênior (Big Data e Google Cloud)
 São Paulo - SP
@@ -6,66 +6,66 @@ Efetivo
 Presencial
 
 Descrição da vaga
-A Leega é uma empresa focada no atendimento eficiente e inovador em seus clientes. 
+A Veltra se dedica a atender seus clientes com agilidade e criatividade.
 
-Isso não poderia ser diferente com o nosso principal combustível: as pessoas!  
+E com quem faz isso acontecer não seria diferente: as pessoas são o que nos impulsiona!
 
-Nossa cultura é inspiradora e nossos valores estão presentes no dia a dia: ética e transparência, excelência de qualidade, trabalho em equipe, responsabilidade econômica, social e ambiental, relações humanas e credibilidade.
+Temos uma cultura que inspira e valores que aparecem na rotina: ética e transparência, qualidade de excelência, espírito de equipe, compromisso econômico, social e ambiental, relações humanas e confiança.
 
-Buscamos profissionais inovadores que sejam movidos por desafios e focados em resultados.
+Queremos por perto gente criativa, que encara desafios de frente e tem foco em entregar resultados.
 
-Se você busca uma empresa dinâmica e parceira e que investe em seus colaboradores através de capacitação constante, a Leega é o lugar para você!
+Se você quer uma empresa ágil, parceira e que aposta no crescimento do time com capacitação contínua, a Veltra é o seu lugar!
 
->> A LEEGA É PARA TODOS, ficaremos muito felizes em ter você em nosso time. Venha fazer parte da nossa história e da construção do nosso futuro. 
+>> NA VELTRA TEM ESPAÇO PARA TODO MUNDO, e vamos adorar contar com você. Venha escrever com a gente a nossa história e o nosso futuro.
 
-Cadastre-se agora mesmo em nossas vagas!
+Candidate-se já às nossas vagas!
 
 Responsabilidades e atribuições
-Buscamos um Especialista Cloudera Sênior para atuar de forma presencial em um projeto estratégico de migração de plataforma de dados em uma instituição financeira de grande porte. O projeto é a migração de uma plataforma de dados de grande porte, hoje em Cloudera na AWS, para o Google Cloud, no modo lift and shift: cerca de 13 mil jobs Spark e PySpark, 2,5 PB de dados, streaming com CDC, centenas de modelos de Machine Learning e frameworks proprietários de ingestão e processamento, em 9 meses de migração por ondas mensais, seguidos de 3 meses de pós implantação. 
+Procuramos um Especialista Cloudera Sênior para trabalhar de forma presencial em uma iniciativa estratégica que vai migrar a plataforma de dados de uma grande instituição financeira. Trata-se de mover uma plataforma de dados de grande porte, hoje em Cloudera na AWS, para o Google Cloud, no modo lift and shift: perto de 13 mil jobs Spark e PySpark, 2,5 PB de dados, streaming com CDC, centenas de modelos de Machine Learning e frameworks proprietários de ingestão e processamento, ao longo de 9 meses de migração em ondas mensais e mais 3 meses de pós implantação.
 
-Você será a referência técnica do ambiente legado: vai ler, explicar e destravar o que roda hoje no Cloudera, garantindo que a migração para o Google Cloud preserve o comportamento de cada componente. 
+Você será quem domina o ambiente legado: vai interpretar, explicar e desbloquear o que roda hoje no Cloudera, assegurando que a migração para o Google Cloud mantenha o comportamento de cada componente.
 
 Principais responsabilidades:
-- Analisar o ambiente Cloudera atual (CDP), seus serviços, configurações, dependências e jobs em produção. 
-- Apoiar o Discovery do inventário e da malha de dependências entre origens, jobs, tabelas e consumidores. 
-- Mapear componentes e recursos específicos do Cloudera e indicar o equivalente ou a adequação necessária no Google Cloud. 
-- Apoiar a migração de Spark, Hive, Impala, Kudu, HBase, Kafka e NiFi, incluindo versões legadas de Spark. 
-- Investigar diferenças encontradas na comparação entre legado e destino e identificar a causa. 
-- Apoiar a migração de políticas de segurança e governança (Ranger, Atlas, Kerberos) para o Google Cloud. 
-- Atuar junto aos especialistas do cliente no entendimento dos frameworks proprietários que rodam sobre o Cloudera. 
-- Documentar o conhecimento do legado para os times de engenharia. 
+- Avaliar o ambiente Cloudera atual (CDP): jobs em produção, serviços, dependências e configurações.
+- Dar suporte ao Discovery, levantando o inventário e as dependências que ligam origens, tabelas, jobs e consumidores.
+- Levantar componentes e recursos próprios do Cloudera e apontar o equivalente ou o ajuste necessário no Google Cloud.
+- Apoiar a migração de Spark, Hive, Impala, Kudu, HBase, Kafka e NiFi, sem esquecer as versões legadas de Spark.
+- Examinar as divergências apontadas na comparação entre legado e destino e descobrir de onde vêm.
+- Levar para o Google Cloud as políticas de segurança e governança (Ranger, Atlas, Kerberos).
+- Trabalhar com os especialistas do cliente para entender os frameworks proprietários que rodam sobre o Cloudera.
+- Documentar o legado de forma que os times de engenharia possam aproveitar esse conhecimento.
 
 Requisitos e qualificações
 Requisitos obrigatórios:
-- Mínimo de 6 anos de experiência com ecossistema Hadoop, sendo pelo menos 4 anos com Cloudera (CDH ou CDP). 
-- Domínio de Spark e PySpark, Hive e Impala em ambiente de produção de grande porte. 
-- Experiência com Kudu, HBase, Kafka ou NiFi. 
-- Conhecimento de segurança e governança no Cloudera (Ranger, Atlas, Kerberos). 
-- Experiência com Google Cloud, mínimo de 1 ano, em projetos ou ambientes de dados (Dataproc, BigQuery, Cloud Storage). 
-- Ensino superior completo em Tecnologia, Engenharia ou áreas correlatas. 
+- Mínimo de 6 anos de experiência com ecossistema Hadoop, sendo pelo menos 4 anos com Cloudera (CDH ou CDP).
+- Domínio de Spark e PySpark, Hive e Impala em ambiente de produção de grande porte.
+- Experiência com Kudu, HBase, Kafka ou NiFi.
+- Conhecimento de segurança e governança no Cloudera (Ranger, Atlas, Kerberos).
+- Experiência com Google Cloud, mínimo de 1 ano, em projetos ou ambientes de dados (Dataproc, BigQuery, Cloud Storage).
+- Formação superior completa em Tecnologia, Engenharia ou áreas afins.
 
 Diferenciais:
-- Experiência em projetos de migração de Cloudera ou Hadoop para nuvem. 
-- Certificação Cloudera ou Google Cloud. 
-- Experiência com Cloudera Data Engineering (CDE) e Airflow. 
-- Experiência com Apache Flink e CDC (Debezium). 
-- Experiência em instituições financeiras. 
+- Participação em projetos que levaram Cloudera ou Hadoop para nuvem.
+- Certificação Cloudera ou Google Cloud.
+- Experiência com Cloudera Data Engineering (CDE) e Airflow.
+- Experiência com Apache Flink e CDC (Debezium).
+- Vivência em instituições financeiras.
 
 Competências comportamentais:
-- Didática para explicar o legado a times e especialistas de diferentes níveis. 
-- Investigação estruturada de problemas, com foco em causa raiz. 
-- Colaboração próxima com especialistas do cliente. 
-- Organização na documentação de conhecimento técnico. 
-- Disponibilidade para atuar em janelas de implantação. 
+- Didática para apresentar o legado a times e especialistas de níveis variados.
+- Investigação metódica de problemas, mirando a causa raiz.
+- Parceria estreita com os especialistas do cliente.
+- Organização ao documentar conhecimento técnico.
+- Disponibilidade para janelas de implantação.
 
 Informações adicionais
-INDISPENSÁVEL Conhecimento/Atuação em: 
-- Cloudera (CDH ou CDP) em produção 
-- Spark, Hive e Impala 
-- Atuação presencial 
-- Modelo de atuação 100% PRESENCIAL, em instituição financeira localizada na Av. Paulista - São Paulo. 
+INDISPENSÁVEL Conhecimento/Atuação em:
+- Cloudera (CDH ou CDP) em produção
+- Spark, Hive e Impala
+- Atuação presencial
+- Modelo de atuação 100% PRESENCIAL, em instituição financeira localizada na Av. Paulista - São Paulo.
 
-Contratação CLT. 
+Contratação CLT.
 
 Benefícios:
 - Convênio Médico Porto Seguro

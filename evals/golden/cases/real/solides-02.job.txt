@@ -1,6 +1,6 @@
-# Smart Online | Sr. Software Developer
+# Kavari Online | Sr. Software Developer
 
-- **Empresa:** Smart Online
+- **Empresa:** Kavari Online
 - **Título da vaga:** Sr. Software Developer
 - **Localidade:** Campinas, SP, Brasil
 - **Regime de atuação:** Não informado explicitamente (anúncio contempla Auxílio Home Office)
@@ -9,29 +9,29 @@
 ---
 
 ### Sobre a vaga
-Atuação no desenvolvimento e evolução de ecossistemas backend de alta escalabilidade voltados à simplificação tributária, logística e liquidação de guias no segmento de e-commerce, projetando microsserviços, APIs resilientes e integrações em nuvem.
+Buscamos alguém para construir e fazer crescer plataformas backend de grande volume que descomplicam a vida fiscal, a logística e o pagamento de guias de lojas virtuais, desenhando microsserviços, APIs robustas e integrações hospedadas na nuvem.
 
 ### Responsabilidades e atribuições
-- Projetar, desenvolver e sustentar APIs RESTful de alta performance utilizando .NET Core e ASP.NET Core.
-- Implementar, manter e otimizar esquemas de bancos de dados relacionais e não-relacionais (PostgreSQL e MongoDB).
-- Utilizar serviços em nuvem AWS garantindo escalabilidade, resiliência e alta disponibilidade operacional.
-- Colaborar com equipes multidisciplinares (Frontend, DevOps e Segurança da Informação) em fluxos de integração e entrega contínua.
-- Monitorar a telemetria das aplicações e conduzir troubleshooting de incidentes em ambiente produtivo.
-- Apoiar na definição e consolidação de diretrizes de governança técnica, boas práticas e arquitetura de software.
+- Desenhar, codificar e manter APIs RESTful rápidas e estáveis com .NET Core e ASP.NET Core.
+- Modelar, evoluir e ajustar a performance de bases relacionais e documentais (PostgreSQL e MongoDB).
+- Tirar proveito dos serviços em nuvem AWS para que o produto escale e continue disponível sob carga.
+- Trabalhar lado a lado com Frontend, DevOps e Segurança da Informação nos fluxos de integração e entrega contínua.
+- Observar a telemetria dos sistemas e investigar falhas quando algo quebra em produção.
+- Contribuir para definir padrões técnicos, boas práticas e decisões de arquitetura do time.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
-- Experiência sólida e comprovada com .NET Core e ASP.NET Core.
-- Experiência prática na orquestração e conteinerização de aplicações com Docker e Kubernetes.
-- Domínio na construção de testes automatizados unitários/integrados (xUnit ou frameworks equivalentes).
-- Domínio prático de bancos de dados relacionais e NoSQL (PostgreSQL e MongoDB).
-- Vivência prática com serviços de computação em nuvem (AWS) e cultura DevOps.
-- Experiência de trabalho orientada a metodologias ágeis e esteiras automatizadas de CI/CD.
-- Capacidade crítica de resolução de problemas e comunicação técnica assertiva.
+- Experiência de verdade, comprovável, em .NET Core e ASP.NET Core.
+- Prática em empacotar e orquestrar aplicações em contêineres com Docker e Kubernetes.
+- Domínio na escrita de testes automatizados de unidade e de integração (xUnit ou frameworks equivalentes).
+- Domínio prático de bases relacionais e NoSQL (PostgreSQL e MongoDB).
+- Vivência real usando serviços de nuvem pública (AWS) e a cultura DevOps.
+- Rotina de trabalho em times ágeis apoiados por pipelines automatizados de CI/CD.
+- Senso crítico para resolver problemas e clareza ao explicar decisões técnicas.
 
 **Desejáveis / Diferenciais:**
-- Experiência prévia na concepção e sustentação de arquiteturas de microsserviços.
+- Já ter desenhado e mantido arquiteturas baseadas em microsserviços.
 
 ### Benefícios
 - Auxílio Home Office
@@ -44,7 +44,7 @@ Atuação no desenvolvimento e evolução de ecossistemas backend de alta escala
 - Clube de Descontos Shinclube e Clube iFood gratuito
 - Desconto em farmácias (RD Saúde: Droga Raia e Drogasil)
 - Parcerias com Escolas de Idiomas
-- Parceria com o Cubo Itaú (acesso a eventos, conteúdos e networking)
+- Parceria com um hub de inovação (acesso a eventos, conteúdos e networking)
 - Day Off no mês de aniversário
 - Licença e presente de casamento
 - Presente para novos papais e mamães

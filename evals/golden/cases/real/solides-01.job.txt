@@ -1,6 +1,6 @@
-# Sólides Tecnologia | Especialista de FinOps
+# Lumora Tecnologia | Especialista de FinOps
 
-- **Empresa:** Sólides Tecnologia
+- **Empresa:** Lumora Tecnologia
 - **Título da vaga:** Especialista de FinOps
 - **Localidade:** Belo Horizonte, MG, Brasil (Atuação Remota)
 - **Regime de atuação:** Remoto
@@ -9,35 +9,35 @@
 ---
 
 ### Sobre a vaga
-Atuação no controle, análise e otimização dos custos em ambientes multi-cloud (com ênfase em AWS), fomentando a governança financeira em nuvem e a cultura de FinOps junto aos times de engenharia, arquitetura e negócio para maximizar o retorno sobre investimentos em infraestrutura.
+Você vai cuidar da conta da nuvem: entender para onde vai cada centavo gasto em ambientes multi-cloud (sobretudo AWS), propor cortes inteligentes e espalhar a mentalidade de FinOps entre engenharia, arquitetura e áreas de negócio, para que cada real investido em infraestrutura traga retorno mensurável.
 
 ### Responsabilidades e atribuições
-- Monitorar e analisar custos de infraestrutura em nuvem (multi-cloud), com foco prioritário em AWS.
-- Mapear e executar alavancas de otimização de custos (rightsizing, instâncias reservadas, Savings Plans e uso estratégico de instâncias Spot).
-- Desenvolver e sustentar dashboards e relatórios de visibilidade orçamentária para públicos técnicos e executivos.
-- Implementar políticas e automações de tagging, governança financeira e modelos de alocação de custos (showback e chargeback).
-- Configurar limiares de alerta orçamentário e acompanhar relatórios preditivos de gastos (forecasting).
-- Apoiar desenvolvedores e engenheiros de infraestrutura na concepção de arquiteturas orientadas à eficiência de custos desde a concepção (cost-aware architecture).
-- Criar rotinas automatizadas para coleta, consolidação e auditoria de gastos em nuvem.
+- Acompanhar de perto os gastos de infraestrutura em nuvem (multi-cloud), dando prioridade ao que roda em AWS.
+- Encontrar e colocar em prática oportunidades de economia (rightsizing, instâncias reservadas, Savings Plans e uso planejado de instâncias Spot).
+- Construir e manter painéis e relatórios que deem transparência ao orçamento, tanto para o time técnico quanto para a diretoria.
+- Definir regras e automações de tagging, governança financeira e critérios de rateio de custos (showback e chargeback).
+- Estabelecer gatilhos de alerta de orçamento e revisar as projeções de consumo (forecasting).
+- Orientar desenvolvedores e times de infraestrutura a desenhar soluções econômicas logo no início do projeto (cost-aware architecture).
+- Montar rotinas automáticas que coletem, consolidem e auditem as despesas com nuvem.
 
 ### Requisitos e qualificações
 
 **Obrigatórios:**
 - Graduação completa.
-- Sólida experiência com governança de custos na AWS e domínio de suas ferramentas nativas (Cost Explorer, AWS Budgets, Cost and Usage Report - CUR, Trusted Advisor).
-- Bagagem prática prévia em DevOps: esteiras de CI/CD, Infraestrutura como Código (Terraform, CloudFormation) e ambientes conteinerizados (Docker, Kubernetes).
-- Conhecimento em outros provedores públicos de nuvem (Azure, Google Cloud Platform) e respectivos modelos de tarifação.
-- Familiaridade com plataformas de FinOps e ferramentas de visualização/BI (ex.: CloudHealth, Kubecost, Power BI, Grafana).
-- Habilidade em automação e scripting utilizando Python, Shell Script e consultas SQL.
-- Perfil analítico e facilidade de comunicação para traduzir métricas técnicas em indicadores de negócio.
+- Experiência consistente no controle de gastos na AWS e bom domínio das ferramentas da própria plataforma (Cost Explorer, AWS Budgets, Cost and Usage Report - CUR, Trusted Advisor).
+- Histórico prático em DevOps: pipelines de CI/CD, código de infraestrutura (Terraform, CloudFormation) e contêineres (Docker, Kubernetes).
+- Noção das nuvens públicas concorrentes (Azure, Google Cloud Platform) e de como cada uma cobra pelos serviços.
+- Contato com plataformas de FinOps e ferramentas de painéis/BI (ex.: CloudHealth, Kubecost, Power BI, Grafana).
+- Facilidade para automatizar tarefas e escrever scripts com Python, Shell Script e consultas SQL.
+- Olhar analítico e boa comunicação para converter números técnicos em indicadores que o negócio entende.
 
 **Desejáveis / Diferenciais:**
 - Certificação FinOps Certified Practitioner (FOCP).
 - Certificações AWS (Solutions Architect, SysOps Administrator ou DevOps Engineer).
 
 ### Benefícios
-- Vale-Alimentação / Vale-Refeição de R$ 45,00/dia útil (Cartão Sólides Benefícios)
-- Auxílio Home Office de R$ 60,00/mês (Cartão Sólides Benefícios)
+- Vale-Alimentação / Vale-Refeição de R$ 45,00/dia útil (Cartão Lumora Benefícios)
+- Auxílio Home Office de R$ 60,00/mês (Cartão Lumora Benefícios)
 - Vale-Transporte ou Vale-Combustível
 - Plano de Saúde Unimed (sem mensalidade, formato coparticipação)
 - Plano Odontológico OdontoPrev (mensalidade fixa subsidiada de R$ 21,91)
@@ -47,9 +47,9 @@ Atuação no controle, análise e otimização dos custos em ambientes multi-clo
 - Day Off no mês do aniversário
 - Auxílio-Creche (para dependentes até 3 anos)
 - Auxílio a dependente especial (estendido a pais)
-- Acesso à plataforma Qualifica (cursos livres a pós-graduação) e cursos da Escola de Pessoas
-- Incentivo educacional: desconto no ecossistema Ânima e 70% de bolsa na Pós-graduação Sólides
-- Benefícios Pet: Sólides Patinhas (DogLife) e Guapeco
+- Acesso à plataforma Saber+ (de cursos livres a pós-graduação) e aos cursos da Escola Lumora
+- Incentivo educacional: desconto no ecossistema Ânima e 70% de bolsa na Pós-graduação Lumora
+- Benefícios Pet: Lumora Patinhas (DogLife) e Guapeco
 - Parcerias institucionais (SESC, Detronic, OnHappy) e linha de Crédito Consignado interno
 
 ### Modelo e local de trabalho

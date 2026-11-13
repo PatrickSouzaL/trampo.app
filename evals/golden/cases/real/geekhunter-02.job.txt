@@ -1,4 +1,4 @@
-Memed
+Receitto
 
 Product Designer Sênior
 São Paulo, SP, Brasil
@@ -6,23 +6,23 @@ Efetivo (CLT)
 Presencial
 
 Sobre a empresa
-A Memed é uma plataforma de tecnologia em saúde que conecta médicos, pacientes e a jornada de atendimento, reunindo prescrição, histórico clínico, exames e documentos em uma única experiência digital.
+A Receitto é uma plataforma de tecnologia para a saúde que aproxima médicos, pacientes e todo o percurso do atendimento, juntando prescrição, histórico clínico, exames e documentos numa só experiência digital.
 
 Sobre a vaga
-Buscamos uma pessoa Product Designer Sênior para liderar o design da modernização da plataforma Memed, conectando a evolução das principais jornadas do produto à construção de uma experiência mais simples, consistente e escalável.
+Procuramos uma pessoa Product Designer Sênior para conduzir o design da modernização da plataforma Receitto, ligando a evolução das jornadas centrais do produto a uma experiência mais simples, coerente e preparada para crescer.
 
 Responsabilidades
-- Liderar o design da modernização da plataforma de ponta a ponta, do discovery à análise de resultados depois do lançamento.
-- Desenhar a evolução da prescrição para uma jornada de atendimento centrada no paciente, que reúne histórico, informações clínicas, prescrição, exames e documentos.
-- Repensar a experiência de busca e listagem de medicamentos, equilibrando a necessidade do médico com os objetivos de negócio.
-- Criar novos componentes e adaptar os existentes, contribuindo de forma ativa para a evolução do Design System junto com o restante do time.
-- Planejar e conduzir pesquisas com médicos para validar hipóteses antes de decidir.
-- Definir métricas de sucesso com Produto e usar dados para orientar e ajustar soluções.
-- Atuar em tríade com PM e Engenharia, negociando escopo e antecipando desalinhamentos.
-- Usar IA de forma crítica para acelerar discovery, prototipação e análise.
-- Elevar a barra do time, compartilhando práticas e apoiando designers menos experientes.
+- Conduzir o design da modernização da plataforma do início ao fim, do discovery à leitura dos resultados após o lançamento.
+- Transformar a prescrição numa jornada de atendimento com o paciente no centro, juntando histórico, dados clínicos, prescrição, exames e documentos.
+- Reimaginar a busca e a listagem de medicamentos, conciliando o que o médico precisa com as metas do negócio.
+- Criar componentes novos e adaptar os atuais, colaborando ativamente com o time na evolução do Design System.
+- Planejar e fazer pesquisas com médicos para testar hipóteses antes de cada decisão.
+- Estabelecer métricas de sucesso junto com Produto e usar dados para guiar e corrigir as soluções.
+- Formar tríade com Engenharia e PM, negociando o escopo e prevendo desalinhamentos.
+- Usar IA com senso crítico para ganhar velocidade em discovery, prototipação e análise.
+- Subir o nível do time, dividindo práticas e apoiando designers com menos experiência.
 
 Requisitos
-- Experiência sólida como Product Designer em empresas de tecnologia.
-- Portfólio que mostre o processo completo: framing do problema, discovery, decisões e resultado.
-- Vivência com produtos complexos, como SaaS B2B, ferramentas de gestão ou fluxos
+- Experiência consistente como Product Designer em empresas de tecnologia.
+- Portfólio que exponha o processo inteiro: enquadramento do problema, discovery, decisões e resultado.
+- Contato com produtos complexos, por exemplo SaaS B2B, ferramentas de gestão ou fluxos

@@ -1,4 +1,4 @@
-Nava Tech for Business
+Orla Tecnologia Empresarial
 
 Business Analyst (Agile Coach) | Especialista
 Remoto (Qualquer lugar)
@@ -7,22 +7,22 @@ Efetivo (CLT)
 Faixa Salarial: R$ 11.000,00 a R$ 15.000,00 / mês
 
 Descrição da vaga
-Atuação em Agile Coach, que possua sólida experiência no mercado financeiro, especialmente em produtos de Crédito para Pessoa Jurídica (PJ). Este profissional será responsável por atuar na interface entre negócio e tecnologia, conduzindo iniciativas ágeis, promovendo alinhamento entre stakeholders e apoiando a evolução de produtos financeiros estratégicos.
+Buscamos alguém para atuar como Agile Coach com bagagem consistente no setor financeiro, em especial no universo de Crédito para Pessoa Jurídica (PJ). A pessoa fará a ponte entre as frentes de negócio e de tecnologia, puxando iniciativas ágeis, aproximando os stakeholders e contribuindo para a evolução de produtos financeiros tidos como prioritários.
 
 Responsabilidades
-- Atuar como facilitador(a) entre áreas de negócio, produtos, tecnologia e stakeholders.
-- Levantar, analisar, documentar e detalhar requisitos de negócio.
-- Conduzir workshops, refinamentos, mapeamento de processos e cerimônias ágeis.
-- Apoiar squads na aplicação de práticas ágeis, promovendo melhoria contínua e aumento de eficiência.
-- Traduzir necessidades de negócio em requisitos funcionais e épicos para desenvolvimento.
-- Garantir alinhamento entre estratégias de negócio, processos e entregas de produto.
-- Acompanhar indicadores, métricas e resultados das iniciativas implementadas.
-- Atuar em projetos relacionados a produtos de crédito e soluções financeiras para empresas.
+- Servir de elo entre as áreas de negócio, produto, tecnologia e demais stakeholders.
+- Mapear, investigar, registrar e detalhar as necessidades do negócio em forma de requisitos.
+- Facilitar workshops, sessões de refinamento, mapeamentos de processo e cerimônias ágeis.
+- Dar suporte às squads na adoção de práticas ágeis, estimulando a melhoria contínua e ganhos de eficiência.
+- Converter demandas de negócio em épicos e requisitos funcionais prontos para o desenvolvimento.
+- Zelar pela coerência entre a estratégia do negócio, os processos e as entregas do produto.
+- Monitorar indicadores, métricas e resultados das iniciativas colocadas em prática.
+- Participar de projetos ligados a produtos de crédito e a soluções financeiras voltadas a empresas.
 
 Requisitos
-- Experiência como Business Analyst, Product Analyst ou Agile Coach.
-- Vivência em instituições financeiras, bancos ou fintechs.
-- Conhecimento sólido em produtos de Crédito PJ, tais como: Capital de Giro, Conta Garantida, Cheque Especial PJ, CIB (Crédito Industrial Bancário), Antecipação de Recebíveis, Desconto de Duplicatas, entre outros produtos de crédito corporativo.
-- Experiência com metodologias ágeis (Scrum, Kanban, Lean).
-- Capacidade de conduzir discovery, levantamento de requisitos e definição de backlog.
-- Habilidade para comunicação com áreas técnicas e executivas.
+- Atuação prévia como Agile Coach, Business Analyst ou Product Analyst.
+- Passagem por instituições financeiras, bancos ou fintechs.
+- Domínio de produtos de Crédito PJ, por exemplo: Capital de Giro, Conta Garantida, Cheque Especial PJ, CIB (Crédito Industrial Bancário), Antecipação de Recebíveis, Desconto de Duplicatas e outras modalidades de crédito corporativo.
+- Prática com metodologias ágeis (Scrum, Kanban, Lean).
+- Aptidão para conduzir discovery, levantar requisitos e definir backlog.
+- Facilidade de comunicação com públicos técnicos e executivos.

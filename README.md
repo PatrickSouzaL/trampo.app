@@ -61,7 +61,7 @@ flowchart LR
 3. **Funil híbrido:** a normalização (NFKC, remoção de invisíveis, máscara de e-mail, telefone, CPF, CNPJ e links) alimenta a Camada 1 determinística. Ela resolve deal-breakers e injection forte **sem LLM**. O cache de fatos vem em seguida, e só então o LLM, com envelope de *nonce* e guarda de saída.
 4. **Nota e relatório:** fusão com proveniência, nota pelos **seus** pesos, relatório por catálogo fechado (sem ecoar o seu perfil) e progresso em tempo real por SSE.
 
-O passo a passo completo está no guia do cofre: `../base/05-guia-do-projeto/01-jornada-dos-dados-ponta-a-ponta.md`.
+O passo a passo completo está no guia: [`docs/guia/01-jornada-dos-dados-ponta-a-ponta.md`](./docs/guia/01-jornada-dos-dados-ponta-a-ponta.md).
 
 ## Arquitetura do monorepo
 
@@ -134,11 +134,13 @@ trampo.app/
 ├── evals/                   # golden dataset gd1 (83 casos) e spikes S-1 e S-4
 ├── supabase/                # config.toml local e migrations (RLS e hook de 24 h)
 ├── .github/workflows/ci.yml # secrets · quality · test · db
+├── docs/                    # guia didático, ADRs, threat model e contratos (espelho do cofre)
 ├── AGENTS.md                # governança da equipe multiagente
+├── SECURITY.md              # política de divulgação de vulnerabilidades
 └── next-step.md             # o prompt da próxima sessão
 ```
 
-O catálogo arquivo por arquivo (184 arquivos de código) está em `../base/05-guia-do-projeto/03-mapa-completo-de-arquivos.md`.
+O catálogo arquivo por arquivo (184 arquivos de código) está em [`docs/guia/03-mapa-completo-de-arquivos.md`](./docs/guia/03-mapa-completo-de-arquivos.md).
 
 ## Comandos
 
@@ -165,16 +167,18 @@ Pré-requisitos: Node `^24.22.1 || >=26.12.1 <27` e pnpm `>=11.4.0 <12` (ou `cor
 
 O projeto é construído por uma **equipe multiagente** com 6 personas: `[ORCHESTRATOR]`, `[ARCHITECT]`, `[APPSEC]` (com poder de veto), `[DEV]`, `[QA_EVALS]` e `[SCRIBE]`. Ela segue um ciclo de 5 fases por sessão, com HITL para toda ação humana. As regras estão em **[`AGENTS.md`](./AGENTS.md)**.
 
-A fonte única da verdade fica num cofre Obsidian irmão deste repositório (`../base/`, fora do git):
+**Comece pelo guia:** [`docs/guia/00-indice-e-visao-geral.md`](./docs/guia/00-indice-e-visao-geral.md). As decisões de arquitetura (26 ADRs), o *threat model* e os contratos Zod estão em [`docs/arquitetura/`](./docs/arquitetura/). A política de segurança e de divulgação de vulnerabilidades está no [`SECURITY.md`](./SECURITY.md).
+
+A fonte única da verdade fica num cofre Obsidian privado, irmão deste repositório (`../base/`, fora do git). A pasta `docs/` é o espelho público e sanitizado do guia e da arquitetura; o estado operacional (fila HITL, backlog, runbooks de contas) fica só no cofre:
 
 | Pasta do cofre | Conteúdo |
 |---|---|
 | `00-orquestracao/` | `STATE`, `TRILHAS`, `BACKLOG`, `HITL-QUEUE` e `SESSION-LOG` |
 | `01-requisitos/` | `ideia_projeto.md` (o Blueprint, somente leitura) |
-| `02-arquitetura/` | 26 ADRs (001 a 027), `contratos-zod`, `threat-model` v2 (T1–T50, SR-01–SR-26) e as revisões adversariais |
+| `02-arquitetura/` | 26 ADRs (001 a 027), `contratos-zod`, `threat-model` v2 (T1–T50, SR-01–SR-26) e as revisões adversariais (espelho em [`docs/arquitetura/`](./docs/arquitetura/)) |
 | `03-infra-runbook/` | o passo a passo das ações humanas |
 | `04-qualidade-evals/` | a especificação do golden dataset e as métricas dos spikes |
-| `05-guia-do-projeto/` | **o guia didático**: visão geral, jornada dos dados, infraestrutura e segurança, mapa de arquivos e operação da esteira |
+| `05-guia-do-projeto/` | **o guia didático**: visão geral, jornada dos dados, infraestrutura e segurança, mapa de arquivos e operação da esteira (espelho em [`docs/guia/`](./docs/guia/)) |
 
 ## Status das entregas
 

@@ -1,4 +1,4 @@
-Sabiá Gaming
+Arapuã Games
 
 Analista de Suporte e Infraestrutura de TI (Pleno)
 Belo Horizonte e Região
@@ -9,22 +9,22 @@ Sobre a vaga
 RESPONSABILIDADES: Requisitos: Diferenciais:
 
 - Governança e Gestão de Identidade (SaaS)
-- Governança de Acessos: Auditoria e provisionamento de contas, garantindo o princípio do privilégio mínimo
-- Google Workspace: Gestão de usuários, grupos, permissões de Drive, configurações de segurança (2FA) e suporte a integrações.
-- MDM (Mobile Device Management): Gestão de dispositivos (laptops/mobiles), aplicação de políticas de segurança e inventário remoto.
+- Governança de Acessos: Revisão e criação de contas, seguindo o princípio do privilégio mínimo
+- Google Workspace: Administração de usuários, grupos, permissões do Drive, ajustes de segurança (2FA) e apoio a integrações.
+- MDM (Mobile Device Management): Controle de dispositivos (laptops/mobiles), aplicação de regras de segurança e inventário remoto.
 - Gestão de Ativos e Hardware
-- Gerenciamento de Ativos: Manutenção rigorosa do inventário de hardware e software (controle do ciclo de vida dos equipamentos).
-- Manutenção: Formatação (Windows/macOS), reparos básicos, upgrades de componentes e manutenção preventiva.
-- Setup Onboarding/Offboarding: Preparação de máquinas para novos colaboradores e recolhimento no encerramento de ciclos.
+- Gerenciamento de Ativos: Inventário de hardware e software sempre atualizado, acompanhando todo o ciclo de vida dos equipamentos.
+- Manutenção: Formatação (Windows/macOS), consertos simples, troca de componentes e manutenção preventiva.
+- Setup Onboarding/Offboarding: Configuração de máquinas para quem chega e devolução dos equipamentos de quem sai.
 - Suporte Técnico (N1/N2)
-- Helpdesk: Atendimento de chamados focado na resolução de incidentes em estações de trabalho, sistemas operacionais e softwares corporativos.
-- Diagnóstico: Identificação de gargalos em SO ou conectividade, atuando de forma resolutiva na causa raiz.
+- Helpdesk: Tratamento de chamados para resolver incidentes em softwares corporativos, sistemas operacionais e estações de trabalho.
+- Diagnóstico: Localização de gargalos em SO ou conectividade, atacando a causa raiz do problema.
 - Infraestrutura de Rede e Segurança
-- Redes Conectividade: Manutenção de cabeamento estruturado, organização de racks e configuração/monitoramento de Access Points (Ubiquiti/UniFi) via controladora.
-- Switching Firewall: Configurações básicas em switches gerenciáveis (VLANs, portas) e apoio no monitoramento de logs/regras básicas no MikroTik.
-- Endpoint Security: Gestão da console Bitdefender/GravityZone (instalação, monitoramento de alertas e gestão de exceções).
+- Redes Conectividade: Cuidado com o cabeamento estruturado, arrumação dos racks, além de configurar e monitorar Access Points (Ubiquiti/UniFi) pela controladora.
+- Switching Firewall: Ajustes básicos em switches gerenciáveis (VLANs, portas) e suporte ao acompanhamento de logs/regras básicas no MikroTik.
+- Endpoint Security: Administração da console Bitdefender/GravityZone (instalação, acompanhamento de alertas e tratamento de exceções).
 - Cursando ou concluído Ensino Superior em TI, Redes de Computadores ou áreas correlatas.
 - Experiência prática consistente com Windows (AD, GPO) e macOS (essencial).
 - Noções sólidas de protocolo TCP/IP, DNS, DHCP e cabeamento estruturado.
 - Certificações técnicas (ex: MTCNA/MikroTik, CCNA, Google Workspace Admin ou similares).
-- Vivência anterior em ambientes corporativos de tecnologia de ritmo acelerado.
+- Passagem anterior por empresas de tecnologia com ritmo acelerado.

@@ -1,4 +1,4 @@
-Leega
+Quantara Consultoria
 
 Tech Lead de Engenharia de Dados Sênior (Google Cloud e Aceleradores)
 São Paulo - SP
@@ -6,69 +6,69 @@ Efetivo
 Presencial
 
 Descrição da vaga
-A Leega é uma empresa focada no atendimento eficiente e inovador em seus clientes. 
+A Quantara Consultoria nasceu para entregar projetos de dados com agilidade e criatividade aos clientes que confiam no nosso trabalho.
 
-Isso não poderia ser diferente com o nosso principal combustível: as pessoas!  
+E tudo isso só acontece por causa de quem faz a casa andar: gente!
 
-Nossa cultura é inspiradora e nossos valores estão presentes no dia a dia: ética e transparência, excelência de qualidade, trabalho em equipe, responsabilidade econômica, social e ambiental, relações humanas e credibilidade.
+Temos uma cultura que dá orgulho, guiada por valores vividos em cada entrega: integridade e clareza, capricho técnico, colaboração entre times, compromisso com a sociedade e com o planeta, respeito nas relações e confiança.
 
-Buscamos profissionais inovadores que sejam movidos por desafios e focados em resultados.
+Procuramos talentos curiosos, que gostam de problemas difíceis e não perdem de vista o resultado.
 
-Se você busca uma empresa dinâmica e parceira e que investe em seus colaboradores através de capacitação constante, a Leega é o lugar para você!
+Quer crescer num lugar com energia, que caminha junto e aposta em formação contínua do time? Então a Quantara tem espaço para você!
 
->> A LEEGA É PARA TODOS, ficaremos muito felizes em ter você em nosso time. Venha fazer parte da nossa história e da construção do nosso futuro. 
+>> NA QUANTARA CABEM TODAS AS PESSOAS, e vamos adorar receber a sua candidatura. Junte-se a nós para escrever os próximos capítulos dessa trajetória.
 
-Cadastre-se agora mesmo em nossas vagas!
+Envie sua inscrição hoje mesmo!
 
 Responsabilidades e atribuições
-Buscamos um Tech Lead de Engenharia de Dados sênior para atuar de forma presencial em um projeto estratégico de migração de plataforma de dados em uma instituição financeira de grande porte. O projeto é a migração de uma plataforma de dados de grande porte, hoje em Cloudera na AWS, para o Google Cloud, no modo lift and shift: cerca de 13 mil jobs Spark e PySpark, 2,5 PB de dados, streaming com CDC, centenas de modelos de Machine Learning e frameworks proprietários de ingestão e processamento, em 9 meses de migração por ondas mensais, seguidos de 3 meses de pós implantação. 
+Procuramos alguém como Tech Lead de Engenharia de Dados sênior que trabalhe de forma presencial num programa estratégico de modernização de dados dentro de um grande banco. A iniciativa leva um ambiente de dados enorme, que roda atualmente em Cloudera na AWS, para o Google Cloud em lift and shift: algo como 13 mil jobs Spark e PySpark, um volume de 2,5 PB, fluxos via CDC, centenas de modelos de Machine Learning e ferramentas internas de ingestão e processamento; são 9 meses de migração em ondas mensais e depois 3 meses de pós implantação.
 
-Você vai liderar tecnicamente os times da fábrica de migração, fazer a ponte entre o negócio e a engenharia e garantir o uso dos aceleradores da Leega no dia a dia, respondendo pelas decisões técnicas e pela qualidade do que vai para produção. 
+Caberá a você conduzir tecnicamente as equipes da fábrica de migração, conectar as áreas de negócio à engenharia e assegurar que os aceleradores da Quantara sejam aplicados na rotina, assumindo as escolhas técnicas e a qualidade de cada entrega em produção.
 
 Principais responsabilidades:
-- Liderar tecnicamente os times de engenharia da fábrica de migração, distribuindo trabalho e revisando entregas. 
-- Operar os aceleradores da Leega no dia a dia: conversão assistida por IA, regras da fábrica, testes de paridade e evidências. 
-- Conduzir a conversão e a implantação de jobs Spark e PySpark, SQL de Hive e Impala e fluxos de streaming no Google Cloud. 
-- Garantir a comparação automática entre legado e destino e conduzir o reprocessamento de ondas quando necessário. 
-- Resolver casos técnicos complexos e apoiar a adaptação dos frameworks proprietários do cliente.
-- Definir e manter padrões de código, revisão em pares e esteiras de CI/CD (GitLab CI). 
-- Traduzir dúvidas de regra de negócio entre especialistas do cliente e os times de engenharia. 
-- Apoiar o Gerente de Projetos e o Scrum Master na estimativa, no planejamento das ondas e no acompanhamento do ritmo. 
+- Coordenar tecnicamente as equipes de engenharia da fábrica, repartindo demandas e conferindo o que é entregue.
+- Usar os aceleradores da Quantara na rotina: conversão apoiada por IA, normas internas da fábrica, checagens de paridade e registro de evidências.
+- Conduzir a conversão e a implantação de jobs Spark e PySpark, SQL de Hive e Impala e fluxos de streaming no Google Cloud.
+- Assegurar a comparação automatizada entre origem e destino e tocar o reprocessamento das ondas quando preciso.
+- Destravar problemas técnicos mais cabeludos e ajudar a adaptar as ferramentas próprias do cliente.
+- Estabelecer convenções de código, code review em dupla e esteiras de CI/CD (GitLab CI).
+- Levar as dúvidas de regras de negócio dos especialistas do cliente até as equipes de engenharia.
+- Dar suporte ao Gerente de Projetos e ao Scrum Master nas estimativas, no planejamento das ondas e no controle da cadência.
 
 Requisitos e qualificações
 Requisitos obrigatórios:
-- Mínimo de 8 anos de experiência em engenharia de dados, sendo pelo menos 3 anos como Tech Lead ou líder técnico. 
-- Experiência mínima de 3 anos com Google Cloud (Dataproc, BigQuery, Cloud Storage, Composer). 
-- Domínio de Spark e PySpark e de SQL avançado. 
-- Experiência com ecossistema Hadoop (Hive, Impala, HDFS), preferencialmente em Cloudera. 
-- Experiência em projetos de migração de dados ou de plataformas de dados. 
-- Experiência com versionamento e CI/CD (Git, GitLab CI ou similares). 
-- Ensino superior completo em Tecnologia, Engenharia ou áreas correlatas. 
+- Mínimo de 8 anos de experiência em engenharia de dados, sendo pelo menos 3 anos como Tech Lead ou líder técnico.
+- Experiência mínima de 3 anos com Google Cloud (Dataproc, BigQuery, Cloud Storage, Composer).
+- Domínio de Spark e PySpark e de SQL avançado.
+- Experiência com ecossistema Hadoop (Hive, Impala, HDFS), preferencialmente em Cloudera.
+- Histórico em projetos que migraram dados ou plataformas inteiras de dados.
+- Experiência com versionamento e CI/CD (Git, GitLab CI ou similares).
+- Graduação concluída em Tecnologia, Engenharia ou cursos afins.
 
 Diferenciais:
-- Certificação Google Cloud Professional Data Engineer. 
-- Experiência com IA generativa aplicada a conversão ou geração de código. 
-- Experiência com Kafka, Flink e CDC. 
-- Experiência em instituições financeiras. 
-- Experiência com Apache Iceberg. 
+- Certificação Google Cloud Professional Data Engineer.
+- Vivência com IA generativa usada para converter ou gerar código.
+- Experiência com Kafka, Flink e CDC.
+- Passagem por bancos ou outras empresas do setor financeiro.
+- Experiência com Apache Iceberg.
 
 Competências comportamentais:
-- Liderança técnica pelo exemplo, com disponibilidade para resolver os casos mais difíceis. 
-- Capacidade de organizar e priorizar o trabalho de vários times em paralelo. 
-- Comunicação clara entre negócio e engenharia. 
-- Senso de qualidade e de dono sobre o que vai para produção. 
-- Calma e foco para atuar em janelas de implantação e situações de pressão. 
+- Liderança técnica que inspira pelo exemplo e topa pegar os problemas mais difíceis.
+- Habilidade para organizar e priorizar as frentes de várias equipes ao mesmo tempo.
+- Comunicação objetiva entre negócio e engenharia.
+- Cuidado com a qualidade e postura de dono sobre o que chega em produção.
+- Tranquilidade e foco durante janelas de deploy e em situações de pressão.
 
 Informações adicionais
-INDISPENSÁVEL Conhecimento/Atuação em: 
-- Engenharia de dados com Spark no Google Cloud 
-- Liderança técnica de times 
-- Migração de dados 
-- Atuação presencial 
+INDISPENSÁVEL Conhecimento/Atuação em:
+- Engenharia de dados com Spark no Google Cloud
+- Liderança técnica de times
+- Migração de dados
+- Atuação presencial
 
-Modelo de atuação 100% PRESENCIAL, em instituição financeira localizada na Av. Paulista - São Paulo. 
+Modelo de atuação 100% PRESENCIAL, em instituição financeira localizada na Av. Paulista - São Paulo.
 
-Contratação CLT. 
+Contratação CLT.
 
 Benefícios:
 - Convênio Médico Porto Seguro

@@ -1,4 +1,4 @@
-BTG Pactual
+Grupo Solaris Investimentos
 
 Analista de Dados
 São Paulo, São Paulo, Brasil
@@ -7,27 +7,27 @@ Tempo integral
 Sobre a vaga
 Sobre a Área
 
-A área de Analytics do Banco tem papel central na tomada de decisão das áreas de negócio atuadas, transformando dados em insights acionáveis que impactam diretamente os resultados do negócio. Atuamos apoiando decisões do dia a dia e iniciativas estruturais de crescimento, eficiência e gestão de risco.
+Dentro do Banco, a área de Analytics é peça-chave nas decisões das frentes de negócio que atende, convertendo dados em insights práticos com efeito direto nos resultados. Apoiamos tanto escolhas do cotidiano quanto iniciativas estruturantes de crescimento, eficiência e gestão de risco.
 
-Nosso time é responsável por analisar dados, identificar padrões, construir diagnósticos e gerar recomendações baseadas em evidências, utilizando técnicas de estatística, modelagem analítica, visualização de dados e experimentação, entendendo profundamente seus desafios para propor soluções analíticas de alto impacto.
+Cabe ao nosso time analisar dados, encontrar padrões, montar diagnósticos e formular recomendações apoiadas em evidências, com uso de experimentação, estatística, visualização de dados e modelagem analítica, sempre compreendendo a fundo os desafios de cada área para sugerir soluções analíticas de grande impacto.
 
 No Seu Dia a Dia
 
-Realizar estudos e análises avançadas utilizando técnicas e ferramentas de Big Data;
-Manter e otimizar ETLs garantindo a integridade e disponibilidade dos dados;
-Desenvolver dashboards claros e intuitivos, facilitando a tomada de decisões estratégicas.
+Conduzir estudos e análises avançadas com técnicas e ferramentas de Big Data;
+Sustentar e aprimorar ETLs, assegurando a integridade e a disponibilidade dos dados;
+Construir dashboards claros e intuitivos que facilitem decisões estratégicas.
 
 Esperamos De Você
 
-Graduação completa em Engenharia, Computação, Matemática ou áreas correlatas;
+Formação concluída em Engenharia, Matemática, Computação ou áreas afins;
 Disponibilidade para atuar no modelo presencial (4x por semana) no escritório de São Paulo (Faria Lima);
 Experiência sólida em Python e SQL;
 Conhecimento em soluções e serviços AWS;
-Domínio de ferramentas de visualização de dados, especialmente PowerBI;
-Excelentes habilidades analíticas, capacidade de resolução de problemas e curiosidade intelectual;
+Domínio de ferramentas de visualização de dados, sobretudo PowerBI;
+Ótima capacidade analítica, facilidade para resolver problemas e curiosidade intelectual;
 Inglês avançado é um diferencial;
-Conhecimento prévio do mercado financeiro (investimentos, crédito, banking, etc.) ou plataformas digitais é um diferencial;
-Conhecimento e experiência prática em inferência estatística é um diferencial.
+Ter vivência prévia com plataformas digitais ou com o mercado financeiro (crédito, investimentos, banking, etc.) é um diferencial;
+Conhecimento e prática em inferência estatística é um diferencial.
 
 Benefícios
 

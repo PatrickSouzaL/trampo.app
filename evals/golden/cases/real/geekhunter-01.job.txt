@@ -1,40 +1,40 @@
-Memed
+Receitto
 
 Product Manager Pleno
 Remoto (Qualquer lugar)
 Efetivo (CLT)
 
 Sobre a empresa
-A Memed é uma healthtech que conecta médicos, parceiros e pacientes por meio de soluções de prescrição digital. Sua plataforma é embarcada nos produtos dos parceiros, levando uma experiência de prescrição eficiente para o médico e integrações simples, confiáveis e escaláveis.
+A Receitto é uma healthtech que aproxima médicos, parceiros e pacientes com ferramentas de prescrição digital. A solução roda dentro dos produtos dos parceiros, oferecendo ao médico uma prescrição ágil e, aos parceiros, integrações fáceis de adotar, estáveis e prontas para crescer.
 
 Sobre a vaga
-Como Product Manager Pleno, você terá a missão de garantir a evolução e a escala do B2B da Memed, conectando uma experiência de prescrição eficiente para o médico a integrações simples, confiáveis e escaláveis para os parceiros. Você atuará na interface entre produto, engenharia e parceiros, com forte componente técnico.
+Como Product Manager Pleno, sua missão será fazer o B2B da Receitto evoluir e ganhar escala, unindo uma prescrição ágil para o médico a integrações fáceis, estáveis e prontas para crescer do lado dos parceiros. O papel fica no encontro entre produto, engenharia e parceiros e tem um peso técnico grande.
 
 Responsabilidades
-- Experiência do médico no B2B: conduzir discovery com médicos e equipes clínicas dos parceiros, mapear fricções do fluxo de prescrição embarcado e priorizar melhorias que aumentem adoção e eficiência.
-- Produto de integração: evoluir a camada técnica que conecta a Memed aos parceiros (APIs, SDK, arquitetura embed, autenticação, webhooks, multi-tenant) e, eventualmente, aos parceiros dos parceiros (terceirizados). Escrever PRDs e especificações técnicas junto com a Tech Lead e decidir trade-offs de arquitetura com base em impacto de produto.
-- Implantação de parceiros: padronizar o onboarding técnico (checklist, ambientes, documentação pública, critérios de aceite), reduzindo tempo de implantação e retrabalho entre Comercial, CS e Engenharia.
-- Qualidade e observabilidade: definir métricas de saúde da integração (erros, latência, adoção por parceiro) e garantir monitoramento que detecte problemas de forma ativa e preventiva.
-- Interface técnica com parceiros: participar de reuniões com times de TI e produto dos parceiros para dar suporte aos times Comercial e de Implantação no convencimento e adoção da plataforma, traduzir necessidades em requisitos e defender decisões técnicas da Memed com clareza.
-- Gestão do backlog e rituais: priorizar, refinar e acompanhar a entrega do squad, mantendo documentação viva no Notion e Jira.
-- Coordenação cross-times: alinhar dependências com Comercial, CS/Pós-Vendas, Jurídico/Regulatório e Dados, e comunicar lançamentos de forma que o CS consiga orientar o parceiro.
+- Jornada do médico no B2B: fazer discovery junto aos médicos e às equipes clínicas dos parceiros, encontrar os atritos da prescrição embarcada e priorizar o que eleva adoção e eficiência.
+- Produto de integração: fazer evoluir a camada técnica que liga a Receitto aos parceiros (SDK, APIs, webhooks, autenticação, arquitetura embed, multi-tenant) e, mais adiante, aos terceiros que atendem esses parceiros. Redigir PRDs e especificações técnicas com a Tech Lead e pesar trade-offs de arquitetura pelo impacto no produto.
+- Implantação de parceiros: criar um padrão para o onboarding técnico (ambientes, checklist, critérios de aceite, documentação pública), encurtando a implantação e evitando retrabalho entre Comercial, CS e Engenharia.
+- Qualidade e observabilidade: estabelecer métricas de saúde das integrações (erros, latência, adoção por parceiro) e assegurar um monitoramento que encontre falhas antes que elas apareçam.
+- Interface técnica com parceiros: estar nas reuniões com os times de TI e de produto dos parceiros, apoiando Comercial e Implantação a convencer e a fazer a plataforma ser adotada, convertendo pedidos em requisitos e sustentando com clareza as escolhas técnicas da Receitto.
+- Gestão do backlog e rituais: ordenar, detalhar e acompanhar o que o squad entrega, com a documentação sempre atualizada no Notion e Jira.
+- Coordenação cross-times: acertar dependências com Dados, Jurídico/Regulatório, Comercial e CS/Pós-Vendas, e anunciar lançamentos de um jeito que permita ao CS instruir o parceiro.
 
 Requisitos
-- Experiência de 4 anos ou mais como Product Manager, com passagem relevante por produtos técnicos: plataforma, API, integrações ou infraestrutura de produto.
-- Fluência técnica mínima: ler documentação de API, entender lógicas de APIs, endpoints e webhooks, autenticação (OAuth, JWT, tokens), iframe/embed, ambientes de homologação e produção, e analisar logs/Inspect. Não é preciso programar, mas é necessário ter interlocução com os engenheiros.
-- Experiência em B2B ou B2B2C com múltiplos stakeholders externos, incluindo times de TI de clientes.
-- Escrita clara de PRDs, specs e documentação técnica para públicos interno e externo.
-- Uso de dados no dia a dia: leitura e navegação em dashboards e definição de métricas de produto.
-- Discovery com usuário final e com cliente técnico, e capacidade de conciliar os dois quando divergem.
-- Comunicação segura com interlocutores técnicos e executivos de parceiros.
-- Colaboração com stakeholders internos para alto alinhamento sobre as mudanças no produto.
+- Experiência mínima de 4 anos como Product Manager, com bom tempo em produtos técnicos (integrações, API, plataforma ou infraestrutura de produto).
+- Fluência técnica básica: saber ler documentação de API e compreender autenticação (OAuth, JWT, tokens), a lógica de APIs, endpoints e webhooks, iframe/embed, análise de logs/Inspect e ambientes de homologação e de produção. Programar não é exigido, mas a conversa com os engenheiros precisa fluir.
+- Vivência em B2B ou B2B2C com vários stakeholders externos, inclusive times de TI de clientes.
+- Texto claro em PRDs, specs e documentação técnica para leitores de dentro e de fora.
+- Dados na rotina: navegar e interpretar dashboards e definir métricas de produto.
+- Discovery tanto com o usuário final quanto com o cliente técnico, sabendo equilibrar os dois quando não concordam.
+- Segurança para conversar com interlocutores técnicos e executivos dos parceiros.
+- Trabalho conjunto com stakeholders internos para manter todos alinhados sobre o que muda no produto.
 
 Diferenciais
-- Experiência em healthtech ou com interoperabilidade em saúde (HL7 FHIR, TISS/TUSS, prontuários eletrônicos, HIS, telemedicina).
-- Já ter conduzido implantação de integrações com clientes enterprise, do kick-off técnico ao go-live.
-- Formação ou experiência prévia em engenharia, análise de sistemas ou integração.
+- Vivência em healthtech ou em interoperabilidade na saúde (HL7 FHIR, telemedicina, HIS, prontuários eletrônicos, TISS/TUSS).
+- Já ter tocado projetos de integração junto a clientes enterprise, desde o kick-off técnico até o go-live.
+- Formação ou passagem anterior por engenharia, análise de sistemas ou integração.
 - Familiaridade com Jira, Notion, Postman, Datadog ou Grafana, Metabase e Databricks.
-- Noções do contexto regulatório de saúde no Brasil (CFM, ANVISA, LGPD).
+- Noções do cenário regulatório da saúde no Brasil (CFM, ANVISA, LGPD).
 
 Competências comportamentais
 - Visão sistêmica.
@@ -44,12 +44,12 @@ Competências comportamentais
 Benefícios
 - Plano de saúde e odontológico Amil;
 - VR/VA de R$ 40,00 por dia útil no cartão Flash;
-- Memed Cuida: R$ 110/mês de uso livre;
+- Receitto Cuida: R$ 110/mês de uso livre;
 - Auxílio creche;
 - Day off no aniversário;
 - Seguro de vida;
 - Wellhub e TotalPass;
-- Acesso a cursos, graduação, pós-graduações e mentorias pela Único Skill;
+- Cursos, graduação, pós-graduações e mentorias com acesso pela Único Skill;
 - Duas sessões cobertas de psicoterapia via Zenklub;
 - Plano de Carreira e Performance Contínuo;
 - Omni Medicamentos: saldo mensal de R$ 200,00 para compra de medicamentos com receituário.

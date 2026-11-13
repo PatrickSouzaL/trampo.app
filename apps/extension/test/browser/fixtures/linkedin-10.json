@@ -8,16 +8,16 @@
   "raizEsperada": "main",
   "raizDaPlataforma": "[data-sdui-screen$=\".SemanticJobDetails\"] [data-testid=\"expandable-text-box\"]",
   "trechosObrigatorios": [
-    "A Proative Technology é especialista em",
-    "Boa capacidade analítica e organização;",
-    "Interesse em observabilidade, automação e confiabilidade"
+    "U Nmueneli Tuvbpuvucn u uvsopoosannu ud",
+    "Naa guhipemola acekaveke a ekpijaheloe;",
+    "Asmofokti ud utpepmeregigahu, eibikifou a fonsaucezemedu"
   ],
   "trechosProibidos": [
     "[PESSOA]",
-    "Como é feita a classificação das vagas promovidas",
-    "4 ex-alunos da instituição trabalham aqui",
-    "Seu perfil e currículo",
-    "Concluiu sua candidatura?"
+    "Kebu u miume u zzirlupifimue kim kujuz tpigadipon",
+    "4 oj-agumaj ro ihnbipeeroa zsahupzig inue",
+    "Ria dumbud a fuvkinuvi",
+    "Nubmciua doi kabzijepuji?"
   ],
   "anonimizacao": {},
   "ajustes": {
