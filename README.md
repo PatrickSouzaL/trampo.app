@@ -1,4 +1,4 @@
-# trampo.app: Exocérebro de Carreira On-Demand
+# Trampo.app: Exocérebro de Carreira On-Demand
 
 [![ci](https://github.com/PatrickSouzaL/trampo.app/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/PatrickSouzaL/trampo.app/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3%20strict-3178C6?logo=typescript&logoColor=white)
