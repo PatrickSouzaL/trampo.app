@@ -87,6 +87,14 @@ module.exports = {
       to: { path: "^packages/contracts/(src|dist)/auth\\." },
     },
     {
+      name: "portal-client-not-to-server",
+      severity: "error",
+      comment:
+        "Componente de cliente do portal (src/client) nunca alcança o servidor: sessão, selo, GoTrue e configuração ficam fora do bundle do navegador (ADR-027 D11).",
+      from: { path: "^apps/web-portal/src/client/" },
+      to: { path: "^apps/web-portal/src/(server/|proxy\\.ts$)" },
+    },
+    {
       name: "ui-kit-presentation-only",
       severity: "error",
       comment: "ui-kit só depende de React e dos contratos.",

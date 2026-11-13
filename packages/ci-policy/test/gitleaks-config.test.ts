@@ -28,6 +28,8 @@ const key = (): string => randomBytes(32).toString("base64url");
 
 const found = (content: string, path = "apps/api/.env"): boolean =>
   findsSecret(real, "trampo-auth-seal-keys", { path, content });
+const foundPortal = (content: string, path = "apps/web-portal/.env"): boolean =>
+  findsSecret(real, "trampo-portal-seal-keys", { path, content });
 const foundFile = (path: string): boolean => findsSecret(real, "trampo-auth-seal-keys-files", { path, content: "x" });
 
 describe("parseGitleaksConfig: o subconjunto do TOML que o repositório usa", () => {
@@ -224,7 +226,7 @@ describe(".gitleaks.toml real: trampo-auth-seal-keys (ADR-004 §4.8)", () => {
     },
   );
 
-  it("nenhum arquivo versionado dispara as duas regras (o espelho local do job secrets na árvore)", () => {
+  it("nenhum arquivo versionado dispara as três regras (o espelho local do job secrets na árvore)", () => {
     const files = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT_DIR, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
       .split("\0")
       .filter((name) => name !== "");
@@ -232,8 +234,39 @@ describe(".gitleaks.toml real: trampo-auth-seal-keys (ADR-004 §4.8)", () => {
     const hits = files.filter((path) => {
       if (foundFile(path)) return true;
       const content = readFileSync(`${ROOT_DIR}${path}`, "utf8");
-      return found(content, path);
+      return found(content, path) || foundPortal(content, path);
     });
     expect(hits).toEqual([]);
+  });
+});
+
+describe(".gitleaks.toml real: trampo-portal-seal-keys (ADR-027 D4)", () => {
+  const PORTAL = "PORTAL_SEAL_KEYS";
+
+  it("regra própria, com a mesma forma da do refresh e sem allowlist", () => {
+    const rule = real.rules.find((candidate) => candidate.id === "trampo-portal-seal-keys");
+    const refresh = real.rules.find((candidate) => candidate.id === "trampo-auth-seal-keys");
+    expect(rule?.keywords).toEqual(["portal_seal_keys"]);
+    expect(rule?.path).toBeUndefined();
+    expect(rule?.regex).toBe(refresh?.regex?.replace("AUTH_REFRESH_SEAL_KEYS", PORTAL));
+  });
+
+  it.each([
+    ["dotenv", () => `${PORTAL}=a1:${key()}`],
+    ["anel com duas chaves", () => `${PORTAL}=b2:${key()},a1:${key()}`],
+    ["YAML com o valor na linha de baixo", () => `env:\n  ${PORTAL}:\n    a1:${key()}\n`],
+    ["objeto TypeScript", () => `const env = { ${PORTAL}: "a1:${key()}" };`],
+    ["PowerShell", () => `$env:${PORTAL} = "a1:${key()}"`],
+  ])("pega a atribuição: %s", (_name, sample) => {
+    expect(foundPortal(sample())).toBe(true);
+  });
+
+  it.each([
+    ["o .env.example vazio", () => `${PORTAL}=\nPORTAL_SEAL_ACTIVE_KEY=\n`],
+    ["valor montado em tempo de execução", () => `PORTAL_SEAL_KEYS: \`a1:\${randomBytes(32).toString("base64url")}\``],
+    ["material curto demais (31)", () => `${PORTAL}=a1:${"a".repeat(31)}`],
+    ["a variável do refresh não é desta regra", () => `${NAME}=r1:${key()}`],
+  ])("não pega: %s", (_name, sample) => {
+    expect(foundPortal(sample())).toBe(false);
   });
 });

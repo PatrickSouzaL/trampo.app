@@ -80,3 +80,16 @@ describe("avisos (ADR-027 D7)", () => {
     for (const text of Object.values(NOTICES)) expect(text).not.toMatch(/[<>]|https?:/);
   });
 });
+
+describe("estado da página (ADR-027 D6 e D7)", () => {
+  it("o aviso explícito vem primeiro; sem ele, o estado do proxy", async () => {
+    const { homeFor, noticeFor } = await import("../../src/server/page-state");
+    expect(noticeFor("saiu", "expirada")).toBe("saiu");
+    expect(noticeFor("lixo", "expirada")).toBe("sessao_expirada");
+    expect(noticeFor(undefined, "indisponivel")).toBe("servico_indisponivel");
+    expect(noticeFor(undefined, "ativa")).toBeNull();
+    expect(noticeFor(undefined, null)).toBeNull();
+    expect(homeFor("expirada")).toBe("/?aviso=sessao_expirada");
+    expect(homeFor("ausente")).toBe("/");
+  });
+});
