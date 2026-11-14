@@ -412,6 +412,9 @@ describe("falha fechado no boot", () => {
     ["kid do refresh fora de [a-z0-9]{1,16}", { AUTH_REFRESH_SEAL_KEYS: `R1:${REFRESH_KEY}`, AUTH_REFRESH_SEAL_ACTIVE_KEY: "R1" }, RefreshKeyringConfigError],
     ["chave do refresh curta", { AUTH_REFRESH_SEAL_KEYS: `r1k1:${randomBytes(16).toString("base64url")}` }, RefreshKeyringConfigError],
     ["idade máxima abaixo de 3.600", { AUTH_SESSION_MAX_AGE_SECONDS: "3599" }, AuthSessionConfigError],
+    // F1-API-09 (ADR-004 D5): o teto é o 86.400 do hook; o teto antigo de 7 dias também não sobe.
+    ["idade máxima acima de 86.400", { AUTH_SESSION_MAX_AGE_SECONDS: "86401" }, AuthSessionConfigError],
+    ["idade máxima no teto antigo de 604.800", { AUTH_SESSION_MAX_AGE_SECONDS: "604800" }, AuthSessionConfigError],
     ["inatividade acima da idade máxima", { AUTH_SESSION_MAX_AGE_SECONDS: "7200", AUTH_SESSION_IDLE_SECONDS: "7201" }, AuthSessionConfigError],
     ["a chave da pretensão repetida no anel do refresh (pendência do 07b)", { AUTH_REFRESH_SEAL_KEYS: `r1k1:${REFRESH_KEY},r2:${SALARY_KEY}` }, KeyringReuseError],
     ["a chave do refresh repetida no anel da pretensão", { CRITERIA_SALARY_KEYS: `k1:${SALARY_KEY},k2:${REFRESH_KEY}` }, KeyringReuseError],
@@ -427,6 +430,28 @@ describe("falha fechado no boot", () => {
     for (const secret of [SALARY_KEY, REFRESH_KEY, PEPPER, UPSTASH_TOKEN, "sb_secret_vazada-123", LEGACY_KEY_PREFIX, "r1k1", "r2", "k2"]) {
       expect(message).not.toContain(secret);
     }
+  });
+
+  test("F1-API-09: AUTH_SESSION_MAX_AGE_SECONDS=86401 não sobe, e nem o log nem a mensagem trazem o valor", async () => {
+    const lines: string[] = [];
+    let error: unknown;
+    try {
+      composeApp(environment({ AUTH_SESSION_MAX_AGE_SECONDS: "86401" }), {
+        logger: { level: "trace", stream: { write: (line) => void lines.push(line) } },
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(AuthSessionConfigError);
+    expect(String((error as Error).message)).toContain("AUTH_SESSION_MAX_AGE_SECONDS");
+    expect(String((error as Error).message)).not.toContain("86401");
+    for (const line of lines) expect(line).not.toContain("86401");
+    // Controle: o mesmo logger, com o teto exato, sobe e escreve (o "nenhum log" acima não é um logger mudo).
+    composed = composeApp(environment({ AUTH_SESSION_MAX_AGE_SECONDS: "86400" }), {
+      logger: { level: "trace", stream: { write: (line) => void lines.push(line) } },
+    });
+    expect((await composed.app.inject({ method: "GET", url: "/health" })).statusCode).toBe(200);
+    expect(lines.some((line) => line.includes("requisicao_recebida"))).toBe(true);
   });
 });
 

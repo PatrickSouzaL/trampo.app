@@ -169,10 +169,13 @@ describe("catálogo: a função, os grants e a constante (ADR-026 D1, D4 e D5)",
     expect(ownership).toMatchObject({ sessionsOwner: "supabase_auth_admin", sessionsSelect: true, sessionsRls: true, sessionsForcedRls: false });
   });
 
-  test("a idade máxima lida do banco é o padrão do AUTH_SESSION_MAX_AGE_SECONDS da API (86.400)", () => {
+  test("a idade máxima lida do banco é o padrão E o teto do AUTH_SESSION_MAX_AGE_SECONDS da API (86.400; F1-API-09)", () => {
     const { definition } = z.object({ definition: z.string() }).parse(psqlJson(stack, HOOK_DEFINITION_SQL));
     const seconds = [...definition.matchAll(/make_interval\(secs => (\d+)\)/g)].map((match) => Number(match[1]));
-    expect(seconds).toEqual([MAX_AGE_SECONDS]);
+    // ADR-004 D5, emenda da F1-API-09: a variável não aceita nada que o hook anule. Subir a idade exige migration
+    // nova, a constante e a emenda, juntas; este caso cai se só um dos três mudar.
+    expect(seconds).toEqual([AUTH_SESSION_LIMITS.maxAgeSeconds.fallback]);
+    expect(seconds).toEqual([AUTH_SESSION_LIMITS.maxAgeSeconds.max]);
     expect(MAX_AGE_SECONDS).toBe(86_400);
     // Nenhum outro número de idade no corpo: nem em horas, nem em dias.
     expect(definition).not.toMatch(/interval\s+'/);

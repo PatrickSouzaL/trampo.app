@@ -5,7 +5,11 @@ import { parseRefreshKeyring } from "../crypto/aead-refresh-sealer.js";
 import type { AeadKeyring } from "../crypto/aead-envelope.js";
 
 export const AUTH_SESSION_LIMITS = {
-  maxAgeSeconds: { fallback: 86_400, min: 3_600, max: 604_800 },
+  /**
+   * O teto é o padrão e o 86.400 do Custom Access Token Hook (F1-API-09, emenda do ADR-004 D5): acima disso o hook
+   * recusaria a renovação sem aviso. O test:db prende o teto e o padrão à constante da migration.
+   */
+  maxAgeSeconds: { fallback: 86_400, min: 3_600, max: 86_400 },
   /** O teto da inatividade é a idade máxima configurada. */
   idleSeconds: { fallback: 14_400, min: 900 },
 } as const;
@@ -25,7 +29,8 @@ export interface AuthSessionConfig {
   readonly idleSeconds: number;
 }
 
-// Até 7 dígitos: cobre o teto de 604.800 e corta antes de qualquer número fora do inteiro seguro.
+// Até 7 dígitos: só a forma, com folga sobre o teto de 86.400 (o corte por faixa vem depois, com a mesma mensagem) e
+// antes de qualquer número fora do inteiro seguro.
 const DECIMAL_SECONDS = /^[1-9][0-9]{0,6}$/;
 
 function seconds(
