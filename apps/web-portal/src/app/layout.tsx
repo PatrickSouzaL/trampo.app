@@ -6,7 +6,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Trampo",
   description: "Portal do Trampo",
-  referrer: "no-referrer",
+  // O mesmo valor do cabeçalho (ADR-027 D8 e §7): com `no-referrer`, o POST do "Sair" levaria `Origin: null`.
+  referrer: "same-origin",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

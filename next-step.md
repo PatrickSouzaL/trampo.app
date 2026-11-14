@@ -1,47 +1,108 @@
-# Próximo passo: F1-PORTAL-01 parte 2 (E2E no Edge, runbook do 1º login real e HITL-041) e o job `db` do PR do 7º ciclo
+# Próximo passo: F1-API-09 no código, F1-PORTAL-02 (critérios no portal: desenho e código) e o PR do 10º ciclo
 
-> **SEC-PUB-01 entregue na sessão 28 (2026-11-13):** golden `gd1` e fixtures de DOM sintéticos (`f9a794d`), `docs/` e `SECURITY.md` (`449ed20`), sem tocar em código de produção; o PR #25 já foi mergeado (8º ciclo fechado) e o push desta sessão abre o 9º ciclo do HITL-037. Pendência nova: **HITL-042**, decidir como o projeto vira público, porque o histórico ainda tem os textos reais (runbook `../base/03-infra-runbook/publicar-repositorio-publico.md`). O prompt abaixo segue intacto.
-> Abra uma sessão nova e envie o prompt abaixo. Nenhum HITL bloqueia o código da trilha.
-> Última entrega: sessão 25, a F1-PORTAL-01 no servidor (`787b8a5`: núcleo `src/server` com selo AES-256-GCM, cliente próprio do GoTrue e verificador ES256; `82b6a51`: rotas, `proxy.ts` com CSP de nonce e renovação, páginas, cabeçalhos e a integração contra o `next start`). Desenho no ADR-027 (com a §6 de emendas); detalhes no `SESSION-LOG`; trilhas e cuidados em `../base/00-orquestracao/TRILHAS.md` (cuidado 33 novo).
+> **Última entrega, sessão 29 (2026-11-13):** a F1-PORTAL-01 está fechada no código.
+> - `f24325c`: o E2E do portal no Edge, com 3 rodadas de 8/8 e a mutação Q- em 8/8.
+> - `7798a19`: a correção que o E2E achou. O "Sair" levava `Origin: null` com `Referrer-Policy: no-referrer`; agora é `same-origin`.
+> - `830c259`: a prova da conta do tamanho do access usada no runbook.
+> - Fora do código: o runbook do 1º login real, o HITL-041 e a F1-API-09 desenhada no ADR-004 D5. O HITL-040 e o HITL-042 (opção B) estão fechados.
+>
+> Detalhes no `SESSION-LOG`; trilhas e cuidados em `../base/00-orquestracao/TRILHAS.md` (cuidado 36 novo).
 
 ## Pendências do humano
 
-- **HITL-037, 7º ciclo:** abrir o PR do `spike/s1-extraction` para o `master` e conferir os 4 checks. O job `db` desse PR é a 1ª execução do `auth-hook.db.test.ts` contra o GoTrue de verdade (esperado: 136 passed), e o job `test` agora constrói o portal e sobe o `next start`. Só mergeie com tudo verde. Runbook `../base/03-infra-runbook/publicar-branch-pr.md` (§4 a §6).
-- **HITL-040 (depois do `db` verde e do merge):** aplicar a migration do hook no projeto Supabase real, ligar o hook no painel e rodar os 4 testes de fumaça. Runbook `../base/03-infra-runbook/supabase-hook-real.md`.
+- **HITL-037, 10º ciclo:** abrir o PR do `spike/s1-extraction` para o `master`, conferir os 4 checks e mergear com merge commit. O PR leva o `7798a19`, o `f24325c`, o `830c259` e o commit de docs. Runbook `../base/03-infra-runbook/publicar-branch-pr.md` (§4 a §6).
+- **HITL-041 (depois do merge):** o 1º login real do portal, com o Google e o GitHub, em `http://127.0.0.1:3100`. A Redirect URL de loopback entra na allow-list só durante o roteiro e é removida no fim. Responda só com atributos, avisos e o número da coluna Size. Runbook `../base/03-infra-runbook/auth-portal.md`.
 
 ## Próximo prompt
 
 ```text
-Equipe, sigam em ciclo estrito de DevSecOps (AGENTS.md), em batelada de etapas com checkpoint no STATE.md entre elas e um commit atômico por etapa. Trilhas: (0) o job db (e o test, que agora sobe o portal) do PR do 7º ciclo, se o PR existir; (1) F1-PORTAL-01 parte 2: o E2E do portal no Edge, o resto da mutação, o runbook do 1º login real e o HITL-041; e, se a janela permitir, (2) F1-API-09 só no desenho. Nada gasta cota de LLM nem chama o Supabase real: o portal é provado contra o GoTrue simulado do próprio portal em socket real; o login contra o projeto real é HITL. Push do spike/s1-extraction autorizado no fim de cada etapa, depois do git fetch e do gitleaks 8.30.1 conferido pelo checksums.txt. Se a janela de contexto apertar, parem no fim de uma etapa, gravem o STATE e gerem o next-step com o que falta (AGENTS §4.4).
+Equipe, sigam em ciclo estrito de DevSecOps (AGENTS.md), em batelada de etapas com checkpoint no STATE.md entre elas e um commit atômico por etapa. Trilhas: (0) o PR do 10º ciclo, se existir; (1) o código da F1-API-09; (2) a F1-PORTAL-02, primeiro o desenho num ADR novo e depois o código em fatias; e, se a janela permitir, (3) a F1-PORTAL-04 só no desenho. Nada gasta cota de LLM nem chama o Supabase real: o portal é provado contra o GoTrue simulado e uma API simulada do próprio portal, em socket real; tudo que tocar o projeto real é HITL. Push do spike/s1-extraction autorizado no fim de cada etapa, depois do git fetch e do gitleaks 8.30.1 conferido pelo checksums.txt. O repositório é PÚBLICO: nenhum caminho local, e-mail, host real ou ID de scratchpad em arquivo rastreado nem em mensagem de commit (cuidado 35). Se a janela de contexto apertar, parem no fim de uma etapa, gravem o STATE e gerem o next-step com o que falta (AGENTS §4.4).
 
 FASE 1 [ORCHESTRATOR]
-- Leiam o STATE.md (bloco da sessão 25), o HITL-QUEUE.md (HITL-037 no 7º ciclo, com o andamento da sessão 25, e HITL-040) e o TRILHAS.md (tabela e cuidados 7, 10, 14, 22, 24, 25, 26, 31, 32 e 33). Rodem git fetch, gh pr list --state all --limit 3 e gh pr view <n> --json state,mergeCommit,headRefOid do PR do 7º ciclo. Registrem a divergência se o prompt e o GitHub discordarem: nunca fechem um ciclo do HITL-037 nem o HITL-040 pela declaração.
-- Leiam o ADR-027 inteiro (D1 a D12, a auditoria com as 12 condições, o §4.3 e a §6 de emendas), o threat-model (TB12, TB13, T33, T41, T44, T47 a T50, SR-25, SR-26 e a §9) e o runbook auth-extensao (§2.1, Redirect URLs e Site URL; o pré-spike da §3 como molde de roteiro manual sem segredo no chat; §5 e §6).
-- Leiam o código antes de propor: apps/web-portal/src/server (session.ts, edge.ts, cookies.ts, gotrue.ts, verifier.ts, seal.ts), src/proxy.ts, as rotas em src/app/auth, as páginas, next.config.ts, turbo.json do portal, test/support/fake-gotrue.ts e test/integration/next-start.test.ts. Para o E2E, leiam o harness da extensão como molde, sem importar nada dela (aresta proibida): apps/extension/test/e2e/support (o loadExtension, o fake-servers.ts, o cdp-tap.ts e o leaks.ts), o playwright-core do catálogo e o global-setup.ts.
+- Leiam o STATE.md (bloco da sessão 29), o HITL-QUEUE.md (HITL-037 no 10º ciclo e HITL-041) e o TRILHAS.md (tabela e cuidados 7, 14, 24, 26, 32, 33, 35 e 36). Rodem git fetch, gh pr list --state all --limit 3 e gh pr view <n> --json state,mergeCommit,headRefOid,statusCheckRollup do PR do 10º ciclo. Registrem a divergência se o prompt e o GitHub discordarem: nunca fechem um ciclo do HITL-037 pela declaração.
+- Se este prompt trouxer a resposta do HITL-041, façam a conta do access para cada provedor: access = ⌊3·(Size − 66)/4⌋ − 125 (o kid p1 e o refresh de 12 caracteres; com refresh mais longo, é um teto). Registrem o número no ADR-027 D3 (emenda datada) e no threat-model, e fechem a F1-PORTAL-01 por inteiro. Se algum provedor passar de 2.000 caracteres, a decisão de dividir a sessão em dois cookies selados volta ao [ARCHITECT] antes de qualquer outra trilha do portal. Resposta sem "loopback removida e conferida" mantém o HITL-041 aberto.
+- Leiam o ADR-004 D5 inteiro, com a emenda da F1-API-09 (sessão 29). Leiam também o ADR-018 (D4 a D6, o cliente de usuário e a RLS), o ADR-021 inteiro (critérios: D2, D4, D8.1 e D9, CriteriaGuard e pretensão s1), o ADR-027 (D1 a D12, a §6 e a §7) e o ADR-007 (borda, CORS por rota e chaves de rate limit). Do contratos-zod, leiam a §4 do user-criteria e o limits. Do threat-model, leiam TB5, TB12, TB13, T33, T49, T50, SR-12, SR-25, SR-26 e a §9.
+- Leiam o código antes de propor. Na API: src/infrastructure/auth/auth-session-env.ts e o teste dele, test/compose-app.test.ts, test/db/auth-hook.db.test.ts, src/presentation/routes/criteria.ts, src/presentation/edge/cors.ts e os limites e classes de rate limit da borda. Nos contratos: packages/contracts/src/user-criteria.ts, enums.ts e limits.ts. No portal: apps/web-portal/src/server (gotrue.ts é o molde do cliente HTTP), src/proxy.ts, as rotas, as páginas, test/support/fake-gotrue.ts, test/integration/next-start.test.ts e test/e2e (stack.ts e portal.e2e.test.ts).
 
-ETAPA 0: PR do 7º ciclo [QA_EVALS] + [DEV] (só se o PR existir)
-- gh pr checks <n> --watch. Verde: registrem no STATE, no HITL-037 e no ADR-026 §4.3 (o run e a contagem do db: esperado 136 passed) e sigam. Vermelho no db: gh run view <run> --log-failed, leiam o caso e o código do GoTrue v2.197.0 do ponto que divergiu (cuidado 26), corrijam só o teste ou a migration, rodem o mut_db02.py nos mutantes afetados (pilha simulada do scratchpad da sessão 24, cuidado 32), commit, push e --watch de novo. Vermelho no test do portal: confiram se o runner do CI tem o .next (o test do portal depende do build pelo apps/web-portal/turbo.json) e se o next start sobe no Linux; corrijam o teste ou a configuração, nunca afrouxem uma asserção de cabeçalho. Nunca marquem a F1-DB-02 como fechada com o db vermelho.
+ETAPA 0: PR do 10º ciclo [QA_EVALS] + [DEV] (só se o PR existir)
+- gh pr checks <n> --watch. Verde: registrem no STATE e no HITL-037 e sigam. Vermelho no test do portal: o Referrer-Policy mudou para same-origin no 7798a19 (a unidade e a integração conferem o valor novo). Confiram o caso que caiu e corrijam o teste ou a configuração, nunca afrouxando uma asserção de cabeçalho. O E2E não roda no CI.
 
-ETAPA 1: desenho do E2E e do roteiro manual [ARCHITECT] + [APPSEC], sem código (emenda ao ADR-027 §4.3)
-- Sondagem antes do desenho (script no scratchpad, nunca no repositório): o Edge do sistema (e o Chrome 157) aceita cookie __Host- com Secure vindo de http://127.0.0.1? Anotem o resultado por navegador. Se recusar, o E2E sobe o portal atrás de TLS local (certificado efêmero gerado no teste, nunca no git; o navegador com --ignore-certificate-errors só no perfil descartável) e o roteiro manual do HITL-041 também; registrem a escolha como emenda ao ADR-027 D3 e à §9 do threat-model.
-- Desenhem: o global-setup do portal (build já feito pelo turbo, next start em 127.0.0.1 com porta livre, GoTrue simulado com a allow-list exata do portal), a navegação real pelo Edge do sistema via playwright-core (sem download de navegador), e as provas: (a) login completo pelos botões da página até /conta; (b) document.cookie da página logada sem trampo nem canário, e o HTML e os scripts sem o access, o refresh, o sub e o e-mail canário; (c) a página do portal num iframe de outra origem (um servidor http em outra porta) não carrega, pelo evento de bloqueio do navegador ou pelo frame vazio; (d) a recusa do hook vira o aviso "Sua sessão expirou" e o botão de entrar; (e) o 503 mantém a sessão; (f) o logout pelo botão leva ao aviso "Você saiu" e o cookie some; (g) nenhum erro de CSP no console (o nonce aplicado de verdade pelo navegador); (h) a saída do processo do portal sem canário. Cada "0" com controle positivo (cuidado 24). Três rodadas.
-- [APPSEC]: confirmem que nenhuma porta de depuração abre fora de 127.0.0.1, que o perfil é descartável e que o E2E não toca no Supabase real.
+ETAPA 1: F1-API-09 no código [DEV] + [QA_EVALS] (TDD estrito, emenda do ADR-004 D5 já aprovada)
+- Testes vermelhos primeiro:
+  - test/infrastructure/auth-session-env.test.ts: 86.400 e 3.600 aceitos; 86.401 e 604.800 recusados com a mensagem sem o valor; inatividade acima da idade configurada recusada; o max igual ao fallback;
+  - test/compose-app.test.ts: o boot com AUTH_SESSION_MAX_AGE_SECONDS=86401 não sobe, e nenhum log traz o valor;
+  - test/db/auth-hook.db.test.ts: o secs => N do pg_get_functiondef é igual ao max e ao fallback do AUTH_SESSION_LIMITS.
+- Depois o código: o AUTH_SESSION_LIMITS.maxAgeSeconds.max vai a 86_400, e o comentário do DECIMAL_SECONDS é atualizado (a regex fica).
+- Mutação mut_api09.py (molde do mutlib.py da sessão 29: vários pares por mutante e a saída em mutlogs/, conferindo QUAL teste caiu):
+  - o teto de volta a 604.800;
+  - o > trocado por >= no corte;
+  - o fallback diferente do max;
+  - o test:db comparando só com o fallback, provado na pilha local da CLI 2.120.0 com Docker (o job db do ci.yml) ou na pilha simulada da sessão 24.
+- O test:db novo só se prova no job db do PR (gh pr checks --watch).
+- Cofre: o aviso do .env no runbook auth-extensao §1.5 (quem tiver AUTH_SESSION_MAX_AGE_SECONDS acima de 86.400 no apps/api/.env não sobe a API; a equipe nunca lê o .env), o BACKLOG F1-API-09 e o mapa do guia se algum arquivo mudar de papel.
 
-ETAPA 2: E2E e mutação [DEV] + [QA_EVALS]
-- apps/web-portal/test/e2e com a config própria do vitest (fora do turbo test, como o test:browser da extensão, com o script próprio) e o playwright-core do catálogo. Cobertura do apoio do E2E em 100% se ele entrar em src; os falsos ficam em test/support.
-- Mutação: completem o mut_portal01.py (scratchpad da sessão 25) com o grupo Q- pelo E2E no Edge, em primeiro plano e em lotes de 3 ou 4: cookie legível pelo JS (sem HttpOnly), frame-ancestors e X-Frame-Options retirados juntos, nonce ausente na CSP (scripts bloqueados), recusa do hook tratada como 503, 503 tratado como recusa, logout pelo GET, botão de entrar que leva o verifier na URL. Reconstruam o portal depois de cada rodada da borda (cuidado 33).
+ETAPA 2: F1-PORTAL-02, desenho [ARCHITECT] + [APPSEC], sem código (ADR-028 novo, com a auditoria do [APPSEC] e as condições numeradas)
+- Fatos antes do desenho, pela documentação da versão instalada em node_modules/next/dist/docs (Server Functions e Server Actions, data-security.md, forms e a proteção de Origin e Host das Server Actions) e pelo código da API. Nada de memória.
+- Decisões em aberto:
+  - Caminho dos dados:
+    - (A) recomendação a provar: o servidor do portal chama o GET e o PUT /v1/criteria da API com o Bearer do access do cookie selado, servidor a servidor. A API continua dona da pretensão cifrada (s1, anel só na API), do CriteriaGuard, da RLS pelo PostgREST e do bodyLimit;
+    - (B) o portal fala direto com o PostgREST pelo cliente de usuário do ADR-018 D5. Exigiria o anel da pretensão no portal, e o [APPSEC] deve avaliar o veto.
+  - Cliente HTTP da API no portal (src/server/api-client.ts, molde do gotrue.ts, reescrito):
+    - lista fechada de cabeçalhos, só o Bearer e o content-type, nunca o cookie do navegador;
+    - redirect "error", prazo explícito, teto de resposta, UTF-8 estrito e JSON sem chave de protótipo;
+    - classificação recusado | nao_recebido | pode_ter_gravado, sem nova tentativa no PUT;
+    - nunca rejeita.
+  - Variável nova API_ORIGIN (https exato, ou http só em loopback), no D9 do ADR-027 e no .env.example.
+  - Borda da API para o portal:
+    - o CORS por rota para pedido sem Origin (servidor a servidor);
+    - o rate limit da classe criterios, cuja chave é por usuário ou por IP: com todos os usuários atrás do IP do portal, a chave por IP vira um balde só, e é preciso decidir;
+    - o 401 da API com sessão válida no portal (sid revogado, hook) vira "entre de novo" e apaga o cookie;
+    - o 503 e o 429 viram "indisponível" sem perder a sessão;
+    - renovar antes de chamar a API quando o access tem até 60 s pela frente (como o logout, D7).
+  - Formulário: Route Handler POST /conta/criterios (Origin exato e Sec-Fetch-Site same-origin, como o logout, com corpo application/x-www-form-urlencoded) ou Server Action (proteção de Origin e Host do Next, ID da action, compatibilidade com a CSP de nonce e com o cacheComponents desligado). Escolham uma e provem que funciona SEM JavaScript de cliente: nenhum "use client" nesta trilha.
+  - Mapeamento campo a campo do formulário para o UserCriteriaSchema (strictObject) do @trampo/contracts:
+    - listas de enums fechados (enums.ts) e tetos do limits.ts (o CRITERIA_BODY_MAX_BYTES de 12.288);
+    - nenhum texto livre alimentando regra;
+    - o erro de validação volta ao formulário só com o nome do campo e um texto do catálogo fechado, nunca com o texto do Zod.
+  - LGPD e pretensão salarial:
+    - a pretensão só aparece para o dono, na /conta/criterios, com Cache-Control: no-store;
+    - nunca em URL, log ou aviso;
+    - o rascunho que falhou volta renderizado pelo servidor, sem localStorage.
+  - Depcruise: o portal pode importar @trampo/contracts/user-criteria (a extensão não, F-02), mas nunca a API.
+  - Threat-model:
+    - TB5 (portal → API) vira real;
+    - ficha nova para o portal como *confused deputy* (o Bearer do usuário repassado só para a origem fixa da API, sem SSRF, porque o destino nunca vem do pedido);
+    - SR novo para a gravação de critérios pelo portal;
+    - residual do balde de rate limit compartilhado.
+- Plano de testes: unidade 100% em src/server, integração contra o next start com o fake-gotrue e uma API simulada nova (test/support/fake-api.ts: GET e PUT /v1/criteria, Bearer conferido contra os access emitidos pelo fake-gotrue, modos 401, 403, 413, 429, 503, lento e corta), E2E pelo botão real (cuidado 36) e a mutação mut_portal02.py (U-, I- e Q-).
 
-ETAPA 3: HITL e runbook [SCRIBE]
-- Runbook novo ../base/03-infra-runbook/auth-portal.md, no molde do auth-extensao (front-matter, regra de ouro sem segredo, Para quem, Quando, Ordem, Tempo): gerar o PORTAL_SEAL_KEYS no PowerShell sem ecoar o valor (32 bytes aleatórios em base64url) direto no .env.local do portal; a Redirect URL temporária http://127.0.0.1:<porta>/auth/retorno na allow-list exata (ou a https, se a Etapa 1 exigir TLS), sem curinga; o roteiro do 1º login real (Google e GitHub), com o que olhar no DevTools sem colar valor (os atributos do Set-Cookie, o document.cookie vazio, o tamanho do access em caracteres, que precisa ficar abaixo de 2.300, só o número); o logout; e a remoção da entrada de loopback no fim, com a confirmação.
-- HITL-041 no HITL-QUEUE.md (índice e entrada), com "bloqueia" (o fechamento da F1-PORTAL-01 e o tamanho real do access), "o que fazer", "não faça", "como responder" (só sim/não, nomes de campo, status HTTP e o número de caracteres) e o rollback.
+ETAPA 3: F1-PORTAL-02, código parte 1 [DEV] + [QA_EVALS]
+- Contrato primeiro: se o formulário precisar de um schema de borda (form → UserCriteria), ele nasce em packages/contracts com z.strictObject, e o contratos-zod §4 é regerado por script (DOC-01).
+- src/server/api-client.ts, a DAL de critérios (ler e gravar, com a renovação antes e o mapa de erros do desenho) e o fake-api.ts, com os testes antes do código e 100% nas 4 métricas.
+- Mutação do núcleo: U- pela unidade.
 
-ETAPA 4 (se a janela permitir): F1-API-09 só no desenho
-- Emenda ao ADR-004 D5 (CRLF, conferido por bytes): o teto do AUTH_SESSION_MAX_AGE_SECONDS em 86.400 (o boot recusa o valor que o hook anula), o teste do boot e o test:db da constante. O código espera o HITL-040.
+ETAPA 4: F1-PORTAL-02, código parte 2 [DEV] + [QA_EVALS]
+- A página /conta/criterios (Server Component, sem JS próprio, nonce em todo script), a rota ou action de gravação, o link na /conta e os avisos do catálogo.
+- Integração contra o next start: cabeçalhos uma vez cada na página nova, no-store, Origin e Sec-Fetch-Site na gravação, open redirect na tabela, nenhum segredo nem a pretensão na saída do processo.
+- E2E no Edge: preencher e salvar pelo botão real. O valor salvo volta ao abrir de novo, a pretensão nunca vai a URL, o 401 da API vira "entre de novo", o 503 mantém a sessão e o rascunho, e não há erro de CSP. 3 rodadas.
+- Mutação: I- pela integração e Q- pelo E2E com rebuild, em primeiro plano e em lotes de 3 ou 4; reconstruam o portal no fim.
+
+ETAPA 5 (se a janela permitir): F1-PORTAL-04 só no desenho ("Sair de todos os dispositivos")
+- Emenda ao ADR-027 D7: logout com escopo global por POST com Origin exato e uma confirmação sem JS (uma 2ª página com o próprio formulário). O efeito na extensão (a sessão dela cai na próxima renovação) aparece no texto da página. Mapa de erros igual ao do logout local, e T41 e T44 revistos.
 
 PORTÃO E FASE 4 [SCRIBE]
-- Turbo build typecheck lint test em série, sem cache; depcruise; E2E da extensão inteiro no Edge (nada dela deve mudar) e o E2E novo do portal em 3 rodadas; gitleaks 8.30.1 conferido pelo checksums.txt antes de cada push; git fetch antes do push; push sem force.
-- STATE a cada etapa; no fim, SESSION-LOG (só acréscimo, no fim do arquivo), BACKLOG (F1-PORTAL-01 fechada só com o E2E verde; o HITL-041 fecha a parte do projeto real), TRILHAS.md (tira a trilha concluída, põe a seguinte e grava o cuidado novo), ADR-027, threat-model (o status das fichas do portal), HITL-037 com o ciclo e o next-step (só status, pendências apontando para HITL e runbook, e o prompt).
-- O cofre ../base não é versionado: backup no scratchpad antes de editar; o ADR-004 é CRLF e o resto LF, conferidos por bytes depois de cada edição. Escrevam scripts e JSON com escape pela ferramenta Write, nunca por heredoc no Git Bash (o shell colapsa as barras invertidas, cuidado 33).
+- Turbo build typecheck lint test em série, sem cache; depcruise; E2E da extensão inteiro no Edge (nada dela deve mudar) e o E2E do portal em 3 rodadas depois do build. Gitleaks 8.30.1 conferido pelo checksums.txt antes de cada push, a varredura pública (caminho, e-mail, host e ID de scratchpad, com controle positivo) nos commits e no docs/, git fetch antes do push e push sem force.
+- STATE a cada etapa. No fim:
+  - SESSION-LOG (só acréscimo, no fim do arquivo);
+  - BACKLOG (F1-API-09 fechada só com o job db verde no PR; F1-PORTAL-02 fechada só com o E2E verde);
+  - TRILHAS.md (tira a trilha concluída, põe a seguinte e grava o cuidado novo);
+  - ADR-028 e as emendas do ADR-027, do ADR-021 e do ADR-004;
+  - threat-model;
+  - o guia (o mapa do 03 a cada arquivo novo em src e test; o 01 e o 02 se o fluxo de critérios mudar);
+  - o docs/ regenerado pelo publish_docs.py da sessão 28, com o gitleaks dir docs;
+  - o HITL-037 com o ciclo;
+  - o next-step (só status, pendências apontando para HITL e runbook, e o prompt).
+- O cofre ../base não é versionado: backup no scratchpad antes de editar. O ADR-004 é CRLF e o resto é LF, conferidos por bytes depois de cada edição. Escrevam scripts e JSON com barra invertida pela ferramenta Write, nunca por heredoc no Git Bash: o shell colapsa as barras, até numa regex de grep.
 
-AO FINAL: o próximo prompt gerado deve ser tão completo quanto este, com as funcionalidades complexas que vierem a seguir (por exemplo a F1-PORTAL-02, o formulário estruturado de critérios com o UserCriteria, a leitura e a escrita pela API ou pelo PostgREST com o access do cookie e o cliente de usuário do ADR-018 D5, ou o spike S-3 com P1 a P21 contra o projeto real depois do HITL-040), porque será rodado num modelo mais poderoso.
+AO FINAL: o próximo prompt gerado deve ser tão completo quanto este, com as funcionalidades complexas que vierem a seguir, porque será rodado num modelo mais poderoso. Exemplos: a F1-PORTAL-03 (exportar e excluir a conta, LGPD, com o apagamento em cascata provado no job db); a F1-PORTAL-04 no código; o spike S-3 com P1 a P21 contra o projeto real por HITL (o P18 já está destravado pelo HITL-040); ou a hospedagem do portal no S-5 (HSTS com preload, a Redirect URL definitiva e o Site URL).
 ```

@@ -600,11 +600,12 @@ Testes por pasta: `test/` raiz com 30 arquivos `*.test.ts` de unidade (rodam em 
 
 | Arquivo | Peça / versão | O que faz (em linguagem simples) | Conversa com (entra → sai) | ADR |
 |---|---|---|---|---|
-| `package.json` | `@trampo/web-portal` 0.1.0 | Scripts `dev`, `build`, `start`, `lint`, `typecheck` (`next typegen && tsc --noEmit`) e `test` (`vitest run --coverage`). Dependências de execução: jose, next, react, react-dom e zod. | catálogo do pnpm → turbo | [ADR-001-hybrid-engine-and-monorepo](../arquitetura/ADRs/ADR-001-hybrid-engine-and-monorepo.md) |
+| `package.json` | `@trampo/web-portal` 0.1.0 | Scripts `dev`, `build`, `start`, `lint`, `typecheck` (`next typegen && tsc --noEmit`), `test` (`vitest run --coverage`) e `test:e2e` (o E2E no navegador, fora do turbo). Dependências de execução: jose, next, react, react-dom e zod; o `playwright-core` 1.64.1 só em teste. | catálogo do pnpm → turbo | [ADR-001-hybrid-engine-and-monorepo](../arquitetura/ADRs/ADR-001-hybrid-engine-and-monorepo.md) |
 | `next.config.ts` | Next.js 16.4.2 | Desliga o cabeçalho `X-Powered-By` e a geração de AGENTS.md e aplica os cabeçalhos fixos em todo caminho. Liga o Tailwind no Turbopack. | `headers.ts` → Next.js | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 | `turbo.json` | turbo 2.11.8 | Faz o `test` do portal depender do próprio `build`, porque a integração sobe o `next start`. | `turbo.json` da raiz → tarefa `test` | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 | `eslint.config.mjs` | ESLint 9.39.5, eslint-config-next 16.4.2 | Usa os presets do Next e, por último, o preset de segurança do `@trampo/config`. | `@trampo/config/eslint/security` → `pnpm lint` | [ADR-001-hybrid-engine-and-monorepo](../arquitetura/ADRs/ADR-001-hybrid-engine-and-monorepo.md) |
 | `vitest.config.mts` | Vitest 5.0.5, coverage-v8 | Roda testes de unidade e integração com as variáveis de ambiente zeradas. Exige 100% nas 4 métricas em `src/server`. | `test/**` → relatório de cobertura | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
+| `vitest.e2e.config.mts` | Vitest 5.0.5 | Roda o E2E do portal num navegador real (`test:e2e`), um arquivo por vez, com o `global-setup` que confere o build e o navegador. Fica fora do turbo e do CI. | `test/e2e/**` → asserções | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 | `tsconfig.json` | TypeScript 5.9.3 | Estende o tsconfig estrito do `@trampo/config` com as opções do Next e o atalho `@/*`. | `@trampo/config/tsconfig.base.json` → `tsc` | [ADR-001-hybrid-engine-and-monorepo](../arquitetura/ADRs/ADR-001-hybrid-engine-and-monorepo.md) |
 | `.env.example` | dotenv | Lista os nomes das variáveis: `PORTAL_ORIGIN`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PORTAL_SEAL_KEYS`, `PORTAL_SEAL_ACTIVE_KEY`. | humano → `config.ts` | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 
@@ -635,7 +636,7 @@ Testes por pasta: `test/` raiz com 30 arquivos `*.test.ts` de unidade (rodam em 
 
 | Arquivo | Peça / versão | O que faz (em linguagem simples) | Conversa com (entra → sai) | ADR |
 |---|---|---|---|---|
-| `layout.tsx` | Next.js 16.4.2, React 19.3.0 | Moldura de todas as páginas, em pt-BR, sem fonte remota e sem script próprio. | `globals.css` → todas as páginas | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
+| `layout.tsx` | Next.js 16.4.2, React 19.3.0 | Moldura de todas as páginas, em pt-BR, sem fonte remota e sem script próprio. A `<meta name="referrer">` vale `same-origin`, igual ao cabeçalho: com `no-referrer`, o "Sair" levaria `Origin: null`. | `globals.css` → todas as páginas | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 | `page.tsx` | Next.js 16.4.2 (Server Component) | Página inicial com os botões "Entrar com Google" e "Entrar com GitHub" e o aviso do catálogo. Se já há sessão, mostra o link para a conta. | `runtime.ts`, `page-state.ts`, `notices.ts` → HTML | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 | `not-found.tsx` | Next.js 16.4.2 | Página 404 forçada a ser dinâmica para receber o nonce da CSP. | `next/server` → HTML | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 | `globals.css` | Tailwind CSS 4.3.3 | Importa o Tailwind e define as cores de fundo e texto, com tema escuro. | `layout.tsx` → estilos | (nenhum) |
@@ -679,6 +680,14 @@ Testes por pasta: `test/` raiz com 30 arquivos `*.test.ts` de unidade (rodam em 
 | Arquivo | Peça / versão | O que faz (em linguagem simples) | Conversa com (entra → sai) | ADR |
 |---|---|---|---|---|
 | `fake-gotrue.ts` | `node:http`, jose | Supabase Auth de mentira em socket real: authorize, troca PKCE, renovação com reuso de 10 s, logout e JWKS ES256. Simula também a recusa do hook. | testes → respostas HTTP simuladas | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md), [ADR-026-custom-access-token-hook](../arquitetura/ADRs/ADR-026-custom-access-token-hook.md) |
+
+### `apps/web-portal/test/e2e`
+
+| Arquivo | Peça / versão | O que faz (em linguagem simples) | Conversa com (entra → sai) | ADR |
+|---|---|---|---|---|
+| `global-setup.ts` | Vitest 5.0.5 | Antes do E2E, confere que o portal foi construído depois da última mudança na fonte (senão, um mutante pode ter ficado no `.next`) e que o navegador existe. | `.next/BUILD_ID`, `src/**` → aborta ou segue | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
+| `support/stack.ts` | `node:http`, `node:child_process`, playwright-core 1.64.1 | Sobe a pilha do teste em 127.0.0.1: o GoTrue simulado, o `next start` com ambiente fechado (só origens de loopback) e o Edge do sistema por pipe, sem porta de depuração. Abre cada aba num contexto descartável, com coletores de console, URLs, HTML, scripts e `Set-Cookie`. | `fake-gotrue.ts`, portal construído, Edge → abas observadas | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
+| `portal.e2e.test.ts` | Vitest 5.0.5, playwright-core | Prova no navegador: login pelos botões, nada da sessão legível pelo JS nem na página, o verifier fora das URLs, o portal bloqueado num `iframe` de outra origem, a recusa do hook e o 503, o logout pelo botão, o `GET /auth/sair` com 405, a CSP sem erro e a saída do processo sem segredo. Também prova a conta do tamanho do access que o runbook *auth-portal* usa. | `stack.ts` → asserções (3 rodadas) | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
 
 ## 7. `evals`: golden dataset e spikes
 

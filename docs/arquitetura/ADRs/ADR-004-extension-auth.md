@@ -368,6 +368,19 @@ O pré-spike manual (P4 a P8) roda depois do HITL-035 e antes de qualquer códig
     - **a recusa na emissão inicial não é alcançável** (no GoTrue v2.197.0 a sessão nasce na mesma transação do hook): o hook corta a **renovação**, e a recusa não consome o refresh;
     - a constante 86.400 fica literal na função e presa por teste ao padrão do `AUTH_SESSION_MAX_AGE_SECONDS`. Com a variável diferente, os dois limites valem e o menor ganha (*BACKLOG §F1-API-09*);
     - o efeito no portal está no *BACKLOG §F1-PORTAL-01*; aplicar no projeto real e ligar o hook é o *HITL-QUEUE §HITL-040* (runbook *supabase-hook-real*).
+- **Emenda da F1-API-09 (sessão 29, 2026-11-13, só o desenho; `[ARCHITECT]` + `[APPSEC]`, sem veto):** o teto do `AUTH_SESSION_MAX_AGE_SECONDS` desce de 604.800 para **86.400**.
+  - **Por quê:** o *HITL-QUEUE §HITL-040* fechou: o hook está ligado no projeto real e recusa a renovação da sessão com mais de 86.400 s, qualquer que seja a variável. Acima disso, a variável não tem efeito nenhum e nada avisa, porque o menor limite ganha. Um valor que o hook anula é uma configuração mentirosa: quem lê o `.env` acredita numa sessão de 7 dias que morre em 24 h.
+  - **Decisão:** `AUTH_SESSION_LIMITS.maxAgeSeconds` passa a `{ fallback: 86_400, min: 3_600, max: 86_400 }` (`apps/api/src/infrastructure/auth/auth-session-env.ts`). O boot **recusa** o valor acima do teto, pelo `AuthSessionConfigError` de hoje: mensagem com o nome da variável, sem o valor (falha fechada, a API não sobe). Valor menor continua aceito: a API corta antes, e o hook fica como a rede de segurança. A inatividade não muda (teto = a idade configurada).
+  - **Alternativa recusada:** aviso no boot quando a variável passar do hook. A API não lê o catálogo do banco (só a *publishable* e o JWT do usuário, ADR-018 D5), então o aviso seria um palpite sobre o valor da função. Também foi recusada a leitura do `pg_get_functiondef` pela API: seria uma credencial nova no processo.
+  - **Uma constante, dois lugares:** o 86.400 literal da migration fica preso por teste ao **teto** e ao **padrão** do `AUTH_SESSION_LIMITS`, que passam a ser iguais. Subir a idade no futuro exige migration nova, a constante e uma emenda deste D5, juntas.
+  - **Testes do código (próxima sessão):**
+    - `test/infrastructure/auth-session-env.test.ts`: 86.400 aceito; 86.401 e 604.800 recusados com a mensagem sem o valor; 3.600 aceito; a inatividade acima da idade configurada continua recusada;
+    - `test/compose-app.test.ts`: o boot com `AUTH_SESSION_MAX_AGE_SECONDS=86401` não sobe, e nenhum log traz o valor;
+    - `test/db/auth-hook.db.test.ts`: o `secs => N` lido do `pg_get_functiondef` é igual ao `max` **e** ao `fallback` do `AUTH_SESSION_LIMITS` (hoje compara só com o `fallback`);
+    - o comentário do `DECIMAL_SECONDS` ("cobre o teto de 604.800") é atualizado; a regex de até 7 dígitos fica, porque o corte por faixa vem depois.
+  - **Mutação** (`mut_api09.py`, molde do `mutlib.py` da sessão 29): o teto de volta a 604.800; a comparação `>` trocada por `>=` (86.400 recusado); o `fallback` diferente do `max`; o `test:db` comparando só com o `fallback`. O último se prova pela pilha simulada da sessão 24 ou pelo job `db` do PR.
+  - **Efeito na operação:** um `apps/api/.env` com `AUTH_SESSION_MAX_AGE_SECONDS` acima de 86.400 impede a API de subir depois da mudança. A equipe não lê o `.env` (AGENTS §3.2): o aviso vai no runbook *auth-extensao* §1.5 e na mensagem do commit. O `.env.example` não muda (a variável fica sem valor).
+  - **Ameaças:** T9 e T48 sem mudança de status (o hook já corta); efeito em SR-21 (a idade em um só valor). Nenhuma fronteira nova.
 
 ### D6. Verificação antes de repassar e JWKS em falha fechada
 - **Todo access token que vem do GoTrue passa pelo `AccessTokenVerifier` antes de sair da API.** Isso pega HS256, token anônimo e `session_id` ausente.

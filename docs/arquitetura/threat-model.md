@@ -4,7 +4,7 @@ versao: 2
 status: aceito
 aprovacao: "v1: HITL-001 (aprovado em 2026-10-18, D-H1 a D-H7 conforme recomendação). v2 (auth, F1-SEC-01): HITL-039 (aprovado em 2026-11-11, CA-13 cumprida)"
 atualizado: 2026-11-13
-revisado: "F1-PORTAL-01 (login do portal, [ADR-027-portal-login](ADRs/ADR-027-portal-login.md): TB12, TB13, T33 com verificação, T49, T50, SR-25, SR-26 e a seção 9); F1-DB-02 (hook entregue por migration, [ADR-026-custom-access-token-hook](ADRs/ADR-026-custom-access-token-hook.md); T48, SR-21 e a seção 9; o status só muda com o HITL-040); M1.6, ver [revisao-adversarial-M1](revisao-adversarial-M1.md); F1-SEC-00 (numeração OWASP conferida nas fontes oficiais, seção 0.1); hotfix de runtime do Node (seção 0.2); F1-SEC-01, v2 de auth (seção 0.3 e [revisao-adversarial-auth](revisao-adversarial-auth.md)); F1-API-08 (A-01 a A-03 fechados: T43, T44 e a seção 9)"
+revisado: "F1-PORTAL-01 parte 2 (sessão 29: T49 e T50 verificados pelo E2E no Edge, `Referrer-Policy` do portal em `same-origin`; residual do histórico público pela opção B do HITL-042); F1-PORTAL-01 (login do portal, [ADR-027-portal-login](ADRs/ADR-027-portal-login.md): TB12, TB13, T33 com verificação, T49, T50, SR-25, SR-26 e a seção 9); F1-DB-02 (hook entregue por migration, [ADR-026-custom-access-token-hook](ADRs/ADR-026-custom-access-token-hook.md); T48, SR-21 e a seção 9; o status só muda com o HITL-040); M1.6, ver [revisao-adversarial-M1](revisao-adversarial-M1.md); F1-SEC-00 (numeração OWASP conferida nas fontes oficiais, seção 0.1); hotfix de runtime do Node (seção 0.2); F1-SEC-01, v2 de auth (seção 0.3 e [revisao-adversarial-auth](revisao-adversarial-auth.md)); F1-API-08 (A-01 a A-03 fechados: T43, T44 e a seção 9)"
 dono: "[APPSEC]"
 metodo: "STRIDE por fronteira de confiança + OWASP GenAI LLM Top 10 2026 (com equivalência 2025) + OWASP API Security Top 10 2023 + OWASP Top 10:2025"
 relacionados: ["[ADR-001-hybrid-engine-and-monorepo](ADRs/ADR-001-hybrid-engine-and-monorepo.md)", "[ADR-004-extension-auth](ADRs/ADR-004-extension-auth.md)", "[revisao-adversarial-auth](revisao-adversarial-auth.md)", "[contratos-zod](contratos-zod.md)", "*ideia_projeto*", "*BACKLOG*"]
@@ -682,13 +682,22 @@ flowchart LR
 ### T49
 **Cookie da sessão do portal lido ou reaproveitado (v2, F1-PORTAL-01).** O AT8 (malware com acesso ao perfil do navegador, backup do perfil) copia o `__Host-trampo-sessao`.
 - **Mitigações:** o cookie é selado (AES-256-GCM, AAD por finalidade e pela origem do portal): fora do portal, ele não dá o refresh cru. Pelo portal, valem a idade sem rede (`sst` + 86.400), a inatividade (4 h) e o `sid` conferido contra o access; o hook recusa a renovação depois de 24 h; o logout `local` encerra a sessão no GoTrue; a rotação do `PORTAL_SEAL_ACTIVE_KEY` invalida todos os cookies. `HttpOnly` tira o cookie do alcance do JS (XSS).
-- **Verificação:** SR-25.
+- **Verificação:** SR-25. **Verificado em 2026-11-13 (sessão 29, E2E no Edge 157, 3 rodadas):**
+  - o `document.cookie` da página logada não tem nada da sessão (controle: um cookie sem `HttpOnly` aparece);
+  - o `context.cookies()` mostra o `__Host-trampo-sessao` com `httpOnly`, `secure`, `Lax`, `Path=/`, host-only e cerca de 24 h;
+  - o HTML, os scripts e as URLs do navegador não trazem token, verifier nem o cookie;
+  - a recusa do hook apaga o cookie, e o 503 o mantém;
+  - os mutantes Q-01 (sem `HttpOnly`), Q-04, Q-05 e Q-07 morreram ([ADR-027-portal-login](ADRs/ADR-027-portal-login.md) §7).
 - **Residual M:** como o T44, quem tem o cookie usa a sessão pelo portal até a inatividade ou a idade; a chave do selo vazada junto dá o refresh cru, limitado a 24 h pelo hook (T47). Vinculação ao dispositivo na Fase 2.
 
 ### T50
 **Desvio da CSP ou dos cabeçalhos do portal (v2, F1-PORTAL-01).** Uma mudança de configuração (religar o `cacheComponents`, um `matcher` no proxy, um `headers()` duplicado) tira o nonce, o `frame-ancestors` ou outro cabeçalho de algum caminho.
 - **Mitigações:** CSP com nonce e `'strict-dynamic'` posta pelo proxy em toda resposta; os demais cabeçalhos pelo `headers()` do `next.config` em `/:path*`; `cacheComponents` desligado por desenho (o PPR é incompatível com nonce); nenhum `"use client"` nem `dangerouslySetInnerHTML` (lint).
-- **Verificação:** SR-26 (teste contra o `next start` que confere cada cabeçalho, uma vez, em página, rota de auth, erro, 404 e estático; E2E do `iframe`).
+- **Verificação:** SR-26 (teste contra o `next start` que confere cada cabeçalho, uma vez, em página, rota de auth, erro, 404 e estático; E2E do `iframe`). **Verificado em 2026-11-13 (sessão 29, E2E no Edge 157 e no Chrome 157):**
+  - o portal num `iframe` de outra origem fica em `chrome-error://`, e o console registra a violação do `frame-ancestors` (controle: a página sem cabeçalhos carrega);
+  - os scripts do Next rodam com o nonce, sem nenhuma mensagem de CSP;
+  - os mutantes Q-02 (`frame-ancestors` e `X-Frame-Options` juntos) e Q-03 (nonce fora) morreram.
+  - **Achado:** com `Referrer-Policy: no-referrer`, o navegador manda `Origin: null` no POST do "Sair", e o logout caía sempre no 403. Agora é `same-origin` (cabeçalho e `<meta>`, `7798a19`): nenhum Referer sai para outra origem, e o `Origin` volta exato. Mutantes Q-08 e H-04 mortos.
 - **Residual B.**
 
 ---
@@ -780,6 +789,7 @@ O Blueprint é somente leitura; o registro fica aqui.
 | Idade em dois lugares (v2, F1-DB-02): `AUTH_SESSION_MAX_AGE_SECONDS` acima de 86.400 não tem efeito depois do hook, e abaixo deixa a sessão órfã até as 24 h | Os dois limites valem e o menor ganha; a constante do banco é presa por teste ao padrão da API | *BACKLOG §F1-API-09* (teto da variável em 86.400), depois do HITL-040 | [ARCHITECT] |
 | T49 (M, v2, F1-PORTAL-01): o cookie selado do portal, copiado do perfil, serve pelo portal até a inatividade (4 h) ou a idade (24 h) | Mesmo residual do T44; o selo impede o uso do refresh fora do portal | Fase 2 (vinculação ao dispositivo) | [APPSEC] |
 | Renovação do portal sem limitador local (v2, F1-PORTAL-01): um script com cookie válido navegando em laço gasta o balde do `/token` do IP do portal | Cada renovação exige refresh vivo e acontece no máximo a cada ~14 min por sessão em uso normal; o balde real é medido no S-3 (P19) | S-5 (hospedagem e IP do portal) | [ARCHITECT] |
+| Histórico público com texto de terceiro (SEC-PUB-01, *HITL-QUEUE §HITL-042* opção B, 2026-11-13): os commits antigos e as 26 refs `refs/pull/*` guardam os textos e as páginas reais das vagas (T32), um caminho local antigo e o e-mail do autor | Árvore atual sintética (golden isomórfico, fixtures embaralhadas); gitleaks 0 em todo o histórico; Secret Scanning, Push Protection e reporte privado ligados (conferidos pela API); dado de terceiro novo entra sintético (cuidado 35) | Permanente (aceito pelo humano para o portfólio); revisar se um titular pedir remoção | Humano |
 | Redirect URL de loopback do portal (v2, F1-PORTAL-01): até a hospedagem, o 1º login real usa uma entrada `http://127.0.0.1:<porta>/auth/retorno` na allow-list | Entrada temporária do roteiro do *HITL-QUEUE §HITL-041*, removida no fim e confirmada pelo humano; o código só serve com o verifier, que fica no servidor local | Fim do HITL-041 | Humano |
 
 ---

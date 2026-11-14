@@ -31,8 +31,10 @@ export const SECURITY_HEADERS: ReadonlyArray<{ readonly key: string; readonly va
   // Reserva para navegador sem `frame-ancestors`.
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  // A URL do retorno leva o código: nada dela vai como Referer.
-  { key: "Referrer-Policy", value: "no-referrer" },
+  // Nenhum Referer sai para outra origem (a URL do retorno leva o código). `same-origin`, e não `no-referrer`: com
+  // `no-referrer`, o navegador manda `Origin: null` no POST do formulário "Sair", e o logout cairia no 403 (achado do
+  // E2E, ADR-027 §7). O `/auth/retorno` responde sempre 303, então a URL dele nunca é o Referer de nada.
+  { key: "Referrer-Policy", value: "same-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
