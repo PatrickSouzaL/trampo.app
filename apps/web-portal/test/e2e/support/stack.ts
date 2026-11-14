@@ -25,6 +25,8 @@ export const browserPath = process.env["TRAMPO_E2E_BROWSER"] ?? DEFAULT_BROWSERS
 export const APP = fileURLToPath(new URL("../../../", import.meta.url));
 const NEXT_BIN = join(APP, "node_modules", "next", "dist", "bin", "next");
 const PUBLISHABLE = ["sb", "publishable", "e".repeat(24)].join("_");
+/** O `kid` do anel efêmero (entra na conta do tamanho do access do runbook `auth-portal`). */
+export const SEAL_KID = "e2e";
 const LOOPBACK_ORIGIN = /^http:\/\/127\.0\.0\.1:\d{1,5}$/;
 
 export interface Stack {
@@ -113,8 +115,8 @@ export async function startStack(): Promise<Stack> {
       PORTAL_ORIGIN: portal,
       SUPABASE_URL: fake.url.origin,
       SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE,
-      PORTAL_SEAL_KEYS: `e2e:${randomBytes(32).toString("base64url")}`,
-      PORTAL_SEAL_ACTIVE_KEY: "e2e",
+      PORTAL_SEAL_KEYS: `${SEAL_KID}:${randomBytes(32).toString("base64url")}`,
+      PORTAL_SEAL_ACTIVE_KEY: SEAL_KID,
     },
     (chunk) => (output += chunk),
   ).catch(async (error: unknown) => {

@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { COOKIE_NAMES } from "../../src/server/cookies";
 import { NOTICES } from "../../src/server/notices";
 import { GOTRUE_CANARIES } from "../support/fake-gotrue";
-import { cspMessages, openTab, secretsIn, startStack, type Stack, type Tab } from "./support/stack";
+import { SEAL_KID, cspMessages, openTab, secretsIn, startStack, type Stack, type Tab } from "./support/stack";
 
 let stack: Stack;
 let tab: Tab;
@@ -91,6 +91,12 @@ describe("portal no Edge (ADR-027 §7)", () => {
     expect(lifetime).toBeGreaterThan(86_400 - 120);
     expect(lifetime).toBeLessThanOrEqual(86_400 + 5);
     expect((await tab.context.cookies(stack.portal)).map((cookie) => cookie.name)).not.toContain(COOKIE_NAMES.fluxo);
+    // O runbook `auth-portal` (HITL-041) tira o tamanho do access da coluna "Size" do DevTools (nome + valor do cookie),
+    // sem ver o valor: access = ⌊3 × (Size − 64 − kid) / 4⌋ − refresh − 113 (envelope `s1.<kid>.<iv>.<cifrado>.<tag>` e
+    // o JSON do D3). A conta é provada aqui contra os tokens de verdade.
+    const pair = stack.fake.issued.at(-1) as { accessToken: string; refreshToken: string };
+    const size = COOKIE_NAMES.sessao.length + (session?.value.length ?? 0);
+    expect(Math.floor((3 * (size - 64 - SEAL_KID.length)) / 4) - pair.refreshToken.length - 113).toBe(pair.accessToken.length);
     const visible = await tab.page.evaluate(() => {
       document.cookie = "controle-e2e=visivel; Path=/";
       return document.cookie;
