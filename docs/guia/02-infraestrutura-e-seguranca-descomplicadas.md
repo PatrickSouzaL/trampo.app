@@ -184,7 +184,7 @@ Cada finalidade tem o **próprio anel de chaves**: de 1 a 4 chaves, e a ativa se
 - A sessão vive no máximo 24 h, com 4 h de inatividade.
 - O logout é só por `POST`, com `Origin` exato.
 - A CSP leva um **nonce novo a cada pedido** (`proxy.ts`): `script-src 'self' 'nonce-…' 'strict-dynamic'`, `frame-ancestors 'none'`, `object-src 'none'` e `base-uri 'none'`.
-- O `next.config.ts` acrescenta `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, HSTS e COOP/CORP `same-origin`.
+- O `next.config.ts` acrescenta `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`, HSTS e COOP/CORP `same-origin`. O `Referrer-Policy` era `no-referrer`, até o E2E da sessão 29 mostrar que, com ele, o navegador manda `Origin: null` no formulário "Sair", e o logout caía no 403. Com `same-origin`, nenhum Referer sai para outro site, e o POST do próprio portal leva a origem exata.
 
 ## 4. Isolamento do Side Panel na extensão
 

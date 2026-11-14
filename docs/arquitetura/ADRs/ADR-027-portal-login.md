@@ -202,3 +202,54 @@ Critérios (F1-PORTAL-02), exportar e excluir a conta (F1-PORTAL-03), "Sair de t
 - **O teste do portal depende do build** (`apps/web-portal/turbo.json`): a integração sobe o `next start` do `.next` construído, sem nenhuma variável no build.
 - **gitleaks:** regra `trampo-portal-seal-keys` (a mesma forma da `trampo-auth-seal-keys`, num id próprio), com casos no `@trampo/ci-policy`.
 - **Mutação da borda:** o E-05 na 1ª forma (`Origin` ausente trocado pela origem do `request.url`) sobreviveu porque, no harness, essa origem não casa com o `PORTAL_ORIGIN` (o 403 continua). Foi trocado pelo defeito real (a rota ignora o `Origin` do pedido), que morre.
+
+## 7. Emenda do E2E (sessão 29, 2026-11-13): desenho do §4.3, antes do código
+
+**Sondagem (fato, não suposição):** o Edge 157.0.4341.46 e o Chrome 157.0.8103.78 **aceitam** o cookie `__Host-` com `Secure` vindo de `http://127.0.0.1` e de `http://localhost` e o devolvem no pedido seguinte, porque o loopback conta como origem confiável. O script ficou fora do repositório, no scratchpad da sessão 29. **O D3 não muda.** O E2E e o roteiro manual do *HITL-QUEUE §HITL-041* rodam em http no loopback, sem TLS local. O residual "Sondagem do `Secure` em loopback" da §3 está fechado (§9 do [threat-model](../threat-model.md)). Navegador novo (ou versão nova que mude o tratamento do loopback) repete a sondagem: o E2E cai na prova (a) se o cookie não voltar.
+
+**Arnês** (`apps/web-portal/test/e2e`, molde do harness da extensão, **sem importar nada dela**):
+- `vitest.e2e.config.mts` próprio e o script `test:e2e`. O E2E fica fora do `turbo test` e do CI, como o da extensão, porque exige o navegador instalado. O `test/e2e` sai do `include` do Vitest padrão.
+- O `global-setup.ts` só confere as pré-condições: o `.next/BUILD_ID` (o build é do `pnpm build` ou do turbo, e quem muta reconstrói, cuidado 33) e o executável do navegador (`TRAMPO_E2E_BROWSER` ou o Edge do sistema).
+- **A pilha sobe no `beforeAll` do arquivo** (`test/e2e/support/stack.ts`): o GoTrue simulado do portal (`test/support/fake-gotrue.ts`), o `next start` e o navegador. Diferente da extensão, o portal lê toda a configuração em tempo de execução: nenhuma porta entra no build, e o teste controla o simulado direto, no mesmo processo, sem canal de controle.
+- `next start -H 127.0.0.1 -p <porta livre>` com o ambiente **fechado**: `PATH`, `SYSTEMROOT`, `NODE_ENV=production`, `NEXT_TELEMETRY_DISABLED` e as 5 variáveis do D9. O `SUPABASE_URL` é a origem do simulado, e o anel de selo é efêmero, gerado no teste. O apoio recusa subir com origem que não seja `http://127.0.0.1` (nunca o projeto real). A allow-list do simulado é **exatamente** `${portal}/auth/retorno`.
+- **Navegador:** o `chromium.launch` do `playwright-core` do catálogo, com o `executablePath` do Edge do sistema, *headless*, sem download. O contexto é novo a cada teste, e o perfil temporário do Playwright é apagado no `close`. O transporte é `--remote-debugging-pipe` (`coreBundle.js` L44741 do 1.64.1): **nenhuma porta de depuração abre**. Sem `--ignore-certificate-errors`, porque não há TLS.
+- Um servidor http de **outra origem** (127.0.0.1, outra porta) serve só a página com o `iframe` e a página de controle, sem cabeçalhos.
+- **Coletores:** o console e o `pageerror` de toda página, as URLs de todo pedido e de toda navegação do contexto, o HTML e o corpo de todo script do portal, e a saída (stdout e stderr) do processo do `next start`. Os segredos de cada teste vêm do simulado: o access e o refresh emitidos, o `code`, o `code_verifier` (do corpo da troca), o valor do cookie selado e os canários fixos.
+
+**Provas** (cada "0" com controle positivo, cuidado 24):
+- (a) **Login pelos botões** ("Entrar com GitHub" e "Entrar com Google") até a `/conta` com "Você está conectado.".
+- (b) **Nada legível pelo JS:**
+  - o `document.cookie` da `/conta` não tem `trampo` nem nenhum segredo. **Controle:** um cookie sem `HttpOnly` gravado pelo teste aparece nele, e o `context.cookies()` mostra o `__Host-trampo-sessao` com `httpOnly` e `secure`;
+  - o HTML e o corpo de todo script não têm o access, o refresh, o `sub`, o e-mail canário, o `code`, o verifier nem o valor do cookie. **Controle:** o mesmo detector acha um segredo plantado no texto.
+- (b') **O verifier nunca chega ao navegador:** nenhuma URL pedida ou navegada o contém. **Controle:** o coletor vê o `code_challenge` no `authorize` e o `code` no retorno.
+- (c) **Clickjacking:** o portal num `iframe` de outra origem não carrega. O frame fica em `chrome-error://chromewebdata/`, sem o conteúdo do portal, e o console registra a violação do `frame-ancestors`. **Controle:** a página aberta do mesmo servidor carrega no `iframe`.
+- (d) **Recusa do hook:** com o access a 30 s do fim e o simulado recusando como o hook, a navegação para a `/conta` termina em `/?aviso=sessao_expirada`, com "Sua sessão expirou. Entre de novo." e o botão de entrar, e o cookie some do contexto.
+- (e) **503:** o mesmo access, com o simulado em 503. A `/` mostra o aviso de indisponível, e o cookie do contexto continua o mesmo. **Controle:** de volta ao normal, a `/conta` abre com a sessão.
+- (f) **Logout pelo botão "Sair":** termina em `/?aviso=saiu`, com "Você saiu.". O cookie some, e a sessão do simulado é encerrada.
+- (g) **CSP aplicada pelo navegador:** nenhuma mensagem de CSP (`Content Security Policy`, `Refused to`) e nenhum `pageerror` nas páginas do portal, e os scripts do Next rodaram (`self.__next_f` é uma lista), ou seja, o nonce valeu. **Controle:** o mesmo coletor registra a violação do `frame-ancestors` da prova (c).
+- (h) **SR-12:** a saída do processo não tem nenhum segredo coletado. **Controle:** o conjunto não está vazio, e o detector acha um segredo plantado.
+- **Três rodadas** em série, cada uma com a pilha nova.
+
+**Mutação, grupo Q-** (`mut_portal01.py`, pelo E2E, com rebuild a cada mutante, em primeiro plano, em lotes de 3 ou 4): Q-01 cookie sem `HttpOnly`; Q-02 `frame-ancestors` e `X-Frame-Options` retirados juntos; Q-03 nonce fora da CSP; Q-04 recusa do hook tratada como 503; Q-05 503 tratado como recusa; Q-06 logout por `GET`; Q-07 o verifier na URL do botão de entrar (fragmento herdado pelos redirecionamentos). Depois da rodada, o portal é reconstruído.
+
+**`[APPSEC]` (sem veto):**
+- nenhuma porta de depuração (pipe);
+- contexto descartável, com o perfil apagado no fim;
+- o `next start` só recebe origens de loopback, e o apoio recusa outra;
+- nenhum `.env` é lido (ambiente fechado no `spawn`);
+- o anel de selo e a chave do JWKS são efêmeros, gerados em memória;
+- o E2E não toca no Supabase real.
+
+**Resultado (sessão 29, 2026-11-13):**
+- **Commits:** `7798a19` (correção), `f24325c` (E2E) e `830c259` (a conta do Size). O commit 3 do §5 está entregue.
+- **Achado do E2E: o botão "Sair" nunca funcionou num navegador de verdade.** Com `Referrer-Policy: no-referrer` (o D8 original), a especificação Fetch manda `Origin: null` no POST do formulário, e o logout responde 403, corretamente pela condição 5. A integração mandava o `Origin` à mão.
+- **Emenda do D8:** `Referrer-Policy: same-origin`, no cabeçalho e na `<meta>` do layout, que precisam mudar juntos: a `<meta>` vale por cima do cabeçalho no documento.
+  - Nenhum Referer sai para outra origem, como antes.
+  - O `/auth/retorno` responde sempre 303, então a URL com o código nunca é o Referer de nada.
+  - O POST do próprio portal volta a levar o `Origin` exato.
+  - Aceitar `Origin: null` foi recusado pelo `[APPSEC]` (condição 5).
+  - Para o futuro: a página estática do retorno da extensão (ADR-004 D15, `/extensao/retorno/<id>`) precisa de `no-referrer` próprio, por um `headers()` mais específico, que vence pelo N9.
+- **Provas:** 8 casos, as (a) a (h) mais a (b') e a (f') (`GET /auth/sair` dá 405 e mantém a sessão). **3 rodadas de 8/8 no Edge 157**, e de novo 3 de 8/8 sobre o build do portão. Uma rodada de 8/8 no Chrome 157.
+- **Mutação Q-:** Q-01 a Q-08, 8/8, cada um morto pela prova esperada (saída de cada mutante no `mutlogs/` do scratchpad da sessão 29). O Q-08 é a `<meta>` de volta a `no-referrer`, morto pela (f). O H-04 é o cabeçalho de volta, morto pela unidade e pela integração. O núcleo foi rodado de novo, com 62/62, e a borda deu 6/7 (o E-03 segue equivalente).
+- **O tamanho do access no HITL-041:** o humano não vê o access (ele fica selado no cookie). O runbook *auth-portal* tira o número da coluna Size do DevTools, pela conta `⌊3·(Size − 64 − kid)/4⌋ − refresh − 113` (o envelope do D4 e o JSON do D3). O E2E prova essa conta contra os tokens de verdade.
+- **[APPSEC]:** condições 1, 6, 8 e 9 provadas no navegador; a 11 (mutação) cumprida; a 12 vira o *HITL-QUEUE §HITL-041*. **A F1-PORTAL-01 fica fechada no código**; a parte do projeto real (o login com os IdPs reais e o tamanho do access) fecha com o HITL-041.
