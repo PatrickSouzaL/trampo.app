@@ -1,4 +1,4 @@
-// Configuração do servidor do portal (ADR-027 D9). Só este módulo lê o `process.env` (Data Access Layer do Next 16,
+// Configuração do servidor do portal (ADR-027 D9; o `API_ORIGIN` é do ADR-028 D3). Só este módulo lê o `process.env` (Data Access Layer do Next 16,
 // `data-security.md`), uma vez, em falha fechada. As mensagens dizem o campo e nunca repetem o valor.
 import { SealKeyringError, parseSealKeyring, type SealKeyring } from "./seal";
 
@@ -14,6 +14,8 @@ export interface PortalConfig {
   /** `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` (ADR-013 D6). */
   readonly jwksUrl: URL;
   readonly sealKeys: SealKeyring;
+  /** Origem exata da API (ADR-028 D3): o único destino do cliente da API, nunca vindo do pedido. */
+  readonly apiOrigin: string;
 }
 
 export class PortalConfigError extends Error {
@@ -28,7 +30,7 @@ const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1"]);
 const PUBLISHABLE_KEY = /^sb_publishable_[\w-]{1,256}$/;
 
 /** Origem exata em https, ou http só em loopback. Sem caminho, barra final, credenciais nem maiúsculas. */
-function isExactOrigin(value: string): boolean {
+export function isExactOrigin(value: string): boolean {
   if (!URL.canParse(value)) return false;
   const url = new URL(value);
   if (url.origin !== value) return false;
@@ -48,6 +50,8 @@ export function parsePortalConfig(env: Readonly<Record<string, string | undefine
   if (!isExactOrigin(supabaseUrl)) throw new PortalConfigError("SUPABASE_URL");
   const publishableKey = required(env, "SUPABASE_PUBLISHABLE_KEY");
   if (!PUBLISHABLE_KEY.test(publishableKey)) throw new PortalConfigError("SUPABASE_PUBLISHABLE_KEY");
+  const apiOrigin = required(env, "API_ORIGIN");
+  if (!isExactOrigin(apiOrigin)) throw new PortalConfigError("API_ORIGIN");
   const keys = required(env, "PORTAL_SEAL_KEYS");
   const activeKid = required(env, "PORTAL_SEAL_ACTIVE_KEY");
   let sealKeys: SealKeyring;
@@ -66,6 +70,7 @@ export function parsePortalConfig(env: Readonly<Record<string, string | undefine
     issuer: `${supabaseUrl}/auth/v1`,
     jwksUrl: new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`),
     sealKeys,
+    apiOrigin,
   };
 }
 

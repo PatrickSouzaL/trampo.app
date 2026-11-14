@@ -11,6 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { COOKIE_NAMES } from "../../src/server/cookies";
 import { SECURITY_HEADERS } from "../../src/server/headers";
+import { startFakeApi, type FakeApi } from "../support/fake-api";
 import { GOTRUE_CANARIES, startFakeGotrue, type FakeGotrue } from "../support/fake-gotrue";
 
 const APP = join(import.meta.dirname, "..", "..");
@@ -18,6 +19,7 @@ const NEXT_BIN = join(APP, "node_modules", "next", "dist", "bin", "next");
 const PUBLISHABLE = ["sb", "publishable", "p".repeat(24)].join("_");
 
 let fake: FakeGotrue;
+let api: FakeApi;
 let server: ChildProcess;
 let portal = "";
 let output = "";
@@ -37,6 +39,8 @@ beforeAll(async () => {
   const port = await freePort();
   portal = `http://127.0.0.1:${port}`;
   fake = await startFakeGotrue({ publishableKey: PUBLISHABLE, allowedRedirects: [`${portal}/auth/retorno`] });
+  // A API simulada (ADR-028 §4.2) aceita os access que o GoTrue simulado emitiu.
+  api = await startFakeApi({ owner: (token) => (fake.issued.some((pair) => pair.accessToken === token) ? GOTRUE_CANARIES.userId : null) });
   server = spawn(process.execPath, [NEXT_BIN, "start", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: APP,
     env: {
@@ -47,6 +51,7 @@ beforeAll(async () => {
       PORTAL_ORIGIN: portal,
       SUPABASE_URL: fake.url.origin,
       SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE,
+      API_ORIGIN: api.url.origin,
       PORTAL_SEAL_KEYS: `a1:${randomBytes(32).toString("base64url")}`,
       PORTAL_SEAL_ACTIVE_KEY: "a1",
     },
@@ -69,6 +74,7 @@ beforeAll(async () => {
 afterAll(async () => {
   server?.kill();
   await fake?.close();
+  await api?.close();
 });
 
 beforeEach(() => {

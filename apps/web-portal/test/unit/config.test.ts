@@ -13,6 +13,7 @@ function env(overrides: Record<string, string | undefined> = {}): Record<string,
     PORTAL_ORIGIN: "https://portal.exemplo.invalid",
     SUPABASE_URL: "https://projeto.supabase.invalid",
     SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE,
+    API_ORIGIN: "https://api.exemplo.invalid",
     PORTAL_SEAL_KEYS: `a1:${material()}`,
     PORTAL_SEAL_ACTIVE_KEY: "a1",
     ...overrides,
@@ -34,10 +35,13 @@ describe("parsePortalConfig (ADR-027 D9)", () => {
     expect(config.jwksUrl.href).toBe("https://projeto.supabase.invalid/auth/v1/.well-known/jwks.json");
     expect(config.publishableKey).toBe(PUBLISHABLE);
     expect(config.sealKeys.active.kid).toBe("a1");
+    // ADR-028 D3: a origem exata da API, destino fixo do cliente.
+    expect(config.apiOrigin).toBe("https://api.exemplo.invalid");
   });
 
   it("aceita http só em loopback (portal e Supabase locais)", () => {
-    const config = parsePortalConfig(env({ PORTAL_ORIGIN: "http://127.0.0.1:3100", SUPABASE_URL: "http://localhost:54321" }));
+    const config = parsePortalConfig(env({ PORTAL_ORIGIN: "http://127.0.0.1:3100", SUPABASE_URL: "http://localhost:54321", API_ORIGIN: "http://127.0.0.1:3000" }));
+    expect(config.apiOrigin).toBe("http://127.0.0.1:3000");
     expect(config.https).toBe(false);
     expect(config.portalOrigin).toBe("http://127.0.0.1:3100");
   });
@@ -57,6 +61,12 @@ describe("parsePortalConfig (ADR-027 D9)", () => {
     ["SUPABASE_PUBLISHABLE_KEY", ["sb", "secret", "x".repeat(20)].join("_")],
     ["SUPABASE_PUBLISHABLE_KEY", ["ey", "J", "x".repeat(20)].join("")],
     ["SUPABASE_PUBLISHABLE_KEY", `${PUBLISHABLE}\n`],
+    ["API_ORIGIN", undefined],
+    ["API_ORIGIN", ""],
+    ["API_ORIGIN", "http://api.exemplo.invalid"],
+    ["API_ORIGIN", "https://api.exemplo.invalid/"],
+    ["API_ORIGIN", "https://api.exemplo.invalid/v1"],
+    ["API_ORIGIN", "https://API.exemplo.invalid"],
     ["PORTAL_SEAL_KEYS", undefined],
     ["PORTAL_SEAL_KEYS", "a1:curta"],
     ["PORTAL_SEAL_ACTIVE_KEY", "b2"],

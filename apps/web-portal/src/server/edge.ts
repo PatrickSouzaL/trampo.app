@@ -1,6 +1,6 @@
-// A borda do portal sem Next.js (ADR-027 D6 e D8): o que o `proxy.ts` faz em cada pedido e a tradução das intenções da
+// A borda do portal sem Next.js (ADR-027 D6 e D8; o rascunho dos critérios, ADR-028 D8): o que o `proxy.ts` faz em cada pedido e a tradução das intenções da
 // sessão em `Response`. Os arquivos do App Router só chamam daqui.
-import { COOKIE_NAMES, readCookie, replaceCookie, serializeCookie } from "./cookies";
+import { COOKIE_NAMES, cookieClear, hasCookie, readCookie, replaceCookie, serializeCookie } from "./cookies";
 import { buildCsp } from "./headers";
 import type { Forbidden, PortalAuth, Redirect } from "./session";
 
@@ -48,6 +48,8 @@ export async function handleProxy(input: ProxyInput): Promise<ProxyOutput> {
       requestHeaders.set("cookie", replaceCookie(cookieHeader, resolved.cookie));
       responseHeaders.push(["Set-Cookie", serializeCookie(resolved.cookie)]);
     }
+    // O rascunho dos critérios é de uso único (ADR-028 D8): a página o lê neste pedido, e o navegador o apaga.
+    if (hasCookie(cookieHeader, COOKIE_NAMES.rascunho)) responseHeaders.push(["Set-Cookie", serializeCookie(cookieClear(COOKIE_NAMES.rascunho))]);
   }
   return { requestHeaders, responseHeaders };
 }

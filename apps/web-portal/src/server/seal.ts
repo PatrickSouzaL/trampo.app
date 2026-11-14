@@ -15,8 +15,8 @@ export interface SealKeyring {
 }
 
 export interface SealPurpose {
-  readonly version: "s1" | "f1";
-  readonly label: "sessao" | "fluxo";
+  readonly version: "s1" | "f1" | "r1";
+  readonly label: "sessao" | "fluxo" | "rascunho";
   /** Teto do texto claro em bytes UTF-8. O excesso não é selado. */
   readonly maxPlaintextBytes: number;
 }
@@ -28,6 +28,11 @@ export const SEAL_PURPOSES = Object.freeze({
    */
   sessao: Object.freeze({ version: "s1", label: "sessao", maxPlaintextBytes: 2_950 } as const),
   fluxo: Object.freeze({ version: "f1", label: "fluxo", maxPlaintextBytes: 256 } as const),
+  /**
+   * O rascunho dos critérios que falharam ao gravar (ADR-028 D8): o mesmo teto da sessão. O nome do cookie tem 2
+   * caracteres a mais, e o par nome=valor continua abaixo de 4.096. Rascunho maior não é guardado.
+   */
+  rascunho: Object.freeze({ version: "r1", label: "rascunho", maxPlaintextBytes: 2_950 } as const),
 } satisfies Record<string, SealPurpose>);
 
 export interface Sealer {
