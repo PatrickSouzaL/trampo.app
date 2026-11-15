@@ -196,3 +196,10 @@ As duas passam da quarentena de 3 dias do T26 e têm licença MIT. **Mesmo assim
 - Turbo 18/18 em série (`--force`), depcruise verde (278 módulos), lint e typecheck verdes.
 - *Smoke* do JS compilado: sem as variáveis do Upstash ou do *pepper*, ou com *pepper* fraco, o processo sai com código 1 antes de abrir a porta, sem ecoar o valor. Completo, `/health` dá 200 e rota protegida sem JWT válido dá 401.
 - O `main.ts` liga o rate limit e a cota. O `createRedisQuotaLedger` está pronto e provado com o router real, mas a ligação dele no `main.ts` fica com o `AnalyzeJob` (F1-API-04), que é quem monta o router.
+
+## Emenda da F1-PORTAL-03 (sessão 32, 2026-11-15): a classe `conta` ([ADR-029-account-export-and-delete](ADR-029-account-export-and-delete.md) D5)
+
+- **Classe nova no D4:** `conta`, com **3 por minuto por usuário e 10 por IP**, para o `GET /v1/account/export` e o `POST /v1/account/delete`. A exportação decifra e faz três leituras; a exclusão é destrutiva.
+- **`conta` passa a ser a classe mais estrita** (`STRICTEST_RATE_LIMIT_CLASS`): uma rota com classe fora do conjunto fechado cai nela, não mais em `analise`. O teste da política prende os números e a regra "a mais estrita é a menor nas duas dimensões".
+- As chaves no Redis seguem o formato de sempre (`rl:conta:u:<pseudônimo>:<janela>` e `rl:conta:ip:…`). Nenhuma das duas rotas gasta cota diária.
+- **Na exclusão da conta, as chaves por usuário não são apagadas** ([ADR-029-account-export-and-delete](ADR-029-account-export-and-delete.md) D8): levam um pseudônimo, expiram sozinhas (2 minutos e 2 dias), e apagar a cota daria cota nova a quem cria e apaga contas em laço.

@@ -282,3 +282,11 @@ Refinamentos do desenho, sem mudar decisão:
 - `.env.example` ganha `CRITERIA_SALARY_KEYS` e `CRITERIA_SALARY_ACTIVE_KEY` (parte 2). Gerar as chaves reais é o HITL-024, aberto no F1-API-04b.
 - O HITL-022 fechou com "só no CI" (2026-10-22). A parte 3 e o HITL-023 esperam o F1-OPS-01.
 - O `supabase/` na raiz do `trampo.app` nasce na parte 3, com `supabase init`.
+
+## Emenda da F1-PORTAL-03 (sessão 32, 2026-11-15): a exclusão da conta sem a chave *secret* ([ADR-029-account-export-and-delete](ADR-029-account-export-and-delete.md))
+
+- **O D5 previa** o `DeleteAccount` pela Admin API do Auth, com a chave *secret* na API. **Isso não foi feito, e não será:** o `[APPSEC]` vetou a chave de alto privilégio num processo exposto à internet.
+- **No lugar:** a função `public.delete_own_account()` (migration `20261115150000_delete_own_account.sql`), `SECURITY DEFINER`, sem parâmetro e executável só por `authenticated`. A API a chama por RPC do PostgREST, pelo **mesmo cliente de usuário** deste D5 (a *publishable* e o JWT do usuário). A regra "rotas de usuário nunca usam `service_role`" fica intacta, e **a chave *secret* deixa de ter uso no projeto**.
+- **O cascade do D2 continua valendo** e está provado no job `db` pela função (0 linhas em `user_criteria`, `analyses` e `analysis_feedback`). A função também apaga os dois lugares do `auth` que o cascade não pega (`flow_state` e `audit_log_entries`).
+- **O `revoke` de `service_role` nas três tabelas (D3) fica:** ele nunca precisou delas.
+- **O cliente de usuário** ganhou o `rpc()` (lista fechada de funções, corpo fixo `{}`, resposta de até 64 bytes) e a leitura de `analyses` e `analysis_feedback`. A gravação segue só em `user_criteria`.

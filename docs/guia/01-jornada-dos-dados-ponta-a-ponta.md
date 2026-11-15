@@ -365,6 +365,15 @@ data: {"type":"stage","stage":"normalizando","elapsedMs":12}
 - **Sem `id:`, sem `retry:` e sem heartbeat**, de propósito: o cliente não reconecta, porque reconectar repetiria a análise e gastaria a cota (`sse-stream.ts:3-4`).
 - **No navegador:** o Service Worker lê o stream (`src/api/sse-reader.ts`), valida cada evento com o `AnalysisStreamEventSchema` e repassa ao painel, que **revalida** com o `WorkerToPanelSchema` e mostra só texto, pelo React (`App.tsx:1`).
 
+## Fora da análise: levar e apagar os seus dados
+
+A jornada acima grava pouco: os critérios (com a pretensão cifrada) e, quando a F1-API-06 chegar, o registro mínimo de cada análise (nota, veredito e caminho, sem o texto da vaga). O portal tem a página **Seus dados** para os dois direitos que isso gera:
+
+- **Baixar meus dados:** o servidor do portal pede à API o `GET /v1/account/export` com o token da sua sessão. A API lê os critérios (decifrando a pretensão) e as duas listas com a RLS valendo, monta um documento, confere contra o contrato (`AccountExportSchema`) e só então responde. Se uma das leituras falhar, não sai arquivo nenhum: nunca um arquivo pela metade parecendo completo. No navegador, ele chega como download (`trampo-meus-dados.json`), sem passar por URL nem cache.
+- **Excluir minha conta:** página de confirmação, frase digitada, e um `POST /v1/account/delete`. A API chama a função `delete_own_account` do banco com o seu próprio token. Em uma transação, a conta, as sessões e todos os seus dados somem. A extensão e os outros navegadores saem sozinhos em até 15 minutos, quando o token deles vencer.
+
+Detalhes de segurança no [02-infraestrutura-e-seguranca-descomplicadas](02-infraestrutura-e-seguranca-descomplicadas.md) §2.5 e no [ADR-029-account-export-and-delete](../arquitetura/ADRs/ADR-029-account-export-and-delete.md).
+
 ## Resumo em uma tabela
 
 | Etapa | Peça (versão) | Gasta cota de LLM? | Falha → |
