@@ -7,7 +7,9 @@
 // - `grant_type=refresh_token` rotaciona; o refresh já trocado vale de novo por `reuseMs` (o reuso de 10 s do projeto);
 // - `hookRefuses` faz a renovação responder como a recusa do hook (403 `error_code` `unknown`, ADR-026 D3), sem
 //   consumir o refresh;
-// - `/logout?scope=local|global` com Bearer; sessão que já não existe dá 403 `session_not_found`;
+// - `/logout?scope=local|global` com Bearer: o `local` encerra só a sessão do Bearer, e o `global`, todas as sessões do
+//   mesmo usuário. Sessão do Bearer que já não existe dá 403 `session_not_found` nos dois escopos, sem revogar nada
+//   (medido no GoTrue v2.197.0 da pilha local, ADR-027 §9.1 F1). Cada logout aceito ou recusado assim fica em `logouts`;
 // - o access é um JWS ES256 de verdade, com o JWKS em `/auth/v1/.well-known/jwks.json`;
 // - os modos `lento` e `corta` processam o pedido antes de atrasar ou cortar a resposta.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -68,8 +70,10 @@ export interface FakeGotrue {
   reuseMs: number;
   /** Claims do próximo access emitido (troca ou renovação). */
   claims: AccessClaimsOverride;
-  /** Cria uma sessão viva e devolve os tokens e o id dela. */
-  addSession(): Promise<{ readonly accessToken: string; readonly refreshToken: string; readonly sessionId: string }>;
+  /** Cria uma sessão viva e devolve os tokens e o id dela. Sem `userId`, é do mesmo usuário do login PKCE. */
+  addSession(options?: { readonly userId?: string }): Promise<{ readonly accessToken: string; readonly refreshToken: string; readonly sessionId: string }>;
+  /** Todo logout que chegou com Bearer de uma sessão conhecida, na ordem: o escopo pedido e se ele encerrou algo. */
+  readonly logouts: FakeLogout[];
   /** Assina um access à parte (para os testes do verificador). */
   sign(payload: Readonly<Record<string, unknown>>, header?: { readonly kid?: string; readonly alg?: string }): Promise<string>;
   readonly jwk: JWK;
@@ -78,6 +82,14 @@ export interface FakeGotrue {
   /** Todo par emitido (troca, renovação e `addSession`), na ordem: os segredos que o E2E procura fora do simulado. */
   readonly issued: ReadonlyArray<{ readonly accessToken: string; readonly refreshToken: string }>;
   close(): Promise<void>;
+}
+
+export interface FakeLogout {
+  readonly scope: "local" | "global";
+  /** A sessão do Bearer. */
+  readonly sessionId: string;
+  /** As sessões que este logout encerrou (vazio no 403 `session_not_found`). */
+  readonly revoked: readonly string[];
 }
 
 interface Flow {
@@ -133,6 +145,15 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
   const issued: Array<{ readonly accessToken: string; readonly refreshToken: string }> = [];
   /** access → sessão, para o logout. */
   const accessSession = new Map<string, string>();
+  /** sessão → usuário: o `global` encerra todas as sessões do usuário do Bearer. */
+  const sessionUser = new Map<string, string>();
+  const logouts: FakeLogout[] = [];
+  const openSession = (userId: string): string => {
+    const sessionId = randomUUID();
+    sessionUser.set(sessionId, userId);
+    liveSessions.add(sessionId);
+    return sessionId;
+  };
   const state = {
     mode: { kind: "normal" } as FakeMode,
     rejectStatus: 400,
@@ -156,7 +177,7 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
       iss: issuer,
       aud: "authenticated",
       role: "authenticated",
-      sub: GOTRUE_CANARIES.userId,
+      sub: sessionUser.get(sessionId) ?? GOTRUE_CANARIES.userId,
       email: GOTRUE_CANARIES.email,
       phone: "",
       aal: "aal1",
@@ -229,9 +250,7 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
       const computed = createHash("sha256").update(fields["code_verifier"] as string).digest("base64url");
       if (computed !== flow.challenge) return { status: state.rejectStatus, body: gotrueError(state.rejectStatus, "bad_code_verifier") };
       flows.delete(fields["auth_code"] as string);
-      const sessionId = randomUUID();
-      liveSessions.add(sessionId);
-      return issue(sessionId);
+      return issue(openSession(GOTRUE_CANARIES.userId));
     }
 
     if (url.pathname === "/auth/v1/token" && url.search === "?grant_type=refresh_token") {
@@ -253,8 +272,15 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
       if (bearer === undefined) return { status: 401, body: gotrueError(401, "no_authorization") };
       const sessionId = accessSession.get(bearer);
       if (sessionId === undefined) return { status: 403, body: gotrueError(403, "bad_jwt") };
-      if (!liveSessions.has(sessionId)) return { status: 403, body: gotrueError(403, "session_not_found") };
-      liveSessions.delete(sessionId);
+      const scope = url.search === "?scope=global" ? "global" : "local";
+      if (!liveSessions.has(sessionId)) {
+        logouts.push({ scope, sessionId, revoked: [] });
+        return { status: 403, body: gotrueError(403, "session_not_found") };
+      }
+      const userId = sessionUser.get(sessionId);
+      const revoked = scope === "local" ? [sessionId] : [...liveSessions].filter((id) => sessionUser.get(id) === userId);
+      for (const id of revoked) liveSessions.delete(id);
+      logouts.push({ scope, sessionId, revoked });
       return { status: 204, body: "", contentType: null };
     }
 
@@ -349,12 +375,12 @@ export async function startFakeGotrue(options: FakeGotrueOptions): Promise<FakeG
     set claims(value: AccessClaimsOverride) {
       state.claims = value;
     },
-    async addSession() {
-      const sessionId = randomUUID();
-      liveSessions.add(sessionId);
+    async addSession(options = {}) {
+      const sessionId = openSession(options.userId ?? GOTRUE_CANARIES.userId);
       const { accessToken, refreshToken } = await issue(sessionId);
       return { accessToken, refreshToken, sessionId };
     },
+    logouts,
     sign,
     jwk,
     liveSessions,

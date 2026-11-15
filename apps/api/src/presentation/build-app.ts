@@ -21,6 +21,7 @@ import { mediaTypeHook } from "./edge/media-type.js";
 import { createRateLimitHook } from "./edge/rate-limit.js";
 import { EDGE_TIMEOUTS, type EdgeTimeouts } from "./edge/timeouts.js";
 import { createLoggerOptions, type LoggerConfig } from "./logging/log-policy.js";
+import { type AccountRouteOptions, accountRoutes } from "./routes/account.js";
 import { type AnalysisRouteOptions, analyzeRoutes } from "./routes/analyze.js";
 import { type AuthRouteOptions, authRoutes } from "./routes/auth.js";
 import { type CriteriaRouteOptions, criteriaRoutes } from "./routes/criteria.js";
@@ -65,6 +66,11 @@ export interface BuildAppOptions {
    * inexistentes (404 PROIBIDO). O composeApp passa o mesmo guarda da análise.
    */
   readonly criteria?: CriteriaRouteOptions;
+  /**
+   * O AccountService de exportar e excluir a conta (ADR-029). Sem a opção, GET /v1/account/export e
+   * POST /v1/account/delete são rotas inexistentes (404).
+   */
+  readonly account?: AccountRouteOptions;
   /**
    * Os casos de uso do BFF (07f), o limitador local pré-JWT e a amostragem de log (ADR-004 D4 e D8). Sem a opção, as
    * rotas /v1/auth/* são inexistentes. O composeApp monta tudo uma vez por processo.
@@ -176,6 +182,7 @@ export function buildApp(options: BuildAppOptions) {
   void app.register(healthRoutes);
   if (options.analysis !== undefined) void app.register(analyzeRoutes, options.analysis);
   if (options.criteria !== undefined) void app.register(criteriaRoutes, options.criteria);
+  if (options.account !== undefined) void app.register(accountRoutes, options.account);
   if (options.auth !== undefined) void app.register(authRoutes, options.auth);
   return app;
 }

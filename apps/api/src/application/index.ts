@@ -126,6 +126,14 @@ export type { CacheStoreRead, CacheStoreWrite, JobFactsCacheStore } from "./port
 export type { Random } from "./ports/random.js";
 export type { RefreshOpenResult, RefreshSealResult, RefreshSealer, SealedSession } from "./ports/refresh-sealer.js";
 export { CRITERIA_GUARD_POLICY, CriteriaGuard } from "./criteria/criteria-guard.js";
+export {
+  ACCOUNT_SERVICE_POLICY,
+  AccountService,
+  type AccountDeleteOutcome,
+  type AccountExportOutcome,
+  type AccountServiceDeps,
+} from "./account/account-service.js";
+export type { AccountDeletion, AccountRecords, AccountStore, AccountSubject } from "./ports/account-store.js";
 export type {
   CriteriaLookup,
   CriteriaReader,

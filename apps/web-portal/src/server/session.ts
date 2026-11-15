@@ -57,7 +57,15 @@ export interface ResolvedSession {
  */
 export type ApiAccessMode = "leitura" | "gravacao" | "forcada";
 export type ApiAccess =
-  | { readonly ok: true; readonly accessToken: string; readonly userId: string; readonly sessionId: string; readonly cookie?: CookieWrite }
+  | {
+      readonly ok: true;
+      readonly accessToken: string;
+      readonly userId: string;
+      readonly sessionId: string;
+      /** O início da sessão (o login), em segundos: a exclusão da conta pede login recente (ADR-029 D6). */
+      readonly startedAt: number;
+      readonly cookie?: CookieWrite;
+    }
   | {
       readonly ok: false;
       readonly state: Exclude<SessionState, "ativa">;
@@ -83,6 +91,12 @@ export interface PortalAuth {
   resolveSession(sessionCookie: string | undefined): Promise<ResolvedSession>;
   readSession(sessionCookie: string | undefined): Promise<{ readonly ok: true; readonly userId: string } | { readonly ok: false }>;
   logout(input: {
+    readonly origin: string | null;
+    readonly secFetchSite: string | null;
+    readonly sessionCookie: string | undefined;
+  }): Promise<Redirect | Forbidden>;
+  /** "Sair de todos os dispositivos" (ADR-027 §9.2): o único chamador do escopo `global`. */
+  logoutEverywhere(input: {
     readonly origin: string | null;
     readonly secFetchSite: string | null;
     readonly sessionCookie: string | undefined;
@@ -150,13 +164,20 @@ export function createPortalAuth(deps: PortalAuthDeps): PortalAuth {
   };
 
   /** Sessão órfã (o GoTrue emitiu e o portal não aceitou): uma tentativa de logout, em segundo plano. */
-  const dropOrphan = (tokens: GotrueTokens): void => deps.defer(gotrue.logout(tokens.accessToken));
+  const dropOrphan = (tokens: GotrueTokens): void => deps.defer(gotrue.logout(tokens.accessToken, "local"));
 
   /** Renovação com uma nova tentativa só em "pode ter rotacionado" (ADR-027 D6). */
   const renew = async (refreshToken: string): Promise<GotrueTokenResult> => {
     const first = await gotrue.refresh(refreshToken);
     if (first.ok || first.reason !== "pode_ter_rotacionado") return first;
     return gotrue.refresh(refreshToken, AbortSignal.timeout(PORTAL_SESSION_POLICY.retryTimeoutMs));
+  };
+
+  /** O Bearer do logout: com o access a até 60 s do fim, renova antes; a renovação que falha segue com o que há. */
+  const logoutBearer = async (payload: SessionPayload): Promise<string> => {
+    if (payload.ate - nowSeconds() > PORTAL_SESSION_POLICY.renewBeforeSeconds) return payload.at;
+    const renewed = await renew(payload.rt);
+    return renewed.ok ? renewed.tokens.accessToken : payload.at;
   };
 
   /** O fim do access: o menor entre o `expires_in` e o `exp` verificado. */
@@ -254,13 +275,19 @@ export function createPortalAuth(deps: PortalAuthDeps): PortalAuth {
       const done = (notice: Notice): Redirect => ({ kind: "redirect", location: home(notice), cookies: [clearSession] });
       const payload = openSession(sessionCookie);
       if (payload === null) return done("saiu");
-      let accessToken = payload.at;
-      if (payload.ate - nowSeconds() <= PORTAL_SESSION_POLICY.renewBeforeSeconds) {
-        const renewed = await renew(payload.rt);
-        if (renewed.ok) accessToken = renewed.tokens.accessToken;
-      }
-      const result = await gotrue.logout(accessToken);
+      const result = await gotrue.logout(await logoutBearer(payload), "local");
       return done(result.ok ? "saiu" : "saiu_local");
+    },
+
+    async logoutEverywhere({ origin, secFetchSite, sessionCookie }) {
+      if (origin !== config.portalOrigin || secFetchSite !== "same-origin") return { kind: "forbidden" };
+      // O cookie some sempre; "saiu de tudo" só com o 2xx do GoTrue (T30: a falha nunca vira promessa).
+      const done = (notice: Notice): Redirect => ({ kind: "redirect", location: home(notice), cookies: [clearSession] });
+      const payload = openSession(sessionCookie);
+      // Sem Bearer não há como pedir o `global`.
+      if (payload === null) return done("saiu_sem_confirmar");
+      const result = await gotrue.logout(await logoutBearer(payload), "global");
+      return done(result.ok ? "saiu_de_tudo" : "saiu_sem_confirmar");
     },
 
     async apiAccess(sessionCookie, mode) {
@@ -276,13 +303,13 @@ export function createPortalAuth(deps: PortalAuthDeps): PortalAuth {
       if (mode === "forcada" || (mode === "gravacao" && payload.ate - now <= PORTAL_SESSION_POLICY.renewBeforeSeconds)) {
         const renewal = await renewPayload(payload, now);
         if (renewal.kind === "expirada") return gone("expirada");
-        if (renewal.kind === "renovada") return { ok: true, accessToken: renewal.payload.at, userId: renewal.userId, sessionId, cookie: renewal.cookie };
+        if (renewal.kind === "renovada") return { ok: true, accessToken: renewal.payload.at, userId: renewal.userId, sessionId, startedAt: payload.sst, cookie: renewal.cookie };
         return renewal.cookie === undefined ? { ok: false, state: "indisponivel", sessionId } : { ok: false, state: "indisponivel", sessionId, cookie: renewal.cookie };
       }
 
       // Sem renovar: o access do cookie, verificado de novo (a DAL nunca confia no cookie).
       const verified = await verifier.verify(payload.at);
-      if (verified.ok && verified.sessionId === payload.sid) return { ok: true, accessToken: payload.at, userId: verified.userId, sessionId };
+      if (verified.ok && verified.sessionId === payload.sid) return { ok: true, accessToken: payload.at, userId: verified.userId, sessionId, startedAt: payload.sst };
       if (!verified.ok && verified.reason === "indisponivel") return { ok: false, state: "indisponivel", sessionId };
       return gone("ausente");
     },

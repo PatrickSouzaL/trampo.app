@@ -272,3 +272,112 @@ select format(
 :troca;
 select json_build_object('trocada', true);
 `;
+
+// F1-PORTAL-03 (ADR-029): a função de exclusão da própria conta, em `public`, chamada por RPC com o JWT do usuário.
+
+export const ACCOUNT_FUNCTION = "delete_own_account";
+
+/** Toda função com esse nome em `public`, com o que o D2 fixa: definer, volatile, search_path vazio, sem parâmetro, `→ text`, dono postgres. */
+export const ACCOUNT_FUNCTIONS_SQL = `
+select coalesce(json_agg(json_build_object(
+  'args', pg_get_function_identity_arguments(p.oid), 'returns', pg_get_function_result(p.oid),
+  'language', l.lanname, 'definer', p.prosecdef, 'volatility', p.provolatile, 'config', p.proconfig,
+  'owner', pg_get_userbyid(p.proowner)
+)), '[]')
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+join pg_language l on l.oid = p.prolang
+where n.nspname = 'public' and p.proname = 'delete_own_account';
+`;
+
+export const EXPECTED_ACCOUNT_FUNCTIONS = Object.freeze([
+  { args: "", returns: "text", language: "plpgsql", definer: true, volatility: "v", config: ['search_path=""'], owner: "postgres" },
+]);
+
+/** A ACL da função sem a entrada do dono (`PUBLIC` é o grantee 0), e o privilégio efetivo de cada papel. */
+export const ACCOUNT_ACL_SQL = `
+select json_build_object(
+  'acl', (
+    select coalesce(json_agg(json_build_object(
+      'grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'privilege', a.privilege_type
+    ) order by a.grantee, a.privilege_type), '[]')
+    from pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    where p.oid = 'public.delete_own_account()'::regprocedure and a.grantee <> p.proowner
+  ),
+  'execute', (
+    select json_object_agg(r.role, has_function_privilege(r.role, 'public.delete_own_account()', 'EXECUTE'))
+    from (values ('anon'), ('authenticated'), ('service_role')) as r (role)
+  ),
+  'authTables', (
+    select json_object_agg(t.name, has_table_privilege('authenticated', t.name, 'DELETE'))
+    from (values ('auth.users'), ('auth.flow_state'), ('auth.audit_log_entries'), ('auth.sessions')) as t (name)
+  )
+);
+`;
+
+export const EXPECTED_ACCOUNT_ACL = Object.freeze({
+  acl: [{ grantee: "authenticated", privilege: "EXECUTE" }],
+  execute: { anon: false, authenticated: true, service_role: false },
+  // Sem a função, o papel do usuário não apaga nada do auth.
+  authTables: { "auth.users": false, "auth.flow_state": false, "auth.audit_log_entries": false, "auth.sessions": false },
+});
+
+/** O texto da função como o Postgres o guarda. */
+export const ACCOUNT_DEFINITION_SQL = `
+select json_build_object('definition', pg_get_functiondef('public.delete_own_account()'::regprocedure));
+`;
+
+/** Quantas linhas do usuário `:'uid'` sobram em cada lugar que guarda algo dele (a prova do SR-16). */
+export const ACCOUNT_ROWS_SQL = `
+select json_build_object(
+  'users', (select count(*) from auth.users where id = :'uid'::uuid),
+  'identities', (select count(*) from auth.identities where user_id = :'uid'::uuid),
+  'sessions', (select count(*) from auth.sessions where user_id = :'uid'::uuid),
+  'refresh_tokens', (select count(*) from auth.refresh_tokens where user_id = :'uid'),
+  'flow_state', (select count(*) from auth.flow_state where user_id = :'uid'::uuid),
+  'audit_log_entries', (select count(*) from auth.audit_log_entries where payload ->> 'actor_id' = :'uid'),
+  'user_criteria', (select count(*) from public.user_criteria where user_id = :'uid'::uuid),
+  'analyses', (select count(*) from public.analyses where user_id = :'uid'::uuid),
+  'analysis_feedback', (select count(*) from public.analysis_feedback where user_id = :'uid'::uuid)
+);
+`;
+
+/** Nenhum resíduo em lugar nenhum. */
+export const NO_ACCOUNT_ROWS = Object.freeze({
+  users: 0, identities: 0, sessions: 0, refresh_tokens: 0, flow_state: 0, audit_log_entries: 0, user_criteria: 0, analyses: 0, analysis_feedback: 0,
+});
+
+/**
+ * A função chamada como `authenticated`, com as claims `:'claims'` (texto JSON) e a sessão `:'sid'` com exatamente
+ * `:'age'` segundos, numa transação só: o `now()` não anda entre o `update` e a chamada, então o limite é exato. O
+ * `rollback` desfaz tudo, inclusive a exclusão. As linhas que sobram são contadas ANTES do `rollback`, na mesma
+ * transação, já de volta ao papel da sessão.
+ */
+export const ACCOUNT_CALL_AT_AGE_SQL = `
+begin;
+update auth.sessions set created_at = now() - make_interval(secs => :'age'::double precision) where id = :'sid'::uuid;
+select set_config('request.jwt.claims', :'claims', true) as posto \\gset
+set local role authenticated;
+select public.delete_own_account() as saida \\gset
+reset role;
+select count(*) as sobrou from auth.users where id = :'uid'::uuid \\gset
+rollback;
+select json_build_object('saida', :'saida', 'sobrou', :'sobrou'::int);
+`;
+
+/** A função chamada como `authenticated` com as claims `:'claims'`, sem mexer em sessão nenhuma; `rollback` no fim. */
+export const ACCOUNT_CALL_SQL = `
+begin;
+select set_config('request.jwt.claims', :'claims', true) as posto \\gset
+set local role authenticated;
+select public.delete_own_account() as saida \\gset
+reset role;
+rollback;
+select json_build_object('saida', :'saida');
+`;
+
+/** A sessão `:'sid'` sem data (a coluna aceita nulo), com `commit`. */
+export const UNDATE_SESSION_SQL = `
+with changed as (update auth.sessions set created_at = null where id = :'sid'::uuid returning id)
+select json_build_object('linhas', count(*)) from changed;
+`;

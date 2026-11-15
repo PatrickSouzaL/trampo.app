@@ -6,6 +6,10 @@
 // `content-type` escolhido), corpo gigante, redirecionamento, socket cortado e corpo que nunca termina. Registra cada requisição, com o
 // corpo cru recebido (para os canários).
 //
+// Conta (ADR-029): `GET /rest/v1/analyses` e `/rest/v1/analysis_feedback` com a mesma RLS, o filtro e o `limit`, e
+// `POST /rest/v1/rpc/delete_own_account`, que só aceita o corpo `{}` (com argumento, 404 `PGRST202`, como o real),
+// devolve a palavra de `deleteResult` e, com `excluida`, apaga as linhas do dono nas três tabelas.
+//
 // Opcionalmente serve o JWKS do Auth no mesmo host (o teste de boot usa uma SUPABASE_URL só).
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -45,11 +49,21 @@ export interface CriteriaRow {
   readonly updated_at?: string;
 }
 
+/** Uma linha de `analyses` ou de `analysis_feedback`: o dono e as colunas como o PostgREST as devolve. */
+export type OwnedRow = Readonly<Record<string, unknown>> & { readonly user_id: string };
+
 export interface FakePostgrest {
   readonly url: URL;
   readonly requests: PostgrestRequest[];
   /** Linhas de `user_criteria`. */
   readonly rows: CriteriaRow[];
+  /** Linhas de `analyses` e de `analysis_feedback`, na ordem em que o banco as devolveria. */
+  readonly analyses: OwnedRow[];
+  readonly feedback: OwnedRow[];
+  /** O que a função `delete_own_account` devolve (qualquer JSON, para os casos fora do contrato). */
+  deleteResult: unknown;
+  /** O dono de cada chamada aceita do RPC. */
+  readonly deletions: string[];
   /** Token → dono (o `auth.uid()` da RLS). */
   readonly sessions: Map<string, string>;
   mode: PostgrestMode;
@@ -67,8 +81,17 @@ function send(response: ServerResponse, status: number, body: string | Buffer, c
 export async function startFakePostgrest(publishableKey: string): Promise<FakePostgrest> {
   const requests: PostgrestRequest[] = [];
   const rows: CriteriaRow[] = [];
+  const analyses: OwnedRow[] = [];
+  const feedback: OwnedRow[] = [];
+  const deletions: string[] = [];
   const sessions = new Map<string, string>();
-  const fake = { mode: { kind: "normal" } as PostgrestMode, jwks: null as JWK[] | null };
+  const fake = { mode: { kind: "normal" } as PostgrestMode, jwks: null as JWK[] | null, deleteResult: "excluida" as unknown };
+  const lists: Readonly<Record<string, OwnedRow[]>> = { "/rest/v1/analyses": analyses, "/rest/v1/analysis_feedback": feedback };
+  const RPC_PATH = "/rest/v1/rpc/delete_own_account";
+  /** Tira do array, no lugar, as linhas do dono. */
+  const dropOwned = (list: Array<{ readonly user_id: string }>, owner: string): void => {
+    for (let index = list.length - 1; index >= 0; index -= 1) if (list[index]?.user_id === owner) list.splice(index, 1);
+  };
 
   const server = createServer((request, response) => {
     void (async () => {
@@ -108,10 +131,28 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
         return response.end();
       }
       const method = request.method ?? "";
-      if (!["GET", "POST"].includes(method) || url.pathname !== "/rest/v1/user_criteria") return send(response, 404, '{"message":"not found"}');
+      const list = method === "GET" ? lists[url.pathname] : undefined;
+      const rpc = method === "POST" && url.pathname === RPC_PATH;
+      if (list === undefined && !rpc && (!["GET", "POST"].includes(method) || url.pathname !== "/rest/v1/user_criteria")) {
+        return send(response, 404, '{"message":"not found"}');
+      }
       if (header("apikey") !== publishableKey) return send(response, 401, '{"message":"Invalid API key"}');
       const owner = sessions.get((header("authorization") ?? "").replace(/^Bearer /, ""));
       if (owner === undefined) return send(response, 401, '{"message":"JWT invalid"}');
+      if (rpc) {
+        // A função não tem parâmetro: qualquer argumento é outra função, que não existe.
+        if (body !== "{}") return send(response, 404, '{"code":"PGRST202","message":"Could not find the function"}');
+        deletions.push(owner);
+        if (fake.deleteResult === "excluida") for (const owned of [rows, analyses, feedback]) dropOwned(owned, owner);
+        return send(response, 200, JSON.stringify(fake.deleteResult));
+      }
+      if (list !== undefined) {
+        const wanted = url.searchParams.get("user_id");
+        const limit = Number(url.searchParams.get("limit") ?? "1000");
+        const listed = (url.searchParams.get("select") ?? "").split(",");
+        const visible = list.filter((row) => row.user_id === owner && wanted === `eq.${row.user_id}`).slice(0, limit);
+        return send(response, 200, JSON.stringify(visible.map((row) => Object.fromEntries(listed.filter((column) => column in row).map((column) => [column, row[column]])))));
+      }
       if (method === "POST") {
         // O PostgREST só olha as chaves de `columns=`; as outras do corpo são ignoradas.
         const listed = (url.searchParams.get("columns") ?? "").split(",");
@@ -145,6 +186,9 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
     url: new URL(`http://127.0.0.1:${port}`),
     requests,
     rows,
+    analyses,
+    feedback,
+    deletions,
     sessions,
     close: () =>
       new Promise<void>((resolve) => {

@@ -11,13 +11,13 @@
 | Peça | Pacote | Tecnologia | Papel |
 |---|---|---|---|
 | `apps/extension` | `@trampo/extension` | WXT 0.21.4 + React 19.3.0, Manifest V3 (Chrome e Edge ≥ 116) | *dumb client*: captura sob clique (`activeTab` + `scripting`, mundo `ISOLATED`), login PKCE no Service Worker e relatório no `chrome.sidePanel` |
-| `apps/web-portal` | `@trampo/web-portal` | Next.js 16.4.2 (App Router, `proxy.ts`), React 19.3.0, Tailwind 4.3.3 | login OAuth no servidor com cookies `__Host-` selados (ADR-027); formulário de critérios sem JS próprio, lido e gravado pela API com o Bearer da sessão (ADR-028) |
-| `apps/api` | `@trampo/api` | Fastify 5.12.7, Zod 4.6.7, jose 6.2.12 | "Gateway de Decisão": borda, BFF de auth da extensão, funil híbrido, nota, relatório SSE e critérios |
+| `apps/web-portal` | `@trampo/web-portal` | Next.js 16.4.2 (App Router, `proxy.ts`), React 19.3.0, Tailwind 4.3.3 | login OAuth no servidor com cookies `__Host-` selados (ADR-027); formulário de critérios sem JS próprio, lido e gravado pela API com o Bearer da sessão (ADR-028); "sair de todos os dispositivos" (ADR-027 §9); exportar e excluir a conta (ADR-029) |
+| `apps/api` | `@trampo/api` | Fastify 5.12.7, Zod 4.6.7, jose 6.2.12 | "Gateway de Decisão": borda, BFF de auth da extensão, funil híbrido, nota, relatório SSE, critérios e as rotas da conta (exportar e excluir) |
 | `packages/contracts` | `@trampo/contracts` | Zod 4.6.7 (`z.strictObject`) | a língua comum: todos os schemas e limites |
 | `packages/config` | `@trampo/config` | ESLint 9 + preset de segurança, typescript-eslint, dependency-cruiser 18.6.0 | `tsconfig` base, lint de segurança e regras de fronteira |
 | `packages/ci-policy` | `@trampo/ci-policy` | TypeScript + js-yaml | política verificável do `ci.yml` e do `.gitleaks.toml` |
 | `evals` | `@trampo/evals` | Vitest | golden dataset `gd1` (83 casos) e spikes S-1/S-4 |
-| `supabase` | — | Postgres 17, CLI 2.120.0 | migrations com RLS forçada e o Custom Access Token Hook |
+| `supabase` | — | Postgres 17, CLI 2.120.0 | migrations com RLS forçada, o Custom Access Token Hook e a função `delete_own_account` (exclusão da própria conta, sem `service_role`) |
 
 **Serviços (free tier):** Supabase (Postgres + PostgREST + GoTrue), Upstash Redis (REST), **Groq** (`openai/gpt-oss-20b`) → **Cloudflare Workers AI** (`@cf/meta/llama-3.3-70b-instruct-fp8-fast` por padrão) → fallback determinístico, GitHub Actions (`secrets`, `quality`, `test`, `db`).
 **Toolchain:** pnpm 11.4.0 (catálogo de versões exatas), Turborepo 2.11.8, TypeScript 5.9.3 strict, Vitest 5.0.5, fast-check 4.10.2, playwright-core 1.64.1, Node 24.22.1 (CI) / 26.12.1 (`.nvmrc`).
@@ -65,9 +65,9 @@ Em cada execução, você orquestrará internamente as 6 personas abaixo. Sempre
   - **Isolamento Service Worker × Side Panel (ADR-004 D10):** B1 (lint do painel: sem armazenamento, rede, navegação nem import de `auth`/`api`/`session-store`), B2 (lint por módulo do SW: cada capacidade sensível num arquivo só), B3 (`dependency-cruiser`), B4 (meta CSP do painel com `connect-src 'none'` e Trusted Types sem política), B5 (varredura do artefato do build). O painel fala só pela porta `trampo/sidepanel/v1`, com Zod nas duas pontas.
   - **Criptografia AEAD:** pretensão salarial cifrada na API (`s1`, AES-256-GCM, AAD com o `userId`), refresh token da extensão selado (`r1`, só a API abre), sessão do portal selada (AAD por finalidade e origem); anéis de chave **disjuntos** por finalidade; nenhuma chave no código, no cofre ou no chat.
   - **Sessões do portal:** cookies `__Host-` `HttpOnly; Secure; SameSite=Lax`, sem `Domain`; PKCE no servidor; CSP com nonce por pedido (`'strict-dynamic'`, `frame-ancestors 'none'`); logout só `POST` com `Origin` exato; nenhum destino de redirect vindo do pedido.
-  - **Banco:** RLS habilitada **e forçada**; rotas de usuário só com a chave *publishable* + JWT do usuário (nunca `service_role`); Custom Access Token Hook com sessão máxima de 24 h.
+  - **Banco:** RLS habilitada **e forçada**; rotas de usuário só com a chave *publishable* + JWT do usuário (nunca `service_role`); Custom Access Token Hook com sessão máxima de 24 h; a exclusão de conta é a função `public.delete_own_account()` (`SECURITY DEFINER`, sem parâmetro, só `authenticated`, login recente de 600 s), nunca a Admin API com chave *secret* (ADR-029).
   - **Auditoria de CI:** `@trampo/ci-policy` prova a política do workflow (actions por SHA, sem `secrets`, versões exatas, sha256 conferido) e do `.gitleaks.toml` (allowlist só de valor exato `^…$`); gitleaks 8.30.1 conferido pelo `checksums.txt` antes de todo push.
-- **Framework cognitivo (modelagem contínua de ameaças):** (1) quais fronteiras (TB1–TB13) a mudança cruza? (2) quais ameaças (T1–T50) e requisitos (SR-01–SR-26) do `threat-model.md` se aplicam? (3) qual o pior caso concreto (entrada hostil, dependência fora do ar, token roubado)? (4) o desenho falha fechado? (5) qual teste e qual mutante provam cada condição? (6) veto ou condições numeradas no ADR; residual vira linha da §9 do threat model.
+- **Framework cognitivo (modelagem contínua de ameaças):** (1) quais fronteiras (TB1–TB13) a mudança cruza? (2) quais ameaças (T1–T52) e requisitos (SR-01–SR-28) do `threat-model.md` se aplicam? (3) qual o pior caso concreto (entrada hostil, dependência fora do ar, token roubado)? (4) o desenho falha fechado? (5) qual teste e qual mutante provam cada condição? (6) veto ou condições numeradas no ADR; residual vira linha da §9 do threat model.
 
 ### 1.4. `[DEV]` — Staff Full-Stack TypeScript Engineer
 - **Role:** Especialista em implementação de alta performance (Fastify 5, Next.js 16, Extensões MV3 com WXT, Zod).

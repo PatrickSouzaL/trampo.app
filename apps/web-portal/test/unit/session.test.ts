@@ -38,6 +38,7 @@ beforeEach(() => {
   fake.claims = {};
   fake.expiresIn = 900;
   fake.requests.length = 0;
+  fake.logouts.length = 0;
   clock = { ms: Date.now() };
   pending = [];
   auth = createPortalAuth({
@@ -408,6 +409,160 @@ describe("logout (ADR-027 D7)", () => {
     expect(result.kind === "redirect" && result.location).toBe(`${PORTAL}/?aviso=saiu`);
     expect(fake.requests.map((request) => request.url)).toEqual(["/auth/v1/token?grant_type=refresh_token", "/auth/v1/logout?scope=local"]);
   });
+
+  it("o Sair comum não derruba a outra sessão do usuário (a extensão): escopo local, e ela ainda renova", async () => {
+    const { session } = await login();
+    const other = await fake.addSession();
+    fake.requests.length = 0;
+    await auth.logout({ ...allowed, sessionCookie: session.value });
+    expect(fake.logouts.map((logout) => logout.scope)).toEqual(["local"]);
+    expect(fake.liveSessions.has(other.sessionId)).toBe(true);
+    expect((await createGotrueClient({ supabaseUrl: config.supabaseUrl, publishableKey: PUBLISHABLE }).refresh(other.refreshToken)).ok).toBe(true);
+  });
+});
+
+describe("logoutEverywhere: sair de todos os dispositivos (ADR-027 §9.2)", () => {
+  const allowed = { origin: PORTAL, secFetchSite: "same-origin" };
+  const cleared = [{ name: COOKIE_NAMES.sessao, value: "", maxAge: 0 }];
+  const everywhere = { kind: "redirect", location: `${PORTAL}/?aviso=saiu_de_tudo`, cookies: cleared };
+  const unconfirmed = { kind: "redirect", location: `${PORTAL}/?aviso=saiu_sem_confirmar`, cookies: cleared };
+  const logoutCalls = () => fake.requests.filter((request) => request.url.startsWith("/auth/v1/logout"));
+  const accessOf = (cookie: CookieWrite): string => (JSON.parse(sessaoSealer().open(cookie.value) as string) as Record<string, string>)["at"] as string;
+
+  it.each([
+    ["sem Origin", { origin: null, secFetchSite: "same-origin" }],
+    ["outra origem", { origin: "https://evil.invalid", secFetchSite: "same-origin" }],
+    ["Origin null", { origin: "null", secFetchSite: "same-origin" }],
+    ["origem com barra", { origin: `${PORTAL}/`, secFetchSite: "same-origin" }],
+    ["cross-site", { origin: PORTAL, secFetchSite: "cross-site" }],
+    ["same-site", { origin: PORTAL, secFetchSite: "same-site" }],
+    ["none (URL digitada)", { origin: PORTAL, secFetchSite: "none" }],
+    ["sem Sec-Fetch-Site", { origin: PORTAL, secFetchSite: null }],
+  ])("%s: 403, cookie intacto, sem rede e as sessões vivas", async (_caso, input) => {
+    const { session } = await login();
+    const other = await fake.addSession();
+    fake.requests.length = 0;
+    expect(await auth.logoutEverywhere({ ...input, sessionCookie: session.value })).toEqual({ kind: "forbidden" });
+    expect(fake.requests).toHaveLength(0);
+    expect(fake.liveSessions.has(other.sessionId)).toBe(true);
+    expect((await auth.readSession(session.value)).ok).toBe(true);
+  });
+
+  it("apaga o cookie e encerra TODAS as sessões do usuário com um POST de escopo global", async () => {
+    const { session } = await login();
+    const other = await fake.addSession();
+    fake.requests.length = 0;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(everywhere);
+    expect(fake.requests.map((request) => `${request.method} ${request.url}`)).toEqual(["POST /auth/v1/logout?scope=global"]);
+    expect(fake.requests[0]?.headers["authorization"]).toBe(`Bearer ${accessOf(session)}`);
+    expect(fake.logouts).toHaveLength(1);
+    expect(fake.logouts[0]?.scope).toBe("global");
+    expect(fake.logouts[0]?.revoked).toContain(other.sessionId);
+    expect(fake.liveSessions.has(other.sessionId)).toBe(false);
+    // A outra sessão (a extensão) cai na renovação seguinte.
+    expect(await createGotrueClient({ supabaseUrl: config.supabaseUrl, publishableKey: PUBLISHABLE }).refresh(other.refreshToken)).toEqual({ ok: false, reason: "recusado" });
+  });
+
+  it("sem cookie, ou com cookie que não abre: apaga e não confirma, sem rede (não há Bearer para o global)", async () => {
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: undefined })).toEqual(unconfirmed);
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: "s1.a1.AAAA.BBBB.CCCC" })).toEqual(unconfirmed);
+    const flow = fluxoSealer().seal(JSON.stringify({ v: "v".repeat(43), st: "s".repeat(22), p: "github", iat: nowS() })) as string;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: flow })).toEqual(unconfirmed);
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("o 403 session_not_found não confirma: a sessão do Bearer já caiu, e a outra continua viva (F1)", async () => {
+    const { session } = await login();
+    const other = await fake.addSession();
+    await createGotrueClient({ supabaseUrl: config.supabaseUrl, publishableKey: PUBLISHABLE }).logout(accessOf(session), "local");
+    fake.requests.length = 0;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(unconfirmed);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=global"]);
+    expect(fake.liveSessions.has(other.sessionId)).toBe(true);
+  });
+
+  it.each([
+    ["403 session_not_found", { kind: "responde", status: 403, body: JSON.stringify({ error_code: "session_not_found" }) }],
+    ["403 bad_jwt", { kind: "responde", status: 403, body: JSON.stringify({ error_code: "bad_jwt" }) }],
+    ["401 com o corpo", { kind: "responde", status: 401, body: JSON.stringify({ error_code: "no_authorization" }) }],
+    ["401 do gateway", { kind: "responde", status: 401, body: JSON.stringify({ message: "Invalid API key" }) }],
+    ["429", { kind: "responde", status: 429, body: "" }],
+    ["500", { kind: "responde", status: 500, body: "" }],
+    ["503", { kind: "responde", status: 503, body: "" }],
+    ["prazo", { kind: "trava" }],
+    ["resposta cortada", { kind: "corta" }],
+    ["redirecionamento", { kind: "redireciona", location: "http://127.0.0.1:1/" }],
+  ] as const)("%s: o cookie some, o aviso não promete nada e há um POST só", async (_caso, mode) => {
+    const { session } = await login();
+    fake.requests.length = 0;
+    fake.mode = mode;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(unconfirmed);
+    expect(fake.requests.map((request) => request.url)).toEqual(["/auth/v1/logout?scope=global"]);
+  });
+
+  it("conexão recusada: o cookie some e o aviso não promete nada", async () => {
+    const { session } = await login();
+    const offline = createPortalAuth({
+      config,
+      gotrue: createGotrueClient({ supabaseUrl: "http://127.0.0.1:1", publishableKey: PUBLISHABLE, timeoutMs: 500 }),
+      verifier: createAccessTokenVerifier({ issuer: config.issuer, jwksUrl: config.jwksUrl }),
+      now: () => clock.ms,
+      defer: (task) => pending.push(task),
+    });
+    fake.requests.length = 0;
+    expect(await offline.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(unconfirmed);
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("access perto do fim: renova antes, e o Bearer do global é o access novo", async () => {
+    const { session } = await login();
+    clock.ms += 850_000;
+    fake.requests.length = 0;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(everywhere);
+    expect(fake.requests.map((request) => request.url)).toEqual(["/auth/v1/token?grant_type=refresh_token", "/auth/v1/logout?scope=global"]);
+    expect(fake.requests[1]?.headers["authorization"]).toBe(`Bearer ${fake.issued.at(-1)?.accessToken}`);
+    expect(fake.requests[1]?.headers["authorization"]).not.toBe(`Bearer ${accessOf(session)}`);
+  });
+
+  it("com mais de 60 s pela frente: não renova", async () => {
+    const { session } = await login();
+    clock.ms += (900 - PORTAL_SESSION_POLICY.renewBeforeSeconds - 5) * 1_000;
+    fake.requests.length = 0;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(everywhere);
+    expect(tokenCalls()).toHaveLength(0);
+  });
+
+  it("renovação que falha (o hook, ou o GoTrue fora só no /token): segue com o access que há, uma tentativa de logout", async () => {
+    const { session } = await login();
+    clock.ms += 850_000;
+    fake.hookRefuses = true;
+    fake.requests.length = 0;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(everywhere);
+    expect(fake.requests.map((request) => request.url)).toEqual(["/auth/v1/token?grant_type=refresh_token", "/auth/v1/logout?scope=global"]);
+    expect(fake.requests[1]?.headers["authorization"]).toBe(`Bearer ${accessOf(session)}`);
+  });
+
+  it("cookie com a idade ou a inatividade vencidas: ainda tenta o global (o refresh pode estar vivo no servidor)", async () => {
+    const { session } = await login();
+    const other = await fake.addSession();
+    clock.ms += (PORTAL_SESSION_POLICY.idleSeconds + 10) * 1_000;
+    fake.requests.length = 0;
+    expect(await auth.logoutEverywhere({ ...allowed, sessionCookie: session.value })).toEqual(everywhere);
+    expect(fake.requests.map((request) => request.url)).toEqual(["/auth/v1/token?grant_type=refresh_token", "/auth/v1/logout?scope=global"]);
+    expect(fake.liveSessions.has(other.sessionId)).toBe(false);
+  });
+
+  it("nada do pedido escolhe o escopo: a entrada só tem Origin, Sec-Fetch-Site e o cookie", async () => {
+    const { session } = await login();
+    fake.requests.length = 0;
+    const hostile = { ...allowed, sessionCookie: session.value, scope: "local", search: "?scope=local" };
+    expect(await auth.logoutEverywhere(hostile)).toEqual(everywhere);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=global"]);
+    const again = await login();
+    fake.requests.length = 0;
+    await auth.logout({ ...allowed, sessionCookie: again.session.value, scope: "global", search: "?scope=global" } as Parameters<PortalAuth["logout"]>[0]);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=local"]);
+  });
 });
 
 describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
@@ -437,7 +592,9 @@ describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
     const payload = payloadOf(session.value);
     fake.requests.length = 0;
     clock.ms += 850_000;
-    expect(await auth.apiAccess(session.value, "leitura")).toEqual({ ok: true, accessToken: payload["at"], userId: GOTRUE_CANARIES.userId, sessionId: payload["sid"] });
+    expect(await auth.apiAccess(session.value, "leitura")).toEqual({ ok: true, accessToken: payload["at"], userId: GOTRUE_CANARIES.userId, sessionId: payload["sid"], startedAt: payload["sst"] });
+    // O início da sessão é o do login, não o de agora (a exclusão da conta pede login recente, ADR-029 D6).
+    expect(payload["sst"]).toBe(nowS() - 850);
     expect(fake.requests).toHaveLength(0);
   });
 
@@ -470,7 +627,7 @@ describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
     fake.requests.length = 0;
     clock.ms += (900 - 61) * 1_000;
     const result = await auth.apiAccess(session.value, "gravacao");
-    expect(result).toEqual({ ok: true, accessToken: payloadOf(session.value)["at"], userId: GOTRUE_CANARIES.userId, sessionId: payloadOf(session.value)["sid"] });
+    expect(result).toEqual({ ok: true, accessToken: payloadOf(session.value)["at"], userId: GOTRUE_CANARIES.userId, sessionId: payloadOf(session.value)["sid"], startedAt: payloadOf(session.value)["sst"] });
     expect(fake.requests).toHaveLength(0);
   });
 
@@ -482,11 +639,24 @@ describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
     const result = await auth.apiAccess(session.value, "gravacao");
     expect(result.ok).toBe(true);
     const after = payloadOf(result.cookie?.value as string);
-    expect(result).toMatchObject({ ok: true, accessToken: after["at"], userId: GOTRUE_CANARIES.userId, sessionId: before["sid"] });
+    // A renovação não rejuvenesce a sessão: o início continua o do login (ADR-029 D6).
+    expect(result).toMatchObject({ ok: true, accessToken: after["at"], userId: GOTRUE_CANARIES.userId, sessionId: before["sid"], startedAt: before["sst"] });
+    expect(before["sst"]).toBe(nowS() - 850);
     expect(after["at"]).not.toBe(before["at"]);
     expect([after["sst"], after["sid"], after["iat"]]).toEqual([before["sst"], before["sid"], nowS()]);
     expect(result.cookie?.maxAge).toBe(PORTAL_SESSION_POLICY.maxAgeSeconds - 850);
     expect(tokenCalls()).toHaveLength(1);
+  });
+
+  it("o início da sessão segue o login mesmo no cookie renovado, lido depois sem renovar (ADR-029 D6)", async () => {
+    const { session } = await login();
+    const started = payloadOf(session.value)["sst"];
+    clock.ms += 700_000;
+    const renewed = await auth.apiAccess(session.value, "forcada");
+    const cookie = renewed.cookie?.value as string;
+    expect(payloadOf(cookie)["iat"]).toBe(nowS());
+    expect(payloadOf(cookie)["iat"]).not.toBe(started);
+    for (const mode of ["leitura", "gravacao"] as const) expect(await auth.apiAccess(cookie, mode)).toMatchObject({ ok: true, startedAt: started });
   });
 
   it("forçada: renova mesmo com tempo de sobra (o 401 da API, D4)", async () => {

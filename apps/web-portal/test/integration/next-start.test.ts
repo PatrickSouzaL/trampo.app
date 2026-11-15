@@ -7,12 +7,13 @@ import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
+import { AccountExportSchema } from "@trampo/contracts/account";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { COOKIE_NAMES } from "../../src/server/cookies";
 import { criteriaToForm, formPairs, type FormValues } from "../../src/server/criteria-form";
 import { SECURITY_HEADERS } from "../../src/server/headers";
-import { SALARY_CANARY_TEXT, fullCriteria } from "../support/criteria-fixtures";
+import { SALARY_CANARY, SALARY_CANARY_TEXT, fullCriteria } from "../support/criteria-fixtures";
 import { startFakeApi, type FakeApi } from "../support/fake-api";
 import { GOTRUE_CANARIES, startFakeGotrue, type FakeGotrue } from "../support/fake-gotrue";
 
@@ -85,7 +86,11 @@ beforeEach(() => {
   fake.expiresIn = 900;
   fake.claims = {};
   api.mode = { kind: "normal" };
+  api.deleteResult = "excluida";
   api.rows.clear();
+  api.analyses.length = 0;
+  api.feedback.length = 0;
+  api.deletions.length = 0;
   api.requests.length = 0;
 });
 
@@ -374,6 +379,473 @@ describe("critérios (ADR-028, SR-27)", () => {
     const html = await (await get("/conta/criterios", { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } })).text();
     expect(html).toContain('data-criterios="indisponivel"');
     expect(html).not.toContain("<form");
+  });
+});
+
+describe("sair de todos os dispositivos (ADR-027 §9.3)", () => {
+  const PAGE = "/conta/sair-de-tudo";
+  const ROUTE = "/auth/sair-de-tudo";
+  const CLEARED = [`${COOKIE_NAMES.sessao}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`];
+  const post = (path: string, session: string | null, over: Record<string, string> = {}, body?: string) => {
+    const headers = Object.fromEntries(
+      Object.entries({ ...(session === null ? {} : { cookie: `${COOKIE_NAMES.sessao}=${session}` }), origin: portal, "sec-fetch-site": "same-origin", ...over }).filter(([, value]) => value !== ""),
+    );
+    return fetch(`${portal}${path}`, { method: "POST", redirect: "manual", headers, ...(body === undefined ? {} : { body }) });
+  };
+  const logoutCalls = () => fake.requests.filter((request) => request.url.startsWith("/auth/v1/logout"));
+  const withSession = (session: string) => ({ headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } });
+
+  beforeEach(() => {
+    fake.requests.length = 0;
+    fake.logouts.length = 0;
+  });
+
+  it("(8) a página e a rota: cabeçalhos uma vez cada, no-store e nonce em todo script", async () => {
+    const session = await login();
+    const page = await get(PAGE, withSession(session));
+    expect(page.status).toBe(200);
+    expectSecurityHeaders(page, PAGE);
+    expect(page.headers.get("cache-control")).toContain("no-store");
+    const nonce = /'nonce-([^']+)'/.exec(page.headers.get("content-security-policy") ?? "")?.[1];
+    const html = await page.text();
+    const scripts = [...html.matchAll(/<script\b[^>]*>/g)].map((match) => match[0]);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`);
+    const cases: Array<readonly [string, Promise<Response>, number]> = [
+      ["POST com Origin", post(ROUTE, session), 303],
+      ["POST sem Origin", post(ROUTE, session, { origin: "" }), 403],
+      ["GET da rota", get(ROUTE), 405],
+      ["a página sem sessão", get(PAGE), 307],
+    ];
+    for (const [where, pending, status] of cases) {
+      const response = await pending;
+      expect(response.status, where).toBe(status);
+      expectSecurityHeaders(response, where);
+      if (status !== 405 && status !== 307) expect(response.headers.get("cache-control"), where).toBe("no-store");
+    }
+  });
+
+  it("(4) a página de confirmação tem o próprio formulário e o Voltar; abrir a página não encerra nada", async () => {
+    const session = await login();
+    const live = fake.liveSessions.size;
+    fake.requests.length = 0;
+    const html = await (await get(PAGE, withSession(session))).text();
+    const forms = [...html.matchAll(/<form\b[^>]*>/g)].map((match) => match[0]);
+    expect(forms).toHaveLength(1);
+    expect(forms[0]).toContain('method="post"');
+    expect(forms[0]).toContain('action="/auth/sair-de-tudo"');
+    // Sem campo que escolha o escopo: o formulário só tem o botão.
+    expect(html).not.toMatch(/<input\b/);
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Sair de todos os dispositivos<\/button>/);
+    expect(html).toMatch(/<a[^>]*href="\/conta"[^>]*>Voltar para a sua conta<\/a>/);
+    expect(html).toContain("em até 15 minutos");
+    // O GET (e o HEAD) da página nunca chama o logout, e a sessão segue viva.
+    await fetch(`${portal}${PAGE}`, { method: "HEAD", redirect: "manual", headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } });
+    expect(logoutCalls()).toHaveLength(0);
+    expect(fake.liveSessions.size).toBe(live);
+    expect((await get("/conta", withSession(session))).status).toBe(200);
+  });
+
+  it("(4) sem sessão, a página de confirmação vai para a página inicial, sem formulário", async () => {
+    const response = await get(PAGE);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("/");
+    expect(await response.text()).not.toContain('action="/auth/sair-de-tudo"');
+    const garbage = await get(PAGE, withSession("s1.a1.AAAA.BBBB.CCCC"));
+    expect(garbage.status).toBe(307);
+    expect(logoutCalls()).toHaveLength(0);
+  });
+
+  it("a /conta leva à página de confirmação por link, e o único formulário dela é o Sair comum", async () => {
+    const html = await (await get("/conta", withSession(await login()))).text();
+    expect(html).toMatch(/<a[^>]*href="\/conta\/sair-de-tudo"[^>]*>Sair de todos os dispositivos<\/a>/);
+    const forms = [...html.matchAll(/<form\b[^>]*>/g)].map((match) => match[0]);
+    expect(forms).toHaveLength(1);
+    expect(forms[0]).toContain('action="/auth/sair"');
+    expect(html).not.toContain("/auth/sair-de-tudo");
+  });
+
+  it("(1, 6) o sair de tudo pede o global: a 2ª sessão do usuário cai na renovação seguinte, em 'Sua sessão expirou'", async () => {
+    fake.expiresIn = 30;
+    const first = await login();
+    const second = await login();
+    expect((await get("/conta", withSession(second))).status).toBe(200);
+    fake.requests.length = 0;
+    const out = await post(ROUTE, first);
+    expect(out.status).toBe(303);
+    expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu_de_tudo`);
+    expect(out.headers.getSetCookie()).toEqual(CLEARED);
+    expect(logoutCalls().map((request) => `${request.method} ${request.url}`)).toEqual(["POST /auth/v1/logout?scope=global"]);
+    expect(fake.logouts.map((logout) => logout.scope)).toEqual(["global"]);
+    // A 2ª sessão faz o papel da extensão: o access dela está no fim, e a renovação é recusada.
+    const dropped = await get("/conta", withSession(second));
+    expect(dropped.status).toBe(307);
+    expect(dropped.headers.get("location")).toBe("/?aviso=sessao_expirada");
+    expect(dropped.headers.getSetCookie()).toEqual(CLEARED);
+    const home = await (await get("/?aviso=saiu_de_tudo")).text();
+    expect(home).toContain("Você saiu de todos os dispositivos. A extensão e os outros navegadores param de funcionar em até 15 minutos.");
+  });
+
+  it("(1, 6) o Sair comum pede o local: a 2ª sessão continua viva e renova", async () => {
+    fake.expiresIn = 30;
+    const first = await login();
+    const second = await login();
+    fake.requests.length = 0;
+    const out = await post("/auth/sair", first);
+    expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu`);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=local"]);
+    expect(fake.logouts.map((logout) => logout.scope)).toEqual(["local"]);
+    const alive = await get("/conta", withSession(second));
+    expect(alive.status).toBe(200);
+    expect(cookieValue(alive, COOKIE_NAMES.sessao)).toMatch(/^s1\./);
+  });
+
+  it("(2) nada do pedido escolhe o escopo: query, corpo e cabeçalhos hostis não mudam o endereço chamado", async () => {
+    const hostile = { "content-type": "application/x-www-form-urlencoded", "x-scope": "local", "x-http-method-override": "GET", referer: "https://evil.invalid/?scope=local" };
+    const everywhere = await post(`${ROUTE}?scope=local&escopo=local`, await login(), hostile, "scope=local&escopo=local");
+    expect(everywhere.headers.get("location")).toBe(`${portal}/?aviso=saiu_de_tudo`);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=global"]);
+    fake.requests.length = 0;
+    const common = await post("/auth/sair?scope=global", await login(), { ...hostile, "x-scope": "global" }, "scope=global");
+    expect(common.headers.get("location")).toBe(`${portal}/?aviso=saiu`);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=local"]);
+  });
+
+  it.each([
+    ["sem Origin", { origin: "" }],
+    ["outra origem", { origin: "https://evil.invalid" }],
+    ["Origin null", { origin: "null" }],
+    ["cross-site", { "sec-fetch-site": "cross-site" }],
+    ["same-site", { "sec-fetch-site": "same-site" }],
+    ["sem Sec-Fetch-Site", { "sec-fetch-site": "" }],
+  ])("(3) CSRF (%s): 403, cookie intacto e nenhuma chamada ao GoTrue", async (_caso, over) => {
+    const session = await login();
+    const live = fake.liveSessions.size;
+    fake.requests.length = 0;
+    const response = await post(ROUTE, session, over);
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe("Proibido.");
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(fake.requests).toHaveLength(0);
+    expect(fake.liveSessions.size).toBe(live);
+  });
+
+  it("(3) o GET da rota dá 405 e não encerra nada, com ou sem o Origin", async () => {
+    const session = await login();
+    const live = fake.liveSessions.size;
+    fake.requests.length = 0;
+    for (const headers of [{}, { origin: portal, "sec-fetch-site": "same-origin" }]) {
+      const response = await get(ROUTE, { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}`, ...headers } });
+      expect(response.status).toBe(405);
+      expect(response.headers.getSetCookie()).toEqual([]);
+    }
+    expect(fake.requests).toHaveLength(0);
+    expect(fake.liveSessions.size).toBe(live);
+  });
+
+  it.each([
+    ["403 session_not_found", { kind: "responde", status: 403, body: JSON.stringify({ error_code: "session_not_found" }) }],
+    ["401", { kind: "responde", status: 401, body: JSON.stringify({ error_code: "no_authorization" }) }],
+    ["429", { kind: "responde", status: 429, body: "" }],
+    ["503", { kind: "responde", status: 503, body: "" }],
+    ["redirecionamento", { kind: "redireciona", location: "http://127.0.0.1:1/" }],
+    ["resposta cortada", { kind: "corta" }],
+  ] as const)("(5, 7) %s: o cookie some, o aviso não promete nada e há um POST só", async (_caso, mode) => {
+    const session = await login();
+    fake.requests.length = 0;
+    fake.mode = mode;
+    const out = await post(ROUTE, session);
+    expect(out.status).toBe(303);
+    expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu_sem_confirmar`);
+    expect(out.headers.getSetCookie()).toEqual(CLEARED);
+    expect(fake.requests.map((request) => `${request.method} ${request.url}`)).toEqual(["POST /auth/v1/logout?scope=global"]);
+    fake.mode = { kind: "normal" };
+    const home = await (await get("/?aviso=saiu_sem_confirmar")).text();
+    expect(home).toContain("não conseguimos confirmar a saída dos outros dispositivos");
+    expect(home).not.toContain("Você saiu de todos os dispositivos");
+  });
+
+  it("(5) sem sessão que abra: o cookie some, sem rede e sem prometer", async () => {
+    for (const session of [null, "s1.a1.AAAA.BBBB.CCCC"]) {
+      const out = await post(ROUTE, session);
+      expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu_sem_confirmar`);
+      expect(out.headers.getSetCookie()).toEqual(CLEARED);
+    }
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("(8) nenhum parâmetro ou cabeçalho muda o destino (sem open redirect)", async () => {
+    for (const path of [`${ROUTE}?redirect_to=https://evil.invalid`, `${ROUTE}?next=//evil.invalid`, `${ROUTE}?aviso=../../evil`]) {
+      const response = await post(path, await login(), { referer: "https://evil.invalid/" });
+      expect(response.headers.get("location"), path).toBe(`${portal}/?aviso=saiu_de_tudo`);
+    }
+    for (const path of [`${PAGE}?redirect_to=https://evil.invalid`, `${PAGE}?next=//evil.invalid`]) {
+      const response = await get(path, { headers: { referer: "https://evil.invalid/" } });
+      expect(response.headers.get("location"), path).toBe("/");
+    }
+  });
+});
+
+describe("exportar e excluir a conta (ADR-029 D9, SR-16 e SR-28)", () => {
+  const DADOS = "/conta/dados";
+  const EXPORTAR = "/conta/dados/exportar";
+  const EXCLUIR = "/conta/dados/excluir";
+  const CONFIRMAR = "/conta/dados/excluir/confirmar";
+  const FORM = "application/x-www-form-urlencoded";
+  const PHRASE = "excluir minha conta";
+  const ANALYSIS = { id: "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b", createdAt: "2026-11-15T11:00:00.000Z", decisionPath: "extracao_llm", verdict: "neutro", score: 50 } as const;
+  const CLEARED = [
+    `${COOKIE_NAMES.sessao}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+    `${COOKIE_NAMES.rascunho}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+  ];
+  const withSession = (session: string) => ({ headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } });
+  const post = (path: string, session: string | null, over: Record<string, string> = {}, body?: string) => {
+    const headers = Object.fromEntries(
+      Object.entries({ ...(session === null ? {} : { cookie: `${COOKIE_NAMES.sessao}=${session}` }), origin: portal, "sec-fetch-site": "same-origin", ...over }).filter(([, value]) => value !== ""),
+    );
+    return fetch(`${portal}${path}`, { method: "POST", redirect: "manual", headers, ...(body === undefined ? {} : { body }) });
+  };
+  const confirm = (session: string | null, typed: string = PHRASE, over: Record<string, string> = {}, path = CONFIRMAR, extra = "") =>
+    post(path, session, { "content-type": FORM, ...over }, `${new URLSearchParams({ confirmacao: typed }).toString()}${extra}`);
+  const deletes = () => api.requests.filter((request) => request.method === "POST");
+  const forms = (html: string) => [...html.matchAll(/<form\b[^>]*>/g)].map((match) => match[0]);
+  const inputs = (html: string) => [...html.matchAll(/<input\b[^>]*>/g)].map((match) => match[0]);
+
+  it("(13) as páginas e as rotas: cabeçalhos uma vez cada, no-store, nonce em todo script e os status de cada caminho", async () => {
+    const session = await login();
+    for (const path of [DADOS, EXCLUIR]) {
+      const page = await get(path, withSession(session));
+      expect(page.status, path).toBe(200);
+      expectSecurityHeaders(page, path);
+      expect(page.headers.get("cache-control"), path).toContain("no-store");
+      const nonce = /'nonce-([^']+)'/.exec(page.headers.get("content-security-policy") ?? "")?.[1];
+      const scripts = [...(await page.text()).matchAll(/<script\b[^>]*>/g)].map((match) => match[0]);
+      expect(scripts.length, path).toBeGreaterThan(0);
+      for (const tag of scripts) expect(tag, path).toContain(`nonce="${nonce}"`);
+    }
+    const cases: Array<readonly [string, Promise<Response>, number]> = [
+      ["/conta/dados sem sessão", get(DADOS), 307],
+      ["/conta/dados/excluir sem sessão", get(EXCLUIR), 307],
+      ["GET da exportação", get(EXPORTAR, withSession(session)), 405],
+      ["GET da confirmação", get(CONFIRMAR, withSession(session)), 405],
+      ["POST da exportação sem Origin", post(EXPORTAR, session, { origin: "" }), 403],
+      ["POST da confirmação sem Origin", confirm(session, PHRASE, { origin: "" }), 403],
+      ["POST da exportação", post(EXPORTAR, session), 200],
+      ["POST da confirmação com a frase errada", confirm(session, "errada"), 303],
+    ];
+    for (const [where, pending, status] of cases) {
+      const response = await pending;
+      expect(response.status, where).toBe(status);
+      expectSecurityHeaders(response, where);
+    }
+    for (const path of [DADOS, EXCLUIR]) expect((await get(path)).headers.get("location"), path).toBe("/");
+    // Os GET nas rotas não exportaram nem excluíram nada.
+    expect(api.deletions).toEqual([]);
+  });
+
+  it("(14) a /conta leva aos dados por link; a página de dados só posta na exportação, e a exclusão é um link", async () => {
+    const session = await login();
+    const conta = await (await get("/conta", withSession(session))).text();
+    expect(conta).toMatch(/<a[^>]*href="\/conta\/dados"[^>]*>Seus dados<\/a>/);
+    const html = await (await get(DADOS, withSession(session))).text();
+    expect(forms(html)).toHaveLength(1);
+    expect(forms(html)[0]).toContain('method="post"');
+    expect(forms(html)[0]).toContain('action="/conta/dados/exportar"');
+    expect(inputs(html)).toEqual([]);
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Baixar meus dados<\/button>/);
+    expect(html).toMatch(/<a[^>]*href="\/conta\/dados\/excluir"[^>]*>Excluir minha conta<\/a>/);
+    expect(html).not.toContain("/conta/dados/excluir/confirmar");
+    expect(html).toContain("não entram no arquivo");
+    // Abrir as duas páginas não chama a API.
+    await get(EXCLUIR, withSession(session));
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it("(14) a página de confirmação: um formulário só, com um campo só, a frase a digitar e os avisos de que não há volta", async () => {
+    const session = await login();
+    const html = await (await get(EXCLUIR, withSession(session))).text();
+    expect(forms(html)).toHaveLength(1);
+    expect(forms(html)[0]).toContain('method="post"');
+    expect(forms(html)[0]).toContain('action="/conta/dados/excluir/confirmar"');
+    expect(inputs(html)).toHaveLength(1);
+    expect(inputs(html)[0]).toContain('name="confirmacao"');
+    expect(inputs(html)[0]).toContain('type="text"');
+    expect(inputs(html)[0]).not.toContain("value=");
+    expect(html).toContain("Para confirmar, digite a frase: excluir minha conta");
+    expect(html).toContain("Não há como desfazer.");
+    expect(html).toContain("em até 15 minutos");
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Excluir minha conta definitivamente<\/button>/);
+    expect(html).toMatch(/<a[^>]*href="\/conta\/dados"[^>]*>Voltar para os seus dados<\/a>/);
+    expect(html).not.toContain('data-excluir="login-antigo"');
+  });
+
+  it("(SR-28) a exportação: o JSON do contrato como anexo, com a pretensão, sem cache, e a API só recebe a lista fechada de cabeçalhos", async () => {
+    const session = await login();
+    api.rows.set(GOTRUE_CANARIES.userId, fullCriteria());
+    api.analyses.push(ANALYSIS);
+    const browser = { cookie: `outro=1; ${COOKIE_NAMES.sessao}=${session}`, referer: `${portal}/conta/dados`, "x-forwarded-for": "203.0.113.9", "user-agent": "CANARIO-UA" };
+    const response = await post(EXPORTAR, session, browser);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(response.headers.get("content-disposition")).toBe('attachment; filename="trampo-meus-dados.json"');
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("location")).toBeNull();
+    const document = AccountExportSchema.parse(JSON.parse(await response.text()));
+    expect(document.criteria).toEqual(fullCriteria());
+    expect(document.criteria?.salary?.minimum).toBe(SALARY_CANARY);
+    expect(document.analyses).toEqual([ANALYSIS]);
+    expect(api.requests.map((request) => `${request.method} ${request.url}`)).toEqual(["GET /v1/account/export"]);
+    const [request] = api.requests;
+    for (const name of ["cookie", "origin", "referer", "x-forwarded-for", "x-real-ip", "forwarded", "apikey", "content-type"]) expect(request?.headers[name], name).toBeUndefined();
+    expect(request?.headers["user-agent"]).not.toContain("CANARIO");
+    expect(request?.headers["authorization"]).toMatch(/^Bearer [\w-]+\.[\w-]+\.[\w-]+$/);
+  });
+
+  it("a exportação que falha: 303 para o aviso do catálogo, sem arquivo e sem dado na URL", async () => {
+    const session = await login();
+    api.rows.set(GOTRUE_CANARIES.userId, fullCriteria());
+    api.mode = { kind: "responde", status: 503, code: "SERVICO_INDISPONIVEL" };
+    const response = await post(EXPORTAR, session);
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(`${portal}/conta/dados?aviso=exportacao_indisponivel`);
+    expect(response.headers.get("content-disposition")).toBeNull();
+    expect(await response.text()).toBe("");
+    api.mode = { kind: "normal" };
+    const html = await (await get(`${DADOS}?aviso=exportacao_indisponivel`, withSession(session))).text();
+    expect(html).toContain("Não deu para gerar o arquivo agora.");
+    expect(html).not.toContain(SALARY_CANARY_TEXT);
+    // Aviso de outro catálogo não vira texto nesta página.
+    expect(await (await get(`${DADOS}?aviso=conta_excluida`, withSession(session))).text()).not.toContain('role="status"');
+  });
+
+  it.each([
+    ["sem Origin", { origin: "" }],
+    ["outra origem", { origin: "https://evil.invalid" }],
+    ["Origin null", { origin: "null" }],
+    ["cross-site", { "sec-fetch-site": "cross-site" }],
+    ["same-site", { "sec-fetch-site": "same-site" }],
+    ["sem Sec-Fetch-Site", { "sec-fetch-site": "" }],
+  ])("(13) CSRF (%s): 403 nas duas rotas, nenhum cookie e nenhuma chamada à API", async (_caso, over) => {
+    const session = await login();
+    api.rows.set(GOTRUE_CANARIES.userId, fullCriteria());
+    for (const response of [await post(EXPORTAR, session, over), await confirm(session, PHRASE, over)]) {
+      expect(response.status).toBe(403);
+      expect(await response.text()).toBe("Proibido.");
+      expect(response.headers.getSetCookie()).toEqual([]);
+    }
+    expect(api.requests).toHaveLength(0);
+    expect(api.rows.size).toBe(1);
+  });
+
+  it("(15) excluir com a frase certa: um POST na API, os cookies apagados, e a página inicial diz que a conta foi excluída", async () => {
+    const session = await login();
+    api.rows.set(GOTRUE_CANARIES.userId, fullCriteria());
+    const response = await confirm(session);
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(`${portal}/?aviso=conta_excluida`);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.getSetCookie()).toEqual(CLEARED);
+    expect(api.requests.map((request) => `${request.method} ${request.url}`)).toEqual(["POST /v1/account/delete"]);
+    expect(JSON.parse(deletes()[0]?.body ?? "")).toEqual({ schemaVersion: 1, confirmation: PHRASE });
+    for (const name of ["cookie", "origin", "referer", "x-forwarded-for"]) expect(deletes()[0]?.headers[name], name).toBeUndefined();
+    expect(api.deletions).toEqual([GOTRUE_CANARIES.userId]);
+    expect(api.rows.size).toBe(0);
+    const home = await (await get("/?aviso=conta_excluida")).text();
+    expect(home).toContain("Sua conta e os seus dados foram excluídos.");
+  });
+
+  it.each([["errada"], [""], ["excluir"], ["excluir minha conta agora"]])("(14) a frase %j não chega à API: volta para a confirmação com o aviso, sem cookie", async (typed) => {
+    const session = await login();
+    const response = await confirm(session, typed);
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(`${portal}/conta/dados/excluir?aviso=exclusao_frase_errada`);
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(api.requests).toHaveLength(0);
+    const html = await (await get(`${EXCLUIR}?aviso=exclusao_frase_errada`, withSession(session))).text();
+    expect(html).toContain("A frase de confirmação não confere.");
+  });
+
+  it("(14) campo a mais, campo repetido e corpo de outro tipo não chegam à API", async () => {
+    const session = await login();
+    const attempts = [
+      await confirm(session, PHRASE, {}, CONFIRMAR, "&confirmacao=excluir+minha+conta"),
+      await confirm(session, PHRASE, {}, CONFIRMAR, "&user_id=outro"),
+      await confirm(session, PHRASE, { "content-type": "application/json" }),
+      await post(CONFIRMAR, session, { "content-type": FORM }),
+    ];
+    for (const response of attempts) expect(response.headers.get("location")).toBe(`${portal}/conta/dados/excluir?aviso=exclusao_frase_errada`);
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it("(15) o banco diz login antigo: aviso próprio, a sessão fica e nada some", async () => {
+    const session = await login();
+    api.rows.set(GOTRUE_CANARIES.userId, fullCriteria());
+    api.deleteResult = "login_antigo";
+    const response = await confirm(session);
+    expect(response.headers.get("location")).toBe(`${portal}/conta/dados?aviso=exclusao_pede_login`);
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(api.rows.size).toBe(1);
+    expect(deletes()).toHaveLength(1);
+    const html = await (await get(`${DADOS}?aviso=exclusao_pede_login`, withSession(session))).text();
+    expect(html).toContain("a exclusão só vale nos 10 minutos depois de entrar");
+    expect(html).toContain("Nada foi excluído.");
+  });
+
+  it.each([
+    ["503", { kind: "responde", status: 503, code: "SERVICO_INDISPONIVEL" }, "exclusao_nao_confirmada", "Não conseguimos confirmar a exclusão."],
+    ["resposta cortada", { kind: "corta" }, "exclusao_nao_confirmada", "Não conseguimos confirmar a exclusão."],
+    ["429", { kind: "responde", status: 429, code: "LIMITE_DE_TAXA", retryAfter: 9 }, "exclusao_indisponivel", "Nada foi excluído."],
+    ["redirecionamento", { kind: "redireciona", location: "http://127.0.0.1:1/" }, "exclusao_indisponivel", "Nada foi excluído."],
+  ] as const)("(15) %s na exclusão: %s, a sessão fica, um POST só, e o texto não promete o que não confirmou", async (_caso, mode, notice, text) => {
+    const session = await login();
+    api.mode = mode;
+    const response = await confirm(session);
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(`${portal}/conta/dados?aviso=${notice}`);
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(deletes()).toHaveLength(1);
+    api.mode = { kind: "normal" };
+    const html = await (await get(`${DADOS}?aviso=${notice}`, withSession(session))).text();
+    expect(html).toContain(text);
+    expect(html).not.toContain("foram excluídos");
+    if (notice === "exclusao_nao_confirmada") expect(html).not.toContain("Nada foi excluído.");
+  });
+
+  it("(15) o 401 da API: com o GoTrue recusando a renovação, a página inicial com 'Sua sessão expirou'; aceitando, indisponível com a sessão renovada", async () => {
+    const refused = await login();
+    api.mode = { kind: "responde", status: 401, code: "NAO_AUTENTICADO" };
+    fake.hookRefuses = true;
+    const gone = await confirm(refused);
+    expect(gone.headers.get("location")).toBe(`${portal}/?aviso=sessao_expirada`);
+    expect(gone.headers.getSetCookie()).toEqual([`${COOKIE_NAMES.sessao}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`]);
+    fake.hookRefuses = false;
+    api.requests.length = 0;
+    const kept = await confirm(await login());
+    expect(kept.headers.get("location")).toBe(`${portal}/conta/dados?aviso=exclusao_indisponivel`);
+    expect(cookieValue(kept, COOKIE_NAMES.sessao)).toMatch(/^s1\./);
+    expect(deletes()).toHaveLength(1);
+  });
+
+  it("sem sessão: as duas rotas vão para a página inicial, sem chamar a API", async () => {
+    for (const response of [await post(EXPORTAR, null), await confirm(null)]) {
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe(`${portal}/`);
+    }
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it("nenhum parâmetro ou cabeçalho muda o destino nem o alvo (sem open redirect)", async () => {
+    for (const query of ["?redirect_to=https://evil.invalid", "?next=//evil.invalid", "?aviso=../../evil", "?user_id=outro&uid=outro"]) {
+      const removed = await confirm(await login(), PHRASE, { referer: "https://evil.invalid/", "x-user-id": "outro" }, `${CONFIRMAR}${query}`);
+      expect(removed.headers.get("location"), query).toBe(`${portal}/?aviso=conta_excluida`);
+      const failed = await confirm(await login(), "errada", { referer: "https://evil.invalid/" }, `${CONFIRMAR}${query}`);
+      expect(failed.headers.get("location"), query).toBe(`${portal}/conta/dados/excluir?aviso=exclusao_frase_errada`);
+    }
+    expect(new Set(api.deletions)).toEqual(new Set([GOTRUE_CANARIES.userId]));
+    for (const path of [`${DADOS}?redirect_to=https://evil.invalid`, `${EXCLUIR}?next=//evil.invalid`]) {
+      expect((await get(path, { headers: { referer: "https://evil.invalid/" } })).headers.get("location"), path).toBe("/");
+    }
   });
 });
 

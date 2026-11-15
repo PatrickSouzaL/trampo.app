@@ -494,3 +494,10 @@ Verificação:
 - PR #11 mergeado no `master` (`086730e`), com o head `910b28b` (commits 5 e 6 e os `next-step`; os commits 3 e 4 já estavam no `master` pelo PR #10).
 - Run `40119326854`: `secrets`, `quality`, `test` e `db` verdes. O `test:db` deu **61 passed (61)** contra a pilha inteira do Supabase local do runner (Kong, GoTrue e PostgREST da CLI 2.120.0), então a emenda ao D5 (201 na inserção e 200 na atualização) vale também fora da prova local.
 - Conferido pela equipe só com leitura (`gh pr view`, `gh pr checks` e o log do job). **F1-API-05 concluído.**
+
+## Emenda da F1-PORTAL-03 (sessão 32, 2026-11-15): as rotas da conta ao lado das de critérios ([ADR-029-account-export-and-delete](ADR-029-account-export-and-delete.md))
+
+- `GET /v1/account/export` e `POST /v1/account/delete` seguem o molde deste ADR: dono só do principal, token só do Bearer verificado, `Cache-Control: no-store` em toda resposta, fora de `EXTENSION_ROUTES`, e a porta sempre atrás de um guarda com prazo e revalidação.
+- A exportação lê os critérios pelo **mesmo `CriteriaGuard`** das rotas daqui (o `load`). "Não configurou" vira `criteria: null` no arquivo; "indisponível" derruba a exportação inteira (503).
+- O `postgrest-user-client` continua com o prazo de 900 ms e o teto de 32 KiB para os critérios. A conta usa **outra instância**, com 1.800 ms e 128 KiB (`ACCOUNT_POSTGREST_CLIENT`), e o parâmetro novo `maxResponseBytes`.
+- O D8.2 (classe `criterios`) não muda. A classe nova `conta` é do [ADR-014-rate-limit-and-quota](ADR-014-rate-limit-and-quota.md).

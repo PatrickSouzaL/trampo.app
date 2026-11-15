@@ -273,6 +273,11 @@ Critérios (F1-PORTAL-02), exportar e excluir a conta (F1-PORTAL-03), "Sair de t
   - O número entra no **próximo login real** (o roteiro do 1º salvamento real de critérios, que já precisa de um login, ou a hospedagem do S-5), pelo mesmo §3.2. Se der acima de 2.000, a decisão volta ao `[ARCHITECT]` antes de qualquer outra trilha do portal.
 - **Efeito:** a *BACKLOG §F1-PORTAL-01* fecha por inteiro (código, E2E e o login real). O residual do número vira linha da §9 do [threat-model](../threat-model.md).
 
+**Emenda do HITL-043 (sessão 32, 2026-11-15): o número do access.** O 1º salvamento real de critérios (*auth-portal* §8) anotou o **Size 1312** do `__Host-trampo-sessao` (declarado pelo humano; login pelo GitHub).
+- **Conta:** access = ⌊3·(Size − 66)/4⌋ − 125 = ⌊3·1246/4⌋ − 125 = 934 − 125 = **809 caracteres**. É a conta do §7 (`⌊3·(Size − 64 − kid)/4⌋ − refresh − 113`) com o `kid` `p1` (2 caracteres) e o refresh de 12 caracteres do GoTrue. Com um refresh mais longo, o access seria menor: **809 é um teto**.
+- **Leitura:** 809 fica a 1.191 do gatilho de 2.000 e a 1.491 do teto de 2.300 do D3. **A sessão segue num cookie só**, e a decisão de dividir em dois cookies selados **não volta** ao `[ARCHITECT]`. O número só foi medido com o GitHub; o HITL-041 já provou que o Google também fica abaixo de 2.300.
+- **Quando medir de novo:** se o hook passar a acrescentar claims ao access, se o projeto ligar MFA (o `amr` cresce) ou na hospedagem do S-5. A linha da §9 do [threat-model](../threat-model.md) fecha.
+
 ## 9. Emenda da F1-PORTAL-04 (sessão 31, 2026-11-15): "Sair de todos os dispositivos", só o desenho
 
 Emenda ao D7. **Nenhum código nesta sessão.** `[ARCHITECT]` + `[APPSEC]`, sem veto, 9 condições. O "Sair" comum (D7) não muda: continua `local`.
@@ -284,7 +289,7 @@ Emenda ao D7. **Nenhum código nesta sessão.** `[ARCHITECT]` + `[APPSEC]`, sem 
 | S3 | O logout tem escopo `global` (todas as sessões do usuário), `local` e `others`; o access de sessão revogada vale até o `exp` | §1.1 (já conferido na sessão 25) |
 | A7 | A API não confere revogação de sessão: o JWT vale até o `exp` (900 s) | [ADR-028-portal-criteria](ADR-028-portal-criteria.md) §1.1 |
 | E1 | Na extensão, a renovação recusada pelo GoTrue leva ao estado deslogado, sem nova tentativa em laço | [ADR-004-extension-auth](ADR-004-extension-auth.md) D11.5 |
-| F1 (**a conferir antes do código**) | O que o GoTrue responde ao `POST /auth/v1/logout?scope=global` quando a sessão do Bearer já foi encerrada: a hipótese é o 403 `session_not_found` **sem revogar nada**. Conferir na pilha local (CLI 2.120.0, o job `db`) com duas sessões do mesmo usuário | pendente; o desenho falha fechado nas duas respostas (9.3) |
+| F1 (**medido na sessão 32**, antes do código) | O `POST /auth/v1/logout?scope=global` com o Bearer de uma sessão já encerrada dá **403 `session_not_found` e não revoga nada**: a outra sessão do mesmo usuário renova com 200 logo depois. Com o Bearer vivo, o `global` dá 204, e a renovação de **toda** sessão do usuário passa a dar 400 `refresh_token_not_found`; o `local` só derruba a do Bearer; o `global` de um usuário não toca nas sessões de outro | pilha local (Docker, CLI 2.120.0, GoTrue v2.197.0), duas sessões do mesmo usuário por cadastro e login com senha; a hipótese valeu, e o desenho não mudou (§10) |
 
 ### 9.2 Decisões
 
@@ -334,3 +339,32 @@ Emenda ao D7. **Nenhum código nesta sessão.** `[ARCHITECT]` + `[APPSEC]`, sem 
 - **GoTrue simulado:** passa a guardar as sessões por usuário e o escopo de cada logout; o `global` revoga todas, e o `local` só a do Bearer.
 - **Integração e E2E:** as condições 1 a 8; no E2E, duas abas em contextos separados, pelo botão real (cuidado 36), 3 rodadas.
 - **Commits:** (1) núcleo (`gotrue`, `session`, `notices`) com a unidade e o GoTrue simulado; (2) a página, a rota, o link, a integração e o E2E; (3) `docs`.
+
+## 10. Emenda da implementação da F1-PORTAL-04 (sessão 32, 2026-11-15)
+
+O desenho da §9 entrou no código sem mudança de decisão. Commits: `fa45a63` (o núcleo) e `2844291` (a página, a rota e o E2E).
+
+- **Cliente do GoTrue (`gotrue.ts`):** `logout(accessToken, scope)` com a união fechada `GotrueLogoutScope = "local" | "global"` e dois endereços fixos, montados no boot num objeto congelado. O escopo é obrigatório (nenhum padrão escolhe por quem chama). Um escopo fora da união (só por coerção de tipo) devolve `nao_recebido` sem rede: nenhum texto vira endereço. No `global`, o 403 `session_not_found` é `recusado`; no `local`, continua sessão encerrada.
+- **DAL (`session.ts`):** `logoutEverywhere` é o único chamador do `global`. O "Sair" comum e ele dividem o `logoutBearer` (renova antes com até 60 s pela frente; a renovação que falha segue com o access que há). **Uma decisão que o desenho não tinha:** o cookie com a idade ou a inatividade **local** vencidas (D4) ainda tenta o `global`. O refresh pode estar vivo no servidor, e quem clicou quer derrubar as outras sessões; o cookie é apagado de qualquer jeito.
+- **Avisos e textos (`notices.ts`):** `saiu_de_tudo` e `saiu_sem_confirmar` no catálogo fechado, e o `LOGOUT_EVERYWHERE_TEXTS` (título, efeito, prazo, botão e "Voltar") da página de confirmação. Um teste recusa "imediato" e afins: o texto nunca promete corte na hora.
+- **Página e rota:** `src/app/conta/sair-de-tudo/page.tsx` (Server Component; `readSession`, sem sessão vai para a página inicial; um formulário só, sem campo nenhum) e `src/app/auth/sair-de-tudo/route.ts` (`POST`; o `GET` é 405). A `/conta` ganhou **um link** para a página; o único formulário dela continua o "Sair" comum.
+- **GoTrue simulado:** sessões por usuário (`addSession({ userId })`), o `global` revogando todas as do usuário e o `local` só a do Bearer, o 403 `session_not_found` sem revogar (como o F1 medido) e o registro `logouts` (escopo, sessão do Bearer e o que cada logout revogou).
+
+**Provas (`[QA_EVALS]`):**
+- Unidade: 446 casos, 100% nas 4 métricas em `src/server`. Integração contra o `next start`: 22 casos novos, com as condições 1 a 8 numeradas no nome do teste (493 casos no pacote).
+- **E2E no Edge com dois contextos** (`logout-everywhere.e2e.test.ts`, 6 casos; o 2º contexto faz o papel da extensão, com o access de 30 s para renovar a cada navegação): pelo link e pelo botão reais, o 1º sai com "Você saiu de todos os dispositivos…" e o 2º cai em "Sua sessão expirou. Entre de novo." na navegação seguinte; com o "Sair" comum, o 2º continua; com o GoTrue em 503, o aviso é o `saiu_sem_confirmar` e o 2º continua; o `GET` na rota dá 405. **3 rodadas de 20/20** (8 do login, 6 dos critérios e 6 novos).
+- **Mutação** (`mut_portal04.py` e `mut_portal04_edge.py`, scratchpad da sessão 32):
+  - U- 30/31 pela unidade. O U-08 (escopo fora da união caindo no `global` por `??`) é **equivalente**: a guarda `Object.hasOwn` devolve antes, e o U-07 (sem a guarda) morre;
+  - P- 5/5: os mutantes do logout comum das sessões 29 e 30 com as âncoras novas (S-10, L-01, L-02 e G-03 nos dois escopos);
+  - I- 13/13 pela integração com rebuild: a página postando em `/auth/sair`, o link da `/conta` direto para a rota, a `/conta` postando direto na rota, o escopo trocado nos dois sentidos, o `GET` executando, o `Origin` e o `Sec-Fetch-Site` tirados do pedido, a página sem conferir a sessão, o formulário por `GET`, o escopo lido da query, o `GET` da página já encerrando tudo e o cookie errado;
+  - Q- 7/7 pelo E2E com rebuild, inclusive a `<meta>` em `no-referrer` (o `Origin: null` do cuidado 36).
+  - O `mut_portal01_s30.py` (25) e o `mut_portal02.py` (48) rodados de novo, sem sobrevivente.
+
+**`[APPSEC]`:** as condições 1 a 9 da §9.3 estão cumpridas. O 1º uso contra o projeto real é o *HITL-QUEUE §HITL-044* (runbook *auth-portal* §9). **A F1-PORTAL-04 fica fechada no código.**
+
+## 11. Emenda da F1-PORTAL-03 (sessão 32, 2026-11-15): o início da sessão e o aviso novo ([ADR-029-account-export-and-delete](ADR-029-account-export-and-delete.md))
+
+- **D3:** o `sst` do cookie (o instante do login no portal) passou a sair pelo `apiAccess` como `startedAt`. A exclusão da conta o usa para espelhar a regra do login recente do banco (600 s). **A renovação nunca o muda** (o D6 já selava o mesmo `sst`), e um teste prende isso: sessão renovada não fica recente.
+- **D7:** o catálogo da página inicial ganhou `conta_excluida`. Os avisos das páginas de dados ficam num catálogo próprio (`ACCOUNT_NOTICES`), como os dos critérios.
+- **D12:** exportar e excluir a conta saíram da lista do que o portal não faz. Continua de fora o handoff para a extensão.
+- **Borda (`edge.ts`):** o `toResponse` ganhou a terceira intenção, o anexo da exportação (200 em JSON, `Content-Disposition: attachment` com nome fixo, `no-store`).

@@ -29,6 +29,7 @@ import { RefreshSession } from "../application/auth/refresh-session.js";
 import type { AccessTokenVerifier } from "../application/ports/access-token-verifier.js";
 import {
   AnalyzeJob,
+  AccountService,
   CriteriaGuard,
   DailyQuotaGuard,
   InMemoryProviderStateStore,
@@ -67,6 +68,7 @@ import { LimitsEnvSchema, type LimitsEnv } from "../infrastructure/limits/limits
 import { createRedisDailyQuota } from "../infrastructure/limits/redis-daily-quota.js";
 import { createRedisQuotaLedger } from "../infrastructure/limits/redis-quota-ledger.js";
 import { createRedisRateLimiter } from "../infrastructure/limits/redis-rate-limiter.js";
+import { createSupabaseAccountStore } from "../infrastructure/persistence/supabase-account-store.js";
 import { createSupabaseCriteriaRepository } from "../infrastructure/persistence/supabase-criteria-repository.js";
 import { cryptoRandom } from "../infrastructure/random/crypto-random.js";
 import { createUpstashRestClient, type RedisTransactions } from "../infrastructure/redis/upstash-rest-client.js";
@@ -120,6 +122,9 @@ export interface ComposedApp {
 
 const titleSchema = safeText(JOB_TITLE_MAX_CHARS);
 
+/** O cliente do PostgREST da conta (ADR-029 D3 e D4): logo abaixo dos 2 s do AccountService, e 128 KiB para as 500 linhas. */
+export const ACCOUNT_POSTGREST_CLIENT = Object.freeze({ timeoutMs: 1_800, maxResponseBytes: 128 * 1024 });
+
 export function composeApp(source: Environment, options: ComposeOptions = {}): ComposedApp {
   const server = ServerEnvSchema.parse(source);
   const auth = AuthEnvSchema.parse(source);
@@ -147,6 +152,17 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
     }),
     systemClock,
   );
+
+  // Conta (ADR-029 D3 e D4): outro cliente de usuário, com a mesma publishable e sem chave de alto privilégio, só com o
+  // prazo e o teto de leitura da exportação e da exclusão. Os critérios da exportação saem do mesmo guarda de cima.
+  const account = new AccountService({
+    store: createSupabaseAccountStore({
+      client: createPostgrestUserClient({ url: supabaseOrigin, publishableKey, ...ACCOUNT_POSTGREST_CLIENT }),
+    }),
+    criteria,
+    clock: systemClock,
+    now,
+  });
 
   // Instâncias de limite criadas uma vez e compartilhadas por todas as requisições (ADR-014 D8; T39).
   const limitsRedis = createUpstashRestClient({ url: limitsEnv.restUrl, token: limitsEnv.restToken });
@@ -201,6 +217,7 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
     analysis: { job, criteria },
     // O mesmo guarda (prazo e revalidação) lê para a análise e lê e grava para o portal.
     criteria: { repository: criteria },
+    account: { service: account },
     auth: authRoutes,
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   });

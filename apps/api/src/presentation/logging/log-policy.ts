@@ -35,6 +35,10 @@ export const LOG_MESSAGES = [
   "criterios_indisponiveis",
   // PUT /v1/criteria (ADR-021 D9): gravação que virou 503. O GET reusa `criterios_indisponiveis`.
   "criterios_gravacao_indisponivel",
+  // Exportar e excluir a conta (ADR-029 D3 e D4). `conta_excluida` é o registro mínimo do pedido atendido: sem campo.
+  "conta_excluida",
+  "conta_exclusao_indisponivel",
+  "conta_exportacao_indisponivel",
   // BFF de autenticação (ADR-004 D8 item 7, F1-API-07 07g): linhas amostradas, 1 por motivo a cada 60 s, com o
   // contador `suprimidas`. A lista é a de AUTH_LOG_MESSAGES (auth-log-sampler.ts), presa por teste.
   "auth_troca_recusada",

@@ -4,7 +4,7 @@ pacote: "@trampo/contracts"
 versao-contrato: 1
 status: aceito
 aprovacao: "HITL-001 (aprovado em 2026-10-18, D-H1 a D-H7 conforme recomendação)"
-atualizado: 2026-11-06
+atualizado: 2026-11-15
 revisado: "M1.6, ver [revisao-adversarial-M1](revisao-adversarial-M1.md) (só texto; o código da seção 4 não mudou); M3 em 2026-10-18 (código copiado para packages/contracts sem alteração); DOC-01 em 2026-10-27 (seção 4 regerada do pacote até o commit 1cbf825, ver seção 9); F1-AUTH-00 em 2026-11-06 (seção 4 regerada do pacote no commit 47abd8c, ver seção 9)"
 autores: ["[ARCHITECT]", "[APPSEC]", "[DEV]", "[QA_EVALS]", "[SCRIBE]"]
 relacionados: ["[ADR-001-hybrid-engine-and-monorepo](ADRs/ADR-001-hybrid-engine-and-monorepo.md)", "[ADR-002-scoring-engine](ADRs/ADR-002-scoring-engine.md)", "[ADR-004-extension-auth](ADRs/ADR-004-extension-auth.md)", "[ADR-012-report-composer](ADRs/ADR-012-report-composer.md)", "[ADR-013-jwt-verification](ADRs/ADR-013-jwt-verification.md)", "[ADR-020-cloudflare-workers-ai-adapter](ADRs/ADR-020-cloudflare-workers-ai-adapter.md)", "[ADR-021-criteria-routes](ADRs/ADR-021-criteria-routes.md)", "[ADR-022-groq-adapter](ADRs/ADR-022-groq-adapter.md)", "[threat-model](threat-model.md)", "*STATE*"]
@@ -54,6 +54,7 @@ packages/contracts/
 │   ├── analysis-report.ts-> AnalysisReport
 │   ├── api.ts            -> AnalyzeJobRequest, ApiError, stream, feedback
 │   ├── auth.ts           -> contratos do BFF de autenticação da extensão (ADR-004 D7)
+│   ├── account.ts        -> exportar e excluir a conta: rotas, pedido de exclusão, resultado da função e o documento da exportação (ADR-029 D10)
 │   └── index.ts
 ├── test/
 │   ├── contracts.test.ts          -> os testes da seção 6 (port do node:test)
@@ -167,6 +168,21 @@ export const CRITERIA_BODY_MAX_BYTES = 16_384;
  * import na F1-API-07 (ADR-004 §6.1).
  */
 export const ACCESS_TOKEN_MAX_CHARS = 8_192;
+
+/**
+ * Teto de linhas de cada lista da exportação da conta (ADR-029 D4): as 500 mais novas, com a marca de corte no
+ * próprio arquivo. A paginação entra com a F1-API-06, que passa a gravar as análises.
+ */
+export const ACCOUNT_EXPORT_MAX_ROWS = 500;
+
+/** `bodyLimit` do `POST /v1/account/delete` (ADR-029 D3): o corpo é a versão e a frase de confirmação. */
+export const ACCOUNT_DELETE_BODY_MAX_BYTES = 256;
+
+/**
+ * Idade máxima da sessão para excluir a conta (ADR-029 D6). Quem decide é a função do banco, pela data da sessão
+ * do token; o `test:db` prende a constante dela a este valor, e o portal só o espelha para avisar antes.
+ */
+export const ACCOUNT_RECENT_LOGIN_SECONDS = 600;
 ```
 
 ### 4.2 `primitives.ts`
@@ -1003,6 +1019,81 @@ export * from './user-criteria.js';
 export * from './analysis-report.js';
 export * from './api.js';
 export * from './auth.js';
+export * from './account.js';
+```
+
+### 4.10 `account.ts`: exportar e excluir a conta (ADR-029 D10)
+
+```ts
+import { z } from 'zod';
+import { DecisionPathSchema, VerdictSchema } from './analysis-report.js';
+import { ACCOUNT_EXPORT_MAX_ROWS } from './limits.js';
+import { UserCriteriaSchema } from './user-criteria.js';
+
+/**
+ * Contratos de exportar e excluir a conta (ADR-029 D3, D4 e D10; SR-16). O portal chama as duas rotas de servidor a
+ * servidor, com o Bearer da sessão; a extensão não as alcança. Nenhum código de erro novo: o login antigo responde
+ * `PROIBIDO`, e o que não confirma responde `SERVICO_INDISPONIVEL`.
+ */
+export const ACCOUNT_SCHEMA_VERSION = 1 as const;
+
+/** Caminhos exatos das duas rotas. A API compara pelo padrão registrado, nunca por prefixo. */
+export const ACCOUNT_ROUTES = Object.freeze({
+  export: '/v1/account/export',
+  delete: '/v1/account/delete',
+} as const);
+
+/** A frase que o usuário digita no portal e que a API exige no corpo: um POST vazio ou de outra rota não apaga nada. */
+export const ACCOUNT_DELETE_CONFIRMATION = 'excluir minha conta' as const;
+
+/** POST /v1/account/delete. Sem alvo no corpo: a conta é sempre a do JWT. */
+export const AccountDeleteRequestSchema = z.strictObject({
+  schemaVersion: z.literal(ACCOUNT_SCHEMA_VERSION),
+  confirmation: z.literal(ACCOUNT_DELETE_CONFIRMATION),
+});
+export type AccountDeleteRequest = z.infer<typeof AccountDeleteRequestSchema>;
+
+/**
+ * O que a função `public.delete_own_account()` do banco devolve (ADR-029 D2), e só isto: `login_antigo` é a sessão
+ * com mais de ACCOUNT_RECENT_LOGIN_SECONDS, e nada é apagado.
+ */
+export const AccountDeleteResultSchema = z.enum(['excluida', 'ja_excluida', 'login_antigo']);
+export type AccountDeleteResult = z.infer<typeof AccountDeleteResultSchema>;
+
+/** Uma linha de `analyses` na exportação: o registro mínimo (sem texto, título nem empresa da vaga) e sem o dono. */
+export const ExportedAnalysisSchema = z.strictObject({
+  id: z.uuid(),
+  createdAt: z.iso.datetime(),
+  decisionPath: DecisionPathSchema,
+  verdict: VerdictSchema,
+  score: z.int().min(0).max(100),
+});
+export type ExportedAnalysis = z.infer<typeof ExportedAnalysisSchema>;
+
+/** Uma linha de `analysis_feedback` na exportação. */
+export const ExportedFeedbackSchema = z.strictObject({
+  analysisId: z.uuid(),
+  agreement: z.enum(['concordo', 'discordo']),
+  reason: z.enum(['nota_alta_demais', 'nota_baixa_demais', 'fato_extraido_errado', 'veredito_errado', 'outro']).nullable(),
+  updatedAt: z.iso.datetime(),
+});
+export type ExportedFeedback = z.infer<typeof ExportedFeedbackSchema>;
+
+/**
+ * GET /v1/account/export, validado na saída. `criteria` traz a pretensão em claro, só para o dono; `null` é quem
+ * nunca salvou. As listas vêm da mais nova para a mais velha, com corte declarado em ACCOUNT_EXPORT_MAX_ROWS. Fora
+ * daqui, por desenho: o cifrado, o dono, o e-mail, o provedor de login, tokens e logs.
+ */
+export const AccountExportSchema = z.strictObject({
+  schemaVersion: z.literal(ACCOUNT_SCHEMA_VERSION),
+  exportedAt: z.iso.datetime(),
+  criteria: UserCriteriaSchema.nullable(),
+  analyses: z.array(ExportedAnalysisSchema).max(ACCOUNT_EXPORT_MAX_ROWS),
+  analysesTruncated: z.boolean(),
+  feedback: z.array(ExportedFeedbackSchema).max(ACCOUNT_EXPORT_MAX_ROWS),
+  feedbackTruncated: z.boolean(),
+});
+export type AccountExport = z.infer<typeof AccountExportSchema>;
 ```
 
 ---
@@ -1125,6 +1216,7 @@ Fonte: `git log -- packages/contracts/src`. Todas ficaram no `schemaVersion` 1 (
 | `1cbf825` | 2026-10-23 | F1-API-05 commit 1, [ADR-021-criteria-routes](ADRs/ADR-021-criteria-routes.md) D3 | `USER_CRITERIA_MAX_JSON_BYTES = 12_288`, `CRITERIA_BODY_MAX_BYTES = 16_384`, `userCriteriaJsonBytes()` (via `TextEncoder`) e o `refine` `criterios_grandes_demais` no `UserCriteriaSchema` | O contrato recusa antes o que o `check (pg_column_size(criteria) <= 16384)` do banco recusaria ([ADR-018-postgres-schema-rls-and-criteria](ADRs/ADR-018-postgres-schema-rls-and-criteria.md)). Vale na escrita e na leitura. |
 | `1a0dcb8` | 2026-10-31 | F1-EXT-03 parte 3 (Trilha D2c), [ADR-023-generic-dom-extractor](ADRs/ADR-023-generic-dom-extractor.md) D12 | `PlatformSchema` + `'solides'` | A Solides tem extrator próprio (`so1`), e a telemetria do envio à API separa `solides` com `ge1` (painel sumido) do genérico. Só alarga o enum: nenhum dado salvo muda. |
 | `47abd8c` | 2026-11-06 | F1-AUTH-00, [ADR-004-extension-auth](ADRs/ADR-004-extension-auth.md) D7 | `auth.ts` novo: `AUTH_SCHEMA_VERSION`, `AUTH_BODY_MAX_BYTES`, `AUTH_ROUTES` congelado, os schemas de formato (`AccessTokenSchema`, `PkceVerifierSchema`, `AuthCodeSchema`, `SealedRefreshSchema`), os 3 pedidos, a resposta de 4 chaves e os 4 tipos; `ACCESS_TOKEN_MAX_CHARS = 8_192` no `limits.ts` ([ADR-013-jwt-verification](ADRs/ADR-013-jwt-verification.md) D3); subpath `./auth` e reexport na raiz | Só acrescenta: nenhum schema existente muda. A API e a extensão ainda não importam o `auth`. Os 3 literais `8_192` da API trocam pelo import de `@trampo/contracts/limits` na F1-API-07, e o subpath entra no `CONTRACTS_ALLOWED` da extensão na F1-EXT-05a. O `AuthCodeSchema` fica largo até a anotação do `code_e_uuid` (HITL-036 item 3 ou spike S-3). |
+| `26958d9` | 2026-11-15 | F1-PORTAL-03, [ADR-029-account-export-and-delete](ADRs/ADR-029-account-export-and-delete.md) D10 | `account.ts` novo: `ACCOUNT_SCHEMA_VERSION`, `ACCOUNT_ROUTES` congelado, `ACCOUNT_DELETE_CONFIRMATION`, `AccountDeleteRequestSchema` (versão e a frase literal, sem alvo), `AccountDeleteResultSchema` (as três palavras da função do banco), `ExportedAnalysisSchema`, `ExportedFeedbackSchema` e `AccountExportSchema`; em `limits.ts`, `ACCOUNT_EXPORT_MAX_ROWS = 500`, `ACCOUNT_DELETE_BODY_MAX_BYTES = 256` e `ACCOUNT_RECENT_LOGIN_SECONDS = 600`; subpath `./account` | A API e o portal passam a falar as duas rotas da conta. **O `ApiErrorCodeSchema` não mudou** (o login antigo responde `PROIBIDO`), então a extensão não é afetada. A seção 4 foi regerada do `src/` por script, com 10 de 10 arquivos idênticos (a `account.ts` é a §4.10) |
 
 Também entraram no pacote, sem mudar forma: os tipos `DimensionOutcome` e `AppliedImportance` (exportados para o domínio) e os comentários do SR-11 no `ScoreBreakdownEntrySchema`.
 

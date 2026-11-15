@@ -155,6 +155,24 @@ O hook está na migration `supabase/migrations/20261112210000_custom_access_toke
 
 **Estado:** ligado só na pilha local de testes (`supabase/config.toml:296-298`). No projeto real, ligar o hook é o *HITL-QUEUE §HITL-040* (runbook *supabase-hook-real*).
 
+### 2.5 Excluir a conta sem a "chave mestra" (F1-PORTAL-03)
+
+O jeito comum de apagar um usuário no Supabase é a API de administração, que **exige a `service_role`**. O trampo.app não a tem em processo nenhum (§2.2), e não passou a ter por causa de um botão.
+
+**Como funciona** (`supabase/migrations/20261115150000_delete_own_account.sql`, [ADR-029-account-export-and-delete](../arquitetura/ADRs/ADR-029-account-export-and-delete.md)):
+- uma função no banco, `public.delete_own_account()`, **sem parâmetro**: ela apaga a conta de quem chama, e só ela. Quem chama é o `sub` do JWT que o PostgREST já verificou;
+- a API a chama pelo mesmo cliente de usuário do §2.2 (a *publishable* e o JWT do usuário);
+- a função roda com o privilégio do dono (`security definer`), que pode apagar em `auth.users`. O usuário comum não pode: sem a função, ele não apaga nada;
+- o Postgres apaga o resto **em cascata**: as identidades, as sessões, os critérios, as análises e as avaliações. A função apaga também dois lugares que a cascata não alcança (o fluxo de login em andamento e a trilha de auditoria, que guarda o e-mail).
+
+**Login recente:** a função só apaga se a sessão do token nasceu há no máximo **10 minutos**. Um cookie roubado ontem não apaga a conta. A conferência fica no banco porque a função é alcançável direto pela internet, com a chave pública: uma regra só na API seria contornável.
+
+**No portal** (`/conta/dados`): duas páginas sem JavaScript. A de confirmação pede que você digite `excluir minha conta`. O portal só diz "conta excluída" quando a API confirma; se a resposta se perder no caminho, ele diz que não conseguiu confirmar, sem prometer nem negar.
+
+**Levar os dados:** o botão "Baixar meus dados" entrega um arquivo JSON com os critérios (com a pretensão salarial), o registro das análises e as avaliações. O e-mail e o provedor de login não entram (ficam no serviço de autenticação).
+
+**Estado:** a função está só na pilha local e no CI. No projeto real, aplicá-la é o *HITL-QUEUE §HITL-045* (runbook *conta-exportar-excluir*).
+
 ## 3. Criptografia de dupla camada (AEAD AES-256-GCM)
 
 **AEAD** quer dizer "cifra autenticada com dados associados". O AES-256-GCM faz duas coisas ao mesmo tempo:

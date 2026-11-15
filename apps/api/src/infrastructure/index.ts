@@ -75,9 +75,18 @@ export {
   type SupabaseCriteriaRepositoryDeps,
 } from "./persistence/supabase-criteria-repository.js";
 export {
+  ACCOUNT_DELETE_FUNCTION,
+  ANALYSES_SELECT,
+  FEEDBACK_SELECT,
+  createSupabaseAccountStore,
+  type SupabaseAccountStoreDeps,
+} from "./persistence/supabase-account-store.js";
+export {
   POSTGREST_CLIENT_POLICY,
   PostgrestClientConfigError,
   createPostgrestUserClient,
+  POSTGREST_FUNCTIONS,
+  type PostgrestFunction,
   type PostgrestRead,
   type PostgrestTable,
   type PostgrestUserClient,

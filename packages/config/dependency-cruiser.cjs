@@ -98,9 +98,9 @@ module.exports = {
       name: "portal-contracts-subpaths",
       severity: "error",
       comment:
-        "O portal usa do @trampo/contracts só os critérios, os limites e o erro da API (ADR-028 D11): nunca a raiz, que reexporta tudo, nem os contratos de auth da extensão.",
+        "O portal usa do @trampo/contracts só os critérios, os limites, o erro da API (ADR-028 D11) e a conta (ADR-029 D10): nunca a raiz, que reexporta tudo, nem os contratos de auth da extensão.",
       from: { path: "^apps/web-portal/" },
-      to: { path: "^packages/contracts/", pathNot: "^packages/contracts/(src|dist)/(user-criteria|limits|api)\\.(ts|js|d\\.ts)$" },
+      to: { path: "^packages/contracts/", pathNot: "^packages/contracts/(src|dist)/(user-criteria|limits|api|account)\\.(ts|js|d\\.ts)$" },
     },
     {
       name: "ui-kit-presentation-only",

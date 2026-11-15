@@ -39,8 +39,8 @@ const closeServer = (server: Server) =>
   });
 
 describe("política (ADR-028 D2)", () => {
-  it("prazo de 5 s e teto de 32 KiB", () => {
-    expect(API_CLIENT_POLICY).toEqual({ timeoutMs: 5_000, maxResponseBytes: 32 * 1024 });
+  it("prazo de 5 s, teto de 32 KiB e teto de 256 KiB na exportação da conta (ADR-029 D4)", () => {
+    expect(API_CLIENT_POLICY).toEqual({ timeoutMs: 5_000, maxResponseBytes: 32 * 1024, exportMaxResponseBytes: 256 * 1024 });
   });
 
   it("recusa origem fora da forma no boot, sem repetir o valor", () => {

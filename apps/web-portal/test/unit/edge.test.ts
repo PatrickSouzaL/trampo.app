@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetPortalConfigForTests } from "../../src/server/config";
 import { COOKIE_NAMES } from "../../src/server/cookies";
 import { SESSION_STATE_HEADER, handleProxy, isPageRequest, toResponse } from "../../src/server/edge";
-import { getPortalAuth, getPortalCriteria, resetPortalAuthForTests, runInBackground } from "../../src/server/runtime";
+import { getPortalAccount, getPortalAuth, getPortalCriteria, resetPortalAuthForTests, runInBackground } from "../../src/server/runtime";
 import type { PortalAuth, ResolvedSession } from "../../src/server/session";
 
 const PORTAL = "https://portal.exemplo.invalid";
@@ -34,6 +34,7 @@ function fakeAuth(resolved: ResolvedSession): PortalAuth & { calls: Array<string
     completeLogin: unused,
     readSession: unused,
     logout: unused,
+    logoutEverywhere: unused,
     apiAccess: unused,
     resolveSession: (cookie) => {
       calls.push(cookie);
@@ -153,6 +154,20 @@ describe("toResponse", () => {
     expect(response.headers.getSetCookie()).toEqual([]);
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
+
+  it("arquivo da exportação (ADR-029 D9): 200 em JSON, como anexo de nome fixo, no-store e com os cookies", async () => {
+    const response = toResponse({ kind: "download", filename: "trampo-meus-dados.json", body: '{"a":1}\n', cookies: [{ name: COOKIE_NAMES.sessao, value: "s", maxAge: 9 }] });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('{"a":1}\n');
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(response.headers.get("content-disposition")).toBe('attachment; filename="trampo-meus-dados.json"');
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.getSetCookie()).toEqual([`${COOKIE_NAMES.sessao}=s; Path=/; Max-Age=9; HttpOnly; Secure; SameSite=Lax`]);
+    // O nosniff vem do next.config, uma vez só: aqui ele não se repete.
+    expect(response.headers.get("x-content-type-options")).toBeNull();
+    expect(toResponse({ kind: "download", filename: "x.json", body: "{}", cookies: [] }).headers.getSetCookie()).toEqual([]);
+  });
 });
 
 describe("getPortalAuth", () => {
@@ -179,6 +194,16 @@ describe("getPortalAuth", () => {
     expect(getPortalCriteria()).toBe(first);
     // Sem sessão, a página não chega à rede (a API do ambiente nem existe).
     expect(await first.page({ sessionCookie: undefined, draftCookie: undefined, aviso: undefined })).toEqual({ kind: "sem_sessao" });
+  });
+
+  it("getPortalAccount: monta uma vez, com a mesma sessão, e falha fechado sem ambiente", async () => {
+    expect(() => getPortalAccount()).toThrow(/configuração do portal inválida/);
+    stubEnv();
+    const first = getPortalAccount();
+    expect(getPortalAccount()).toBe(first);
+    expect(await first.page({ sessionCookie: undefined, aviso: undefined })).toEqual({ kind: "sem_sessao" });
+    resetPortalAuthForTests();
+    expect(getPortalAccount()).not.toBe(first);
   });
 
   it("runInBackground não espera a tarefa", () => {

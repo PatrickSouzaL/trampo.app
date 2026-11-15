@@ -214,4 +214,13 @@ U- pela unidade (cabeçalho a mais, classificação trocada, o `PUT` repetindo, 
   - E2E no Edge: 6 casos dos critérios (salvar e reabrir, o 503, o 401 com o GoTrue recusando e aceitando, o erro de validação e a saída do processo), 14/14 com os do login, 3 rodadas;
   - mutação: U- 36/36, G- 7/7 e H- 6/6 (sessão 30); I- 8/8 e Q- 7/7 (sessão 31). O plano do §4.4 pedia três mutantes que o primeiro roteiro da borda não tinha (o `no-store` retirado, o proxy sem apagar o rascunho e o 503 apagando a sessão): entraram no `mut_portal02_edge2.py`, e os três morreram;
   - depcruise: a regra `portal-contracts-subpaths` com a prova negativa (um arquivo plantado importando a raiz do `@trampo/contracts` deu 1 erro).
-- **Condição 14 (o projeto real):** aberta no *HITL-QUEUE §HITL-043*, com o roteiro no *auth-portal* §8. O mesmo roteiro anota o Size do cookie ([ADR-027-portal-login](ADR-027-portal-login.md) §8).
+- **Condição 14 (o projeto real):** ✅ **cumprida em 2026-11-15 (sessão 32)**, pelo *HITL-QUEUE §HITL-043* (declarado pelo humano, roteiro do *auth-portal* §8): login ok, a página com os padrões, `criterios_salvos`, os valores de volta ao reabrir, a pretensão fora da URL, o `salary_ciphertext` começando com `s1.`, o `criteria` sem a chave `salary`, e a loopback removida da allow-list e conferida. O Size do cookie foi 1312: access de no máximo 809 caracteres ([ADR-027-portal-login](ADR-027-portal-login.md) §8). O teste opcional da API parada não foi relatado. **As 14 condições estão cumpridas.**
+
+## 7. Emenda da F1-PORTAL-03 (sessão 32, 2026-11-15): o que a conta reusou daqui ([ADR-029-account-export-and-delete](ADR-029-account-export-and-delete.md) D9)
+
+- O `api-client.ts` ganhou `exportAccount` e `deleteAccount`, no mesmo molde do D2 (destino fixo, lista fechada de cabeçalhos, `redirect: "error"`, classificação pelo `code` e nunca pelo status sozinho, sem nova tentativa). A exportação lê até 256 KiB.
+- A regra do D4 vale igual: o 401 da API leva à renovação forçada, só a recusa do GoTrue vira "entre de novo", e o pedido não se repete.
+- O `session.apiAccess` passou a devolver o `startedAt` (o início da sessão). Quem montar um `PortalAuth` falso precisa do campo.
+- O `readFormBody` ganhou o parâmetro `limit` (o padrão continua `HTTP_BODY_MAX_BYTES`).
+- A regra `portal-contracts-subpaths` do depcruise (D11) passou a aceitar também o `@trampo/contracts/account`.
+- O sucesso da exclusão apaga o cookie do rascunho (D8), junto com o da sessão.

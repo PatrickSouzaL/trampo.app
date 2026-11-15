@@ -189,13 +189,18 @@ export function checkFormPairs(pairs: ReadonlyArray<readonly [string, string]>):
 
 /**
  * O corpo do formulário (ADR-028 D6 passo 2): `application/x-www-form-urlencoded` (com `charset=utf-8` opcional), até
- * `HTTP_BODY_MAX_BYTES` e UTF-8 estrito. `null` em qualquer desvio, sem ler além do teto.
+ * `HTTP_BODY_MAX_BYTES` e UTF-8 estrito. `null` em qualquer desvio, sem ler além do teto. O `limit` é para os
+ * formulários menores (a confirmação da exclusão da conta, ADR-029 D9).
  */
-export async function readFormBody(contentType: string | null, body: ReadableStream<Uint8Array> | null): Promise<Array<[string, string]> | null> {
+export async function readFormBody(
+  contentType: string | null,
+  body: ReadableStream<Uint8Array> | null,
+  limit: number = HTTP_BODY_MAX_BYTES,
+): Promise<Array<[string, string]> | null> {
   if (contentType === null || !FORM_TYPE.test(contentType.trim()) || body === null) return null;
   let bytes: Uint8Array | null;
   try {
-    bytes = await readCapped(body, HTTP_BODY_MAX_BYTES);
+    bytes = await readCapped(body, limit);
   } catch {
     // Conexão que caiu no meio do corpo.
     return null;
