@@ -20,6 +20,18 @@ export function parseNotice(value: unknown): Notice | null {
   return typeof value === "string" && Object.hasOwn(NOTICES, value) ? (value as Notice) : null;
 }
 
+/**
+ * Os textos fixos da página de confirmação do "Sair de todos os dispositivos" (ADR-027 §9.2). Dizem o efeito real: o
+ * access já emitido vale até o fim dele (900 s), então a extensão e os outros navegadores saem na renovação seguinte.
+ */
+export const LOGOUT_EVERYWHERE_TEXTS = Object.freeze({
+  titulo: "Sair de todos os dispositivos",
+  efeito: "Isto encerra a sua sessão neste navegador, na extensão e em todo outro navegador em que você entrou.",
+  prazo: "A extensão e os outros navegadores saem na próxima renovação, em até 15 minutos. Depois disso, será preciso entrar de novo em cada um.",
+  confirmar: "Sair de todos os dispositivos",
+  voltar: "Voltar para a sua conta",
+} as const);
+
 /** Avisos da página de critérios (ADR-028 D5 e D6), num catálogo próprio: o `?aviso=` da `/conta/criterios` só escolhe daqui. */
 export const CRITERIA_NOTICES = Object.freeze({
   criterios_salvos: "Critérios salvos.",

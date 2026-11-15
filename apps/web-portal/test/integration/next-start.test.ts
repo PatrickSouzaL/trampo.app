@@ -377,6 +377,210 @@ describe("critérios (ADR-028, SR-27)", () => {
   });
 });
 
+describe("sair de todos os dispositivos (ADR-027 §9.3)", () => {
+  const PAGE = "/conta/sair-de-tudo";
+  const ROUTE = "/auth/sair-de-tudo";
+  const CLEARED = [`${COOKIE_NAMES.sessao}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`];
+  const post = (path: string, session: string | null, over: Record<string, string> = {}, body?: string) => {
+    const headers = Object.fromEntries(
+      Object.entries({ ...(session === null ? {} : { cookie: `${COOKIE_NAMES.sessao}=${session}` }), origin: portal, "sec-fetch-site": "same-origin", ...over }).filter(([, value]) => value !== ""),
+    );
+    return fetch(`${portal}${path}`, { method: "POST", redirect: "manual", headers, ...(body === undefined ? {} : { body }) });
+  };
+  const logoutCalls = () => fake.requests.filter((request) => request.url.startsWith("/auth/v1/logout"));
+  const withSession = (session: string) => ({ headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } });
+
+  beforeEach(() => {
+    fake.requests.length = 0;
+    fake.logouts.length = 0;
+  });
+
+  it("(8) a página e a rota: cabeçalhos uma vez cada, no-store e nonce em todo script", async () => {
+    const session = await login();
+    const page = await get(PAGE, withSession(session));
+    expect(page.status).toBe(200);
+    expectSecurityHeaders(page, PAGE);
+    expect(page.headers.get("cache-control")).toContain("no-store");
+    const nonce = /'nonce-([^']+)'/.exec(page.headers.get("content-security-policy") ?? "")?.[1];
+    const html = await page.text();
+    const scripts = [...html.matchAll(/<script\b[^>]*>/g)].map((match) => match[0]);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`);
+    const cases: Array<readonly [string, Promise<Response>, number]> = [
+      ["POST com Origin", post(ROUTE, session), 303],
+      ["POST sem Origin", post(ROUTE, session, { origin: "" }), 403],
+      ["GET da rota", get(ROUTE), 405],
+      ["a página sem sessão", get(PAGE), 307],
+    ];
+    for (const [where, pending, status] of cases) {
+      const response = await pending;
+      expect(response.status, where).toBe(status);
+      expectSecurityHeaders(response, where);
+      if (status !== 405 && status !== 307) expect(response.headers.get("cache-control"), where).toBe("no-store");
+    }
+  });
+
+  it("(4) a página de confirmação tem o próprio formulário e o Voltar; abrir a página não encerra nada", async () => {
+    const session = await login();
+    const live = fake.liveSessions.size;
+    fake.requests.length = 0;
+    const html = await (await get(PAGE, withSession(session))).text();
+    const forms = [...html.matchAll(/<form\b[^>]*>/g)].map((match) => match[0]);
+    expect(forms).toHaveLength(1);
+    expect(forms[0]).toContain('method="post"');
+    expect(forms[0]).toContain('action="/auth/sair-de-tudo"');
+    // Sem campo que escolha o escopo: o formulário só tem o botão.
+    expect(html).not.toMatch(/<input\b/);
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Sair de todos os dispositivos<\/button>/);
+    expect(html).toMatch(/<a[^>]*href="\/conta"[^>]*>Voltar para a sua conta<\/a>/);
+    expect(html).toContain("em até 15 minutos");
+    // O GET (e o HEAD) da página nunca chama o logout, e a sessão segue viva.
+    await fetch(`${portal}${PAGE}`, { method: "HEAD", redirect: "manual", headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } });
+    expect(logoutCalls()).toHaveLength(0);
+    expect(fake.liveSessions.size).toBe(live);
+    expect((await get("/conta", withSession(session))).status).toBe(200);
+  });
+
+  it("(4) sem sessão, a página de confirmação vai para a página inicial, sem formulário", async () => {
+    const response = await get(PAGE);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("/");
+    expect(await response.text()).not.toContain('action="/auth/sair-de-tudo"');
+    const garbage = await get(PAGE, withSession("s1.a1.AAAA.BBBB.CCCC"));
+    expect(garbage.status).toBe(307);
+    expect(logoutCalls()).toHaveLength(0);
+  });
+
+  it("a /conta leva à página de confirmação por link, e o único formulário dela é o Sair comum", async () => {
+    const html = await (await get("/conta", withSession(await login()))).text();
+    expect(html).toMatch(/<a[^>]*href="\/conta\/sair-de-tudo"[^>]*>Sair de todos os dispositivos<\/a>/);
+    const forms = [...html.matchAll(/<form\b[^>]*>/g)].map((match) => match[0]);
+    expect(forms).toHaveLength(1);
+    expect(forms[0]).toContain('action="/auth/sair"');
+    expect(html).not.toContain("/auth/sair-de-tudo");
+  });
+
+  it("(1, 6) o sair de tudo pede o global: a 2ª sessão do usuário cai na renovação seguinte, em 'Sua sessão expirou'", async () => {
+    fake.expiresIn = 30;
+    const first = await login();
+    const second = await login();
+    expect((await get("/conta", withSession(second))).status).toBe(200);
+    fake.requests.length = 0;
+    const out = await post(ROUTE, first);
+    expect(out.status).toBe(303);
+    expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu_de_tudo`);
+    expect(out.headers.getSetCookie()).toEqual(CLEARED);
+    expect(logoutCalls().map((request) => `${request.method} ${request.url}`)).toEqual(["POST /auth/v1/logout?scope=global"]);
+    expect(fake.logouts.map((logout) => logout.scope)).toEqual(["global"]);
+    // A 2ª sessão faz o papel da extensão: o access dela está no fim, e a renovação é recusada.
+    const dropped = await get("/conta", withSession(second));
+    expect(dropped.status).toBe(307);
+    expect(dropped.headers.get("location")).toBe("/?aviso=sessao_expirada");
+    expect(dropped.headers.getSetCookie()).toEqual(CLEARED);
+    const home = await (await get("/?aviso=saiu_de_tudo")).text();
+    expect(home).toContain("Você saiu de todos os dispositivos. A extensão e os outros navegadores param de funcionar em até 15 minutos.");
+  });
+
+  it("(1, 6) o Sair comum pede o local: a 2ª sessão continua viva e renova", async () => {
+    fake.expiresIn = 30;
+    const first = await login();
+    const second = await login();
+    fake.requests.length = 0;
+    const out = await post("/auth/sair", first);
+    expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu`);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=local"]);
+    expect(fake.logouts.map((logout) => logout.scope)).toEqual(["local"]);
+    const alive = await get("/conta", withSession(second));
+    expect(alive.status).toBe(200);
+    expect(cookieValue(alive, COOKIE_NAMES.sessao)).toMatch(/^s1\./);
+  });
+
+  it("(2) nada do pedido escolhe o escopo: query, corpo e cabeçalhos hostis não mudam o endereço chamado", async () => {
+    const hostile = { "content-type": "application/x-www-form-urlencoded", "x-scope": "local", "x-http-method-override": "GET", referer: "https://evil.invalid/?scope=local" };
+    const everywhere = await post(`${ROUTE}?scope=local&escopo=local`, await login(), hostile, "scope=local&escopo=local");
+    expect(everywhere.headers.get("location")).toBe(`${portal}/?aviso=saiu_de_tudo`);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=global"]);
+    fake.requests.length = 0;
+    const common = await post("/auth/sair?scope=global", await login(), { ...hostile, "x-scope": "global" }, "scope=global");
+    expect(common.headers.get("location")).toBe(`${portal}/?aviso=saiu`);
+    expect(logoutCalls().map((request) => request.url)).toEqual(["/auth/v1/logout?scope=local"]);
+  });
+
+  it.each([
+    ["sem Origin", { origin: "" }],
+    ["outra origem", { origin: "https://evil.invalid" }],
+    ["Origin null", { origin: "null" }],
+    ["cross-site", { "sec-fetch-site": "cross-site" }],
+    ["same-site", { "sec-fetch-site": "same-site" }],
+    ["sem Sec-Fetch-Site", { "sec-fetch-site": "" }],
+  ])("(3) CSRF (%s): 403, cookie intacto e nenhuma chamada ao GoTrue", async (_caso, over) => {
+    const session = await login();
+    const live = fake.liveSessions.size;
+    fake.requests.length = 0;
+    const response = await post(ROUTE, session, over);
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe("Proibido.");
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(fake.requests).toHaveLength(0);
+    expect(fake.liveSessions.size).toBe(live);
+  });
+
+  it("(3) o GET da rota dá 405 e não encerra nada, com ou sem o Origin", async () => {
+    const session = await login();
+    const live = fake.liveSessions.size;
+    fake.requests.length = 0;
+    for (const headers of [{}, { origin: portal, "sec-fetch-site": "same-origin" }]) {
+      const response = await get(ROUTE, { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}`, ...headers } });
+      expect(response.status).toBe(405);
+      expect(response.headers.getSetCookie()).toEqual([]);
+    }
+    expect(fake.requests).toHaveLength(0);
+    expect(fake.liveSessions.size).toBe(live);
+  });
+
+  it.each([
+    ["403 session_not_found", { kind: "responde", status: 403, body: JSON.stringify({ error_code: "session_not_found" }) }],
+    ["401", { kind: "responde", status: 401, body: JSON.stringify({ error_code: "no_authorization" }) }],
+    ["429", { kind: "responde", status: 429, body: "" }],
+    ["503", { kind: "responde", status: 503, body: "" }],
+    ["redirecionamento", { kind: "redireciona", location: "http://127.0.0.1:1/" }],
+    ["resposta cortada", { kind: "corta" }],
+  ] as const)("(5, 7) %s: o cookie some, o aviso não promete nada e há um POST só", async (_caso, mode) => {
+    const session = await login();
+    fake.requests.length = 0;
+    fake.mode = mode;
+    const out = await post(ROUTE, session);
+    expect(out.status).toBe(303);
+    expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu_sem_confirmar`);
+    expect(out.headers.getSetCookie()).toEqual(CLEARED);
+    expect(fake.requests.map((request) => `${request.method} ${request.url}`)).toEqual(["POST /auth/v1/logout?scope=global"]);
+    fake.mode = { kind: "normal" };
+    const home = await (await get("/?aviso=saiu_sem_confirmar")).text();
+    expect(home).toContain("não conseguimos confirmar a saída dos outros dispositivos");
+    expect(home).not.toContain("Você saiu de todos os dispositivos");
+  });
+
+  it("(5) sem sessão que abra: o cookie some, sem rede e sem prometer", async () => {
+    for (const session of [null, "s1.a1.AAAA.BBBB.CCCC"]) {
+      const out = await post(ROUTE, session);
+      expect(out.headers.get("location")).toBe(`${portal}/?aviso=saiu_sem_confirmar`);
+      expect(out.headers.getSetCookie()).toEqual(CLEARED);
+    }
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("(8) nenhum parâmetro ou cabeçalho muda o destino (sem open redirect)", async () => {
+    for (const path of [`${ROUTE}?redirect_to=https://evil.invalid`, `${ROUTE}?next=//evil.invalid`, `${ROUTE}?aviso=../../evil`]) {
+      const response = await post(path, await login(), { referer: "https://evil.invalid/" });
+      expect(response.headers.get("location"), path).toBe(`${portal}/?aviso=saiu_de_tudo`);
+    }
+    for (const path of [`${PAGE}?redirect_to=https://evil.invalid`, `${PAGE}?next=//evil.invalid`]) {
+      const response = await get(path, { headers: { referer: "https://evil.invalid/" } });
+      expect(response.headers.get("location"), path).toBe("/");
+    }
+  });
+});
+
 describe("SR-12", () => {
   it("nada sensível na saída do processo do portal", () => {
     expect(secrets.size).toBeGreaterThan(Object.keys(GOTRUE_CANARIES).length - 1);

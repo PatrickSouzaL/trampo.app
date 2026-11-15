@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { COOKIE_NAMES, cookieClear, cookieWrite, hasCookie, readCookie, replaceCookie, serializeCookie } from "../../src/server/cookies";
 import { SECURITY_HEADERS, buildCsp } from "../../src/server/headers";
 import { CRITERIA_FIELDS } from "../../src/server/criteria-form";
-import { CRITERIA_FIELD_ERRORS, CRITERIA_NOTICES, CRITERIA_PAGE_TEXTS, DRAFT_NOTICES, NOTICES, parseCriteriaNotice, parseNotice } from "../../src/server/notices";
+import { CRITERIA_FIELD_ERRORS, CRITERIA_NOTICES, CRITERIA_PAGE_TEXTS, DRAFT_NOTICES, LOGOUT_EVERYWHERE_TEXTS, NOTICES, parseCriteriaNotice, parseNotice } from "../../src/server/notices";
 
 describe("cookies (ADR-027 D3)", () => {
   it("nomes com o prefixo __Host-", () => {
@@ -99,6 +99,17 @@ describe("avisos (ADR-027 D7)", () => {
       "Você saiu deste navegador, mas não conseguimos confirmar a saída dos outros dispositivos. Entre de novo e repita. Sem isso, as outras sessões expiram sozinhas em até 24 horas.",
     );
     expect(NOTICES.saiu_sem_confirmar).not.toMatch(/saiu de todos/i);
+  });
+
+  it("a página de confirmação (ADR-027 §9.2): textos fixos, com o efeito real e sem prometer corte imediato", () => {
+    expect(Object.keys(LOGOUT_EVERYWHERE_TEXTS)).toEqual(["titulo", "efeito", "prazo", "confirmar", "voltar"]);
+    expect(LOGOUT_EVERYWHERE_TEXTS.prazo).toBe("A extensão e os outros navegadores saem na próxima renovação, em até 15 minutos. Depois disso, será preciso entrar de novo em cada um.");
+    expect(LOGOUT_EVERYWHERE_TEXTS.efeito).toMatch(/extensão/);
+    for (const text of Object.values(LOGOUT_EVERYWHERE_TEXTS)) {
+      expect(text).not.toMatch(/[<>]|https?:/);
+      expect(text).not.toMatch(/imediat|na hora|agora mesmo/i);
+      expect(text.length).toBeGreaterThan(5);
+    }
   });
 });
 
