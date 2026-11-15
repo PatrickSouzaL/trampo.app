@@ -21,6 +21,7 @@ beforeEach(() => {
   fake.mode = { kind: "normal" };
   fake.hookRefuses = false;
   fake.requests.length = 0;
+  fake.logouts.length = 0;
 });
 
 /** Um código PKCE válido no simulado, pelo `authorize` que o navegador faria. */
@@ -187,7 +188,7 @@ describe("classificação das respostas", () => {
 describe("logout (escopo local, ADR-027 D7)", () => {
   it("POST /logout?scope=local com Bearer: encerrada", async () => {
     const session = await fake.addSession();
-    expect(await client.logout(session.accessToken)).toEqual({ ok: true });
+    expect(await client.logout(session.accessToken, "local")).toEqual({ ok: true });
     const request = fake.requests.at(-1);
     expect(request?.url).toBe("/auth/v1/logout?scope=local");
     expect(request?.headers["authorization"]).toBe(`Bearer ${session.accessToken}`);
@@ -197,8 +198,8 @@ describe("logout (escopo local, ADR-027 D7)", () => {
 
   it("o 403 session_not_found (logout repetido) também é encerrada", async () => {
     const session = await fake.addSession();
-    await client.logout(session.accessToken);
-    expect(await client.logout(session.accessToken)).toEqual({ ok: true });
+    await client.logout(session.accessToken, "local");
+    expect(await client.logout(session.accessToken, "local")).toEqual({ ok: true });
   });
 
   it.each([
@@ -213,12 +214,94 @@ describe("logout (escopo local, ADR-027 D7)", () => {
   ] as const)("%s", async (_caso, mode, reason) => {
     const session = await fake.addSession();
     fake.mode = mode;
-    expect(await client.logout(session.accessToken)).toEqual(reason === "ok" ? { ok: true } : { ok: false, reason });
+    expect(await client.logout(session.accessToken, "local")).toEqual(reason === "ok" ? { ok: true } : { ok: false, reason });
   });
 
   it("access fora da forma nem sai daqui (e nunca vira cabeçalho com quebra de linha)", async () => {
-    expect(await client.logout("a.b.c\r\nx: y")).toEqual({ ok: false, reason: "nao_recebido" });
-    expect(await client.logout("a.b")).toEqual({ ok: false, reason: "nao_recebido" });
+    for (const scope of ["local", "global"] as const) {
+      expect(await client.logout("a.b.c\r\nx: y", scope)).toEqual({ ok: false, reason: "nao_recebido" });
+      expect(await client.logout("a.b", scope)).toEqual({ ok: false, reason: "nao_recebido" });
+    }
     expect(fake.requests).toHaveLength(0);
+  });
+
+  it("o local encerra só a sessão do Bearer: a outra sessão do mesmo usuário continua viva", async () => {
+    const session = await fake.addSession();
+    const other = await fake.addSession();
+    expect(await client.logout(session.accessToken, "local")).toEqual({ ok: true });
+    expect(fake.logouts).toEqual([{ scope: "local", sessionId: session.sessionId, revoked: [session.sessionId] }]);
+    expect(fake.liveSessions.has(other.sessionId)).toBe(true);
+    expect((await client.refresh(other.refreshToken)).ok).toBe(true);
+  });
+});
+
+describe("logout (escopo global, ADR-027 §9)", () => {
+  const OTHER_USER = "0d9c8b7a-6f5e-4d3c-9b2a-1f0e9d8c7b6a";
+
+  it("POST /logout?scope=global com Bearer: todas as sessões do usuário caem, e só as dele", async () => {
+    const session = await fake.addSession();
+    const other = await fake.addSession();
+    const stranger = await fake.addSession({ userId: OTHER_USER });
+    expect(await client.logout(session.accessToken, "global")).toEqual({ ok: true });
+    const request = fake.requests.at(-1);
+    expect(request?.method).toBe("POST");
+    expect(request?.url).toBe("/auth/v1/logout?scope=global");
+    expect(request?.headers["authorization"]).toBe(`Bearer ${session.accessToken}`);
+    expect(request?.headers["apikey"]).toBe(PUBLISHABLE);
+    expect(request?.headers["content-type"]).toBeUndefined();
+    expect(request?.body).toBe("");
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.logouts).toHaveLength(1);
+    expect(fake.logouts[0]).toMatchObject({ scope: "global", sessionId: session.sessionId });
+    expect(fake.logouts[0]?.revoked).toEqual(expect.arrayContaining([session.sessionId, other.sessionId]));
+    expect(fake.logouts[0]?.revoked).not.toContain(stranger.sessionId);
+    expect(fake.liveSessions.has(session.sessionId)).toBe(false);
+    expect(fake.liveSessions.has(other.sessionId)).toBe(false);
+    expect(fake.liveSessions.has(stranger.sessionId)).toBe(true);
+    // A renovação da sessão revogada é recusada: é assim que a extensão cai (ADR-004 D11.5).
+    expect(await client.refresh(other.refreshToken)).toEqual({ ok: false, reason: "recusado" });
+    expect((await client.refresh(stranger.refreshToken)).ok).toBe(true);
+  });
+
+  it("o 403 session_not_found NÃO é sucesso no global: nada foi revogado (F1, medido no GoTrue v2.197.0)", async () => {
+    const session = await fake.addSession();
+    const other = await fake.addSession();
+    await client.logout(session.accessToken, "local");
+    expect(await client.logout(session.accessToken, "global")).toEqual({ ok: false, reason: "recusado" });
+    expect(fake.logouts.at(-1)).toEqual({ scope: "global", sessionId: session.sessionId, revoked: [] });
+    expect(fake.liveSessions.has(other.sessionId)).toBe(true);
+  });
+
+  it.each([
+    ["403 session_not_found", { kind: "responde", status: 403, body: JSON.stringify({ error_code: "session_not_found" }) }, "recusado"],
+    ["403 bad_jwt", { kind: "responde", status: 403, body: JSON.stringify({ error_code: "bad_jwt" }) }, "recusado"],
+    ["403 sem o corpo", { kind: "responde", status: 403, body: "<html/>", contentType: "text/html" }, "nao_recebido"],
+    ["401 com o corpo", { kind: "responde", status: 401, body: JSON.stringify({ error_code: "no_authorization" }) }, "recusado"],
+    ["401 do gateway", { kind: "responde", status: 401, body: JSON.stringify({ message: "Invalid API key" }) }, "nao_recebido"],
+    ["429", { kind: "responde", status: 429, body: JSON.stringify({ error_code: "over_request_rate_limit" }) }, "nao_recebido"],
+    ["503", { kind: "responde", status: 503, body: "" }, "nao_recebido"],
+    ["200", { kind: "responde", status: 200, body: "{}" }, "ok"],
+    ["204", { kind: "responde", status: 204, body: "" }, "ok"],
+    ["prazo", { kind: "trava" }, "pode_ter_rotacionado"],
+    ["302", { kind: "redireciona", location: "http://127.0.0.1:1/" }, "nao_recebido"],
+  ] as const)("%s", async (_caso, mode, reason) => {
+    const session = await fake.addSession();
+    fake.mode = mode;
+    expect(await client.logout(session.accessToken, "global")).toEqual(reason === "ok" ? { ok: true } : { ok: false, reason });
+    expect(fake.requests.filter((request) => request.url.startsWith("/auth/v1/logout"))).toHaveLength(1);
+  });
+
+  it("o escopo é uma união fechada: outro valor não compila e, forçado, nem sai daqui", async () => {
+    const session = await fake.addSession();
+    fake.requests.length = 0;
+    // @ts-expect-error `others` existe no GoTrue, mas o portal não o usa (ADR-027 §9.2).
+    expect(await client.logout(session.accessToken, "others")).toEqual({ ok: false, reason: "nao_recebido" });
+    // @ts-expect-error o escopo é obrigatório: nenhum padrão escolhe por quem chama.
+    expect(await client.logout(session.accessToken)).toEqual({ ok: false, reason: "nao_recebido" });
+    for (const hostile of ["", "GLOBAL", "global&scope=local", "toString", "__proto__"]) {
+      expect(await client.logout(session.accessToken, hostile as never)).toEqual({ ok: false, reason: "nao_recebido" });
+    }
+    expect(fake.requests).toHaveLength(0);
+    expect(fake.liveSessions.has(session.sessionId)).toBe(true);
   });
 });

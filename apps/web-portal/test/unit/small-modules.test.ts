@@ -78,8 +78,10 @@ describe("CSP e cabeçalhos (ADR-027 D8)", () => {
 
 describe("avisos (ADR-027 D7)", () => {
   it("catálogo fechado; valor fora dele é ignorado", () => {
-    expect(Object.keys(NOTICES).sort()).toEqual(["entrada_recusada", "login_falhou", "saiu", "saiu_local", "servico_indisponivel", "sessao_expirada"]);
+    expect(Object.keys(NOTICES).sort()).toEqual(["entrada_recusada", "login_falhou", "saiu", "saiu_de_tudo", "saiu_local", "saiu_sem_confirmar", "servico_indisponivel", "sessao_expirada"]);
     expect(parseNotice("saiu")).toBe("saiu");
+    expect(parseNotice("saiu_de_tudo")).toBe("saiu_de_tudo");
+    expect(parseNotice("saiu_sem_confirmar")).toBe("saiu_sem_confirmar");
     expect(parseNotice("<script>")).toBeNull();
     expect(parseNotice("toString")).toBeNull();
     expect(parseNotice(undefined)).toBeNull();
@@ -88,6 +90,15 @@ describe("avisos (ADR-027 D7)", () => {
 
   it("nenhum texto com link ou marcação", () => {
     for (const text of Object.values(NOTICES)) expect(text).not.toMatch(/[<>]|https?:/);
+  });
+
+  it("sair de tudo (ADR-027 §9.2): o sucesso diz o prazo real, e a falha não promete a saída dos outros dispositivos", () => {
+    // O access já emitido vale até o `exp` (900 s): o texto nunca promete corte imediato.
+    expect(NOTICES.saiu_de_tudo).toBe("Você saiu de todos os dispositivos. A extensão e os outros navegadores param de funcionar em até 15 minutos.");
+    expect(NOTICES.saiu_sem_confirmar).toBe(
+      "Você saiu deste navegador, mas não conseguimos confirmar a saída dos outros dispositivos. Entre de novo e repita. Sem isso, as outras sessões expiram sozinhas em até 24 horas.",
+    );
+    expect(NOTICES.saiu_sem_confirmar).not.toMatch(/saiu de todos/i);
   });
 });
 

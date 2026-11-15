@@ -5,11 +5,13 @@
 // URL fixa derivada de `SUPABASE_URL` (nada do pedido vira URL), `redirect: "error"`, prazo de 5 s, resposta com no
 // máximo 32 KiB, UTF-8 estrito, JSON sem chave de protótipo e sem retry (a nova tentativa da renovação é da sessão).
 // Lista fechada de cabeçalhos: `apikey`, `content-type` e `accept` no `/token`; `apikey`, `authorization` e `accept`
-// no logout, que tem escopo `local` fixo (ADR-027 D7).
+// no logout. O escopo do logout nunca vem do pedido: são dois endereços fixos, montados no boot, e quem chama escolhe
+// entre `local` (o "Sair", ADR-027 D7) e `global` ("Sair de todos os dispositivos", ADR-027 §9.2).
 //
 // Classificação: 400, 401, 403, 404 e 422 só são `recusado` com o corpo JSON do GoTrue e um `error_code` string, que é
 // conferido e descartado. Sem esse corpo, `nao_recebido` (um desvio de configuração não vira "entre de novo", T30). No
-// logout, só o 2xx e o 403 `session_not_found` são sessão encerrada. Conexão recusada, redirecionamento, 429, 5xx e os
+// logout `local`, só o 2xx e o 403 `session_not_found` são sessão encerrada; no `global`, só o 2xx (a sessão do Bearer que
+// já não existe não prova nada sobre as outras, §9.1 F1). Conexão recusada, redirecionamento, 429, 5xx e os
 // demais status são `nao_recebido`; prazo, aborto, socket cortado, 2xx que não é 200 e 200 fora da forma são
 // `pode_ter_rotacionado`. Nunca rejeita, e nada da chave, dos tokens, do código, do verifier ou da resposta sai daqui.
 import { z } from "zod";
@@ -28,11 +30,13 @@ export interface GotrueTokens {
 }
 export type GotrueTokenResult = { readonly ok: true; readonly tokens: GotrueTokens } | GotrueFailure;
 export type GotrueLogoutResult = { readonly ok: true } | GotrueFailure;
+/** `others` existe no GoTrue, mas o portal não o usa. */
+export type GotrueLogoutScope = "local" | "global";
 
 export interface GotrueClient {
   exchangePkce(authCode: string, codeVerifier: string, signal?: AbortSignal): Promise<GotrueTokenResult>;
   refresh(refreshToken: string, signal?: AbortSignal): Promise<GotrueTokenResult>;
-  logout(accessToken: string, signal?: AbortSignal): Promise<GotrueLogoutResult>;
+  logout(accessToken: string, scope: GotrueLogoutScope, signal?: AbortSignal): Promise<GotrueLogoutResult>;
 }
 
 export const GOTRUE_POLICY = Object.freeze({
@@ -125,7 +129,10 @@ export function createGotrueClient(config: GotrueClientConfig): GotrueClient {
   const timeoutMs = config.timeoutMs ?? GOTRUE_POLICY.timeoutMs;
   const pkceEndpoint = new URL("/auth/v1/token?grant_type=pkce", config.supabaseUrl);
   const refreshEndpoint = new URL("/auth/v1/token?grant_type=refresh_token", config.supabaseUrl);
-  const logoutEndpoint = new URL("/auth/v1/logout?scope=local", config.supabaseUrl);
+  const logoutEndpoints: Readonly<Record<GotrueLogoutScope, URL>> = Object.freeze({
+    local: new URL("/auth/v1/logout?scope=local", config.supabaseUrl),
+    global: new URL("/auth/v1/logout?scope=global", config.supabaseUrl),
+  });
   const tokenHeaders = { apikey: publishableKey, "content-type": "application/json", accept: "application/json" } as const;
 
   const post = async (endpoint: URL, headers: Readonly<Record<string, string>>, body: string | null, signal: AbortSignal | undefined): Promise<Response | GotrueFailure> => {
@@ -162,10 +169,11 @@ export function createGotrueClient(config: GotrueClientConfig): GotrueClient {
       return tokenCall(refreshEndpoint, JSON.stringify({ refresh_token: refreshToken }), signal);
     },
 
-    async logout(accessToken, signal) {
-      if (!AccessTokenSchema.safeParse(accessToken).success) return NAO_RECEBIDO;
+    async logout(accessToken, scope, signal) {
+      // Escopo fora da união (só por coerção de tipo): nada sai, e nenhum texto vira endereço.
+      if (!Object.hasOwn(logoutEndpoints, scope) || !AccessTokenSchema.safeParse(accessToken).success) return NAO_RECEBIDO;
       const headers = { apikey: publishableKey, authorization: `Bearer ${accessToken}`, accept: "application/json" } as const;
-      const response = await post(logoutEndpoint, headers, null, signal);
+      const response = await post(logoutEndpoints[scope], headers, null, signal);
       if (!(response instanceof Response)) return response;
       if (response.status >= 200 && response.status <= 299) {
         await discard(response);
@@ -174,7 +182,8 @@ export function createGotrueClient(config: GotrueClientConfig): GotrueClient {
       if (response.status === 403) {
         const errorCode = await gotrueErrorCode(response);
         if (errorCode === undefined) return NAO_RECEBIDO;
-        return errorCode === SESSION_GONE ? LOGGED_OUT : RECUSADO;
+        // Só no `local` a sessão que não existe é sessão encerrada.
+        return errorCode === SESSION_GONE && scope === "local" ? LOGGED_OUT : RECUSADO;
       }
       return failureForStatus(response);
     },

@@ -8,6 +8,10 @@ export const NOTICES = Object.freeze({
   sessao_expirada: "Sua sessão expirou. Entre de novo.",
   saiu: "Você saiu.",
   saiu_local: "Você saiu deste navegador, mas não conseguimos confirmar com o servidor. A sessão expira sozinha em até 24 horas.",
+  // "Sair de todos os dispositivos" (ADR-027 §9.2): o sucesso só com o 2xx do GoTrue, e o prazo é o do access já emitido.
+  saiu_de_tudo: "Você saiu de todos os dispositivos. A extensão e os outros navegadores param de funcionar em até 15 minutos.",
+  saiu_sem_confirmar:
+    "Você saiu deste navegador, mas não conseguimos confirmar a saída dos outros dispositivos. Entre de novo e repita. Sem isso, as outras sessões expiram sozinhas em até 24 horas.",
 } as const);
 
 export type Notice = keyof typeof NOTICES;

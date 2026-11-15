@@ -34,6 +34,7 @@ function fakeAuth(resolved: ResolvedSession): PortalAuth & { calls: Array<string
     completeLogin: unused,
     readSession: unused,
     logout: unused,
+    logoutEverywhere: unused,
     apiAccess: unused,
     resolveSession: (cookie) => {
       calls.push(cookie);
