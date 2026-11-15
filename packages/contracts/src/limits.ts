@@ -49,3 +49,18 @@ export const CRITERIA_BODY_MAX_BYTES = 16_384;
  * import na F1-API-07 (ADR-004 §6.1).
  */
 export const ACCESS_TOKEN_MAX_CHARS = 8_192;
+
+/**
+ * Teto de linhas de cada lista da exportação da conta (ADR-029 D4): as 500 mais novas, com a marca de corte no
+ * próprio arquivo. A paginação entra com a F1-API-06, que passa a gravar as análises.
+ */
+export const ACCOUNT_EXPORT_MAX_ROWS = 500;
+
+/** `bodyLimit` do `POST /v1/account/delete` (ADR-029 D3): o corpo é a versão e a frase de confirmação. */
+export const ACCOUNT_DELETE_BODY_MAX_BYTES = 256;
+
+/**
+ * Idade máxima da sessão para excluir a conta (ADR-029 D6). Quem decide é a função do banco, pela data da sessão
+ * do token; o `test:db` prende a constante dela a este valor, e o portal só o espelha para avisar antes.
+ */
+export const ACCOUNT_RECENT_LOGIN_SECONDS = 600;
