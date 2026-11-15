@@ -95,6 +95,14 @@ module.exports = {
       to: { path: "^apps/web-portal/src/(server/|proxy\\.ts$)" },
     },
     {
+      name: "portal-contracts-subpaths",
+      severity: "error",
+      comment:
+        "O portal usa do @trampo/contracts só os critérios, os limites e o erro da API (ADR-028 D11): nunca a raiz, que reexporta tudo, nem os contratos de auth da extensão.",
+      from: { path: "^apps/web-portal/" },
+      to: { path: "^packages/contracts/", pathNot: "^packages/contracts/(src|dist)/(user-criteria|limits|api)\\.(ts|js|d\\.ts)$" },
+    },
+    {
       name: "ui-kit-presentation-only",
       severity: "error",
       comment: "ui-kit só depende de React e dos contratos.",
