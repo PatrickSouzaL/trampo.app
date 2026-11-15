@@ -592,7 +592,9 @@ describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
     const payload = payloadOf(session.value);
     fake.requests.length = 0;
     clock.ms += 850_000;
-    expect(await auth.apiAccess(session.value, "leitura")).toEqual({ ok: true, accessToken: payload["at"], userId: GOTRUE_CANARIES.userId, sessionId: payload["sid"] });
+    expect(await auth.apiAccess(session.value, "leitura")).toEqual({ ok: true, accessToken: payload["at"], userId: GOTRUE_CANARIES.userId, sessionId: payload["sid"], startedAt: payload["sst"] });
+    // O início da sessão é o do login, não o de agora (a exclusão da conta pede login recente, ADR-029 D6).
+    expect(payload["sst"]).toBe(nowS() - 850);
     expect(fake.requests).toHaveLength(0);
   });
 
@@ -625,7 +627,7 @@ describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
     fake.requests.length = 0;
     clock.ms += (900 - 61) * 1_000;
     const result = await auth.apiAccess(session.value, "gravacao");
-    expect(result).toEqual({ ok: true, accessToken: payloadOf(session.value)["at"], userId: GOTRUE_CANARIES.userId, sessionId: payloadOf(session.value)["sid"] });
+    expect(result).toEqual({ ok: true, accessToken: payloadOf(session.value)["at"], userId: GOTRUE_CANARIES.userId, sessionId: payloadOf(session.value)["sid"], startedAt: payloadOf(session.value)["sst"] });
     expect(fake.requests).toHaveLength(0);
   });
 
@@ -637,11 +639,24 @@ describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
     const result = await auth.apiAccess(session.value, "gravacao");
     expect(result.ok).toBe(true);
     const after = payloadOf(result.cookie?.value as string);
-    expect(result).toMatchObject({ ok: true, accessToken: after["at"], userId: GOTRUE_CANARIES.userId, sessionId: before["sid"] });
+    // A renovação não rejuvenesce a sessão: o início continua o do login (ADR-029 D6).
+    expect(result).toMatchObject({ ok: true, accessToken: after["at"], userId: GOTRUE_CANARIES.userId, sessionId: before["sid"], startedAt: before["sst"] });
+    expect(before["sst"]).toBe(nowS() - 850);
     expect(after["at"]).not.toBe(before["at"]);
     expect([after["sst"], after["sid"], after["iat"]]).toEqual([before["sst"], before["sid"], nowS()]);
     expect(result.cookie?.maxAge).toBe(PORTAL_SESSION_POLICY.maxAgeSeconds - 850);
     expect(tokenCalls()).toHaveLength(1);
+  });
+
+  it("o início da sessão segue o login mesmo no cookie renovado, lido depois sem renovar (ADR-029 D6)", async () => {
+    const { session } = await login();
+    const started = payloadOf(session.value)["sst"];
+    clock.ms += 700_000;
+    const renewed = await auth.apiAccess(session.value, "forcada");
+    const cookie = renewed.cookie?.value as string;
+    expect(payloadOf(cookie)["iat"]).toBe(nowS());
+    expect(payloadOf(cookie)["iat"]).not.toBe(started);
+    for (const mode of ["leitura", "gravacao"] as const) expect(await auth.apiAccess(cookie, mode)).toMatchObject({ ok: true, startedAt: started });
   });
 
   it("forçada: renova mesmo com tempo de sobra (o 401 da API, D4)", async () => {

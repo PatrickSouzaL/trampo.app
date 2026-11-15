@@ -6,13 +6,18 @@
 // - `GET`: 200 com a linha do dono, ou 409 `CRITERIOS_NAO_CONFIGURADOS`;
 // - `PUT`: 415 sem `application/json`, 413 acima de 16.384 bytes, 400 fora do `UserCriteriaSchema` e 204 gravando;
 // - toda resposta com `Cache-Control: no-store` e o corpo de erro do `ApiErrorSchema` (4 chaves, texto fixo);
+// - a conta (ADR-029 D3 e D4): `GET /v1/account/export` monta o documento do contrato com a linha do dono e as listas
+//   de `analyses` e `feedback`; `POST /v1/account/delete` exige `application/json`, até 256 bytes e o corpo exato do
+//   contrato (senão 415, 413 ou 400), responde 403 `PROIBIDO` com `deleteResult` em `login_antigo` e, no 204, apaga a
+//   linha do dono e registra o dono em `deletions`;
 // - os modos `responde`, `trava`, `lento`, `corta` e `redireciona` agem depois da borda, como os do GoTrue simulado;
 // - cada pedido fica registrado com os cabeçalhos (a lista fechada do portal, condição 2).
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingHttpHeaders, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { CRITERIA_BODY_MAX_BYTES } from "@trampo/contracts/limits";
+import { AccountDeleteRequestSchema, type ExportedAnalysis, type ExportedFeedback } from "@trampo/contracts/account";
+import { ACCOUNT_DELETE_BODY_MAX_BYTES, CRITERIA_BODY_MAX_BYTES } from "@trampo/contracts/limits";
 import { UserCriteriaSchema } from "@trampo/contracts/user-criteria";
 
 export type FakeApiMode =
@@ -51,6 +56,13 @@ export interface FakeApi {
   mode: FakeApiMode;
   /** As linhas gravadas, por dono (o valor que o `GET` devolve, com a pretensão em claro). */
   readonly rows: Map<string, unknown>;
+  /** As listas que a exportação devolve (as mesmas para todo dono: o simulado tem um usuário só). */
+  readonly analyses: ExportedAnalysis[];
+  readonly feedback: ExportedFeedback[];
+  /** O que a função do banco diria: `login_antigo` vira o 403 `PROIBIDO`. */
+  deleteResult: "excluida" | "login_antigo";
+  /** O dono de cada exclusão aceita (204). */
+  readonly deletions: string[];
   close(): Promise<void>;
 }
 
@@ -81,15 +93,47 @@ const BEARER = /^bearer ([\w-]+\.[\w-]+\.[\w-]+)$/i;
 export async function startFakeApi(options: FakeApiOptions): Promise<FakeApi> {
   const requests: FakeApiRequest[] = [];
   const rows = new Map<string, unknown>();
-  const state = { mode: { kind: "normal" } as FakeApiMode };
+  const analyses: ExportedAnalysis[] = [];
+  const feedback: ExportedFeedback[] = [];
+  const deletions: string[] = [];
+  const state = { mode: { kind: "normal" } as FakeApiMode, deleteResult: "excluida" as "excluida" | "login_antigo" };
 
   const error = (status: number, code: string, extra: Readonly<Record<string, string>> = {}): Reply => ({ status, body: apiErrorBody(code), headers: extra });
 
   const handle = (method: string, path: string, headers: IncomingHttpHeaders, body: Buffer): Reply => {
-    if (path !== "/v1/criteria" || (method !== "GET" && method !== "PUT")) return error(404, "PROIBIDO");
+    const exporting = method === "GET" && path === "/v1/account/export";
+    const deleting = method === "POST" && path === "/v1/account/delete";
+    if (!exporting && !deleting && (path !== "/v1/criteria" || (method !== "GET" && method !== "PUT"))) return error(404, "PROIBIDO");
     const token = BEARER.exec(headers.authorization ?? "")?.[1];
     const owner = token === undefined ? null : options.owner(token);
     if (owner === null) return error(401, "NAO_AUTENTICADO", { "www-authenticate": "Bearer" });
+    if (exporting) {
+      const document = {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        criteria: rows.get(owner) ?? null,
+        analyses,
+        analysesTruncated: false,
+        feedback,
+        feedbackTruncated: false,
+      };
+      return { status: 200, body: JSON.stringify(document) };
+    }
+    if (deleting) {
+      if (headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !== "application/json") return error(415, "PAYLOAD_INVALIDO");
+      if (body.length > ACCOUNT_DELETE_BODY_MAX_BYTES) return error(413, "PAYLOAD_GRANDE_DEMAIS");
+      let sent: unknown;
+      try {
+        sent = JSON.parse(body.toString("utf8"));
+      } catch {
+        return error(400, "PAYLOAD_INVALIDO");
+      }
+      if (!AccountDeleteRequestSchema.safeParse(sent).success) return error(400, "PAYLOAD_INVALIDO");
+      if (state.deleteResult === "login_antigo") return error(403, "PROIBIDO");
+      rows.delete(owner);
+      deletions.push(owner);
+      return { status: 204, body: "", contentType: null };
+    }
     if (method === "GET") {
       const row = rows.get(owner);
       return row === undefined ? error(409, "CRITERIOS_NAO_CONFIGURADOS") : { status: 200, body: JSON.stringify(row) };
@@ -174,6 +218,15 @@ export async function startFakeApi(options: FakeApiOptions): Promise<FakeApi> {
       state.mode = value;
     },
     rows,
+    analyses,
+    feedback,
+    deletions,
+    get deleteResult() {
+      return state.deleteResult;
+    },
+    set deleteResult(value: "excluida" | "login_antigo") {
+      state.deleteResult = value;
+    },
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();

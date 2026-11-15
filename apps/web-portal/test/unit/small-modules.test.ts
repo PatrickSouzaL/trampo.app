@@ -3,7 +3,19 @@ import { describe, expect, it } from "vitest";
 import { COOKIE_NAMES, cookieClear, cookieWrite, hasCookie, readCookie, replaceCookie, serializeCookie } from "../../src/server/cookies";
 import { SECURITY_HEADERS, buildCsp } from "../../src/server/headers";
 import { CRITERIA_FIELDS } from "../../src/server/criteria-form";
-import { CRITERIA_FIELD_ERRORS, CRITERIA_NOTICES, CRITERIA_PAGE_TEXTS, DRAFT_NOTICES, LOGOUT_EVERYWHERE_TEXTS, NOTICES, parseCriteriaNotice, parseNotice } from "../../src/server/notices";
+import {
+  ACCOUNT_NOTICES,
+  ACCOUNT_PAGE_TEXTS,
+  CRITERIA_FIELD_ERRORS,
+  CRITERIA_NOTICES,
+  CRITERIA_PAGE_TEXTS,
+  DRAFT_NOTICES,
+  LOGOUT_EVERYWHERE_TEXTS,
+  NOTICES,
+  parseAccountNotice,
+  parseCriteriaNotice,
+  parseNotice,
+} from "../../src/server/notices";
 
 describe("cookies (ADR-027 D3)", () => {
   it("nomes com o prefixo __Host-", () => {
@@ -78,7 +90,7 @@ describe("CSP e cabeçalhos (ADR-027 D8)", () => {
 
 describe("avisos (ADR-027 D7)", () => {
   it("catálogo fechado; valor fora dele é ignorado", () => {
-    expect(Object.keys(NOTICES).sort()).toEqual(["entrada_recusada", "login_falhou", "saiu", "saiu_de_tudo", "saiu_local", "saiu_sem_confirmar", "servico_indisponivel", "sessao_expirada"]);
+    expect(Object.keys(NOTICES).sort()).toEqual(["entrada_recusada", "login_falhou", "saiu", "saiu_de_tudo", "saiu_local", "saiu_sem_confirmar", "servico_indisponivel", "sessao_expirada"].concat(["conta_excluida"]).sort());
     expect(parseNotice("saiu")).toBe("saiu");
     expect(parseNotice("saiu_de_tudo")).toBe("saiu_de_tudo");
     expect(parseNotice("saiu_sem_confirmar")).toBe("saiu_sem_confirmar");
@@ -108,6 +120,45 @@ describe("avisos (ADR-027 D7)", () => {
     for (const text of Object.values(LOGOUT_EVERYWHERE_TEXTS)) {
       expect(text).not.toMatch(/[<>]|https?:/);
       expect(text).not.toMatch(/imediat|na hora|agora mesmo/i);
+      expect(text.length).toBeGreaterThan(5);
+    }
+  });
+});
+
+describe("avisos e textos da conta (ADR-029 D9)", () => {
+  it("catálogo fechado próprio; valor fora dele (inclusive o de outro catálogo) é ignorado", () => {
+    expect(Object.keys(ACCOUNT_NOTICES).sort()).toEqual(["exclusao_frase_errada", "exclusao_indisponivel", "exclusao_nao_confirmada", "exclusao_pede_login", "exportacao_indisponivel"]);
+    expect(parseAccountNotice("exclusao_pede_login")).toBe("exclusao_pede_login");
+    for (const value of ["conta_excluida", "saiu", "criterios_salvos", "toString", "<script>", undefined, ["exclusao_indisponivel"]]) expect(parseAccountNotice(value)).toBeNull();
+  });
+
+  it("conta_excluida só existe no catálogo da página inicial, e diz o prazo real das outras sessões", () => {
+    expect(NOTICES.conta_excluida).toBe("Sua conta e os seus dados foram excluídos. A extensão e os outros navegadores saem em até 15 minutos.");
+    expect(Object.hasOwn(ACCOUNT_NOTICES, "conta_excluida")).toBe(false);
+  });
+
+  it("T30: o não confirmado não promete nem nega; o indisponível e o do login dizem que nada foi excluído", () => {
+    expect(ACCOUNT_NOTICES.exclusao_nao_confirmada).toBe(
+      "Não conseguimos confirmar a exclusão. Abra Seus critérios: se eles sumiram e você for desconectado em alguns minutos, a conta foi excluída. Se continuam lá, tente de novo.",
+    );
+    expect(ACCOUNT_NOTICES.exclusao_nao_confirmada).not.toMatch(/nada foi exclu|foram exclu|excluída com sucesso/i);
+    for (const notice of [ACCOUNT_NOTICES.exclusao_indisponivel, ACCOUNT_NOTICES.exclusao_pede_login]) expect(notice).toContain("Nada foi excluído.");
+    expect(ACCOUNT_NOTICES.exportacao_indisponivel).not.toMatch(/exclu/i);
+    expect(ACCOUNT_NOTICES.exclusao_frase_errada).toContain("excluir minha conta");
+    expect(ACCOUNT_NOTICES.exclusao_pede_login).toContain("10 minutos");
+  });
+
+  it("textos das páginas: a frase a digitar, sem volta, o prazo das outras sessões e o que fica fora do arquivo", () => {
+    expect(Object.keys(ACCOUNT_PAGE_TEXTS)).toEqual([
+      "titulo", "exportar", "exportarFora", "baixar", "excluirLink", "excluirTitulo", "excluirEfeito", "excluirSemVolta", "excluirPrazo", "excluirInstrucao", "excluirBotao", "loginAntigo", "voltarDados", "voltarConta",
+    ]);
+    expect(ACCOUNT_PAGE_TEXTS.excluirInstrucao).toBe("Para confirmar, digite a frase: excluir minha conta");
+    expect(ACCOUNT_PAGE_TEXTS.excluirSemVolta).toBe("Não há como desfazer. Se você entrar de novo depois, será uma conta nova e vazia.");
+    expect(ACCOUNT_PAGE_TEXTS.excluirPrazo).toContain("15 minutos");
+    expect(ACCOUNT_PAGE_TEXTS.exportarFora).toMatch(/e-mail/);
+    expect(ACCOUNT_PAGE_TEXTS.loginAntigo).toContain("10 minutos");
+    for (const text of [...Object.values(ACCOUNT_NOTICES), ...Object.values(ACCOUNT_PAGE_TEXTS)]) {
+      expect(text).not.toMatch(/[<>]|https?:/);
       expect(text.length).toBeGreaterThan(5);
     }
   });

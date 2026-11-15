@@ -12,6 +12,8 @@ export const NOTICES = Object.freeze({
   saiu_de_tudo: "Você saiu de todos os dispositivos. A extensão e os outros navegadores param de funcionar em até 15 minutos.",
   saiu_sem_confirmar:
     "Você saiu deste navegador, mas não conseguimos confirmar a saída dos outros dispositivos. Entre de novo e repita. Sem isso, as outras sessões expiram sozinhas em até 24 horas.",
+  // Só com o 204 da API (ADR-029 D9): a conta e os dados já não existem.
+  conta_excluida: "Sua conta e os seus dados foram excluídos. A extensão e os outros navegadores saem em até 15 minutos.",
 } as const);
 
 export type Notice = keyof typeof NOTICES;
@@ -30,6 +32,41 @@ export const LOGOUT_EVERYWHERE_TEXTS = Object.freeze({
   prazo: "A extensão e os outros navegadores saem na próxima renovação, em até 15 minutos. Depois disso, será preciso entrar de novo em cada um.",
   confirmar: "Sair de todos os dispositivos",
   voltar: "Voltar para a sua conta",
+} as const);
+
+/** Avisos de exportar e excluir a conta (ADR-029 D9), num catálogo próprio: o `?aviso=` das páginas de dados só escolhe daqui. */
+export const ACCOUNT_NOTICES = Object.freeze({
+  exportacao_indisponivel: "Não deu para gerar o arquivo agora. Tente de novo em instantes.",
+  exclusao_frase_errada: "A frase de confirmação não confere. Digite exatamente: excluir minha conta",
+  exclusao_pede_login: "Por segurança, a exclusão só vale nos 10 minutos depois de entrar. Saia, entre de novo e volte a esta página. Nada foi excluído.",
+  exclusao_indisponivel: "Não deu para excluir agora: o serviço está indisponível. Nada foi excluído. Tente de novo em instantes.",
+  // T30: nem "excluída", nem "nada foi excluído".
+  exclusao_nao_confirmada:
+    "Não conseguimos confirmar a exclusão. Abra Seus critérios: se eles sumiram e você for desconectado em alguns minutos, a conta foi excluída. Se continuam lá, tente de novo.",
+} as const);
+
+export type AccountNotice = keyof typeof ACCOUNT_NOTICES;
+
+export function parseAccountNotice(value: unknown): AccountNotice | null {
+  return typeof value === "string" && Object.hasOwn(ACCOUNT_NOTICES, value) ? (value as AccountNotice) : null;
+}
+
+/** Os textos fixos das páginas de dados (ADR-029 D9). Dizem o que a exportação traz e o que a exclusão apaga, sem prometer além disso. */
+export const ACCOUNT_PAGE_TEXTS = Object.freeze({
+  titulo: "Seus dados",
+  exportar: "O arquivo traz os seus critérios (com a pretensão salarial), o registro das suas análises e as suas avaliações, em JSON.",
+  exportarFora: "O seu e-mail e o provedor de login ficam no serviço de autenticação e não entram no arquivo.",
+  baixar: "Baixar meus dados",
+  excluirLink: "Excluir minha conta",
+  excluirTitulo: "Excluir minha conta",
+  excluirEfeito: "Isto apaga os seus critérios, o registro das suas análises, as suas avaliações, a sua conta e todas as suas sessões.",
+  excluirSemVolta: "Não há como desfazer. Se você entrar de novo depois, será uma conta nova e vazia.",
+  excluirPrazo: "A extensão e os outros navegadores saem em até 15 minutos.",
+  excluirInstrucao: "Para confirmar, digite a frase: excluir minha conta",
+  excluirBotao: "Excluir minha conta definitivamente",
+  loginAntigo: "Por segurança, a exclusão só vale nos 10 minutos depois de entrar. Saia, entre de novo e volte a esta página.",
+  voltarDados: "Voltar para os seus dados",
+  voltarConta: "Voltar para a sua conta",
 } as const);
 
 /** Avisos da página de critérios (ADR-028 D5 e D6), num catálogo próprio: o `?aviso=` da `/conta/criterios` só escolhe daqui. */

@@ -2,6 +2,7 @@
 // sessão em `Response`. Os arquivos do App Router só chamam daqui.
 import { COOKIE_NAMES, cookieClear, hasCookie, readCookie, replaceCookie, serializeCookie } from "./cookies";
 import { buildCsp } from "./headers";
+import type { Download } from "./account";
 import type { Forbidden, PortalAuth, Redirect } from "./session";
 
 /** Estado da sessão que o proxy passa à página. Só escolhe o aviso: a DAL verifica o access de novo. */
@@ -54,12 +55,21 @@ export async function handleProxy(input: ProxyInput): Promise<ProxyOutput> {
   return { requestHeaders, responseHeaders };
 }
 
-/** A intenção da sessão como resposta: 303 com os cookies, ou 403 com corpo fixo. Nunca em cache. */
-export function toResponse(intent: Redirect | Forbidden): Response {
+/**
+ * A intenção como resposta: 303 com os cookies, 403 com corpo fixo ou o arquivo da exportação (ADR-029 D9: JSON como
+ * anexo, com nome fixo). Nunca em cache. O `nosniff` vem dos cabeçalhos fixos do `next.config`, uma vez só.
+ */
+export function toResponse(intent: Redirect | Forbidden | Download): Response {
   const headers = new Headers({ "cache-control": "no-store" });
   if (intent.kind === "forbidden") {
     headers.set("content-type", "text/plain; charset=utf-8");
     return new Response("Proibido.", { status: 403, headers });
+  }
+  if (intent.kind === "download") {
+    headers.set("content-type", "application/json; charset=utf-8");
+    headers.set("content-disposition", `attachment; filename="${intent.filename}"`);
+    for (const cookie of intent.cookies) headers.append("set-cookie", serializeCookie(cookie));
+    return new Response(intent.body, { status: 200, headers });
   }
   headers.set("location", intent.location);
   for (const cookie of intent.cookies) headers.append("set-cookie", serializeCookie(cookie));

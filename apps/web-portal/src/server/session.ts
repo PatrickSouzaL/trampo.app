@@ -57,7 +57,15 @@ export interface ResolvedSession {
  */
 export type ApiAccessMode = "leitura" | "gravacao" | "forcada";
 export type ApiAccess =
-  | { readonly ok: true; readonly accessToken: string; readonly userId: string; readonly sessionId: string; readonly cookie?: CookieWrite }
+  | {
+      readonly ok: true;
+      readonly accessToken: string;
+      readonly userId: string;
+      readonly sessionId: string;
+      /** O início da sessão (o login), em segundos: a exclusão da conta pede login recente (ADR-029 D6). */
+      readonly startedAt: number;
+      readonly cookie?: CookieWrite;
+    }
   | {
       readonly ok: false;
       readonly state: Exclude<SessionState, "ativa">;
@@ -295,13 +303,13 @@ export function createPortalAuth(deps: PortalAuthDeps): PortalAuth {
       if (mode === "forcada" || (mode === "gravacao" && payload.ate - now <= PORTAL_SESSION_POLICY.renewBeforeSeconds)) {
         const renewal = await renewPayload(payload, now);
         if (renewal.kind === "expirada") return gone("expirada");
-        if (renewal.kind === "renovada") return { ok: true, accessToken: renewal.payload.at, userId: renewal.userId, sessionId, cookie: renewal.cookie };
+        if (renewal.kind === "renovada") return { ok: true, accessToken: renewal.payload.at, userId: renewal.userId, sessionId, startedAt: payload.sst, cookie: renewal.cookie };
         return renewal.cookie === undefined ? { ok: false, state: "indisponivel", sessionId } : { ok: false, state: "indisponivel", sessionId, cookie: renewal.cookie };
       }
 
       // Sem renovar: o access do cookie, verificado de novo (a DAL nunca confia no cookie).
       const verified = await verifier.verify(payload.at);
-      if (verified.ok && verified.sessionId === payload.sid) return { ok: true, accessToken: payload.at, userId: verified.userId, sessionId };
+      if (verified.ok && verified.sessionId === payload.sid) return { ok: true, accessToken: payload.at, userId: verified.userId, sessionId, startedAt: payload.sst };
       if (!verified.ok && verified.reason === "indisponivel") return { ok: false, state: "indisponivel", sessionId };
       return gone("ausente");
     },
