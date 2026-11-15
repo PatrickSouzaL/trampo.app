@@ -80,6 +80,7 @@ describe("construtor: só a chave publishable", () => {
       maxRequestBytes: 32_768,
       upsertSuccessStatuses: [201, 200],
       accessTokenMaxChars: 8_192,
+      rpcMaxResponseBytes: 64,
     });
   });
 });

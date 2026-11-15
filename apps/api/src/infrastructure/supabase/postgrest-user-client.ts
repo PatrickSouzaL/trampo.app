@@ -8,6 +8,9 @@
 // o corpo enviado tem teto de 32 KiB e só as colunas declaradas, e só os status de sucesso fixados valem; o corpo da
 // resposta nunca é lido (o erro de `check` do Postgres ecoa a linha recusada). Nunca rejeita. Nada da chave, do
 // token, da URL, do corpo enviado ou da resposta vai para log ou mensagem de erro.
+//
+// RPC (ADR-029 D3): `POST /rest/v1/rpc/<função>` com o corpo fixo `{}` e o nome numa lista fechada. Nada de quem
+// chama vira URL nem argumento: a função decide tudo pelo JWT. Só o 200 com JSON de até 64 bytes vale.
 import { ACCESS_TOKEN_MAX_CHARS } from "@trampo/contracts/limits";
 
 import { parseJsonWithoutPrototypeKeys } from "../../application/llm/llm-output-guard.js";
@@ -25,10 +28,16 @@ export const POSTGREST_CLIENT_POLICY = {
   upsertSuccessStatuses: Object.freeze([201, 200] as const),
   /** O mesmo teto da borda (ADR-013 D3) e do CriteriaGuard, da fonte única do contrato. */
   accessTokenMaxChars: ACCESS_TOKEN_MAX_CHARS,
+  /** A resposta de um RPC é uma palavra entre aspas (ADR-029 D2): nada maior é lido. */
+  rpcMaxResponseBytes: 64,
 } as const;
 
-/** Tabelas que o cliente de usuário pode ler e gravar. Cresce com o F1-API-06. */
-export type PostgrestTable = "user_criteria";
+/** Tabelas que o cliente de usuário pode ler. Só `user_criteria` é gravável (PostgrestWritableColumns). */
+export type PostgrestTable = "user_criteria" | "analyses" | "analysis_feedback";
+
+/** Funções que o cliente de usuário pode chamar por RPC (ADR-029 D3): lista fechada, sem argumento. */
+export const POSTGREST_FUNCTIONS = Object.freeze(["delete_own_account"] as const);
+export type PostgrestFunction = (typeof POSTGREST_FUNCTIONS)[number];
 
 /** Colunas que o cliente pode gravar em cada tabela (ADR-021 D4): a lista vai na URL (`columns=`) e no corpo. */
 export interface PostgrestWritableColumns {
@@ -38,8 +47,10 @@ export interface PostgrestWritableColumns {
 export type PostgrestRead = { readonly ok: true; readonly value: unknown } | { readonly ok: false };
 export type PostgrestWrite = { readonly ok: true } | { readonly ok: false };
 
+export type PostgrestWritableTable = keyof PostgrestWritableColumns;
+
 /** Um `INSERT ... ON CONFLICT DO UPDATE` com as colunas explícitas. */
-export interface PostgrestUpsert<T extends PostgrestTable> {
+export interface PostgrestUpsert<T extends PostgrestWritableTable> {
   readonly columns: readonly PostgrestWritableColumns[T][];
   readonly onConflict: PostgrestWritableColumns[T];
   readonly row: Readonly<Record<PostgrestWritableColumns[T], unknown>>;
@@ -58,20 +69,27 @@ export interface PostgrestUserClient {
    * `Prefer: resolution=merge-duplicates,return=minimal`. O corpo leva só as colunas de `columns`, na ordem delas,
    * mesmo que `row` traga outras chaves. Nunca rejeita.
    */
-  upsert<T extends PostgrestTable>(
+  upsert<T extends PostgrestWritableTable>(
     table: T,
     upsert: PostgrestUpsert<T>,
     accessToken: string,
     signal?: AbortSignal,
   ): Promise<PostgrestWrite>;
+  /**
+   * `POST /rest/v1/rpc/<name>` com o token do dono e o corpo `{}`. Devolve o JSON da resposta (até 64 bytes) só no
+   * 200. Nunca rejeita, e `{ ok: false }` NÃO prova que a função não rodou.
+   */
+  rpc(name: PostgrestFunction, accessToken: string, signal?: AbortSignal): Promise<PostgrestRead>;
 }
 
 export interface PostgrestUserClientConfig {
   /** Origem do projeto (a mesma `SUPABASE_URL` do JWT, ADR-013 D6). */
   readonly url: URL;
   readonly publishableKey: string;
-  /** Só para os testes encurtarem o prazo. */
+  /** O prazo de cada chamada. Padrão: o da política (os critérios); a conta usa um maior (ADR-029 D3). */
   readonly timeoutMs?: number;
+  /** O teto da leitura do `select`. Padrão: o da política; a exportação da conta usa um maior (ADR-029 D4). */
+  readonly maxResponseBytes?: number;
 }
 
 /** Mensagem fixa: nunca repete a chave recebida. */
@@ -90,6 +108,7 @@ const FAILURE = { ok: false } as const;
 const WRITTEN: PostgrestWrite = { ok: true };
 const UPSERT_PREFER = "resolution=merge-duplicates,return=minimal";
 const UPSERT_SUCCESS: ReadonlySet<number> = new Set(POSTGREST_CLIENT_POLICY.upsertSuccessStatuses);
+const FUNCTIONS: ReadonlySet<string> = new Set(POSTGREST_FUNCTIONS);
 
 /** Token fora da forma nem sai daqui (e nunca vira cabeçalho com quebra de linha). */
 function isAccessToken(accessToken: string): boolean {
@@ -129,9 +148,22 @@ export function createPostgrestUserClient(config: PostgrestUserClientConfig): Po
   const base = new URL("/rest/v1/", config.url);
   const { publishableKey } = config;
   const timeoutMs = config.timeoutMs ?? POSTGREST_CLIENT_POLICY.timeoutMs;
+  const maxResponseBytes = config.maxResponseBytes ?? POSTGREST_CLIENT_POLICY.maxResponseBytes;
   const deadline = (signal: AbortSignal | undefined): AbortSignal => {
     const timeout = AbortSignal.timeout(timeoutMs);
     return signal === undefined ? timeout : AbortSignal.any([signal, timeout]);
+  };
+
+  /** Só o 200 com JSON dentro do teto vale; qualquer desvio é falha, com o resto do corpo cancelado. */
+  const readJson = async (response: Response, maxBytes: number): Promise<PostgrestRead> => {
+    if (response.status !== 200 || response.body === null || !isJson(response.headers.get("content-type"))) {
+      await response.body?.cancel();
+      return FAILURE;
+    }
+    const text = await readCapped(response.body, maxBytes);
+    if (text === null) return FAILURE;
+    const json = parseJsonWithoutPrototypeKeys(text);
+    return json.ok ? { ok: true, value: json.value } : FAILURE;
   };
 
   return {
@@ -148,14 +180,30 @@ export function createPostgrestUserClient(config: PostgrestUserClientConfig): Po
           redirect: "error",
           signal: deadline(signal),
         });
-        if (response.status !== 200 || response.body === null || !isJson(response.headers.get("content-type"))) {
-          await response.body?.cancel();
-          return FAILURE;
-        }
-        const text = await readCapped(response.body, POSTGREST_CLIENT_POLICY.maxResponseBytes);
-        if (text === null) return FAILURE;
-        const json = parseJsonWithoutPrototypeKeys(text);
-        return json.ok ? { ok: true, value: json.value } : FAILURE;
+        return await readJson(response, maxResponseBytes);
+      } catch {
+        return FAILURE;
+      }
+    },
+
+    async rpc(name, accessToken, signal) {
+      // Nome fora da lista (só por coerção de tipo): nada sai, e nenhum texto vira caminho.
+      if (!FUNCTIONS.has(name) || !isAccessToken(accessToken)) return FAILURE;
+      try {
+        const response = await fetch(new URL(`rpc/${name}`, base), {
+          method: "POST",
+          headers: {
+            apikey: publishableKey,
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
+            accept: "application/json",
+          },
+          // Sem argumento: a função decide tudo pelo JWT.
+          body: "{}",
+          redirect: "error",
+          signal: deadline(signal),
+        });
+        return await readJson(response, POSTGREST_CLIENT_POLICY.rpcMaxResponseBytes);
       } catch {
         return FAILURE;
       }

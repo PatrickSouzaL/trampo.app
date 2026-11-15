@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { AnalysisStreamEventSchema, ApiErrorSchema, type AnalysisStreamEvent } from "@trampo/contracts";
+import { AccountExportSchema } from "@trampo/contracts/account";
 import { AuthSessionResponseSchema } from "@trampo/contracts/auth";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ZodError } from "zod";
@@ -18,7 +19,7 @@ import {
   ProviderChainConfigError,
   RouterConfigError,
 } from "../src/application/index.js";
-import { NO_EXTRACTOR_PROMPT_VERSION, composeApp, type ComposedApp, type Environment } from "../src/composition/compose-app.js";
+import { ACCOUNT_POSTGREST_CLIENT, NO_EXTRACTOR_PROMPT_VERSION, composeApp, type ComposedApp, type Environment } from "../src/composition/compose-app.js";
 import {
   composeProductionApp,
   createProductionExtractor,
@@ -381,6 +382,112 @@ describe("rotas de critérios (F1-API-05 commit 5; ADR-021 §4)", () => {
     }
     const warned = lines.map((line) => JSON.parse(line) as Record<string, unknown>).filter((r) => r["level"] === 40);
     expect(warned.map((r) => r["msg"])).toEqual(["criterios_gravacao_indisponivel"]);
+  });
+});
+
+describe("rotas da conta (ADR-029 D3 a D5)", () => {
+  const OTHER_OWNER = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
+  const ANALYSIS_ID = "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b";
+  const CONFIRMED = { schemaVersion: 1, confirmation: "excluir minha conta" };
+  const restRequests = () => postgrest.requests.filter((request) => request.url.includes("/rest/v1/"));
+  const capture = (lines: string[]) => ({ logger: { level: "trace" as const, stream: { write: (line: string) => lines.push(line) } } });
+  const exportData = (instance: ComposedApp, headers: Record<string, string> = {}) => instance.app.inject({ method: "GET", url: "/v1/account/export", headers });
+  const remove = (instance: ComposedApp, headers: Record<string, string> = {}, payload: unknown = CONFIRMED) =>
+    instance.app.inject({ method: "POST", url: "/v1/account/delete", headers: { "content-type": "application/json", ...headers }, payload: JSON.stringify(payload) });
+  const analysisRow = (owner: string) => ({ id: ANALYSIS_ID, user_id: owner, created_at: "2026-11-15T12:00:00+00:00", decision_path: "extracao_llm", verdict: "neutro", score: 50 });
+  const feedbackRow = (owner: string) => ({ analysis_id: ANALYSIS_ID, user_id: owner, agreement: "concordo", reason: null, updated_at: "2026-11-15T12:30:00+00:00" });
+
+  test("o cliente da conta fica logo abaixo do prazo do serviço e lê até 128 KiB", () => {
+    expect(ACCOUNT_POSTGREST_CLIENT).toEqual({ timeoutMs: 1_800, maxResponseBytes: 131_072 });
+    expect(Object.isFrozen(ACCOUNT_POSTGREST_CLIENT)).toBe(true);
+  });
+
+  test("o boot monta as duas rotas: 401 com no-store sem token, sem tocar o banco nem o Redis", async () => {
+    const instance = boot();
+    for (const res of [await exportData(instance), await remove(instance)]) {
+      expect(res.statusCode).toBe(401);
+      expect(res.headers["cache-control"]).toBe("no-store");
+    }
+    expect(restRequests()).toHaveLength(0);
+    expect(upstash.requests).toHaveLength(0);
+  });
+
+  test("exportação pelas peças reais: a pretensão decifrada, as duas listas do dono, a classe `conta` no Redis e nada no log", async () => {
+    const token = await storeOwnerCriteria();
+    postgrest.analyses.push(analysisRow(OWNER), analysisRow(OTHER_OWNER));
+    postgrest.feedback.push(feedbackRow(OWNER), feedbackRow(OTHER_OWNER));
+    const lines: string[] = [];
+    const res = await exportData(boot({}, capture(lines)), { authorization: `Bearer ${token}` });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    const document = AccountExportSchema.parse(res.json());
+    expect(document.criteria).toEqual(criteria({ salary: SALARY }));
+    expect(document.analyses).toEqual([{ id: ANALYSIS_ID, createdAt: "2026-11-15T12:00:00.000Z", decisionPath: "extracao_llm", verdict: "neutro", score: 50 }]);
+    expect(document.feedback).toEqual([{ analysisId: ANALYSIS_ID, agreement: "concordo", reason: null, updatedAt: "2026-11-15T12:30:00.000Z" }]);
+    expect([document.analysesTruncated, document.feedbackTruncated]).toEqual([false, false]);
+    // Três leituras, todas com a publishable e o Bearer do dono; nenhuma escrita.
+    expect(restRequests().map((request) => `${request.method} ${new URL(request.url, "http://x").pathname}`).sort()).toEqual([
+      "GET /rest/v1/analyses",
+      "GET /rest/v1/analysis_feedback",
+      "GET /rest/v1/user_criteria",
+    ]);
+    for (const request of restRequests()) expect(request).toEqual(expect.objectContaining({ apikey: PUBLISHABLE, authorization: `Bearer ${token}` }));
+    expect(JSON.stringify(upstash.requests.map((request) => request.commands))).toContain("rl:conta:");
+    for (const leak of [token, OWNER, "9000", SALARY_KEY, ANALYSIS_ID]) expect(lines.join("")).not.toContain(leak);
+  });
+
+  test("exclusão pelas peças reais: um RPC sem argumento com o Bearer do dono, 204, e só as linhas dele somem", async () => {
+    const token = await storeOwnerCriteria();
+    await storeOwnerCriteria(OTHER_OWNER);
+    postgrest.analyses.push(analysisRow(OWNER), analysisRow(OTHER_OWNER));
+    postgrest.feedback.push(feedbackRow(OWNER), feedbackRow(OTHER_OWNER));
+    const lines: string[] = [];
+    const instance = boot({}, capture(lines));
+    const res = await remove(instance, { authorization: `Bearer ${token}` });
+    expect(res.statusCode).toBe(204);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(restRequests().map((request) => `${request.method} ${request.url} ${request.body}`)).toEqual(["POST /rest/v1/rpc/delete_own_account {}"]);
+    expect(restRequests()[0]).toEqual(expect.objectContaining({ apikey: PUBLISHABLE, authorization: `Bearer ${token}` }));
+    expect(postgrest.deletions).toEqual([OWNER]);
+    expect([postgrest.rows, postgrest.analyses, postgrest.feedback].map((list) => list.map((row) => row.user_id))).toEqual([[OTHER_OWNER], [OTHER_OWNER], [OTHER_OWNER]]);
+    const records = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(records.filter((r) => r["msg"] === "conta_excluida")).toHaveLength(1);
+    for (const leak of [token, OWNER, "excluir minha conta"]) expect(lines.join("")).not.toContain(leak);
+    // Depois: a exportação do mesmo token sai vazia (o access ainda vale), nunca a de outro dono.
+    const after = AccountExportSchema.parse((await exportData(instance, { authorization: `Bearer ${token}` })).json());
+    expect([after.criteria, after.analyses, after.feedback]).toEqual([null, [], []]);
+  });
+
+  test("login antigo no banco: 403 PROIBIDO, e nada some", async () => {
+    const token = await storeOwnerCriteria();
+    postgrest.deleteResult = "login_antigo";
+    const res = await remove(boot(), { authorization: `Bearer ${token}` });
+    expect(res.statusCode).toBe(403);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe("PROIBIDO");
+    expect(postgrest.rows).toHaveLength(1);
+  });
+
+  test("PostgREST fora do ar ou com resposta fora das três palavras: 503 e só o aviso no log", async () => {
+    const token = await ownerToken();
+    const lines: string[] = [];
+    const instance = boot({}, capture(lines));
+    postgrest.mode = { kind: "status", status: 503 };
+    expect((await remove(instance, { authorization: `Bearer ${token}` })).statusCode).toBe(503);
+    expect((await exportData(instance, { authorization: `Bearer ${token}` })).statusCode).toBe(503);
+    postgrest.mode = { kind: "normal" };
+    postgrest.deleteResult = { ok: true };
+    const res = await remove(instance, { authorization: `Bearer ${token}` });
+    expect(res.statusCode).toBe(503);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe("SERVICO_INDISPONIVEL");
+    const warned = lines.map((line) => JSON.parse(line) as Record<string, unknown>).filter((r) => r["level"] === 40).map((r) => r["msg"]);
+    expect(warned.filter((msg) => String(msg).startsWith("conta_"))).toEqual(["conta_exclusao_indisponivel", "conta_exportacao_indisponivel", "conta_exclusao_indisponivel"]);
+  });
+
+  test("sem a frase de confirmação: 400, e o banco não é tocado", async () => {
+    const token = await ownerToken();
+    const res = await remove(boot(), { authorization: `Bearer ${token}` }, { schemaVersion: 1 });
+    expect(res.statusCode).toBe(400);
+    expect(restRequests()).toHaveLength(0);
   });
 });
 

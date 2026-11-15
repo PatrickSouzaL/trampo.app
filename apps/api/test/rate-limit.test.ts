@@ -124,7 +124,7 @@ describe("quando o rate limit roda", () => {
     await app.inject({ method: "POST", url: "/probe/analise", headers: { ...authed, "content-type": "application/json" }, payload: '{"texto":"a"}' });
     await app.inject({ method: "PUT", url: "/probe/criterios", headers: { ...authed, "content-type": "application/json" }, payload: '{"texto":"a"}' });
     await app.inject({ method: "GET", url: "/probe/classe-estranha", headers: authed });
-    expect(calls.map((c) => c.rateClass)).toEqual(["analise", "criterios", "analise"]);
+    expect(calls.map((c) => c.rateClass)).toEqual(["analise", "criterios", "conta"]);
   });
 
   test("criterios: 429 antes de ler o corpo, como as outras classes", async () => {

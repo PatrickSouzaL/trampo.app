@@ -28,16 +28,17 @@ const MINUTE = 60_000;
 const DAY = 86_400_000;
 
 describe("política fixada no ADR-014 (D4 a D6)", () => {
-  test("rate limit: janela de 60 s, padrao 60/120, analise 5/20 e criterios 10/30 (ADR-021 D8.2)", () => {
+  test("rate limit: janela de 60 s, padrao 60/120, analise 5/20, criterios 10/30 (ADR-021 D8.2) e conta 3/10 (ADR-029 D5)", () => {
     expect(RATE_LIMIT_POLICY).toEqual({
       windowMs: 60_000,
       classes: {
         padrao: { user: 60, address: 120 },
         analise: { user: 5, address: 20 },
         criterios: { user: 10, address: 30 },
+        conta: { user: 3, address: 10 },
       },
     });
-    expect(STRICTEST_RATE_LIMIT_CLASS).toBe("analise");
+    expect(STRICTEST_RATE_LIMIT_CLASS).toBe("conta");
   });
 
   test("a classe mais estrita é a menor nas duas dimensões, contra todas as outras", () => {
@@ -154,12 +155,13 @@ describe("resolveRateLimitClass", () => {
     expect(resolveRateLimitClass("padrao")).toBe("padrao");
     expect(resolveRateLimitClass("analise")).toBe("analise");
     expect(resolveRateLimitClass("criterios")).toBe("criterios");
+    expect(resolveRateLimitClass("conta")).toBe("conta");
   });
 
-  test.each([["outra"], [null], [""], ["ANALISE"], ["CRITERIOS"], ["criterio"], [" criterios"], [1], [{}], ["__proto__"], ["constructor"]])(
+  test.each([["outra"], [null], [""], ["ANALISE"], ["CRITERIOS"], ["criterio"], [" criterios"], ["CONTA"], ["contas"], [1], [{}], ["__proto__"], ["constructor"]])(
     "valor fora do conjunto (%j) vale a classe mais estrita",
     (value) => {
-      expect(resolveRateLimitClass(value)).toBe("analise");
+      expect(resolveRateLimitClass(value)).toBe("conta");
     },
   );
 });

@@ -11,6 +11,8 @@ import { ACCOUNT_RECENT_LOGIN_SECONDS } from "@trampo/contracts/limits";
 import { beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
+import { createSupabaseAccountStore } from "../../src/infrastructure/persistence/supabase-account-store.js";
+import { createPostgrestUserClient } from "../../src/infrastructure/supabase/postgrest-user-client.js";
 import { insertPkceFlow, signInWithPassword, signUpWithPassword, type PasswordSession } from "./support/auth-stack.js";
 import {
   ACCOUNT_ACL_SQL,
@@ -93,6 +95,50 @@ describe("catálogo: a definição presa (condições 2 e 7)", () => {
 
   test("authenticated sem usuário no JWT: 28000, nunca uma exclusão", () => {
     expect(psqlJson(stack, sqlStateAsRoleSql("select public.delete_own_account();"), { papel: "authenticated" })).toEqual({ sqlstate: "28000", papel: "authenticated" });
+  });
+});
+
+describe("o adapter da API contra o PostgREST real (ADR-029 D3 e D4)", () => {
+  const store = createSupabaseAccountStore({
+    client: createPostgrestUserClient({ url: stack.apiUrl, publishableKey: stack.publishableKey, timeoutMs: 5_000, maxResponseBytes: 128 * 1024 }),
+  });
+  let user: PasswordSession;
+  let other: PasswordSession;
+
+  beforeAll(async () => {
+    user = await signUpWithPassword(stack);
+    other = await signUpWithPassword(stack);
+    await plant(user);
+    await plant(other);
+  });
+
+  test("as listas da exportação: só as linhas do dono, com a data do Postgres convertida para o ISO em UTC do contrato", async () => {
+    const records = await store.records({ userId: user.userId, accessToken: user.accessToken });
+    expect(records).toEqual({
+      found: true,
+      analyses: [{ id: expect.any(String) as string, createdAt: expect.stringMatching(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/) as string, decisionPath: "extracao_llm", verdict: "neutro", score: 50 }],
+      analysesTruncated: false,
+      feedback: [{ analysisId: expect.any(String) as string, agreement: "concordo", reason: null, updatedAt: expect.stringMatching(/Z$/) as string }],
+      feedbackTruncated: false,
+    });
+  });
+
+  test("o filtro com o id de outro dono e o token deste: a RLS devolve listas vazias", async () => {
+    const records = await store.records({ userId: other.userId, accessToken: user.accessToken });
+    expect(records).toEqual({ found: true, analyses: [], analysesTruncated: false, feedback: [], feedbackTruncated: false });
+  });
+
+  test("a exclusão pelo adapter: a palavra da função, e o outro dono intacto", async () => {
+    const before = rowsOf(other);
+    expect(await store.deleteOwn({ userId: user.userId, accessToken: user.accessToken })).toEqual({ done: true, result: "excluida" });
+    expect(rowsOf(user)).toEqual(NO_ACCOUNT_ROWS);
+    expect(await store.deleteOwn({ userId: user.userId, accessToken: user.accessToken })).toEqual({ done: true, result: "ja_excluida" });
+    expect(rowsOf(other)).toEqual(before);
+  });
+
+  test("token inválido: indisponível, nunca uma exclusão confirmada", async () => {
+    expect(await store.deleteOwn({ userId: other.userId, accessToken: "a.b.c" })).toEqual({ done: false, unavailable: true });
+    expect(z.record(z.string(), z.int()).parse(rowsOf(other))["users"]).toBe(1);
   });
 });
 
