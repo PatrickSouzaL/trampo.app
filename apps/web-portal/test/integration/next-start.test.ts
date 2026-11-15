@@ -10,7 +10,10 @@ import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { COOKIE_NAMES } from "../../src/server/cookies";
+import { criteriaToForm, formPairs, type FormValues } from "../../src/server/criteria-form";
 import { SECURITY_HEADERS } from "../../src/server/headers";
+import { SALARY_CANARY_TEXT, fullCriteria } from "../support/criteria-fixtures";
+import { startFakeApi, type FakeApi } from "../support/fake-api";
 import { GOTRUE_CANARIES, startFakeGotrue, type FakeGotrue } from "../support/fake-gotrue";
 
 const APP = join(import.meta.dirname, "..", "..");
@@ -18,6 +21,7 @@ const NEXT_BIN = join(APP, "node_modules", "next", "dist", "bin", "next");
 const PUBLISHABLE = ["sb", "publishable", "p".repeat(24)].join("_");
 
 let fake: FakeGotrue;
+let api: FakeApi;
 let server: ChildProcess;
 let portal = "";
 let output = "";
@@ -37,6 +41,8 @@ beforeAll(async () => {
   const port = await freePort();
   portal = `http://127.0.0.1:${port}`;
   fake = await startFakeGotrue({ publishableKey: PUBLISHABLE, allowedRedirects: [`${portal}/auth/retorno`] });
+  // A API simulada (ADR-028 §4.2) aceita os access que o GoTrue simulado emitiu.
+  api = await startFakeApi({ owner: (token) => (fake.issued.some((pair) => pair.accessToken === token) ? GOTRUE_CANARIES.userId : null) });
   server = spawn(process.execPath, [NEXT_BIN, "start", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: APP,
     env: {
@@ -47,6 +53,7 @@ beforeAll(async () => {
       PORTAL_ORIGIN: portal,
       SUPABASE_URL: fake.url.origin,
       SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE,
+      API_ORIGIN: api.url.origin,
       PORTAL_SEAL_KEYS: `a1:${randomBytes(32).toString("base64url")}`,
       PORTAL_SEAL_ACTIVE_KEY: "a1",
     },
@@ -69,6 +76,7 @@ beforeAll(async () => {
 afterAll(async () => {
   server?.kill();
   await fake?.close();
+  await api?.close();
 });
 
 beforeEach(() => {
@@ -76,6 +84,9 @@ beforeEach(() => {
   fake.hookRefuses = false;
   fake.expiresIn = 900;
   fake.claims = {};
+  api.mode = { kind: "normal" };
+  api.rows.clear();
+  api.requests.length = 0;
 });
 
 type Init = { readonly method?: string; readonly headers?: Record<string, string> };
@@ -221,9 +232,157 @@ describe("fluxo pelas rotas e pelo proxy (SR-25)", () => {
   });
 });
 
+describe("critérios (ADR-028, SR-27)", () => {
+  const FORM = "application/x-www-form-urlencoded";
+  const SAVE = "/conta/criterios/salvar";
+  const formBody = (values: FormValues): string => new URLSearchParams(formPairs(values)).toString();
+  const save = (session: string, values: FormValues, headers: Record<string, string> = {}, path = SAVE) =>
+    fetch(`${portal}${path}`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { cookie: `${COOKIE_NAMES.sessao}=${session}`, origin: portal, "sec-fetch-site": "same-origin", "content-type": FORM, ...headers },
+      body: formBody(values),
+    });
+  const puts = () => api.requests.filter((request) => request.method === "PUT");
+
+  it("a página e a rota: cabeçalhos uma vez cada, no-store e nonce em todo script", async () => {
+    const session = await login();
+    const page = await get("/conta/criterios", { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } });
+    expect(page.status).toBe(200);
+    expectSecurityHeaders(page, "/conta/criterios");
+    expect(page.headers.get("cache-control")).toContain("no-store");
+    const nonce = /'nonce-([^']+)'/.exec(page.headers.get("content-security-policy") ?? "")?.[1];
+    const html = await page.text();
+    const scripts = [...html.matchAll(/<script\b[^>]*>/g)].map((match) => match[0]);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`);
+    // O formulário é POST para a rota fixa (sem JS próprio): a pretensão nunca vai a URL.
+    const forms = [...html.matchAll(/<form\b[^>]*>/g)].map((match) => match[0]);
+    expect(forms).toHaveLength(1);
+    expect(forms[0]).toContain('method="post"');
+    expect(forms[0]).toContain('action="/conta/criterios/salvar"');
+    const cases: Array<readonly [string, Promise<Response>, number]> = [
+      ["POST sem Origin", get(SAVE, { method: "POST", headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } }), 403],
+      ["GET da rota", get(SAVE), 405],
+      ["/conta/criterios sem sessão", get("/conta/criterios"), 307],
+    ];
+    for (const [where, pending, status] of cases) {
+      const response = await pending;
+      expect(response.status, where).toBe(status);
+      expectSecurityHeaders(response, where);
+    }
+    expect((await get("/conta/criterios")).headers.get("location")).toBe("/");
+  });
+
+  it("a /conta leva à página de critérios", async () => {
+    const html = await (await get("/conta", { headers: { cookie: `${COOKIE_NAMES.sessao}=${await login()}` } })).text();
+    expect(html).toMatch(/<a[^>]*href="\/conta\/criterios"[^>]*>Seus critérios<\/a>/);
+  });
+
+  it("quem nunca salvou vê os padrões; salvar e reabrir traz o valor salvo, só na página do dono", async () => {
+    const session = await login();
+    expect(await (await get("/conta/criterios", { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } })).text()).toContain('data-origem="padroes"');
+    const saved = await save(session, criteriaToForm(fullCriteria()));
+    expect(saved.status).toBe(303);
+    expect(saved.headers.get("location")).toBe(`${portal}/conta/criterios?aviso=criterios_salvos`);
+    expect(saved.headers.get("cache-control")).toBe("no-store");
+    expect(api.rows.get(GOTRUE_CANARIES.userId)).toEqual(fullCriteria());
+    const html = await (await get("/conta/criterios?aviso=criterios_salvos", { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } })).text();
+    expect(html).toContain("Critérios salvos.");
+    expect(html).toContain('data-origem="salvos"');
+    expect(html).toContain(`value="${String(fullCriteria().salary?.minimum)}"`);
+  });
+
+  it("a API recebe só a lista fechada de cabeçalhos, mesmo com o navegador mandando cookie, Referer e X-Forwarded-For", async () => {
+    const session = await login();
+    const browser = { cookie: `outro=1; ${COOKIE_NAMES.sessao}=${session}`, referer: `${portal}/conta/criterios`, "x-forwarded-for": "203.0.113.9", "user-agent": "CANARIO-UA" };
+    expect((await save(session, criteriaToForm(fullCriteria()), browser)).status).toBe(303);
+    await get("/conta/criterios", { headers: browser });
+    expect(api.requests.map((request) => request.method)).toEqual(["PUT", "GET"]);
+    for (const request of api.requests) {
+      for (const name of ["cookie", "origin", "referer", "x-forwarded-for", "x-real-ip", "forwarded", "apikey"]) expect(request.headers[name], `${request.method} ${name}`).toBeUndefined();
+      expect(request.headers["user-agent"]).not.toContain("CANARIO");
+      expect(request.headers["authorization"]).toMatch(/^Bearer [\w-]+\.[\w-]+\.[\w-]+$/);
+    }
+  });
+
+  it.each([
+    ["sem Origin", { origin: "" }],
+    ["outra origem", { origin: "https://evil.invalid" }],
+    ["Origin null", { origin: "null" }],
+    ["cross-site", { "sec-fetch-site": "cross-site" }],
+    ["sem Sec-Fetch-Site", { "sec-fetch-site": "" }],
+  ])("CSRF (%s): 403, nenhum cookie e nenhuma chamada à API", async (_caso, over) => {
+    const session = await login();
+    const headers = Object.fromEntries(Object.entries({ cookie: `${COOKIE_NAMES.sessao}=${session}`, origin: portal, "sec-fetch-site": "same-origin", "content-type": FORM, ...over }).filter(([, value]) => value !== ""));
+    const response = await fetch(`${portal}${SAVE}`, { method: "POST", redirect: "manual", headers, body: formBody(criteriaToForm(fullCriteria())) });
+    expect(response.status).toBe(403);
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it("o 503 do PUT volta com o rascunho selado; a página o mostra uma vez e o apaga", async () => {
+    const session = await login();
+    api.mode = { kind: "responde", status: 503, code: "SERVICO_INDISPONIVEL" };
+    const values = { ...criteriaToForm(fullCriteria()), notes: ["RASCUNHO-DE-TESTE"] };
+    const failed = await save(session, values);
+    expect(failed.headers.get("location")).toBe(`${portal}/conta/criterios?aviso=criterios_nao_confirmados`);
+    const draft = failed.headers.getSetCookie().find((line) => line.startsWith(`${COOKIE_NAMES.rascunho}=`)) as string;
+    expect(draft).toMatch(/^__Host-trampo-rascunho=r1\.[^;]+; Path=\/; Max-Age=120; HttpOnly; Secure; SameSite=Lax$/);
+    expect(draft).not.toContain(SALARY_CANARY_TEXT);
+    expect(puts()).toHaveLength(1);
+    const page = await get("/conta/criterios?aviso=criterios_nao_confirmados", { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}; ${draft.split(";")[0] as string}` } });
+    const html = await page.text();
+    expect(html).toContain('data-origem="rascunho"');
+    expect(html).toContain("RASCUNHO-DE-TESTE");
+    expect(page.headers.getSetCookie()).toEqual([`${COOKIE_NAMES.rascunho}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`]);
+  });
+
+  it("erro de validação: os campos marcados com o texto do catálogo, sem o texto do Zod nem a rede", async () => {
+    const session = await login();
+    const failed = await save(session, { ...criteriaToForm(fullCriteria()), "stack.dealBreakers": ["TypeScript"] });
+    expect(failed.headers.get("location")).toBe(`${portal}/conta/criterios?aviso=criterios_invalidos`);
+    expect(api.requests).toHaveLength(0);
+    const draft = (failed.headers.getSetCookie()[0] as string).split(";")[0] as string;
+    const html = await (await get("/conta/criterios?aviso=criterios_invalidos", { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}; ${draft}` } })).text();
+    expect(html).toContain('data-campo="stack"');
+    expect(html).toContain("Tecnologias: até 15 obrigatórias");
+    expect(html).not.toMatch(/tecnologia_em_mais_de_uma_lista|Invalid|expected/);
+  });
+
+  it("formulário fora do tipo: formulario_recusado, sem rede e sem rascunho", async () => {
+    const session = await login();
+    const response = await save(session, criteriaToForm(fullCriteria()), { "content-type": "text/plain" });
+    expect(response.headers.get("location")).toBe(`${portal}/conta/criterios?aviso=formulario_recusado`);
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it("nenhum parâmetro ou cabeçalho muda o destino da gravação (sem open redirect)", async () => {
+    const session = await login();
+    for (const path of [`${SAVE}?redirect_to=https://evil.invalid`, `${SAVE}?next=//evil.invalid`, `${SAVE}?aviso=../../evil`]) {
+      const response = await save(session, criteriaToForm(fullCriteria()), { referer: "https://evil.invalid/" }, path);
+      const location = response.headers.get("location") as string;
+      expect(location.startsWith(`${portal}/conta/criterios?aviso=`), path).toBe(true);
+      expect(location, path).not.toContain("evil");
+    }
+  });
+
+  it("a API fora na leitura: a página diz indisponível e não mostra o formulário de padrões", async () => {
+    const session = await login();
+    api.mode = { kind: "responde", status: 503, code: "SERVICO_INDISPONIVEL" };
+    const html = await (await get("/conta/criterios", { headers: { cookie: `${COOKIE_NAMES.sessao}=${session}` } })).text();
+    expect(html).toContain('data-criterios="indisponivel"');
+    expect(html).not.toContain("<form");
+  });
+});
+
 describe("SR-12", () => {
   it("nada sensível na saída do processo do portal", () => {
     expect(secrets.size).toBeGreaterThan(Object.keys(GOTRUE_CANARIES).length - 1);
     for (const secret of secrets) expect(output).not.toContain(secret);
+    // ADR-028 condição 10: a pretensão nunca vai a log.
+    expect(output).not.toContain(SALARY_CANARY_TEXT);
+    expect(output).not.toContain("RASCUNHO-DE-TESTE");
   });
 });

@@ -351,7 +351,7 @@ O pré-spike manual (P4 a P8) roda depois do HITL-035 e antes de qualquer códig
   - as chaves ficam só no `.env` da API e no gerenciador de segredos. Nunca no cofre, no git, no banco ou na extensão.
   - **Emenda do 07g (F1-API-07, 2026-11-07, `b516fd0`):** o boot lê o anel e as idades (`readAuthSessionEnv`) e recusa material de chave repetido entre este anel e o da pretensão, qualquer que seja o `kid` (`KeyringReuseError`, sem ecoar `kid` nem chave). Fecha a pendência do 07b.
 - **Rotação de chave:** a selagem usa a ativa e a abertura aceita qualquer `kid` do anel. Retirar uma chave derruba as sessões seladas com ela. A consequência é só um novo login.
-- **Idade máxima:** `AUTH_SESSION_MAX_AGE_SECONDS`, padrão 86.400 (24 h), limites de 3.600 a 604.800, validado no boot e fixado por teste contra este ADR. O valor final é decisão do HITL-034 (Q2).
+- **Idade máxima:** `AUTH_SESSION_MAX_AGE_SECONDS`, padrão 86.400 (24 h), limites de 3.600 a 604.800, validado no boot e fixado por teste contra este ADR. O valor final é decisão do HITL-034 (Q2). **Desde a F1-API-09 (`77c6f97`, 2026-11-14), o teto é 86.400**: ver a emenda abaixo.
 - **Inatividade:** `AUTH_SESSION_IDLE_SECONDS`, recomendação 14.400 (4 h), limites de 900 até `AUTH_SESSION_MAX_AGE_SECONDS`, validado no boot. O valor final é decisão do HITL-034 (Q3).
 - **Custom Access Token Hook, condição para fechar o T9 por inteiro:**
   - recusa emitir token quando `auth.sessions.created_at` passa de `AUTH_SESSION_MAX_AGE_SECONDS`. Cobre **todas** as sessões, inclusive as criadas fora do BFF (T48), a chave de selagem vazada e a sessão órfã;
@@ -381,6 +381,13 @@ O pré-spike manual (P4 a P8) roda depois do HITL-035 e antes de qualquer códig
   - **Mutação** (`mut_api09.py`, molde do `mutlib.py` da sessão 29): o teto de volta a 604.800; a comparação `>` trocada por `>=` (86.400 recusado); o `fallback` diferente do `max`; o `test:db` comparando só com o `fallback`. O último se prova pela pilha simulada da sessão 24 ou pelo job `db` do PR.
   - **Efeito na operação:** um `apps/api/.env` com `AUTH_SESSION_MAX_AGE_SECONDS` acima de 86.400 impede a API de subir depois da mudança. A equipe não lê o `.env` (AGENTS §3.2): o aviso vai no runbook *auth-extensao* §1.5 e na mensagem do commit. O `.env.example` não muda (a variável fica sem valor).
   - **Ameaças:** T9 e T48 sem mudança de status (o hook já corta); efeito em SR-21 (a idade em um só valor). Nenhuma fronteira nova.
+  - **Implementação (sessão 30, 2026-11-14, `77c6f97`, push autorizado no prompt):**
+    - `AUTH_SESSION_LIMITS.maxAgeSeconds` = `{ fallback: 86_400, min: 3_600, max: 86_400 }`, com o porquê num comentário; o comentário do `DECIMAL_SECONDS` diz que a regex só confere a forma e que o corte por faixa vem depois;
+    - testes antes do código, 7 falhando pelo motivo certo: as faixas, o teto igual ao padrão, 86.401 e 604.800 recusados (unidade e boot), e o boot com 86.401 sem o valor no log nem na mensagem, com o controle de que o mesmo logger escreve quando o boot sobe; a inatividade de 86.401 com a idade no teto também cai;
+    - `test:db`: o `secs => N` da função comparado com o `fallback` **e** com o `max`. Na pilha simulada da sessão 24 (só o caso de catálogo, 5 de 5), o arquivo inteiro deu 64 de 65; o caso que caiu (a falha fechada com a função lançando) passa sozinho e não tem relação com a mudança. A prova que vale é o job `db` do PR do 11º ciclo;
+    - **`mut_api09.py` 7/7** (scratchpad da sessão 30): A-01 o teto de volta a 604.800; A-02 o `>` trocado por `>=`; A-03 o padrão diferente do teto; A-04 o teto um abaixo do padrão; A-05 o teto da inatividade pelo teto fixo; A-06 o corte por faixa retirado; D-01 o teto de volta a 604.800, morto pelo `test:db`. O controle **C-01** (o `test:db` de antes, só com o padrão, mais o mesmo mutante) **sobrevive**, como esperado: é a linha nova do teto que mata o D-01;
+    - o comentário do `.env.example` foi corrigido (dizia "de 3600 a 604800"); a variável continua sem valor;
+    - API com 3.762 testes e 100% nas 4 métricas; typecheck e lint limpos.
 
 ### D6. Verificação antes de repassar e JWKS em falha fechada
 - **Todo access token que vem do GoTrue passa pelo `AccessTokenVerifier` antes de sair da API.** Isso pega HS256, token anônimo e `session_id` ausente.

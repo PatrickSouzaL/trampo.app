@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { COOKIE_NAMES, cookieClear, cookieWrite, readCookie, replaceCookie, serializeCookie } from "../../src/server/cookies";
+import { COOKIE_NAMES, cookieClear, cookieWrite, hasCookie, readCookie, replaceCookie, serializeCookie } from "../../src/server/cookies";
 import { SECURITY_HEADERS, buildCsp } from "../../src/server/headers";
-import { NOTICES, parseNotice } from "../../src/server/notices";
+import { CRITERIA_FIELDS } from "../../src/server/criteria-form";
+import { CRITERIA_FIELD_ERRORS, CRITERIA_NOTICES, CRITERIA_PAGE_TEXTS, DRAFT_NOTICES, NOTICES, parseCriteriaNotice, parseNotice } from "../../src/server/notices";
 
 describe("cookies (ADR-027 D3)", () => {
   it("nomes com o prefixo __Host-", () => {
-    expect(COOKIE_NAMES).toEqual({ sessao: "__Host-trampo-sessao", fluxo: "__Host-trampo-fluxo" });
+    expect(COOKIE_NAMES).toEqual({ sessao: "__Host-trampo-sessao", fluxo: "__Host-trampo-fluxo", rascunho: "__Host-trampo-rascunho" });
   });
 
   it("Set-Cookie com os atributos exatos, na ordem", () => {
@@ -25,6 +26,14 @@ describe("cookies (ADR-027 D3)", () => {
     expect(readCookie(header, COOKIE_NAMES.fluxo)).toBeUndefined();
     expect(readCookie(null, COOKIE_NAMES.fluxo)).toBeUndefined();
     expect(readCookie("__Host-trampo-fluxo", COOKIE_NAMES.fluxo)).toBeUndefined();
+  });
+
+  it("hasCookie acha o nome uma ou mais vezes, com qualquer valor (para apagar)", () => {
+    expect(hasCookie(`a=1; ${COOKIE_NAMES.rascunho}=r1.x`, COOKIE_NAMES.rascunho)).toBe(true);
+    expect(hasCookie(`${COOKIE_NAMES.rascunho}=a; ${COOKIE_NAMES.rascunho}=b`, COOKIE_NAMES.rascunho)).toBe(true);
+    expect(hasCookie(`${COOKIE_NAMES.rascunho}`, COOKIE_NAMES.rascunho)).toBe(true);
+    expect(hasCookie(`${COOKIE_NAMES.rascunho}-x=1`, COOKIE_NAMES.rascunho)).toBe(false);
+    expect(hasCookie(null, COOKIE_NAMES.rascunho)).toBe(false);
   });
 
   it("o cookie repetido no cabeçalho não vale (plantado por outra origem)", () => {
@@ -79,6 +88,30 @@ describe("avisos (ADR-027 D7)", () => {
 
   it("nenhum texto com link ou marcação", () => {
     for (const text of Object.values(NOTICES)) expect(text).not.toMatch(/[<>]|https?:/);
+  });
+});
+
+describe("avisos dos critérios (ADR-028 D5 e D7)", () => {
+  it("catálogo fechado próprio; valor fora dele é ignorado", () => {
+    expect(Object.keys(CRITERIA_NOTICES).sort()).toEqual([
+      "criterios_indisponiveis",
+      "criterios_invalidos",
+      "criterios_nao_confirmados",
+      "criterios_recusados",
+      "criterios_salvos",
+      "formulario_recusado",
+    ]);
+    expect([...DRAFT_NOTICES].sort()).toEqual(["criterios_indisponiveis", "criterios_invalidos", "criterios_nao_confirmados", "criterios_recusados"]);
+    expect(parseCriteriaNotice("criterios_salvos")).toBe("criterios_salvos");
+    for (const value of ["saiu", "toString", "<script>", undefined, ["criterios_salvos"]]) expect(parseCriteriaNotice(value)).toBeNull();
+  });
+
+  it("um texto de erro por campo do contrato, e nenhum texto com link ou marcação", () => {
+    expect(Object.keys(CRITERIA_FIELD_ERRORS)).toEqual([...CRITERIA_FIELDS]);
+    for (const text of [...Object.values(CRITERIA_NOTICES), ...Object.values(CRITERIA_FIELD_ERRORS), ...Object.values(CRITERIA_PAGE_TEXTS)]) {
+      expect(text).not.toMatch(/[<>]|https?:/);
+      expect(text.length).toBeGreaterThan(5);
+    }
   });
 });
 

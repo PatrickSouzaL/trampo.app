@@ -5,6 +5,8 @@
 export const COOKIE_NAMES = Object.freeze({
   sessao: "__Host-trampo-sessao",
   fluxo: "__Host-trampo-fluxo",
+  /** O rascunho selado dos critérios, de uso único (ADR-028 D8). */
+  rascunho: "__Host-trampo-rascunho",
 } as const);
 
 export type CookieName = (typeof COOKIE_NAMES)[keyof typeof COOKIE_NAMES];
@@ -48,6 +50,11 @@ export function readCookie(header: string | null, name: CookieName): string | un
   if (header === null) return undefined;
   const found = pairs(header).filter(([key, value]) => key === name && value.length > 0);
   return found.length === 1 ? found[0]?.[1] : undefined;
+}
+
+/** O cookie aparece no cabeçalho, uma ou mais vezes, com qualquer valor (para apagá-lo). */
+export function hasCookie(header: string | null, name: CookieName): boolean {
+  return header !== null && pairs(header).some(([key]) => key === name);
 }
 
 /** O cabeçalho `Cookie` do pedido com este cookie trocado ou tirado (a página vê a sessão renovada pelo proxy). */

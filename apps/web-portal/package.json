@@ -12,6 +12,7 @@
     "test:e2e": "vitest run --config vitest.e2e.config.mts"
   },
   "dependencies": {
+    "@trampo/contracts": "workspace:*",
     "jose": "catalog:",
     "next": "catalog:",
     "react": "catalog:",

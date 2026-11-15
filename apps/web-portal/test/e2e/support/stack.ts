@@ -1,5 +1,5 @@
-// A pilha do E2E do portal (ADR-027 §7): o GoTrue simulado do portal, o `next start` do build e o navegador do sistema,
-// tudo em 127.0.0.1. Molde do harness da extensão, reescrito aqui (o portal não importa a extensão).
+// A pilha do E2E do portal (ADR-027 §7; ADR-028 §4.3): o GoTrue simulado do portal, a API simulada, o `next start` do
+// build e o navegador do sistema, tudo em 127.0.0.1. Molde do harness da extensão, reescrito aqui (o portal não importa a extensão).
 // - O `next start` recebe um ambiente fechado, só com origens de loopback; o anel de selo é efêmero.
 // - O navegador sobe pelo `chromium.launch` do playwright-core: transporte por pipe (nenhuma porta de depuração),
 //   contexto novo por teste e perfil temporário apagado no `close`. Sem download de navegador e sem TLS.
@@ -13,7 +13,8 @@ import { fileURLToPath } from "node:url";
 
 import { chromium, type Browser, type BrowserContext, type Page, type Response } from "playwright-core";
 
-import { startFakeGotrue, type FakeGotrue } from "../../support/fake-gotrue";
+import { startFakeApi, type FakeApi } from "../../support/fake-api";
+import { GOTRUE_CANARIES, startFakeGotrue, type FakeGotrue } from "../../support/fake-gotrue";
 
 const DEFAULT_BROWSERS: Partial<Record<NodeJS.Platform, string>> = {
   win32: "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
@@ -32,6 +33,8 @@ const LOOPBACK_ORIGIN = /^http:\/\/127\.0\.0\.1:\d{1,5}$/;
 export interface Stack {
   readonly portal: string;
   readonly fake: FakeGotrue;
+  /** A API simulada (ADR-028 §4.2): aceita os access que o GoTrue simulado emitiu. */
+  readonly api: FakeApi;
   /** Origem que tenta pôr o portal (`/portal`) ou a página de controle (`/controle`) num iframe. */
   readonly framer: string;
   readonly browser: Browser;
@@ -67,7 +70,7 @@ const html =
 
 /** Sobe o `next start` com o ambiente fechado e espera responder. Recusa qualquer origem fora do loopback. */
 async function startNext(port: number, env: Readonly<Record<string, string>>, sink: (chunk: string) => void): Promise<ChildProcess> {
-  for (const name of ["PORTAL_ORIGIN", "SUPABASE_URL"]) {
+  for (const name of ["PORTAL_ORIGIN", "SUPABASE_URL", "API_ORIGIN"]) {
     if (!LOOPBACK_ORIGIN.test(env[name] ?? "")) throw new Error(`o E2E só sobe o portal com origens de loopback (${name})`);
   }
   const child = spawn(process.execPath, [NEXT_BIN, "start", "-H", "127.0.0.1", "-p", String(port)], {
@@ -97,6 +100,7 @@ export async function startStack(): Promise<Stack> {
   const port = await freePort();
   const portal = `http://127.0.0.1:${port}`;
   const fake = await startFakeGotrue({ publishableKey: PUBLISHABLE, allowedRedirects: [`${portal}/auth/retorno`] });
+  const api = await startFakeApi({ owner: (token) => (fake.issued.some((pair) => pair.accessToken === token) ? GOTRUE_CANARIES.userId : null) });
   // O controle do iframe: outra origem, página sem nenhum cabeçalho de segurança.
   const open = await listen(html('<p id="aberta">CONTROLE-ABERTO</p>'));
   const framer = await listen((request, response) => {
@@ -115,25 +119,27 @@ export async function startStack(): Promise<Stack> {
       PORTAL_ORIGIN: portal,
       SUPABASE_URL: fake.url.origin,
       SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE,
+      API_ORIGIN: api.url.origin,
       PORTAL_SEAL_KEYS: `${SEAL_KID}:${randomBytes(32).toString("base64url")}`,
       PORTAL_SEAL_ACTIVE_KEY: SEAL_KID,
     },
     (chunk) => (output += chunk),
   ).catch(async (error: unknown) => {
-    await Promise.all([fake.close(), closeServer(open.server), closeServer(framer.server)]);
+    await Promise.all([fake.close(), api.close(), closeServer(open.server), closeServer(framer.server)]);
     throw error;
   });
   const browser = await chromium.launch({ executablePath: browserPath, headless: true, args: ["--no-first-run", "--no-default-browser-check"] });
   return {
     portal,
     fake,
+    api,
     framer: framer.origin,
     browser,
     output: () => output,
     async close() {
       await browser.close().catch(() => undefined);
       next.kill();
-      await Promise.all([fake.close(), closeServer(open.server), closeServer(framer.server)]);
+      await Promise.all([fake.close(), api.close(), closeServer(open.server), closeServer(framer.server)]);
     },
   };
 }

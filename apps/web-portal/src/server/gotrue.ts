@@ -14,6 +14,8 @@
 // `pode_ter_rotacionado`. Nunca rejeita, e nada da chave, dos tokens, do código, do verifier ou da resposta sai daqui.
 import { z } from "zod";
 
+import { discard, fetchFailure, readJson } from "./http";
+
 export type GotrueFailureReason = "recusado" | "nao_recebido" | "pode_ter_rotacionado";
 export interface GotrueFailure {
   readonly ok: false;
@@ -72,75 +74,19 @@ const PODE_TER_ROTACIONADO: GotrueFailure = Object.freeze({ ok: false, reason: "
 const LOGGED_OUT = Object.freeze({ ok: true } as const);
 
 const REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 403, 404, 422]);
-const NOT_CONNECTED_CODES: ReadonlySet<string> = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
-/** Mensagem do undici para o 3xx com `redirect: "error"`. */
-const REDIRECT_REFUSED = "unexpected redirect";
-const STRICT_UTF8 = new TextDecoder("utf-8", { fatal: true });
-const PROTOTYPE_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
 
 /**
  * O fetch rejeitou: só é `nao_recebido` quando a conexão nem abriu ou quando a resposta foi um redirecionamento.
  * Qualquer outra coisa (prazo, aborto, socket fechado) pode ter acontecido depois do envio.
  */
 function failureForFetchError(error: unknown): GotrueFailure {
-  // O fetch do Node sempre rejeita com um Error; o `cause` dele só existe nas falhas de rede.
-  const cause: unknown = (error as Error).cause;
-  if (!(cause instanceof Error)) return PODE_TER_ROTACIONADO;
-  const code = (cause as NodeJS.ErrnoException).code;
-  if (code !== undefined && NOT_CONNECTED_CODES.has(code)) return NAO_RECEBIDO;
-  return cause.message === REDIRECT_REFUSED ? NAO_RECEBIDO : PODE_TER_ROTACIONADO;
-}
-
-async function discard(response: Response): Promise<void> {
-  try {
-    await response.body?.cancel();
-  } catch {
-    // O corpo já morreu; não há o que soltar.
-  }
-}
-
-/** Lê no máximo `limit` bytes; `null` se passar (e o resto do stream é cancelado sem ler). */
-async function readCapped(body: ReadableStream<Uint8Array>, limit: number): Promise<Uint8Array | null> {
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (let next = await reader.read(); !next.done; next = await reader.read()) {
-    total += next.value.byteLength;
-    if (total > limit) {
-      // Se o cancelamento falhar, quem chama já trata a exceção como resposta perdida.
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(next.value);
-  }
-  return Buffer.concat(chunks);
-}
-
-/** JSON da resposta com teto, UTF-8 estrito e sem chaves de protótipo; `undefined` em qualquer desvio. */
-async function readJson(response: Response): Promise<unknown> {
-  const type = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
-  if (response.body === null || type !== "application/json") {
-    await discard(response);
-    return undefined;
-  }
-  const bytes = await readCapped(response.body, GOTRUE_POLICY.maxResponseBytes);
-  if (bytes === null) return undefined;
-  try {
-    let hostile = false;
-    const value: unknown = JSON.parse(STRICT_UTF8.decode(bytes), (key, inner: unknown) => {
-      if (PROTOTYPE_KEYS.has(key)) hostile = true;
-      return inner;
-    });
-    return hostile ? undefined : value;
-  } catch {
-    return undefined;
-  }
+  return fetchFailure(error) === "nao_conectou" ? NAO_RECEBIDO : PODE_TER_ROTACIONADO;
 }
 
 /** O `error_code` do corpo do GoTrue, ou `undefined` sem esse corpo. Nunca sai daqui. */
 async function gotrueErrorCode(response: Response): Promise<string | undefined> {
   try {
-    const parsed = GotrueErrorSchema.safeParse(await readJson(response));
+    const parsed = GotrueErrorSchema.safeParse(await readJson(response, GOTRUE_POLICY.maxResponseBytes));
     return parsed.success ? parsed.data.error_code : undefined;
   } catch {
     return undefined;
@@ -162,7 +108,7 @@ async function tokensFrom(response: Response): Promise<GotrueTokenResult> {
     return failureForStatus(response);
   }
   try {
-    const parsed = TokenResponseSchema.safeParse(await readJson(response));
+    const parsed = TokenResponseSchema.safeParse(await readJson(response, GOTRUE_POLICY.maxResponseBytes));
     if (!parsed.success) return PODE_TER_ROTACIONADO;
     return { ok: true, tokens: { accessToken: parsed.data.access_token, refreshToken: parsed.data.refresh_token, expiresIn: parsed.data.expires_in } };
   } catch {

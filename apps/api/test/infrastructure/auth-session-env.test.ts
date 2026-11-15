@@ -27,9 +27,17 @@ function thrownBy(run: () => unknown): Error {
 describe("readAuthSessionEnv", () => {
   test("faixas fixadas contra o ADR-004 D5", () => {
     expect(AUTH_SESSION_LIMITS).toEqual({
-      maxAgeSeconds: { fallback: 86_400, min: 3_600, max: 604_800 },
+      maxAgeSeconds: { fallback: 86_400, min: 3_600, max: 86_400 },
       idleSeconds: { fallback: 14_400, min: 900 },
     });
+  });
+
+  // F1-API-09 (emenda do ADR-004 D5, sessão 29): o hook do banco recusa a renovação depois de 86.400 s, então um teto
+  // acima disso seria uma configuração que o hook anula sem aviso. O teto é o padrão, e o test:db prende os dois à
+  // constante da migration.
+  test("o teto da idade máxima é o padrão (o 86.400 do hook)", () => {
+    expect(AUTH_SESSION_LIMITS.maxAgeSeconds.max).toBe(AUTH_SESSION_LIMITS.maxAgeSeconds.fallback);
+    expect(readAuthSessionEnv({ ...RING, AUTH_SESSION_MAX_AGE_SECONDS: "86400" }).maxAgeSeconds).toBe(86_400);
   });
 
   test("só o anel: idade máxima de 24 h e inatividade de 4 h", () => {
@@ -50,9 +58,9 @@ describe("readAuthSessionEnv", () => {
       maxAgeSeconds: 3_600,
       idleSeconds: 900,
     });
-    expect(readAuthSessionEnv({ ...RING, AUTH_SESSION_MAX_AGE_SECONDS: "604800", AUTH_SESSION_IDLE_SECONDS: "604800" })).toMatchObject({
-      maxAgeSeconds: 604_800,
-      idleSeconds: 604_800,
+    expect(readAuthSessionEnv({ ...RING, AUTH_SESSION_MAX_AGE_SECONDS: "86400", AUTH_SESSION_IDLE_SECONDS: "86400" })).toMatchObject({
+      maxAgeSeconds: 86_400,
+      idleSeconds: 86_400,
     });
     // A inatividade pode ser igual à idade máxima, nunca maior.
     expect(readAuthSessionEnv({ ...RING, AUTH_SESSION_MAX_AGE_SECONDS: "7200", AUTH_SESSION_IDLE_SECONDS: "7200" }).idleSeconds).toBe(7_200);
@@ -60,6 +68,9 @@ describe("readAuthSessionEnv", () => {
 
   test.each([
     ["AUTH_SESSION_MAX_AGE_SECONDS", "3599"],
+    // F1-API-09: um acima do teto novo, o teto antigo e um acima dele.
+    ["AUTH_SESSION_MAX_AGE_SECONDS", "86401"],
+    ["AUTH_SESSION_MAX_AGE_SECONDS", "604800"],
     ["AUTH_SESSION_MAX_AGE_SECONDS", "604801"],
     ["AUTH_SESSION_MAX_AGE_SECONDS", "86400.5"],
     ["AUTH_SESSION_MAX_AGE_SECONDS", "8.64e4"],
@@ -86,6 +97,13 @@ describe("readAuthSessionEnv", () => {
     );
     expect(error).toBeInstanceOf(AuthSessionConfigError);
     expect(error.message).toContain("AUTH_SESSION_IDLE_SECONDS");
+    // Com a idade no teto, a inatividade um segundo acima dele também cai, e a mensagem não repete o valor.
+    const atCeiling = thrownBy(() =>
+      readAuthSessionEnv({ ...RING, AUTH_SESSION_MAX_AGE_SECONDS: "86400", AUTH_SESSION_IDLE_SECONDS: "86401" }),
+    );
+    expect(atCeiling).toBeInstanceOf(AuthSessionConfigError);
+    expect(atCeiling.message).toContain("AUTH_SESSION_IDLE_SECONDS");
+    expect(atCeiling.message).not.toContain("86401");
   });
 
   test.each([

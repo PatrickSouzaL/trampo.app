@@ -1,6 +1,6 @@
 ---
 tipo: guia
-atualizado: 2026-11-13
+atualizado: 2026-11-15
 dono: "[SCRIBE]"
 fonte-da-verdade: "AGENTS.md, o cofre ../base e os package.json do trampo.app em 2026-11-13"
 relacionados: ["[00-indice-e-visao-geral](00-indice-e-visao-geral.md)", "*STATE*", "*TRILHAS*", "*BACKLOG*", "*HITL-QUEUE*", "*SESSION-LOG*", "*publicar-branch-pr*", "[ADR-019-ci-github-actions](../arquitetura/ADRs/ADR-019-ci-github-actions.md)"]
@@ -54,7 +54,7 @@ flowchart LR
 
 - A **tabela de trilhas** tem as colunas *Trilha*, *Sessão*, *Gasta cota?* e *Espera*. A regra de ouro: nenhuma trilha gasta cota de LLM nem chama o Supabase real.
 - O bloco **O que vem depois** lista as próximas trilhas.
-- Os **cuidados permanentes** são uma lista numerada (de 1 a 34). Os gerais vêm primeiro. Do 14 em diante, cada um nasceu de uma sessão e diz que regra seguir e **qual script de mutação rodar de novo** se alguém mexer naquele código. O cuidado 34 manda manter o [03-mapa-completo-de-arquivos](03-mapa-completo-de-arquivos.md) sincronizado.
+- Os **cuidados permanentes** são uma lista numerada (de 1 a 37). Os gerais vêm primeiro. Do 14 em diante, cada um nasceu de uma sessão e diz que regra seguir e **qual script de mutação rodar de novo** se alguém mexer naquele código. O cuidado 34 manda manter o [03-mapa-completo-de-arquivos](03-mapa-completo-de-arquivos.md) sincronizado.
 
 ### 3.3 *BACKLOG*: "quais são as tarefas?"
 

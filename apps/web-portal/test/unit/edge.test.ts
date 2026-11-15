@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetPortalConfigForTests } from "../../src/server/config";
 import { COOKIE_NAMES } from "../../src/server/cookies";
 import { SESSION_STATE_HEADER, handleProxy, isPageRequest, toResponse } from "../../src/server/edge";
-import { getPortalAuth, resetPortalAuthForTests, runInBackground } from "../../src/server/runtime";
+import { getPortalAuth, getPortalCriteria, resetPortalAuthForTests, runInBackground } from "../../src/server/runtime";
 import type { PortalAuth, ResolvedSession } from "../../src/server/session";
 
 const PORTAL = "https://portal.exemplo.invalid";
@@ -20,6 +20,7 @@ function stubEnv(): void {
   vi.stubEnv("PORTAL_ORIGIN", PORTAL);
   vi.stubEnv("SUPABASE_URL", "https://projeto.supabase.invalid");
   vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", ["sb", "publishable", "x".repeat(20)].join("_"));
+  vi.stubEnv("API_ORIGIN", "https://api.exemplo.invalid");
   vi.stubEnv("PORTAL_SEAL_KEYS", `a1:${randomBytes(32).toString("base64url")}`);
   vi.stubEnv("PORTAL_SEAL_ACTIVE_KEY", "a1");
 }
@@ -33,6 +34,7 @@ function fakeAuth(resolved: ResolvedSession): PortalAuth & { calls: Array<string
     completeLogin: unused,
     readSession: unused,
     logout: unused,
+    apiAccess: unused,
     resolveSession: (cookie) => {
       calls.push(cookie);
       return Promise.resolve(resolved);
@@ -104,6 +106,32 @@ describe("handleProxy (ADR-027 D6 e D8)", () => {
     expect(auth.calls).toEqual([undefined]);
     expect(result.requestHeaders.get(SESSION_STATE_HEADER)).toBe("ausente");
   });
+
+  // ADR-028 D8: o rascunho é de uso único. A página o lê no mesmo pedido, e o navegador o apaga na resposta.
+  it("rascunho numa página: fica no pedido e é apagado na resposta", async () => {
+    const headers = new Headers({ cookie: `${COOKIE_NAMES.sessao}=velho; ${COOKIE_NAMES.rascunho}=r1.x` });
+    const result = await handleProxy(input({ headers, pathname: "/conta/criterios" }));
+    expect(result.requestHeaders.get("cookie")).toBe(`${COOKIE_NAMES.sessao}=velho; ${COOKIE_NAMES.rascunho}=r1.x`);
+    expect(result.responseHeaders.slice(1)).toEqual([["Set-Cookie", `${COOKIE_NAMES.rascunho}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`]]);
+  });
+
+  it("rascunho com a sessão renovada: os dois cookies na resposta, o rascunho ainda no pedido", async () => {
+    const headers = new Headers({ cookie: `${COOKIE_NAMES.sessao}=velho; ${COOKIE_NAMES.rascunho}=r1.x` });
+    const result = await handleProxy(input({ headers, auth: fakeAuth({ state: "ativa", cookie: { name: COOKIE_NAMES.sessao, value: "novo", maxAge: 100 } }) }));
+    expect(result.requestHeaders.get("cookie")).toBe(`${COOKIE_NAMES.rascunho}=r1.x; ${COOKIE_NAMES.sessao}=novo`);
+    expect(result.responseHeaders.slice(1).map(([name, value]) => [name, value.split("=")[0]])).toEqual([
+      ["Set-Cookie", COOKIE_NAMES.sessao],
+      ["Set-Cookie", COOKIE_NAMES.rascunho],
+    ]);
+  });
+
+  it("rascunho fora de página (a própria gravação, um estático): intacto", async () => {
+    const headers = new Headers({ cookie: `${COOKIE_NAMES.rascunho}=r1.x` });
+    for (const [method, pathname] of [["POST", "/conta/criterios/salvar"], ["GET", "/_next/static/a.js"]] as const) {
+      const result = await handleProxy(input({ headers, method, pathname }));
+      expect(result.responseHeaders).toHaveLength(1);
+    }
+  });
 });
 
 describe("toResponse", () => {
@@ -142,6 +170,15 @@ describe("getPortalAuth", () => {
     stubEnv();
     const start = await getPortalAuth().startLogin({ provider: "github", secFetchSite: "same-origin" });
     expect(start.location.startsWith("https://projeto.supabase.invalid/auth/v1/authorize?")).toBe(true);
+  });
+
+  it("getPortalCriteria: monta uma vez, com a mesma sessão, e falha fechado sem ambiente", async () => {
+    expect(() => getPortalCriteria()).toThrow(/configuração do portal inválida/);
+    stubEnv();
+    const first = getPortalCriteria();
+    expect(getPortalCriteria()).toBe(first);
+    // Sem sessão, a página não chega à rede (a API do ambiente nem existe).
+    expect(await first.page({ sessionCookie: undefined, draftCookie: undefined, aviso: undefined })).toEqual({ kind: "sem_sessao" });
   });
 
   it("runInBackground não espera a tarefa", () => {

@@ -11,7 +11,7 @@
 | Peça | Pacote | Tecnologia | Papel |
 |---|---|---|---|
 | `apps/extension` | `@trampo/extension` | WXT 0.21.4 + React 19.3.0, Manifest V3 (Chrome e Edge ≥ 116) | *dumb client*: captura sob clique (`activeTab` + `scripting`, mundo `ISOLATED`), login PKCE no Service Worker e relatório no `chrome.sidePanel` |
-| `apps/web-portal` | `@trampo/web-portal` | Next.js 16.4.2 (App Router, `proxy.ts`), React 19.3.0, Tailwind 4.3.3 | login OAuth no servidor com cookies `__Host-` selados (ADR-027); critérios (F1-PORTAL-02) a seguir |
+| `apps/web-portal` | `@trampo/web-portal` | Next.js 16.4.2 (App Router, `proxy.ts`), React 19.3.0, Tailwind 4.3.3 | login OAuth no servidor com cookies `__Host-` selados (ADR-027); formulário de critérios sem JS próprio, lido e gravado pela API com o Bearer da sessão (ADR-028) |
 | `apps/api` | `@trampo/api` | Fastify 5.12.7, Zod 4.6.7, jose 6.2.12 | "Gateway de Decisão": borda, BFF de auth da extensão, funil híbrido, nota, relatório SSE e critérios |
 | `packages/contracts` | `@trampo/contracts` | Zod 4.6.7 (`z.strictObject`) | a língua comum: todos os schemas e limites |
 | `packages/config` | `@trampo/config` | ESLint 9 + preset de segurança, typescript-eslint, dependency-cruiser 18.6.0 | `tsconfig` base, lint de segurança e regras de fronteira |

@@ -77,6 +77,7 @@ Dois cookies, ambos com o prefixo **`__Host-`** (exige `Secure`, `Path=/` e nenh
 
 - **`Lax`, não `Strict`:** o retorno do IdP é uma navegação de topo vinda de outro site; com `Strict`, o cookie do fluxo não chegaria ao `/auth/retorno` e o login nunca fecharia. O `Lax` não manda o cookie em POST, `iframe` nem `fetch` de outro site.
 - **Um cookie só para a sessão:** access e refresh nunca se dessincronizam (gravação atômica). O teto do navegador é cerca de 4.096 bytes por cookie; o access do portal fica limitado a **2.300 caracteres** e o texto claro a 2.950 bytes: o pior caso (access no teto, refresh de 512) cabe no selo, e o par nome=valor do cookie fica abaixo de 4.096 mesmo com o `kid` de 16 caracteres (provado por teste). Access maior: `servico_indisponivel` com a sessão órfã encerrada (D2), nunca um cookie cortado. O tamanho real do access do projeto é **medido no HITL-041** (só o número). Se passar, a decisão volta ao `[ARCHITECT]` (dividir em dois cookies selados).
+  - **Emenda do HITL-041 (sessão 30, 2026-11-14):** o login real passou com o Google e com o GitHub, mas o humano **não anotou o Size**. Pelo próprio teto deste D3, o login que funcionou prova **access ≤ 2.300 caracteres nos dois provedores** (acima disso, o selo recusa com `servico_indisponivel`). O número exato e o gatilho de 2.000 (a margem para dividir em dois cookies) ficam **sem medida**. Decisão do `[ARCHITECT]`: **não dividir agora.** O risco é de disponibilidade, não de segurança: um access maior nega o login com aviso, nunca corta o cookie. A F1-PORTAL-02 não acrescenta nada ao JSON da sessão (os critérios vêm da API a cada página e nunca vão para cookie). O próximo login real (o roteiro do 1º salvamento real de critérios, ou o S-5) anota o Size pelo *auth-portal* §3.2. Detalhe na §8.
 - **`Max-Age` da sessão preso às 24 h:** o navegador descarta o cookie quando o hook já recusaria a renovação; o portal não promete "manter conectado" acima disso (ADR-026 §3).
 - Nenhum outro cookie. Nenhum token, código, verifier, `state` ou e-mail em `localStorage`, `sessionStorage`, query, HTML ou JS do cliente.
 
@@ -127,7 +128,8 @@ O `src/proxy.ts` roda em todo pedido (N6) e, **só nos `GET` de página** (fora 
 Lida só na DAL do servidor (`src/server/config.ts`, N7), validada com Zod na primeira leitura, em falha fechada e com mensagens que nunca repetem o valor:
 - `PORTAL_ORIGIN`: origem exata em https, ou http só em loopback (como o `isSupabaseOrigin` da API);
 - `SUPABASE_URL` (mesma regra) e `SUPABASE_PUBLISHABLE_KEY` (só `sb_publishable_…`; `sb_secret_` e `eyJ` recusadas);
-- `PORTAL_SEAL_KEYS` e `PORTAL_SEAL_ACTIVE_KEY` (D4).
+- `PORTAL_SEAL_KEYS` e `PORTAL_SEAL_ACTIVE_KEY` (D4);
+- **emenda da F1-PORTAL-02 (sessão 30, [ADR-028-portal-criteria](ADR-028-portal-criteria.md) D3):** `API_ORIGIN`, a origem exata da API (https, ou http só em loopback), obrigatória. São 6 variáveis no `.env.example` do portal.
 - Turbo: nenhuma delas em `globalEnv` ([ADR-001-hybrid-engine-and-monorepo](ADR-001-hybrid-engine-and-monorepo.md) L389). O build do portal não lê nenhuma (tudo em tempo de execução); o `.env.example` do portal documenta as 5, sem valor.
 
 ### D10. Logs
@@ -253,3 +255,82 @@ Critérios (F1-PORTAL-02), exportar e excluir a conta (F1-PORTAL-03), "Sair de t
 - **Mutação Q-:** Q-01 a Q-08, 8/8, cada um morto pela prova esperada (saída de cada mutante no `mutlogs/` do scratchpad da sessão 29). O Q-08 é a `<meta>` de volta a `no-referrer`, morto pela (f). O H-04 é o cabeçalho de volta, morto pela unidade e pela integração. O núcleo foi rodado de novo, com 62/62, e a borda deu 6/7 (o E-03 segue equivalente).
 - **O tamanho do access no HITL-041:** o humano não vê o access (ele fica selado no cookie). O runbook *auth-portal* tira o número da coluna Size do DevTools, pela conta `⌊3·(Size − 64 − kid)/4⌋ − refresh − 113` (o envelope do D4 e o JSON do D3). O E2E prova essa conta contra os tokens de verdade.
 - **[APPSEC]:** condições 1, 6, 8 e 9 provadas no navegador; a 11 (mutação) cumprida; a 12 vira o *HITL-QUEUE §HITL-041*. **A F1-PORTAL-01 fica fechada no código**; a parte do projeto real (o login com os IdPs reais e o tamanho do access) fecha com o HITL-041.
+
+## 8. Emenda do HITL-041 (sessão 30, 2026-11-14): o 1º login real
+
+**Resposta do humano** (declarada no prompt da sessão 30, a equipe não toca no projeto real), igual para o GitHub e o Google:
+- login ok, e o "Sair" deu o resultado esperado, com o cookie sumindo;
+- `Set-Cookie` da sessão: `Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax` (o `Max-Age` exato do login novo, `sst` igual ao agora);
+- cookie do fluxo apagado; `document.cookie.includes("trampo")` `false` e `document.cookie.length` `0`; nenhum erro de CSP no console;
+- **a entrada de loopback saiu da allow-list e foi conferida.** A condição 12 da §3 está cumprida, e a linha da §9 do [threat-model](../threat-model.md) fecha.
+
+**O que faltou:** o Size ("não anotei, mas foi conforme esperado"). A conta do §3.2 do *auth-portal* não tem entrada.
+- **O que se sabe sem o número:** o selo recusa access acima de 2.300 caracteres (D3) com `servico_indisponivel`. O login que fechou com os dois provedores prova access ≤ 2.300 em cada um. O cookie também coube nos 4.096 bytes do navegador.
+- **O que não se sabe:** se algum provedor passa de 2.000, o gatilho que levaria a dividir a sessão em dois cookies selados.
+- **Decisão do `[ARCHITECT]` (com o `[APPSEC]`, sem veto):** **não dividir agora**, e seguir com a F1-PORTAL-02.
+  - O modo de falha de um access grande é **negar o login com aviso**, nunca cortar o cookie nem abrir a sessão pela metade. O risco é de disponibilidade.
+  - A F1-PORTAL-02 **não muda o JSON da sessão** do D3: os critérios e a pretensão nunca vão para cookie, e são lidos da API a cada página ([ADR-028-portal-criteria](ADR-028-portal-criteria.md)). A margem não é consumida.
+  - O número entra no **próximo login real** (o roteiro do 1º salvamento real de critérios, que já precisa de um login, ou a hospedagem do S-5), pelo mesmo §3.2. Se der acima de 2.000, a decisão volta ao `[ARCHITECT]` antes de qualquer outra trilha do portal.
+- **Efeito:** a *BACKLOG §F1-PORTAL-01* fecha por inteiro (código, E2E e o login real). O residual do número vira linha da §9 do [threat-model](../threat-model.md).
+
+## 9. Emenda da F1-PORTAL-04 (sessão 31, 2026-11-15): "Sair de todos os dispositivos", só o desenho
+
+Emenda ao D7. **Nenhum código nesta sessão.** `[ARCHITECT]` + `[APPSEC]`, sem veto, 9 condições. O "Sair" comum (D7) não muda: continua `local`.
+
+### 9.1 Fatos e o que falta conferir
+
+| # | Fato | Fonte |
+|---|---|---|
+| S3 | O logout tem escopo `global` (todas as sessões do usuário), `local` e `others`; o access de sessão revogada vale até o `exp` | §1.1 (já conferido na sessão 25) |
+| A7 | A API não confere revogação de sessão: o JWT vale até o `exp` (900 s) | [ADR-028-portal-criteria](ADR-028-portal-criteria.md) §1.1 |
+| E1 | Na extensão, a renovação recusada pelo GoTrue leva ao estado deslogado, sem nova tentativa em laço | [ADR-004-extension-auth](ADR-004-extension-auth.md) D11.5 |
+| F1 (**a conferir antes do código**) | O que o GoTrue responde ao `POST /auth/v1/logout?scope=global` quando a sessão do Bearer já foi encerrada: a hipótese é o 403 `session_not_found` **sem revogar nada**. Conferir na pilha local (CLI 2.120.0, o job `db`) com duas sessões do mesmo usuário | pendente; o desenho falha fechado nas duas respostas (9.3) |
+
+### 9.2 Decisões
+
+- **Dois passos, sem JS:** a `/conta` ganha o link "Sair de todos os dispositivos" para a página **`/conta/sair-de-tudo`** (Server Component, a DAL em `leitura`, `no-store`). A página explica o efeito e tem **o próprio formulário**, que posta em **`POST /auth/sair-de-tudo`** (Route Handler; o `GET` é 405), e o link "Voltar". O `GET` da página nunca encerra nada.
+  - A rota fica em `/auth/*` para o proxy não renovar nela (D6), como o `/auth/sair`.
+  - Sem campo escondido de confirmação: a prova de intenção é o `Origin` exato com o `Sec-Fetch-Site` (D7), o cookie `SameSite=Lax` (um `POST` de outro site não o leva) e o `frame-ancestors 'none'` (a página de confirmação não entra em `iframe`).
+- **O escopo nunca vem do pedido.** O cliente do GoTrue passa a ter dois endereços fixos, montados no boot (`?scope=local` e `?scope=global`), e a interface vira `logout(accessToken, scope)` com a união fechada `"local" | "global"`. A DAL ganha `logoutEverywhere`, **o único chamador** do `global`. O `logout` do D7 e o logout da sessão órfã (D2) continuam `local`.
+- **Ordem (igual ao D7, com uma diferença):**
+  1. `Origin` exatamente igual a `PORTAL_ORIGIN` **e** `Sec-Fetch-Site` `same-origin`; senão 403 com o corpo fixo, sem tocar em cookie nem rede;
+  2. o cookie da sessão é apagado **sempre**, primeiro (a saída local é incondicional);
+  3. sem sessão que abra: `/?aviso=saiu_sem_confirmar` (não há Bearer para pedir o `global`);
+  4. access com até 60 s pela frente: renova antes; a renovação que falha segue com o access que há;
+  5. `POST ${SUPABASE_URL}/auth/v1/logout?scope=global` com o Bearer, **uma** tentativa;
+  6. **só o 2xx é "saiu de tudo"** (`/?aviso=saiu_de_tudo`). **A diferença para o D7:** o 403 `session_not_found` **não** conta como sucesso aqui. No `local`, sessão que não existe é sessão encerrada; no `global`, ela não prova nada sobre as outras sessões (F1). Qualquer outro resultado: `/?aviso=saiu_sem_confirmar`.
+- **Avisos novos no catálogo fechado:**
+  - `saiu_de_tudo`: "Você saiu de todos os dispositivos. A extensão e os outros navegadores param de funcionar em até 15 minutos.";
+  - `saiu_sem_confirmar`: "Você saiu deste navegador, mas não conseguimos confirmar a saída dos outros dispositivos. Entre de novo e repita. Sem isso, as outras sessões expiram sozinhas em até 24 horas."
+- **O texto da página de confirmação** (fixo, do catálogo) diz o efeito real, sem prometer corte imediato: a extensão e os outros navegadores saem **na próxima renovação**, em até 15 minutos (o access já emitido vale até o `exp`, S3 e A7), e será preciso entrar de novo em cada um.
+- **A extensão não muda** (E1): a sessão dela cai na renovação seguinte, pelo caminho que já existe. Nenhum contrato novo.
+- **Todo destino é constante** (a página inicial com um aviso do catálogo). Toda resposta da rota é 303 com `no-store`.
+
+### 9.3 Auditoria do `[APPSEC]` (sem veto, 9 condições)
+
+**Ameaças revistas:**
+- **T41 (CSRF de login):** se a vítima estiver na conta do atacante e clicar em "sair de tudo", quem perde as sessões é o atacante. Sem ganho para ele.
+- **T44 e T49 (envelope ou cookie roubado):** o botão vira o **remédio do usuário**: revoga o refresh de toda sessão, e o que sobra ao ladrão é o access já emitido, por até 900 s. O residual da §9 do [threat-model](../threat-model.md) ganha essa frase quando o código entrar.
+- **T48 (sessão do fluxo do atacante):** o `global` também a derruba.
+- **T33 (CSRF):** um `POST` forjado derrubaria todas as sessões do usuário (negação de serviço barata). Por isso o `Origin` exato com o `Sec-Fetch-Site`, o `SameSite=Lax` e nenhum `GET` que execute.
+- **T30 (falha que não pode virar promessa):** "saiu de tudo" só com o 2xx. Dizer isso sem a confirmação do servidor seria pior que não ter o botão.
+
+**Condições (cada uma com teste):**
+1. **O escopo só muda nesse botão:** o `POST /auth/sair` e o logout da sessão órfã chamam `scope=local`; só o `POST /auth/sair-de-tudo` chama `scope=global`. O GoTrue simulado registra o escopo de cada logout.
+2. **Nada do pedido escolhe o escopo:** query, corpo e cabeçalhos hostis (`?scope=global` no `/auth/sair`, `?scope=local` no `/auth/sair-de-tudo`) não mudam o endereço chamado.
+3. **CSRF:** sem `Origin`, com outra origem, com `null` ou com `Sec-Fetch-Site` diferente de `same-origin`: 403, cookie intacto e nenhuma chamada ao GoTrue. `GET /auth/sair-de-tudo` dá 405 e não encerra nada.
+4. **O `GET` da página de confirmação não encerra nada:** abrir `/conta/sair-de-tudo` não chama o logout; sem sessão, ela vai para a página inicial.
+5. **Só o 2xx confirma:** o 403 `session_not_found`, o 401, o 429, o 5xx, o prazo, a conexão recusada e o redirecionamento dão `saiu_sem_confirmar`. Em todos, o cookie do navegador some.
+6. **Efeito de verdade:** com duas sessões do mesmo usuário no GoTrue simulado (a 2ª faz o papel da extensão), o "sair de tudo" da 1ª faz a renovação da 2ª ser recusada, e a 2ª cai em "Sua sessão expirou". Com o "Sair" comum, a 2ª continua viva.
+7. **Uma tentativa, sem laço:** exatamente um `POST` de logout por clique, em todo modo de falha.
+8. **Sem JS e sem `"use client"`;** os cabeçalhos do D8 uma vez cada na página e na rota; `no-store`; a tabela de open redirect.
+9. **Mutação dirigida** (`mut_portal04.py`) antes do push: o escopo trocado nos dois sentidos, o 403 `session_not_found` contado como sucesso no `global`, o `Origin` não conferido, o cookie mantido na falha, a página de confirmação postando em `/auth/sair` e o link da `/conta` apontando direto para a rota.
+
+**Residuais:** o access já emitido vale até 900 s depois do "sair de tudo" (S3, A7; o mesmo residual do D7). O 1º uso contra o projeto real é HITL, no mesmo roteiro do 1º salvamento real de critérios.
+
+### 9.4 Plano de testes e partição
+
+- **Unidade:** `gotrue.logout` com os dois escopos (endereço exato), `session.logoutEverywhere` (a tabela do 9.2), os avisos novos e o texto da página.
+- **GoTrue simulado:** passa a guardar as sessões por usuário e o escopo de cada logout; o `global` revoga todas, e o `local` só a do Bearer.
+- **Integração e E2E:** as condições 1 a 8; no E2E, duas abas em contextos separados, pelo botão real (cuidado 36), 3 rodadas.
+- **Commits:** (1) núcleo (`gotrue`, `session`, `notices`) com a unidade e o GoTrue simulado; (2) a página, a rota, o link, a integração e o E2E; (3) `docs`.

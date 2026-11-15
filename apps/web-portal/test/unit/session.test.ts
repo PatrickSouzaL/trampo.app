@@ -26,6 +26,7 @@ beforeAll(async () => {
     PORTAL_ORIGIN: PORTAL,
     SUPABASE_URL: fake.url.origin,
     SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE,
+    API_ORIGIN: "http://127.0.0.1:3998",
     PORTAL_SEAL_KEYS: `a1:${randomBytes(32).toString("base64url")}`,
     PORTAL_SEAL_ACTIVE_KEY: "a1",
   });
@@ -406,5 +407,130 @@ describe("logout (ADR-027 D7)", () => {
     const result = await auth.logout({ ...allowed, sessionCookie: session.value });
     expect(result.kind === "redirect" && result.location).toBe(`${PORTAL}/?aviso=saiu`);
     expect(fake.requests.map((request) => request.url)).toEqual(["/auth/v1/token?grant_type=refresh_token", "/auth/v1/logout?scope=local"]);
+  });
+});
+
+describe("apiAccess: a sessão para a API (ADR-028 D4)", () => {
+  const clear = { name: COOKIE_NAMES.sessao, value: "", maxAge: 0 };
+  const payloadOf = (value: string) => JSON.parse(sessaoSealer().open(value) as string) as Record<string, string | number>;
+
+  it("sem cookie: ausente, sem cookie a gravar, nos três modos", async () => {
+    for (const mode of ["leitura", "gravacao", "forcada"] as const) expect(await auth.apiAccess(undefined, mode)).toEqual({ ok: false, state: "ausente" });
+  });
+
+  it("cookie que não abre: ausente; só os modos que gravam o apagam", async () => {
+    expect(await auth.apiAccess("lixo", "leitura")).toEqual({ ok: false, state: "ausente" });
+    expect(await auth.apiAccess("lixo", "gravacao")).toEqual({ ok: false, state: "ausente", cookie: clear });
+    expect(await auth.apiAccess("lixo", "forcada")).toEqual({ ok: false, state: "ausente", cookie: clear });
+  });
+
+  it("idade ou inatividade vencidas: expirada, sem rede; só os modos que gravam o apagam", async () => {
+    const base = { at: "a.b.c", rt: "r", sid: randomUUID(), ate: nowS() + 900, iat: nowS() };
+    const old = sealSession({ ...base, sst: nowS() - 86_401 });
+    expect(await auth.apiAccess(old, "leitura")).toEqual({ ok: false, state: "expirada", sessionId: base.sid });
+    expect(await auth.apiAccess(old, "gravacao")).toEqual({ ok: false, state: "expirada", sessionId: base.sid, cookie: clear });
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("leitura: o access do cookie, verificado, sem rede e sem cookie novo, mesmo perto do fim", async () => {
+    const { session } = await login();
+    const payload = payloadOf(session.value);
+    fake.requests.length = 0;
+    clock.ms += 850_000;
+    expect(await auth.apiAccess(session.value, "leitura")).toEqual({ ok: true, accessToken: payload["at"], userId: GOTRUE_CANARIES.userId, sessionId: payload["sid"] });
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("leitura com access que não verifica: ausente; com o JWKS fora: indisponível", async () => {
+    const { session } = await login();
+    const payload = payloadOf(session.value);
+    expect(await auth.apiAccess(sealSession({ ...payload, at: "a.b.c" }), "leitura")).toEqual({ ok: false, state: "ausente", sessionId: payload["sid"] });
+    expect(await auth.apiAccess(sealSession({ ...payload, sid: randomUUID() }), "leitura")).toMatchObject({ ok: false, state: "ausente" });
+    const offline = createPortalAuth({
+      config,
+      gotrue: createGotrueClient({ supabaseUrl: config.supabaseUrl, publishableKey: PUBLISHABLE, timeoutMs: 500 }),
+      verifier: { verify: () => Promise.resolve({ ok: false, reason: "indisponivel" }) },
+      now: () => clock.ms,
+      defer: (task) => pending.push(task),
+    });
+    expect(await offline.apiAccess(session.value, "leitura")).toEqual({ ok: false, state: "indisponivel", sessionId: payload["sid"] });
+    expect(await offline.apiAccess(session.value, "gravacao")).toEqual({ ok: false, state: "indisponivel", sessionId: payload["sid"] });
+  });
+
+  it("gravação com access que não verifica: ausente, com o cookie apagado e sem rede", async () => {
+    const { session } = await login();
+    const payload = payloadOf(session.value);
+    fake.requests.length = 0;
+    expect(await auth.apiAccess(sealSession({ ...payload, at: "a.b.c" }), "gravacao")).toEqual({ ok: false, state: "ausente", sessionId: payload["sid"], cookie: clear });
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("gravação com mais de 60 s pela frente: o access do cookie, sem rede", async () => {
+    const { session } = await login();
+    fake.requests.length = 0;
+    clock.ms += (900 - 61) * 1_000;
+    const result = await auth.apiAccess(session.value, "gravacao");
+    expect(result).toEqual({ ok: true, accessToken: payloadOf(session.value)["at"], userId: GOTRUE_CANARIES.userId, sessionId: payloadOf(session.value)["sid"] });
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("gravação perto do fim: renova antes, com o mesmo sst, e devolve o access novo e o cookie", async () => {
+    const { session } = await login();
+    const before = payloadOf(session.value);
+    clock.ms += 850_000;
+    fake.requests.length = 0;
+    const result = await auth.apiAccess(session.value, "gravacao");
+    expect(result.ok).toBe(true);
+    const after = payloadOf(result.cookie?.value as string);
+    expect(result).toMatchObject({ ok: true, accessToken: after["at"], userId: GOTRUE_CANARIES.userId, sessionId: before["sid"] });
+    expect(after["at"]).not.toBe(before["at"]);
+    expect([after["sst"], after["sid"], after["iat"]]).toEqual([before["sst"], before["sid"], nowS()]);
+    expect(result.cookie?.maxAge).toBe(PORTAL_SESSION_POLICY.maxAgeSeconds - 850);
+    expect(tokenCalls()).toHaveLength(1);
+  });
+
+  it("forçada: renova mesmo com tempo de sobra (o 401 da API, D4)", async () => {
+    const { session } = await login();
+    fake.requests.length = 0;
+    const result = await auth.apiAccess(session.value, "forcada");
+    expect(result.ok && payloadOf(result.cookie?.value as string)["at"]).not.toBe(payloadOf(session.value)["at"]);
+    expect(tokenCalls()).toHaveLength(1);
+  });
+
+  it("renovação recusada (o hook) ou de outra sessão: expirada com o cookie apagado", async () => {
+    const { session } = await login();
+    const sid = payloadOf(session.value)["sid"];
+    fake.hookRefuses = true;
+    expect(await auth.apiAccess(session.value, "forcada")).toEqual({ ok: false, state: "expirada", sessionId: sid, cookie: clear });
+    fake.hookRefuses = false;
+    fake.claims = { sessionId: randomUUID() };
+    expect(await auth.apiAccess(session.value, "forcada")).toEqual({ ok: false, state: "expirada", sessionId: sid, cookie: clear });
+  });
+
+  it("GoTrue fora na renovação: indisponível, o cookie fica (T30)", async () => {
+    const { session } = await login();
+    clock.ms += 850_000;
+    fake.mode = { kind: "responde", status: 503, body: "" };
+    expect(await auth.apiAccess(session.value, "gravacao")).toEqual({ ok: false, state: "indisponivel", sessionId: payloadOf(session.value)["sid"] });
+  });
+
+  it("JWKS fora depois da renovação: os tokens novos ficam selados, e a resposta é indisponível", async () => {
+    const { session } = await login();
+    const offline = createPortalAuth({
+      config,
+      gotrue: createGotrueClient({ supabaseUrl: config.supabaseUrl, publishableKey: PUBLISHABLE, timeoutMs: 500 }),
+      verifier: { verify: () => Promise.resolve({ ok: false, reason: "indisponivel" }) },
+      now: () => clock.ms,
+      defer: (task) => pending.push(task),
+    });
+    const result = await offline.apiAccess(session.value, "forcada");
+    expect(result).toMatchObject({ ok: false, state: "indisponivel", sessionId: payloadOf(session.value)["sid"] });
+    expect(result.cookie?.maxAge).toBeGreaterThan(0);
+  });
+
+  it("access novo acima do teto do cookie: indisponível, sem cookie novo", async () => {
+    const { session } = await login();
+    fake.claims = { extra: { pad: "p".repeat(2_400) } };
+    expect(await auth.apiAccess(session.value, "forcada")).toEqual({ ok: false, state: "indisponivel", sessionId: payloadOf(session.value)["sid"] });
   });
 });

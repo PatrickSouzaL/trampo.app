@@ -1,4 +1,4 @@
-// Núcleo do login e da sessão do portal (ADR-027 D2 a D7). Sem Next.js: recebe o que o pedido traz (query, cookies,
+// Núcleo do login e da sessão do portal (ADR-027 D2 a D7; o acesso à API, ADR-028 D4). Sem Next.js: recebe o que o pedido traz (query, cookies,
 // `Origin`, `Sec-Fetch-Site`) e devolve a intenção HTTP (destino e cookies), que as rotas e o proxy só traduzem.
 //
 // - Nenhum destino sai do pedido: só `/`, `/conta` (de `PORTAL_ORIGIN`) e o `authorize` (de `SUPABASE_URL`).
@@ -49,6 +49,24 @@ export interface ResolvedSession {
   readonly cookie?: CookieWrite;
 }
 
+/**
+ * Como a DAL pede a sessão para chamar a API (ADR-028 D4):
+ * - `leitura`: a página (Server Component, que não grava cookie). Verifica e nunca renova: o proxy já renovou;
+ * - `gravacao`: a rota de gravação. Com até 60 s pela frente, renova antes, como o logout;
+ * - `forcada`: depois de um 401 da API na gravação. Renova sempre; só a recusa do GoTrue apaga a sessão.
+ */
+export type ApiAccessMode = "leitura" | "gravacao" | "forcada";
+export type ApiAccess =
+  | { readonly ok: true; readonly accessToken: string; readonly userId: string; readonly sessionId: string; readonly cookie?: CookieWrite }
+  | {
+      readonly ok: false;
+      readonly state: Exclude<SessionState, "ativa">;
+      /** O `sid` do cookie, quando ele abriu (o rascunho se prende a ele). */
+      readonly sessionId?: string;
+      /** Só nos modos que gravam: o cookie apagado, ou os tokens novos selados com o JWKS fora. */
+      readonly cookie?: CookieWrite;
+    };
+
 export interface PortalAuthDeps {
   readonly config: PortalConfig;
   readonly gotrue: GotrueClient;
@@ -69,6 +87,8 @@ export interface PortalAuth {
     readonly secFetchSite: string | null;
     readonly sessionCookie: string | undefined;
   }): Promise<Redirect | Forbidden>;
+  /** O access verificado para a API, ou o estado da sessão (ADR-028 D4). */
+  apiAccess(sessionCookie: string | undefined, mode: ApiAccessMode): Promise<ApiAccess>;
 }
 
 const FlowSchema = z.strictObject({
@@ -90,6 +110,12 @@ const SessionSchema = z.strictObject({
   ate: z.int(),
 });
 type SessionPayload = z.infer<typeof SessionSchema>;
+
+/** O resultado de uma renovação, comum ao proxy (ADR-027 D6) e à DAL da API (ADR-028 D4). */
+type Renewal =
+  | { readonly kind: "renovada"; readonly payload: SessionPayload; readonly userId: string; readonly cookie: CookieWrite }
+  | { readonly kind: "expirada" }
+  | { readonly kind: "indisponivel"; readonly cookie?: CookieWrite };
 
 function parseJson<T>(text: string | null, schema: z.ZodType<T>): T | null {
   if (text === null) return null;
@@ -136,6 +162,23 @@ export function createPortalAuth(deps: PortalAuthDeps): PortalAuth {
   /** O fim do access: o menor entre o `expires_in` e o `exp` verificado. */
   const accessEnd = (tokens: GotrueTokens, verified: AccessVerification, now: number): number =>
     verified.ok ? Math.min(now + tokens.expiresIn, verified.expiresAt) : now + tokens.expiresIn;
+
+  /** Renova, verifica o access novo contra o `sid` do cookie e sela de novo (mesmo `sst`, `iat` novo). */
+  const renewPayload = async (payload: SessionPayload, now: number): Promise<Renewal> => {
+    const renewed = await renew(payload.rt);
+    if (!renewed.ok) return renewed.reason === "recusado" ? { kind: "expirada" } : { kind: "indisponivel" };
+    const { tokens } = renewed;
+    const verified = await verifier.verify(tokens.accessToken);
+    // Access de outra sessão ou fora da política: a sessão do cookie acabou.
+    if (!verified.ok && verified.reason === "invalido") return { kind: "expirada" };
+    if (verified.ok && verified.sessionId !== payload.sid) return { kind: "expirada" };
+    const next = { ...payload, at: tokens.accessToken, rt: tokens.refreshToken, iat: now, ate: accessEnd(tokens, verified, now) };
+    const cookie = sealSession(next);
+    // Acima do teto do cookie: o antigo fica (o refresh já rodou, e o reuso de 10 s ainda o aceita).
+    if (cookie === null) return { kind: "indisponivel" };
+    // JWKS fora: os tokens novos ficam selados (a DAL verifica antes de dar acesso), e o resultado é indisponível.
+    return verified.ok ? { kind: "renovada", payload: next, userId: verified.userId, cookie } : { kind: "indisponivel", cookie };
+  };
 
   return {
     async startLogin({ provider, secFetchSite }) {
@@ -193,18 +236,10 @@ export function createPortalAuth(deps: PortalAuthDeps): PortalAuth {
       if (expired(payload, now)) return { state: "expirada", cookie: clearSession };
       if (payload.ate - now > PORTAL_SESSION_POLICY.renewBeforeSeconds) return { state: "ativa" };
 
-      const renewed = await renew(payload.rt);
-      if (!renewed.ok) return renewed.reason === "recusado" ? { state: "expirada", cookie: clearSession } : { state: "indisponivel" };
-      const { tokens } = renewed;
-      const verified = await verifier.verify(tokens.accessToken);
-      // Access de outra sessão ou fora da política: a sessão do cookie acabou.
-      if (!verified.ok && verified.reason === "invalido") return { state: "expirada", cookie: clearSession };
-      if (verified.ok && verified.sessionId !== payload.sid) return { state: "expirada", cookie: clearSession };
-      const cookie = sealSession({ ...payload, at: tokens.accessToken, rt: tokens.refreshToken, iat: now, ate: accessEnd(tokens, verified, now) });
-      // Acima do teto do cookie: o antigo fica (o refresh já rodou, e o reuso de 10 s ainda o aceita).
-      if (cookie === null) return { state: "indisponivel" };
-      // JWKS fora: os tokens novos ficam selados (a DAL verifica antes de dar acesso), e a página diz indisponível.
-      return { state: verified.ok ? "ativa" : "indisponivel", cookie };
+      const renewal = await renewPayload(payload, now);
+      if (renewal.kind === "expirada") return { state: "expirada", cookie: clearSession };
+      if (renewal.kind === "renovada") return { state: "ativa", cookie: renewal.cookie };
+      return renewal.cookie === undefined ? { state: "indisponivel" } : { state: "indisponivel", cookie: renewal.cookie };
     },
 
     async readSession(sessionCookie) {
@@ -226,6 +261,30 @@ export function createPortalAuth(deps: PortalAuthDeps): PortalAuth {
       }
       const result = await gotrue.logout(accessToken);
       return done(result.ok ? "saiu" : "saiu_local");
+    },
+
+    async apiAccess(sessionCookie, mode) {
+      const writes = mode !== "leitura";
+      if (sessionCookie === undefined) return { ok: false, state: "ausente" };
+      const payload = openSession(sessionCookie);
+      if (payload === null) return writes ? { ok: false, state: "ausente", cookie: clearSession } : { ok: false, state: "ausente" };
+      const sessionId = payload.sid;
+      const gone = (state: "ausente" | "expirada"): ApiAccess => (writes ? { ok: false, state, sessionId, cookie: clearSession } : { ok: false, state, sessionId });
+      const now = nowSeconds();
+      if (expired(payload, now)) return gone("expirada");
+
+      if (mode === "forcada" || (mode === "gravacao" && payload.ate - now <= PORTAL_SESSION_POLICY.renewBeforeSeconds)) {
+        const renewal = await renewPayload(payload, now);
+        if (renewal.kind === "expirada") return gone("expirada");
+        if (renewal.kind === "renovada") return { ok: true, accessToken: renewal.payload.at, userId: renewal.userId, sessionId, cookie: renewal.cookie };
+        return renewal.cookie === undefined ? { ok: false, state: "indisponivel", sessionId } : { ok: false, state: "indisponivel", sessionId, cookie: renewal.cookie };
+      }
+
+      // Sem renovar: o access do cookie, verificado de novo (a DAL nunca confia no cookie).
+      const verified = await verifier.verify(payload.at);
+      if (verified.ok && verified.sessionId === payload.sid) return { ok: true, accessToken: payload.at, userId: verified.userId, sessionId };
+      if (!verified.ok && verified.reason === "indisponivel") return { ok: false, state: "indisponivel", sessionId };
+      return gone("ausente");
     },
   };
 }

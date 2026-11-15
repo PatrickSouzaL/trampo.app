@@ -71,6 +71,8 @@ describe("createSealer", () => {
   it("o fluxo usa a versão f1", () => {
     const { keyring } = ring();
     expect(createSealer(keyring, SEAL_PURPOSES.fluxo, ORIGIN).seal("{}")).toMatch(/^f1\.a1\./);
+    // ADR-028 D8: o rascunho dos critérios tem versão e finalidade próprias.
+    expect(createSealer(keyring, SEAL_PURPOSES.rascunho, ORIGIN).seal("{}")).toMatch(/^r1\.a1\./);
   });
 
   it("finalidades e origens não se misturam (AAD)", () => {
@@ -147,6 +149,37 @@ describe("createSealer", () => {
     const sessao = createSealer(keyring, SEAL_PURPOSES.sessao, ORIGIN);
     const grande = sessao.seal("x".repeat(SEAL_PURPOSES.fluxo.maxPlaintextBytes + 1)) as string;
     expect(fluxo.open(grande.replace(/^s1/, "f1"))).toBeNull();
+  });
+
+  it("o rascunho dos critérios não abre como sessão nem como fluxo, e vice-versa (ADR-028 D8)", () => {
+    const { keyring } = ring();
+    const rascunho = createSealer(keyring, SEAL_PURPOSES.rascunho, ORIGIN);
+    const sessao = createSealer(keyring, SEAL_PURPOSES.sessao, ORIGIN);
+    const envelope = rascunho.seal("{}") as string;
+    expect(rascunho.open(envelope)).toBe("{}");
+    expect(sessao.open(envelope)).toBeNull();
+    expect(sessao.open(envelope.replace(/^r1/, "s1"))).toBeNull();
+    expect(rascunho.open((sessao.seal("{}") as string).replace(/^s1/, "r1"))).toBeNull();
+    expect(createSealer(keyring, SEAL_PURPOSES.rascunho, "https://outro.exemplo.invalid").open(envelope)).toBeNull();
+  });
+
+  it("o AAD do rascunho é exatamente o do ADR-028 D8 (trampo:portal.rascunho:r1:<origem>)", () => {
+    const { a, keyring } = ring();
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", Buffer.from(a, "base64url"), iv);
+    cipher.setAAD(Buffer.from(`trampo:portal.rascunho:r1:${ORIGIN}`, "utf8"));
+    const body = Buffer.concat([cipher.update(Buffer.from("{}", "utf8")), cipher.final()]);
+    const envelope = ["r1", "a1", iv.toString("base64url"), body.toString("base64url"), cipher.getAuthTag().toString("base64url")].join(".");
+    expect(createSealer(keyring, SEAL_PURPOSES.rascunho, ORIGIN).open(envelope)).toBe("{}");
+  });
+
+  it("o rascunho no teto cabe num cookie, com o kid mais longo", () => {
+    const keyring = parseSealKeyring(`${"k".repeat(16)}:${material()}`, "k".repeat(16));
+    const sealer = createSealer(keyring, SEAL_PURPOSES.rascunho, ORIGIN);
+    expect(SEAL_PURPOSES.rascunho.maxPlaintextBytes).toBe(2_950);
+    const envelope = sealer.seal("x".repeat(SEAL_PURPOSES.rascunho.maxPlaintextBytes)) as string;
+    expect(`__Host-trampo-rascunho=${envelope}`.length).toBeLessThanOrEqual(4_096);
+    expect(sealer.seal("x".repeat(SEAL_PURPOSES.rascunho.maxPlaintextBytes + 1))).toBeNull();
   });
 
   it("o envelope da sessão no teto cabe num cookie, com o kid mais longo (ADR-027 D3)", () => {
