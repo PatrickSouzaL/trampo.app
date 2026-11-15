@@ -23,6 +23,9 @@ export default async function Conta() {
       <a href="/conta/criterios" className="underline">
         Seus critérios
       </a>
+      <a href="/conta/dados" className="underline">
+        Seus dados
+      </a>
       <form method="post" action="/auth/sair">
         <button type="submit" className="rounded border px-4 py-2">
           Sair
