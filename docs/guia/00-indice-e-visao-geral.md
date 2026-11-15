@@ -1,6 +1,6 @@
 ---
 tipo: guia
-atualizado: 2026-11-13
+atualizado: 2026-11-15
 dono: "[SCRIBE]"
 criado-em: "DOC-02 (sessão 27)"
 fonte-da-verdade: "código do trampo.app no commit 815ab06 (branch spike/s1-extraction) e o cofre ../base em 2026-11-13"
@@ -57,7 +57,7 @@ Ferramentas: pnpm 11.4.0 (workspaces e catálogo de versões exatas), Turborepo 
 | Peça | Pacote | Tecnologia | Papel | Onde ler mais |
 |---|---|---|---|---|
 | `apps/extension` | `@trampo/extension` | WXT 0.21.4, React 19.3.0, Manifest V3 (Chrome e Edge ≥ 116) | o "cliente burro": captura a vaga sob clique, faz o login (PKCE) e mostra o relatório no Side Panel | [ADR-004-extension-auth](../arquitetura/ADRs/ADR-004-extension-auth.md), [ADR-023-generic-dom-extractor](../arquitetura/ADRs/ADR-023-generic-dom-extractor.md), [ADR-024-capture-in-service-worker](../arquitetura/ADRs/ADR-024-capture-in-service-worker.md), [ADR-025-side-panel-ui](../arquitetura/ADRs/ADR-025-side-panel-ui.md) |
-| `apps/web-portal` | `@trampo/web-portal` | Next.js 16.4.2 (App Router, `proxy.ts`), React 19.3.0, Tailwind 4.3.3 | login com Google e GitHub, com sessão em cookie `HttpOnly` selado. O formulário de critérios ainda vai entrar (F1-PORTAL-02) | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md) |
+| `apps/web-portal` | `@trampo/web-portal` | Next.js 16.4.2 (App Router, `proxy.ts`), React 19.3.0, Tailwind 4.3.3 | login com Google e GitHub, com sessão em cookie `HttpOnly` selado, e o formulário de critérios, sem JavaScript próprio, lido e gravado pela API com o token da sessão | [ADR-027-portal-login](../arquitetura/ADRs/ADR-027-portal-login.md), [ADR-028-portal-criteria](../arquitetura/ADRs/ADR-028-portal-criteria.md) |
 | `apps/api` | `@trampo/api` | Fastify 5.12.7, Zod 4.6.7, jose 6.2.12 | o "Gateway de Decisão": borda, BFF de login da extensão, funil híbrido, nota, relatório SSE e critérios | [ADR-007-api-edge](../arquitetura/ADRs/ADR-007-api-edge.md), [ADR-017-analyze-job-and-stream](../arquitetura/ADRs/ADR-017-analyze-job-and-stream.md) |
 | `packages/contracts` | `@trampo/contracts` | Zod 4.6.7 | a "língua comum": todos os schemas (`JobFacts`, `UserCriteria`, `AnalysisReport`, eventos SSE, auth) e os limites | [contratos-zod](../arquitetura/contratos-zod.md) |
 | `packages/config` | `@trampo/config` | ESLint 9, typescript-eslint, dependency-cruiser 18.6.0 | o `tsconfig` base, o preset de segurança do ESLint (proíbe `innerHTML`, `eval`…) e as regras de fronteira entre pastas | [ADR-001-hybrid-engine-and-monorepo](../arquitetura/ADRs/ADR-001-hybrid-engine-and-monorepo.md) |

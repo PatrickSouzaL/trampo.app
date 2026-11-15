@@ -80,7 +80,7 @@ Recusa quando `auth.sessions.created_at < now() − 86.400 s`, lendo a sessão p
   2. o comportamento no limite exato: numa transação só (o `now()` não anda), com `created_at = now() − fallback`, passa; com `fallback + 1` e com `fallback` mais 1 microssegundo, recusa.
 - **Se o humano mudar `AUTH_SESSION_MAX_AGE_SECONDS` sem mudar a migration, os dois limites valem e o menor ganha:**
   - variável **abaixo** de 86.400: a API recusa antes, sem rede (envelope), e a sessão fica órfã no GoTrue até as 24 h do hook;
-  - variável **acima** de 86.400 (a faixa do D5 vai até 604.800): o hook recusa a renovação nas 24 h, e a configuração maior não tem efeito.
+  - variável **acima** de 86.400 (a faixa do D5 ia até 604.800): o hook recusa a renovação nas 24 h, e a configuração maior não tem efeito. **Fechado pela F1-API-09 (2026-11-14, `77c6f97`):** o teto da variável é 86.400, e o boot recusa o valor acima (ADR-004 D5, emenda). O `test:db` prende a constante da migration ao padrão e ao teto.
 - **Sem aviso no boot.** A API não tem como saber se o hook está aplicado: ela não lê o catálogo do banco (só PostgREST com o token do usuário). Um aviso seria um palpite. O desvio fica documentado no runbook *supabase-hook-real* e no `.env.example`, e a *BACKLOG §F1-API-09* propõe baixar o teto da variável para 86.400 quando o HITL-040 fechar (o boot passaria a recusar o valor que o hook anula).
 
 ### D5. Grants
