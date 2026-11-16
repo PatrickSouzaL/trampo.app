@@ -220,6 +220,7 @@ flowchart LR
 | T36 | Canal lateral de tempo do cache ("alguém já viu esta vaga?") | I | — | B | B | **B (aceito)** |
 | T37 | Uso da API como "LLM gratuito" via "colar texto" | D, E | LLM06:2026 | M | B | **B** |
 | T38 | IDOR ou flood no feedback de análise | T, I | API1:2023 | M | B | **B** |
+| T55 | Dono gravando direto no PostgREST com o próprio JWT: análises sem fim (armazenamento), `created_at` futuro (fuga da retenção) e feedback inventado (v2, F1-API-06) | T, D | API4:2023; A01:2025 | M | M | **B** (com os gatilhos do ADR-031 D2) |
 | T39 | Limitador de taxa que **falha aberto** | D | API4:2023 | M | M | **B** |
 | T40 | Mudança de semântica em dependência crítica (ex.: zod 4.5) | T | LLM04:2026 | M | M | **B** |
 | T41 | CSRF de login e injeção de código de autorização (v2) | S, T | API2:2023; A07:2025 | M | A | **B** |
@@ -603,6 +604,7 @@ flowchart LR
   1. `analysisId` precisa pertencer ao `sub` (RLS e checagem).
   2. Um feedback por análise (atualizável).
   3. Rate limit.
+- **Revista na F1-API-06 (sessão 33, [ADR-031-analysis-history-and-feedback](ADRs/ADR-031-analysis-history-and-feedback.md) D4):** o dono vem só do principal; a FK composta (`analysis_id`, `user_id`) e a RLS são as duas barreiras no banco. **Medido na pilha local:** B na análise de A que já tem feedback recebe 403 `42501` (a RLS no ramo `DO UPDATE`), e sem feedback, ou num id inexistente, 409 `23503` (a FK); a linha de A nunca muda. A diferença é um oráculo de existência, e a API o fecha: os dois viram 404 `PROIBIDO`. Os `analysisId` são UUID v4 do servidor (122 bits aleatórios), então não há enumeração prática. Classe de limite própria `feedback` (10 por minuto por usuário, 30 por IP). **Ficha nova não é necessária:** o caminho de enumeração não existe com o oráculo fechado.
 
 ### T39
 **Limitador que falha aberto.** O `@upstash/ratelimit` **libera** a requisição em *timeout* (padrão de 5 s, `reason: 'timeout'`).
@@ -746,6 +748,12 @@ flowchart LR
 - **Mitigações:** anéis disjuntos por plataforma (o portal não abre a pretensão nem o refresh); nenhuma chave de alto privilégio em lugar nenhum (o boot da API recusa a `SUPABASE_SECRET_KEY`); 2FA e organizações de um membro; variáveis *sensitive* só de escrita no Vercel; o `code` do OAuth inútil sem o verifier selado; logs com a lista fechada do ADR-010.
 - **Residual M (Fase 1):** aceito para o projeto pessoal; o portão da Fase 2 (§8) inclui as três plataformas como operadores (LGPD art. 33).
 
+### T55
+**Dono gravando direto no PostgREST (v2, F1-API-06, [ADR-031-analysis-history-and-feedback](ADRs/ADR-031-analysis-history-and-feedback.md) D2).** A *publishable* é pública e o usuário tem o próprio access: tudo o que a API grava com o JWT dele, ele grava direto. **Medido na pilha local:** um `created_at` de 2099 passava (201), o que tiraria a linha da retenção de 90 dias; e não há teto de linhas por usuário (um laço enche o banco do plano Free).
+- **Mitigações:** gatilho `before insert` em `analyses` que força `created_at := now()` e aplica o teto de 100 linhas em 24 h por usuário, exato sob concorrência (`pg_advisory_xact_lock`), com `PT429`; gatilho que força o `updated_at` do feedback; a retenção pela função agendada, que só o `postgres` executa; a RLS e a FK composta continuam valendo (só as próprias linhas).
+- **Verificação (a fazer):** condições 4 a 8 do ADR-031 §3, no job `db`.
+- **Residual B:** o dono ainda grava até 100 análises falsas por dia **para si** e dá feedback nelas. Qualquer uso agregado do feedback (o sinal "discordo", *BACKLOG §F1-OBS-04*) trata a linha como declarada pelo usuário, com peso limitado por conta.
+
 ---
 
 ## 6. Correções e acréscimos ao Blueprint §8
@@ -854,6 +862,9 @@ O Blueprint é somente leitura; o registro fica aqui.
 | `code` do OAuth nos logs do Vercel (v2, S-5, [ADR-030-hosting](ADRs/ADR-030-hosting.md) §3): o retorno `/auth/retorno?code=…` fica 1 h nos logs de execução | O código é de uso único, vale 5 min e não serve sem o verifier, que mora só no cookie selado | Até a Fase 2 (revisar se o portal sair do Vercel) | [APPSEC] |
 | Plataformas gratuitas sem compromisso (v2, S-5, T30 e T54): o Koyeb Free e o Vercel Hobby "não são para produção" e podem suspender o serviço | Projeto pessoal; o sono do Koyeb volta em 1 a 5 s, dentro dos 10 s do status; nenhum *keep-alive* artificial sem os termos | Fase 2 (planos pagos ou outro provedor, por ADR) | Humano |
 | Divergência dos cadastros (v2, sessão 33, [ADR-004-extension-auth](ADRs/ADR-004-extension-auth.md) §8): desligados no HITL-036 (Q9), mas uma conta nasceu no HITL-045 | O bloco 0 do *spike-s3* lê o estado; se ligados sem motivo, o humano desliga | Até a resposta do bloco 0 do *HITL-QUEUE §HITL-046* | Humano |
+| T55 (B, v2, F1-API-06): o dono grava até 100 análises falsas por dia para si e dá feedback nelas | Só afeta as próprias linhas; o banco força o relógio e o teto | Enquanto o feedback não for sinal agregado (*BACKLOG §F1-OBS-04*) | [APPSEC] |
+| Retenção de 90 dias só depois do HITL da migration (v2, F1-API-06, [ADR-031-analysis-history-and-feedback](ADRs/ADR-031-analysis-history-and-feedback.md) D3) | Nada é gravado em produção antes do *HITL-QUEUE §HITL-048* (consentimento), e a migration com o job vem antes da ligação | Até o HITL da migration da F1-API-06 | Humano |
+| Teto por 24 h corridas (v2, F1-API-06): a janela do teto não é o dia de Brasília da cota | O teto é o dobro da cota; o uso legítimo não alcança | Sem prazo (é o desenho) | [ARCHITECT] |
 
 ---
 
