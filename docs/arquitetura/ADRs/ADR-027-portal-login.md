@@ -368,3 +368,13 @@ O desenho da §9 entrou no código sem mudança de decisão. Commits: `fa45a63` 
 - **D7:** o catálogo da página inicial ganhou `conta_excluida`. Os avisos das páginas de dados ficam num catálogo próprio (`ACCOUNT_NOTICES`), como os dos critérios.
 - **D12:** exportar e excluir a conta saíram da lista do que o portal não faz. Continua de fora o handoff para a extensão.
 - **Borda (`edge.ts`):** o `toResponse` ganhou a terceira intenção, o anexo da exportação (200 em JSON, `Content-Disposition: attachment` com nome fixo, `no-store`).
+
+## 12. Emenda do HITL-044 (sessão 33, 2026-11-16): o 1º "sair de tudo" real
+
+**Resultado (declarado pelo humano, *HITL-QUEUE §HITL-044*):** dois perfis do Edge com a mesma conta no projeto real; o "Sair de todos os dispositivos" pelo perfil A apagou o cookie dele, e **o perfil B caiu em "Sua sessão expirou" em 15 minutos**. Com o "Sair" comum no perfil A, o B continuou conectado depois de 16 minutos. A loopback foi removida e conferida.
+
+- **O tempo bate com o desenho:** o access do projeto real vale 900 s, e o B só perde a sessão na 1ª renovação depois disso. 15 minutos está dentro do limite de 16 do runbook, então **o tempo de vida do access não volta ao `[ARCHITECT]`**. O residual da §9.3 (o access já emitido vale até 900 s) fica confirmado no projeto real.
+- **O escopo `local` também se confirmou no real:** o "Sair" comum não derrubou o B.
+- **O aviso anotado não é literal:** o humano escreveu `saiu_todos`, e o catálogo só tem `saiu_de_tudo` e `saiu_sem_confirmar`. A queda do B só se explica pela revogação `global`, então a equipe lê `saiu_de_tudo`. O spike S-3 pede o `?aviso=` copiado da barra de endereço.
+- **Latência (relato sem número):** a troca e a renovação junto ao GoTrue e a recarga depois da revogação pareceram lentas ao humano, dentro do aceite. Hipótese da equipe, a medir: no roteiro, o portal e a API rodam em `127.0.0.1` no Brasil e o projeto fica em `us-east-1`, então cada página da `/conta` paga ao menos uma viagem de ida e volta ao GoTrue (a verificação do access pelo JWKS em cache não paga), e a renovação no proxy paga mais uma. A medida vai para o spike S-3 (o tempo de cada pedido pela aba Rede, só números) e a decisão da região para o S-5 (*ADR-030-hosting*).
+- ***BACKLOG §F1-PORTAL-04* fechada também no projeto real.**
