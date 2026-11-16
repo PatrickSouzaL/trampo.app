@@ -97,3 +97,16 @@ export const AnalysisFeedbackRequestSchema = z.strictObject({
     .nullable(),
 });
 export type AnalysisFeedbackRequest = z.infer<typeof AnalysisFeedbackRequestSchema>;
+
+/** Padrão exato da rota do feedback (ADR-031 D4). A API registra e compara por ele, nunca por prefixo. */
+export const ANALYSIS_FEEDBACK_ROUTE = '/v1/analyses/:analysisId/feedback' as const;
+
+/** O parâmetro da rota: só o UUID da análise. O dono nunca vem do pedido, só do token. */
+export const AnalysisFeedbackParamsSchema = z.strictObject({ analysisId: z.uuid() });
+export type AnalysisFeedbackParams = z.infer<typeof AnalysisFeedbackParamsSchema>;
+
+/** O caminho do feedback de uma análise. Lança fora do UUID: nenhum texto livre vira caminho. */
+export function analysisFeedbackPath(analysisId: string): string {
+  const { analysisId: id } = AnalysisFeedbackParamsSchema.parse({ analysisId });
+  return ANALYSIS_FEEDBACK_ROUTE.replace(':analysisId', id);
+}
