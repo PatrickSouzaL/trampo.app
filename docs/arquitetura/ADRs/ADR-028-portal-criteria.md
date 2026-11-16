@@ -224,3 +224,6 @@ U- pela unidade (cabeçalho a mais, classificação trocada, o `PUT` repetindo, 
 - O `readFormBody` ganhou o parâmetro `limit` (o padrão continua `HTTP_BODY_MAX_BYTES`).
 - A regra `portal-contracts-subpaths` do depcruise (D11) passou a aceitar também o `@trampo/contracts/account`.
 - O sucesso da exclusão apaga o cookie do rascunho (D8), junto com o da sessão.
+
+## Emenda do S-5 (sessão 33, 2026-11-16): o D9 na hospedagem
+O [ADR-030-hosting](ADR-030-hosting.md) D3 decide o balde por IP do portal na API: a **opção (a) cai** (o Vercel não publica nem fixa o IP de saída do portal, e confiar num `X-Forwarded-For` do portal deixaria um portal comprometido escolher o IP). Na Fase 1, o residual fica aceito (um usuário). Antes do beta, a **opção (b)**, uma credencial de servidor a servidor num anel próprio, revista com o T51. O portal continua sem mandar `X-Forwarded-For`.

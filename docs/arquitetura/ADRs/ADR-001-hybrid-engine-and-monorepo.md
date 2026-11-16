@@ -527,3 +527,5 @@ A hospedagem gratuita da API (com *cold start* que afeta o p95) será decidida n
 > - **Autenticação, IDOR e BOLA (API1:2023, API2:2023):** JWT ES256 verificado localmente por JWKS, falhando fechado, com `alg`, `iss`, `aud`, `role` e `exp` verificados antes de ler o corpo; `user_id` sempre do token; RLS como segunda barreira.
 > - **ReDoS:** regexes lineares, lint `regexp/no-super-linear-backtracking` e `no-super-linear-move`, e teste de tempo com entrada patológica.
 > - **Cliente hostil e outras extensões:** extração só-leitura no mundo ISOLATED, só texto renderizado (sem atributos, comentários nem Base64), token só no Service Worker em `storage.session`, `externally_connectable` declarado de forma explícita, sem handler de `fetch` no Service Worker e CSP com `connect-src` limitado à API.
+
+**Emenda do S-5 (sessão 33, 2026-11-16), §10.6:** a decisão de hospedagem saiu como [ADR-030-hosting](ADR-030-hosting.md) (`proposto`), não como ADR-003. A API fica num processo longo no Koyeb Free (Washington, D.C.), sem *edge runtime*: o Fastify continua.

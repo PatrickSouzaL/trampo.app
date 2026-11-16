@@ -108,3 +108,6 @@ O contrato não tem códigos específicos para 415 e 408. O `status` HTTP difere
 - O `.env.example` ganha `CORS_ALLOWED_ORIGINS` e `TRUST_PROXY`, só com nomes e sem valores reais.
 - O ID fixo da extensão de dev (chave `key`, S-3) e a origem do portal entram no `.env` quando existirem. Até lá, a lista vazia nega tudo.
 - **Revisar no S-5 / ADR-003:** `keepAliveTimeout` diante do balanceador e o `TRUST_PROXY` real da hospedagem.
+
+## Emenda do S-5 (sessão 33, 2026-11-16)
+O [ADR-030-hosting](ADR-030-hosting.md) é o "ADR-003" citado no D5 e no §3. Ele decide: (1) **D5:** ao lado do `TRUST_PROXY` com CIDR exato, um modo novo `API_CLIENT_IP_SOURCE=cloudflare`, em que o IP vem do `CF-Connecting-IP` só depois de o segredo de borda (`X-Trampo-Borda`, anel `EDGE_AUTH_KEYS`) ser conferido em tempo constante, antes de tudo; a contagem de saltos continua recusada (o Fastify 5.12.8 também a proibiu). (2) **D4:** o `keepAliveTimeout` muda pelo número que a sonda medir, na fatia S-5a. Só desenho; nenhum código.
