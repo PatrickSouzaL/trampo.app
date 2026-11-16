@@ -17,7 +17,7 @@
 | `packages/config` | `@trampo/config` | ESLint 9 + preset de segurança, typescript-eslint, dependency-cruiser 18.6.0 | `tsconfig` base, lint de segurança e regras de fronteira |
 | `packages/ci-policy` | `@trampo/ci-policy` | TypeScript + js-yaml | política verificável do `ci.yml` e do `.gitleaks.toml` |
 | `evals` | `@trampo/evals` | Vitest | golden dataset `gd1` (83 casos) e spikes S-1/S-4 |
-| `supabase` | — | Postgres 17, CLI 2.120.0 | migrations com RLS forçada, o Custom Access Token Hook e a função `delete_own_account` (exclusão da própria conta, sem `service_role`) |
+| `supabase` | — | Postgres 17, CLI 2.120.0 | migrations com RLS forçada, o Custom Access Token Hook, a função `delete_own_account` (exclusão da própria conta, sem `service_role`) e o histórico das análises (relógio e teto por usuário por gatilho, retenção de 90 dias pelo `pg_cron`; ADR-031) |
 
 **Serviços (free tier):** Supabase (Postgres + PostgREST + GoTrue), Upstash Redis (REST), **Groq** (`openai/gpt-oss-20b`) → **Cloudflare Workers AI** (`@cf/meta/llama-3.3-70b-instruct-fp8-fast` por padrão) → fallback determinístico, GitHub Actions (`secrets`, `quality`, `test`, `db`).
 **Toolchain:** pnpm 11.4.0 (catálogo de versões exatas), Turborepo 2.11.8, TypeScript 5.9.3 strict, Vitest 5.0.5, fast-check 4.10.2, playwright-core 1.64.1, Node 24.22.1 (CI) / 26.12.1 (`.nvmrc`).

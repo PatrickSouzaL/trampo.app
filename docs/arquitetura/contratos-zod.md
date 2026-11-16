@@ -4,7 +4,7 @@ pacote: "@trampo/contracts"
 versao-contrato: 1
 status: aceito
 aprovacao: "HITL-001 (aprovado em 2026-10-18, D-H1 a D-H7 conforme recomendação)"
-atualizado: 2026-11-15
+atualizado: 2026-11-16
 revisado: "M1.6, ver [revisao-adversarial-M1](revisao-adversarial-M1.md) (só texto; o código da seção 4 não mudou); M3 em 2026-10-18 (código copiado para packages/contracts sem alteração); DOC-01 em 2026-10-27 (seção 4 regerada do pacote até o commit 1cbf825, ver seção 9); F1-AUTH-00 em 2026-11-06 (seção 4 regerada do pacote no commit 47abd8c, ver seção 9)"
 autores: ["[ARCHITECT]", "[APPSEC]", "[DEV]", "[QA_EVALS]", "[SCRIBE]"]
 relacionados: ["[ADR-001-hybrid-engine-and-monorepo](ADRs/ADR-001-hybrid-engine-and-monorepo.md)", "[ADR-002-scoring-engine](ADRs/ADR-002-scoring-engine.md)", "[ADR-004-extension-auth](ADRs/ADR-004-extension-auth.md)", "[ADR-012-report-composer](ADRs/ADR-012-report-composer.md)", "[ADR-013-jwt-verification](ADRs/ADR-013-jwt-verification.md)", "[ADR-020-cloudflare-workers-ai-adapter](ADRs/ADR-020-cloudflare-workers-ai-adapter.md)", "[ADR-021-criteria-routes](ADRs/ADR-021-criteria-routes.md)", "[ADR-022-groq-adapter](ADRs/ADR-022-groq-adapter.md)", "[threat-model](threat-model.md)", "*STATE*"]
@@ -183,6 +183,22 @@ export const ACCOUNT_DELETE_BODY_MAX_BYTES = 256;
  * do token; o `test:db` prende a constante dela a este valor, e o portal só o espelha para avisar antes.
  */
 export const ACCOUNT_RECENT_LOGIN_SECONDS = 600;
+
+/**
+ * Retenção das análises gravadas (ADR-031 D3): a função agendada do banco apaga as mais velhas que isto, e o feedback
+ * vai junto. O `test:db` prende a constante da migration a este valor.
+ */
+export const ANALYSES_RETENTION_DAYS = 90;
+
+/**
+ * Teto de análises gravadas por usuário em 24 horas corridas (ADR-031 D2), aplicado por um gatilho do banco: o dono
+ * também grava direto no PostgREST com o próprio JWT. O dobro da cota diária, para o uso legítimo nunca chegar nele;
+ * o `test:db` prende a constante da migration a este valor.
+ */
+export const ANALYSES_DAILY_ROW_CAP = 100;
+
+/** `bodyLimit` do `POST /v1/analyses/:analysisId/feedback` (ADR-031 D4): o corpo é o acordo e o motivo. */
+export const ANALYSIS_FEEDBACK_BODY_MAX_BYTES = 256;
 ```
 
 ### 4.2 `primitives.ts`
@@ -913,6 +929,19 @@ export const AnalysisFeedbackRequestSchema = z.strictObject({
     .nullable(),
 });
 export type AnalysisFeedbackRequest = z.infer<typeof AnalysisFeedbackRequestSchema>;
+
+/** Padrão exato da rota do feedback (ADR-031 D4). A API registra e compara por ele, nunca por prefixo. */
+export const ANALYSIS_FEEDBACK_ROUTE = '/v1/analyses/:analysisId/feedback' as const;
+
+/** O parâmetro da rota: só o UUID da análise. O dono nunca vem do pedido, só do token. */
+export const AnalysisFeedbackParamsSchema = z.strictObject({ analysisId: z.uuid() });
+export type AnalysisFeedbackParams = z.infer<typeof AnalysisFeedbackParamsSchema>;
+
+/** O caminho do feedback de uma análise. Lança fora do UUID: nenhum texto livre vira caminho. */
+export function analysisFeedbackPath(analysisId: string): string {
+  const { analysisId: id } = AnalysisFeedbackParamsSchema.parse({ analysisId });
+  return ANALYSIS_FEEDBACK_ROUTE.replace(':analysisId', id);
+}
 ```
 
 > [!warning] O limite de 15.000 da borda não basta sozinho (revisão M1.6, F-01)
@@ -1217,6 +1246,7 @@ Fonte: `git log -- packages/contracts/src`. Todas ficaram no `schemaVersion` 1 (
 | `1a0dcb8` | 2026-10-31 | F1-EXT-03 parte 3 (Trilha D2c), [ADR-023-generic-dom-extractor](ADRs/ADR-023-generic-dom-extractor.md) D12 | `PlatformSchema` + `'solides'` | A Solides tem extrator próprio (`so1`), e a telemetria do envio à API separa `solides` com `ge1` (painel sumido) do genérico. Só alarga o enum: nenhum dado salvo muda. |
 | `47abd8c` | 2026-11-06 | F1-AUTH-00, [ADR-004-extension-auth](ADRs/ADR-004-extension-auth.md) D7 | `auth.ts` novo: `AUTH_SCHEMA_VERSION`, `AUTH_BODY_MAX_BYTES`, `AUTH_ROUTES` congelado, os schemas de formato (`AccessTokenSchema`, `PkceVerifierSchema`, `AuthCodeSchema`, `SealedRefreshSchema`), os 3 pedidos, a resposta de 4 chaves e os 4 tipos; `ACCESS_TOKEN_MAX_CHARS = 8_192` no `limits.ts` ([ADR-013-jwt-verification](ADRs/ADR-013-jwt-verification.md) D3); subpath `./auth` e reexport na raiz | Só acrescenta: nenhum schema existente muda. A API e a extensão ainda não importam o `auth`. Os 3 literais `8_192` da API trocam pelo import de `@trampo/contracts/limits` na F1-API-07, e o subpath entra no `CONTRACTS_ALLOWED` da extensão na F1-EXT-05a. O `AuthCodeSchema` fica largo até a anotação do `code_e_uuid` (HITL-036 item 3 ou spike S-3). |
 | `26958d9` | 2026-11-15 | F1-PORTAL-03, [ADR-029-account-export-and-delete](ADRs/ADR-029-account-export-and-delete.md) D10 | `account.ts` novo: `ACCOUNT_SCHEMA_VERSION`, `ACCOUNT_ROUTES` congelado, `ACCOUNT_DELETE_CONFIRMATION`, `AccountDeleteRequestSchema` (versão e a frase literal, sem alvo), `AccountDeleteResultSchema` (as três palavras da função do banco), `ExportedAnalysisSchema`, `ExportedFeedbackSchema` e `AccountExportSchema`; em `limits.ts`, `ACCOUNT_EXPORT_MAX_ROWS = 500`, `ACCOUNT_DELETE_BODY_MAX_BYTES = 256` e `ACCOUNT_RECENT_LOGIN_SECONDS = 600`; subpath `./account` | A API e o portal passam a falar as duas rotas da conta. **O `ApiErrorCodeSchema` não mudou** (o login antigo responde `PROIBIDO`), então a extensão não é afetada. A seção 4 foi regerada do `src/` por script, com 10 de 10 arquivos idênticos (a `account.ts` é a §4.10) |
+| `31f7a9b` | 2026-11-16 | F1-API-06, [ADR-031-analysis-history-and-feedback](ADRs/ADR-031-analysis-history-and-feedback.md) D2 a D4 | `limits.ts`: `ANALYSES_RETENTION_DAYS` (90), `ANALYSES_DAILY_ROW_CAP` (100) e `ANALYSIS_FEEDBACK_BODY_MAX_BYTES` (256). `api.ts`: `ANALYSIS_FEEDBACK_ROUTE`, o `AnalysisFeedbackParamsSchema` (só o UUID, estrito) e o `analysisFeedbackPath`, que lança fora do UUID. Nenhum schema existente muda; o teto da exportação continua 500 até a fatia 5. A seção 4 foi regerada do `src/` por script, com 10 de 10 arquivos idênticos |
 
 Também entraram no pacote, sem mudar forma: os tipos `DimensionOutcome` e `AppliedImportance` (exportados para o domínio) e os comentários do SR-11 no `ScoreBreakdownEntrySchema`.
 

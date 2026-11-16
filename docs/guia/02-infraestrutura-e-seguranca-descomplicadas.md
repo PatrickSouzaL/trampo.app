@@ -171,7 +171,20 @@ O jeito comum de apagar um usuário no Supabase é a API de administração, que
 
 **Levar os dados:** o botão "Baixar meus dados" entrega um arquivo JSON com os critérios (com a pretensão salarial), o registro das análises e as avaliações. O e-mail e o provedor de login não entram (ficam no serviço de autenticação).
 
-**Estado:** a função está só na pilha local e no CI. No projeto real, aplicá-la é o *HITL-QUEUE §HITL-045* (runbook *conta-exportar-excluir*).
+**Estado:** a função está no projeto real desde 2026-11-16 (*HITL-QUEUE §HITL-045*, fechado: a exportação e duas exclusões numa conta de teste, conforme).
+
+### 2.6 Gravar o histórico e apagá-lo em 90 dias (F1-API-06, em construção)
+
+A API vai gravar **uma linha mínima por análise**: o id, a data, o caminho de decisão, o veredito e a nota. Nunca o texto da vaga, o título ou a empresa. Sobre essa linha, o usuário dá o feedback ("concordo" ou "discordo").
+
+**O problema:** o usuário tem o próprio JWT, e a chave *publishable* é pública. Então tudo o que a API grava em nome dele, ele também consegue gravar direto no banco. Antes desta entrega, dava para mandar uma data no futuro (e escapar da retenção) e gravar linhas sem fim.
+
+**Como o banco se defende** (`supabase/migrations/20261116150000_analyses_history.sql`, [ADR-031-analysis-history-and-feedback](../arquitetura/ADRs/ADR-031-analysis-history-and-feedback.md)):
+- um gatilho troca a data mandada pelo relógio do banco;
+- o mesmo gatilho limita cada usuário a **100 análises em 24 horas** (o dobro da cota diária), com uma trava por usuário que vale também para pedidos simultâneos;
+- uma função apaga as análises com **mais de 90 dias**, de hora em hora, pelo agendador do Postgres (`pg_cron`). Só o dono do banco a executa: nenhuma chave de alto privilégio entra.
+
+**Estado:** o banco está pronto e testado na pilha local; o projeto real é o *HITL-QUEUE §HITL-049*. A API só passa a gravar depois do consentimento (*HITL-QUEUE §HITL-048*).
 
 ## 3. Criptografia de dupla camada (AEAD AES-256-GCM)
 
@@ -247,5 +260,18 @@ E mais:
 - O **gitleaks 8.30.1** roda no CI sobre todo o histórico, com três regras próprias (`trampo-auth-seal-keys`, `trampo-portal-seal-keys` e `trampo-auth-seal-keys-files`).
 - O pacote `@trampo/ci-policy` prova por teste que a allowlist só tem valores exatos (`^…$`).
 - Uma fixture de teste com cara de chave **nasce em tempo de execução**, nunca escrita no arquivo.
+
+## 6. Hospedagem (S-5, proposta)
+
+Até aqui, o portal e a API só rodaram na sua máquina. O [ADR-030-hosting](../arquitetura/ADRs/ADR-030-hosting.md) propõe onde eles vão morar, sem custo:
+- **a API** num processo de verdade (não numa função que liga e desliga) no **Koyeb**, em Washington, D.C.;
+- **o portal** no **Vercel**, também perto de Washington;
+- os dois perto do banco e do Redis (Virginia). Hoje, cada passo do login e da exclusão atravessa o equador de ida e volta; hospedados, só o seu navegador faz essa viagem.
+
+**Como a API sabe o IP de quem chama:** a **Cloudflare** fica na frente da API e põe em todo pedido um cabeçalho secreto. A API só aceita pedido com esse cabeçalho, e só então confia no IP que a Cloudflare informa. Quem tentar chegar direto na API, pulando a Cloudflare, recebe "proibido".
+
+**Segredos:** cada plataforma recebe só as chaves dela. O portal nunca recebe as chaves da API: se ele vazar, a pretensão salarial e as sessões da extensão continuam fechadas.
+
+**Estado:** proposta. As contas, o domínio e uma sonda de medição (sem segredo real) são o *HITL-QUEUE §HITL-047*.
 
 Próximo: [03-mapa-completo-de-arquivos](03-mapa-completo-de-arquivos.md).

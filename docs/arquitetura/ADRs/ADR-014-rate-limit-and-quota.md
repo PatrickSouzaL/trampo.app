@@ -203,3 +203,6 @@ As duas passam da quarentena de 3 dias do T26 e têm licença MIT. **Mesmo assim
 - **`conta` passa a ser a classe mais estrita** (`STRICTEST_RATE_LIMIT_CLASS`): uma rota com classe fora do conjunto fechado cai nela, não mais em `analise`. O teste da política prende os números e a regra "a mais estrita é a menor nas duas dimensões".
 - As chaves no Redis seguem o formato de sempre (`rl:conta:u:<pseudônimo>:<janela>` e `rl:conta:ip:…`). Nenhuma das duas rotas gasta cota diária.
 - **Na exclusão da conta, as chaves por usuário não são apagadas** ([ADR-029-account-export-and-delete](ADR-029-account-export-and-delete.md) D8): levam um pseudônimo, expiram sozinhas (2 minutos e 2 dias), e apagar a cota daria cota nova a quem cria e apaga contas em laço.
+
+## Emenda da F1-API-06 (sessão 33, 2026-11-16), só o desenho
+O [ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D4 cria a classe **`feedback`** (10 por minuto por usuário, 30 por IP) para o `POST /v1/analyses/:analysisId/feedback`, na fatia 4. O D2 do mesmo ADR põe no banco um teto de 100 análises gravadas por usuário em 24 h, o dobro da `analysesPerDay` daqui; um teste da API prende essa relação.

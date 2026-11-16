@@ -142,4 +142,9 @@ O requisito diz que o resultado da análise é "**Opcional, com consentimento**"
 - **Um código `NAO_ENCONTRADO` novo:** recusada; obrigaria a extensão a ganhar texto (cuidado 38). O 404 `PROIBIDO` já é o par da rota inexistente.
 
 ## 7. Emendas da implementação
-_(a implementação registra aqui)_
+
+### 7.1 Sessão 33 (2026-11-16): as fatias 1 e 2 (o contrato e o banco)
+- **Contrato (`31f7a9b`):** `ANALYSES_RETENTION_DAYS`, `ANALYSES_DAILY_ROW_CAP`, `ANALYSIS_FEEDBACK_BODY_MAX_BYTES`, `ANALYSIS_FEEDBACK_ROUTE`, o `AnalysisFeedbackParamsSchema` e o `analysisFeedbackPath`, que lança fora do UUID (nenhum texto livre vira caminho). Contratos com 709 casos e 100%; mutação C- 7/7. O teto da exportação (500) só muda na fatia 5, com o resto da paginação.
+- **Banco (`d26c949`):** a migration `20261116150000_analyses_history.sql` como o D2 e o D3 descrevem. **A retenção entrou na mesma fatia do banco** (a partição do §5 a punha junto; o prompt da sessão pedia fatia própria, e ela é a mesma migration). Idempotente: cada gatilho é removido antes de criado, e o job tem nome fixo.
+- **Provas:** o `analyses.db.test.ts` (17 casos, escritos antes da migration: 7 falharam pelo motivo certo) cobre as condições 2, 4 a 9 e o que a fatia 4 vai usar (o 409 `23505`, o 403 `42501` e o 409 `23503`); com 90 linhas na janela, 20 pedidos simultâneos gravam exatamente 10. Na estação, contra a pilha local com `db reset`: `test:db` **198 de 198**. Mutação `mut_analyses_db.py` **D- 24/24**. A prova que vale é o job `db` do PR do 13º ciclo; o projeto real é o *HITL-QUEUE §HITL-049* (runbook *analises-retencao*).
+- **Fatos novos:** o `create extension pg_cron with schema pg_catalog` e o `cron.schedule` rodam como `postgres` na pilha local da CLI 2.120.0, e o `cron.job` guarda o `username` `postgres`.
