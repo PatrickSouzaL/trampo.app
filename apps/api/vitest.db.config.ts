@@ -38,6 +38,7 @@ export default defineConfig({
         "test/db/support/catalog-sql.ts",
         "test/db/support/heaviest-criteria.ts",
         "test/db/support/auth-stack.ts",
+        "test/db/support/analyses-sql.ts",
       ],
       reportsDirectory: "coverage/db",
       reporter: ["text"],

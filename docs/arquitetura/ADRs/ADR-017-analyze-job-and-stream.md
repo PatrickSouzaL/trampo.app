@@ -217,3 +217,6 @@ Verificação:
   - **F1-API-04b** (depois do F1-DB-01): ligação no `main.ts`.
 - **Lacuna de produto exposta:** até o S-1 e o F1-LLM-02, todo R4 sai como `fallback_deterministico` com `analise_degradada`. É o comportamento seguro do ADR-001 C5, não um defeito.
 - O contrato `AnalysisStreamEventSchema` não muda. O comentário "formato fechado no Spike S-1" passa a apontar para este ADR (mudança só de comentário, num commit do `@trampo/contracts`).
+
+## Emenda da F1-API-06 (sessão 33, 2026-11-16)
+O [ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D1 decide a gravação da análise **fora do `AnalyzeJob`**: a rota, que conhece o dono, chama um `AnalysisRecorder` depois de o `result` ter sido entregue ao stream (`write` devolveu `true`), sem esperar e sem mudar o relatório. O job continua sem o `userId` (D1) e o `aj1` não muda. A ligação no `composeApp` espera o *HITL-QUEUE §HITL-048*.

@@ -290,3 +290,6 @@ Refinamentos do desenho, sem mudar decisão:
 - **O cascade do D2 continua valendo** e está provado no job `db` pela função (0 linhas em `user_criteria`, `analyses` e `analysis_feedback`). A função também apaga os dois lugares do `auth` que o cascade não pega (`flow_state` e `audit_log_entries`).
 - **O `revoke` de `service_role` nas três tabelas (D3) fica:** ele nunca precisou delas.
 - **O cliente de usuário** ganhou o `rpc()` (lista fechada de funções, corpo fixo `{}`, resposta de até 64 bytes) e a leitura de `analyses` e `analysis_feedback`. A gravação segue só em `user_criteria`.
+
+## Emenda da F1-API-06 (sessão 33, 2026-11-16)
+O [ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D2 e D3 completam o D2 deste ADR: o banco força o `created_at` das análises e o `updated_at` do feedback por gatilho (medido: um `created_at` futuro mandado direto passava), aplica o teto de 100 análises por usuário em 24 h e apaga as análises com mais de 90 dias por uma função agendada no `pg_cron`, que só o dono (`postgres`, com `BYPASSRLS`) executa. **A previsão do §3.3 de dar à retenção um grant ao `service_role` cai:** nenhuma chave de alto privilégio entra. O "dono pode inserir `analyses` falsas para si" do §3 continua, limitado pelo teto (T55).

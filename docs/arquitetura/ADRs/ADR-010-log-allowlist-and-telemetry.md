@@ -167,3 +167,7 @@ Em `apps/api/test/log-policy.test.ts`, `apps/api/test/log-sr12.test.ts`, `apps/a
 - **Mutação:** 69/69 mortos. A remoção do `streamWrite` sozinha derruba 4 testes do SR-12 de ponta a ponta.
 - **Código equivalente removido:** o `base: null` da F1-API-00, porque hostname e pid já caem na allowlist.
 - **Smoke:** o JS compilado grava só `servidor_ouvindo`, `requisicao_recebida` e `requisicao_concluida`, sem a query nem o token da requisição.
+
+## Emendas da sessão 33 (2026-11-16), só o desenho
+- **F1-API-06 ([ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D7):** os eventos `analysis_record` (`outcome`) e `analysis_feedback` (`agreement`), com as métricas `analysis_record_total` e `analysis_feedback_total`, e as mensagens `analise_gravacao_falhou` e `feedback_gravacao_indisponivel`, sem campo. Entram com as fatias 3 e 4.
+- **S-5 ([ADR-030-hosting](ADR-030-hosting.md) D6):** o exportador da Fase 1 é uma linha de log `telemetria_resumo` a cada 15 minutos, com os contadores do catálogo do D6 e nenhum rótulo com identificador (*BACKLOG §F1-OBS-03*).

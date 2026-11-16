@@ -64,3 +64,19 @@ export const ACCOUNT_DELETE_BODY_MAX_BYTES = 256;
  * do token; o `test:db` prende a constante dela a este valor, e o portal só o espelha para avisar antes.
  */
 export const ACCOUNT_RECENT_LOGIN_SECONDS = 600;
+
+/**
+ * Retenção das análises gravadas (ADR-031 D3): a função agendada do banco apaga as mais velhas que isto, e o feedback
+ * vai junto. O `test:db` prende a constante da migration a este valor.
+ */
+export const ANALYSES_RETENTION_DAYS = 90;
+
+/**
+ * Teto de análises gravadas por usuário em 24 horas corridas (ADR-031 D2), aplicado por um gatilho do banco: o dono
+ * também grava direto no PostgREST com o próprio JWT. O dobro da cota diária, para o uso legítimo nunca chegar nele;
+ * o `test:db` prende a constante da migration a este valor.
+ */
+export const ANALYSES_DAILY_ROW_CAP = 100;
+
+/** `bodyLimit` do `POST /v1/analyses/:analysisId/feedback` (ADR-031 D4): o corpo é o acordo e o motivo. */
+export const ANALYSIS_FEEDBACK_BODY_MAX_BYTES = 256;

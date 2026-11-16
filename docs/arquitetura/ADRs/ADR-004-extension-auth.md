@@ -1378,3 +1378,23 @@ Hoje nenhum SR cobre T9 nem T22, e o guardrail do F1-EXT-05 é justamente "T9 e 
 **Q14. Ordem entre login e consentimento.**
 - Independentes (qualquer ordem, ambos exigidos para enviar); login antes; consentimento antes.
 - **Recomendação: independentes.** A troca não leva dado do usuário, e o envio exige os dois (ADR-025 D2).
+
+## 8. Emenda da sessão 33 (2026-11-16): o roteiro executável do spike S-3, só no papel
+
+**Por quê:** o §1.4 nasceu com P1 a P20 (o P21 entrou com a F1-API-08), e o estado mudou desde então: o pré-spike (HITL-035 e HITL-036), o E2E com IdP falso (05c-1 a 05c-3), o job `db` (07h), o hook (HITL-040) e o portal (HITL-041, 043, 044 e 045). Onde este ADR diz "P1 a P20" (o cabeçalho, a CA-12 e o §6.2), passa a valer **P1 a P21**. O roteiro executável é o runbook *spike-s3*, com o *HITL-QUEUE §HITL-046*, e os números vão para o *spike-metrics* §4.2.
+
+**Estado por ponto (`[ARCHITECT]` + `[APPSEC]`):**
+- **Fechados:** P10 e P11 (CI, 07h; o P11 também no real, pelo HITL-044), P15 (07d), P16 (05b-1), P17 e P20 (05c-1).
+- **Com ressalva, completados pelo bloco A:** P4 (as chaves exatas de A e H e a negação no Google), P7 (o `code_e_uuid`) e P8 (B, C e D com status e `error_code`).
+- **Abertos e mensuráveis já, sem a extensão:** P9 (bloco A), P19 (o balde da troca e o `/logout`, bloco B), P21 (bloco B) e o P18 sem escrita (bloco D).
+- **Abertos que só a extensão de verdade responde:** P1, P2, P3 (manual), P12, P13 (manual) e P14 (bloco E). O P5 e o P6 se refazem com o Site URL definitivo (bloco E2, D15).
+
+**Decisões desta emenda:**
+1. **O P9 se mede pelo PowerShell, não pelo relatório de conformidade da API.** O relatório do D15 (`AUTH_SPIKE_CONFORMANCE_REPORT`) nunca foi implementado, e o token é o mesmo qualquer que seja o cliente: a função `Ler-Claims` do *spike-s3* lê do access recém-trocado só os nomes de claim, as formas (`aud` e `amr`), os booleanos, o `exp − iat` e o tamanho, sem valor pessoal. A CA-12 passa a ser cumprida com a saída do bloco A para os dois provedores. A variável `AUTH_SPIKE_CONFORMANCE_REPORT` sai do plano (nenhum código a remover).
+2. **O bloco E espera duas coisas:** a API em `https://` (o build real da extensão recusa origem `http://`; a hospedagem do S-5, [ADR-030-hosting](ADR-030-hosting.md)) e a *BACKLOG §F1-EXT-09* (a extensão recusa todo `ApiError` da API real, porque a API devolve o id do servidor no `requestId`). Rodar o bloco E antes disso mediria o defeito, não o desenho.
+3. **Latência entra no spike:** o humano relatou lentidão no HITL-044 e no HITL-045. Os blocos A e C medem a ida e volta pura até o projeto, a troca, a renovação, a leitura simples do PostgREST, a função de exclusão e as páginas do portal, só em milissegundos.
+4. **Cadastros:** o HITL-036 os desligou (Q9), mas no HITL-045 uma conta nasceu ao entrar de novo, o que só acontece com eles ligados. O bloco 0 lê o estado; se ligados sem motivo, o humano os desliga (o residual "cadastro aberto" do §3 reabre até lá). Toda conta de teste nova do spike liga os cadastros só durante o bloco, com o rollback no mesmo bloco.
+
+**`[APPSEC]`:** sem veto. As funções novas imprimem só nomes, formas, booleanos, status e milissegundos; as sondas do bloco B usam chave, código e token inválidos gerados na hora e não tocam sessão de ninguém; a sonda do balde fica por último no dia (um 429 deixa o IP sem renovar por cerca de 1 minuto). Nenhum bloco gasta cota de LLM: a API não sobe nos blocos 0 a D, e o bloco E nunca analisa uma vaga.
+
+**Emenda do S-5 (sessão 33, 2026-11-16), D15:** o [ADR-030-hosting](ADR-030-hosting.md) D4 mantém o Site URL na **opção A** (o host chromiumapp, NXDOMAIN) também depois da hospedagem: a página estática prevista no D15 sai do plano, porque a opção A não tem servidor nem log. O Site URL só muda com o ID (PRE-LOJA-01). A Redirect URL do portal hospedado entra na allow-list exata, e por isso os casos E e F se refazem (bloco E2 do *spike-s3*).
