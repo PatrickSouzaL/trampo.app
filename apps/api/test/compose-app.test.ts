@@ -445,8 +445,8 @@ describe("rotas da conta (ADR-029 D3 a D5)", () => {
   const analysisRow = (owner: string) => ({ id: ANALYSIS_ID, user_id: owner, created_at: "2026-11-15T12:00:00+00:00", decision_path: "extracao_llm", verdict: "neutro", score: 50 });
   const feedbackRow = (owner: string) => ({ analysis_id: ANALYSIS_ID, user_id: owner, agreement: "concordo", reason: null, updated_at: "2026-11-15T12:30:00+00:00" });
 
-  test("o cliente da conta fica logo abaixo do prazo do serviço e lê até 128 KiB", () => {
-    expect(ACCOUNT_POSTGREST_CLIENT).toEqual({ timeoutMs: 1_800, maxResponseBytes: 131_072 });
+  test("o cliente da conta fica logo abaixo do prazo da exclusão e lê até 256 KiB por página (ADR-031 D5)", () => {
+    expect(ACCOUNT_POSTGREST_CLIENT).toEqual({ timeoutMs: 1_800, maxResponseBytes: 262_144 });
     expect(Object.isFrozen(ACCOUNT_POSTGREST_CLIENT)).toBe(true);
   });
 

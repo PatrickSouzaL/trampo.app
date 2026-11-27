@@ -27,7 +27,8 @@ import { withDeadline } from "../shared/with-deadline.js";
 export const ACCOUNT_SERVICE_POLICY = {
   /** A exclusão apaga em cascata: mais folga que o 1 s dos critérios. O cliente HTTP da conta fica logo abaixo. */
   deleteTimeoutMs: 2_000,
-  recordsTimeoutMs: 2_000,
+  /** As duas listas inteiras, em até 10 páginas cada (ADR-031 D5): falha de qualquer página derruba a exportação. */
+  recordsTimeoutMs: 10_000,
   accessTokenMaxChars: ACCESS_TOKEN_MAX_CHARS,
 } as const;
 

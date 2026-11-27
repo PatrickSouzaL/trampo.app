@@ -79,7 +79,7 @@ beforeEach(() => {
     now: () => clock.ms,
     defer: () => undefined,
   });
-  client = createApiClient({ apiOrigin: config.apiOrigin, timeoutMs: 400 });
+  client = createApiClient({ apiOrigin: config.apiOrigin, timeoutMs: 400, exportTimeoutMs: 400 });
   dal = createAccountDal({ config, auth, api: client, now: () => clock.ms });
 });
 
@@ -178,14 +178,23 @@ describe("cliente: exportAccount (GET /v1/account/export)", () => {
     expect(api.requests).toHaveLength(1);
   });
 
-  it("o teto da exportação: acima de 32 KiB passa, acima de 256 KiB não", async () => {
+  it("o teto da exportação (ADR-031 D5): acima de 256 KiB passa, acima de 4 MiB não", async () => {
     const session = await login();
     const document = { schemaVersion: 1, exportedAt: "2026-11-15T12:00:00.000Z", criteria: null, analyses: [], analysesTruncated: false, feedback: [], feedbackTruncated: false };
     const padded = (bytes: number): string => JSON.stringify(document) + " ".repeat(bytes);
-    api.mode = { kind: "responde", status: 200, body: padded(100_000) };
+    api.mode = { kind: "responde", status: 200, body: padded(300 * 1024) };
     expect((await client.exportAccount(accessOf(session))).ok).toBe(true);
-    api.mode = { kind: "responde", status: 200, body: padded(256 * 1024) };
+    api.mode = { kind: "responde", status: 200, body: padded(4 * 1024 * 1024) };
     expect(await client.exportAccount(accessOf(session))).toEqual({ ok: false, reason: "nao_recebido" });
+  });
+
+  it("o prazo da exportação é o próprio (15 s em produção), separado do prazo das outras chamadas", async () => {
+    const session = await login();
+    api.rows.set(GOTRUE_CANARIES.userId, fullCriteria());
+    const patient = createApiClient({ apiOrigin: config.apiOrigin, timeoutMs: 300, exportTimeoutMs: 3_000 });
+    api.mode = { kind: "lento", delayMs: 800 };
+    expect((await patient.exportAccount(accessOf(session))).ok).toBe(true);
+    expect(await patient.readCriteria(accessOf(session))).toEqual({ ok: false, reason: "nao_recebido" });
   });
 
   it("token fora da forma, sinal abortado e conexão recusada: nao_recebido", async () => {

@@ -1,14 +1,17 @@
 // O RPC do cliente de usuário e o AccountStore do Supabase (ADR-029 D2 a D4) contra o PostgREST simulado em socket
 // real (127.0.0.1). RPC: endereço, cabeçalhos e corpo exatos (`{}`: nada de quem chama vira argumento), lista fechada
 // de funções, só o 200 com JSON de até 64 bytes, e falha fechada em todo desvio. Store: a palavra da função em lista
-// fechada, as duas listas com colunas explícitas, o filtro pelo dono, a ordem, o `limit` de 501 e o corte em 500, as
-// datas convertidas para UTC, e nenhuma linha fora da forma.
+// fechada, as duas listas com colunas explícitas, o filtro pelo dono e a ordem, as datas convertidas para UTC, e
+// nenhuma linha fora da forma. Paginação (ADR-031 D5): páginas de 1.000 por cursor de chave composta, com o valor CRU
+// do Postgres (microssegundos), até 10 páginas por lista e uma sonda de 1 linha para a marca de corte; qualquer página
+// que falha derruba a lista inteira.
 import { ACCOUNT_EXPORT_MAX_ROWS } from "@trampo/contracts/limits";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import type { AccountStore } from "../../src/application/index.js";
 import {
   ACCOUNT_DELETE_FUNCTION,
+  ACCOUNT_EXPORT_PAGE_ROWS,
   ANALYSES_SELECT,
   FEEDBACK_SELECT,
   createSupabaseAccountStore,
@@ -61,7 +64,7 @@ beforeEach(async () => {
   postgrest = await startFakePostgrest(PUBLISHABLE);
   postgrest.sessions.set(TOKEN, USER);
   postgrest.sessions.set(OTHER_TOKEN, OTHER);
-  client = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: HAPPY_PATH_TIMEOUT_MS, maxResponseBytes: 128 * 1024 });
+  client = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: HAPPY_PATH_TIMEOUT_MS, maxResponseBytes: 256 * 1024 });
   short = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 300 });
   store = createSupabaseAccountStore({ client });
 });
@@ -287,17 +290,18 @@ describe("records (ADR-029 D4)", () => {
     await expect(store.records(SUBJECT)).resolves.toEqual({ found: true, analyses: [], analysesTruncated: false, feedback: [], feedbackTruncated: false });
   });
 
-  test("as duas leituras: colunas explícitas, filtro pelo dono, da mais nova para a mais velha e limit de 501", async () => {
+  test("as duas leituras: colunas explícitas, filtro pelo dono, da mais nova para a mais velha e páginas de 1.000", async () => {
     await store.records(SUBJECT);
     const sent = postgrest.requests.map((request) => new URL(request.url, "http://x"));
     expect(sent.map((url) => url.pathname).sort()).toEqual(["/rest/v1/analyses", "/rest/v1/analysis_feedback"]);
     const analyses = sent.find((url) => url.pathname === "/rest/v1/analyses") as URL;
-    expect(Object.fromEntries(analyses.searchParams)).toEqual({ select: "id,created_at,decision_path,verdict,score", user_id: `eq.${USER}`, order: "created_at.desc,id.desc", limit: "501" });
+    expect(Object.fromEntries(analyses.searchParams)).toEqual({ select: "id,created_at,decision_path,verdict,score", user_id: `eq.${USER}`, order: "created_at.desc,id.desc", limit: "1000" });
     const feedback = sent.find((url) => url.pathname === "/rest/v1/analysis_feedback") as URL;
-    expect(Object.fromEntries(feedback.searchParams)).toEqual({ select: "analysis_id,agreement,reason,updated_at", user_id: `eq.${USER}`, order: "updated_at.desc,analysis_id.desc", limit: "501" });
+    expect(Object.fromEntries(feedback.searchParams)).toEqual({ select: "analysis_id,agreement,reason,updated_at", user_id: `eq.${USER}`, order: "updated_at.desc,analysis_id.desc", limit: "1000" });
     expect(ANALYSES_SELECT).toBe("id,created_at,decision_path,verdict,score");
     expect(FEEDBACK_SELECT).toBe("analysis_id,agreement,reason,updated_at");
-    expect(ACCOUNT_EXPORT_MAX_ROWS + 1).toBe(501);
+    expect(ACCOUNT_EXPORT_PAGE_ROWS).toBe(1_000);
+    expect(ACCOUNT_EXPORT_MAX_ROWS).toBe(10 * ACCOUNT_EXPORT_PAGE_ROWS);
     for (const request of postgrest.requests) {
       expect(request.method).toBe("GET");
       expect(request.authorization).toBe(`Bearer ${TOKEN}`);
@@ -317,27 +321,103 @@ describe("records (ADR-029 D4)", () => {
     });
   });
 
-  test("o corte: 500 linhas sem marca; 501 saem como 500 com a marca, e a 501ª nunca sai", async () => {
-    for (let index = 1; index <= ACCOUNT_EXPORT_MAX_ROWS; index += 1) postgrest.analyses.push(analysisRow(index));
-    for (let index = 1; index <= ACCOUNT_EXPORT_MAX_ROWS + 5; index += 1) postgrest.feedback.push(feedbackRow(index));
-    const exact = await store.records(SUBJECT);
-    expect(exact.found && exact.analyses.length).toBe(500);
-    expect(exact.found && exact.analysesTruncated).toBe(false);
-    expect(exact.found && exact.feedback.length).toBe(500);
-    expect(exact.found && exact.feedbackTruncated).toBe(true);
-    expect(exact.found && exact.feedback.some((row) => row.analysisId === uuid(501))).toBe(false);
-    postgrest.analyses.push(analysisRow(501));
-    const over = await store.records(SUBJECT);
-    expect(over.found && over.analyses.length).toBe(500);
-    expect(over.found && over.analysesTruncated).toBe(true);
-    expect(over.found && over.analyses.at(-1)?.id).toBe(uuid(500));
+  /** `n` análises do dono com datas distintas em microssegundos, `step` segundos entre elas (a mais nova é a 1). */
+  const plantAnalyses = (n: number, base = Date.UTC(2026, 10, 15, 12)): void => {
+    for (let index = 1; index <= n; index += 1) {
+      const at = new Date(base - index * 1_000).toISOString().replace("Z", "");
+      postgrest.analyses.push({ ...analysisRow(index), created_at: `${at}456+00:00` });
+    }
+  };
+
+  test("2.500 análises: 3 páginas, na ordem, sem repetição nem buraco; o cursor leva o valor cru do Postgres", async () => {
+    plantAnalyses(2_500);
+    const result = await store.records(SUBJECT);
+    if (!result.found) throw new Error("esperava as listas");
+    expect(result.analyses.map((row) => row.id)).toEqual(Array.from({ length: 2_500 }, (_, index) => uuid(index + 1)));
+    expect(result.analysesTruncated).toBe(false);
+    const pages = postgrest.requests.map((request) => new URL(request.url, "http://x")).filter((url) => url.pathname === "/rest/v1/analyses");
+    expect(pages.map((url) => url.searchParams.get("or"))).toEqual([
+      null,
+      `(created_at.lt."${String(postgrest.analyses[999]?.["created_at"])}",and(created_at.eq."${String(postgrest.analyses[999]?.["created_at"])}",id.lt.${uuid(1_000)}))`,
+      `(created_at.lt."${String(postgrest.analyses[1_999]?.["created_at"])}",and(created_at.eq."${String(postgrest.analyses[1_999]?.["created_at"])}",id.lt.${uuid(2_000)}))`,
+    ]);
+    expect(pages.every((url) => url.searchParams.get("limit") === "1000")).toBe(true);
   });
 
-  test("as avaliações no teto exato de 500: sem marca de corte", async () => {
-    for (let index = 1; index <= ACCOUNT_EXPORT_MAX_ROWS; index += 1) postgrest.feedback.push(feedbackRow(index));
+  test("duas linhas com a mesma data na fronteira da página: o desempate pelo id não perde nem repete nenhuma", async () => {
+    plantAnalyses(1_002);
+    // A 1.000ª e a 1.001ª ficam com o mesmo instante; na ordem do banco, o id maior vem antes.
+    const tie = String(postgrest.analyses[999]?.["created_at"]);
+    postgrest.analyses[1_000] = { ...analysisRow(1_001), created_at: tie };
+    const result = await store.records(SUBJECT);
+    if (!result.found) throw new Error("esperava as listas");
+    expect(result.analyses).toHaveLength(1_002);
+    expect(new Set(result.analyses.map((row) => row.id)).size).toBe(1_002);
+    // Na mesma data, o id maior vem antes: a 1.001ª (id maior) abre a 2ª página sem repetir a 1.000ª.
+    expect(result.analyses.slice(999, 1_001).map((row) => row.id)).toEqual([uuid(1_001), uuid(1_000)].sort().reverse());
+  });
+
+  test("o mesmo milissegundo com microssegundos diferentes na fronteira: o cursor cru não pula a linha", async () => {
+    plantAnalyses(1_001);
+    const base = String(postgrest.analyses[999]?.["created_at"]).replace("456+00:00", "");
+    postgrest.analyses[999] = { ...postgrest.analyses[999], user_id: USER, created_at: `${base}457+00:00` };
+    postgrest.analyses[1_000] = { ...postgrest.analyses[1_000], user_id: USER, created_at: `${base}456+00:00` };
+    const result = await store.records(SUBJECT);
+    if (!result.found) throw new Error("esperava as listas");
+    expect(result.analyses).toHaveLength(1_001);
+    expect(new Set(result.analyses.map((row) => row.id)).size).toBe(1_001);
+  });
+
+  test("10.000 linhas exatas: 10 páginas e a sonda vazia, sem marca; a 10.001ª liga a marca e nunca sai", async () => {
+    plantAnalyses(ACCOUNT_EXPORT_MAX_ROWS);
+    for (let index = 1; index <= 3; index += 1) postgrest.feedback.push(feedbackRow(index));
     const exact = await store.records(SUBJECT);
-    expect(exact.found && exact.feedback.length).toBe(500);
-    expect(exact.found && exact.feedbackTruncated).toBe(false);
+    if (!exact.found) throw new Error("esperava as listas");
+    expect(exact.analyses).toHaveLength(ACCOUNT_EXPORT_MAX_ROWS);
+    expect(exact.analysesTruncated).toBe(false);
+    const probes = postgrest.requests.map((request) => new URL(request.url, "http://x")).filter((url) => url.pathname === "/rest/v1/analyses");
+    expect(probes.map((url) => url.searchParams.get("limit"))).toEqual([...Array.from({ length: 10 }, () => "1000"), "1"]);
+    postgrest.analyses.push({ ...analysisRow(ACCOUNT_EXPORT_MAX_ROWS + 1), created_at: "2025-12-31T23:00:00.000456+00:00" });
+    const over = await store.records(SUBJECT);
+    if (!over.found) throw new Error("esperava as listas");
+    expect(over.analyses).toHaveLength(ACCOUNT_EXPORT_MAX_ROWS);
+    expect(over.analysesTruncated).toBe(true);
+    expect(over.analyses.some((row) => row.id === uuid(ACCOUNT_EXPORT_MAX_ROWS + 1))).toBe(false);
+  });
+
+  test("as avaliações também paginam pelo cursor (updated_at, analysis_id)", async () => {
+    for (let index = 1; index <= 1_001; index += 1) {
+      const at = new Date(Date.UTC(2026, 10, 15, 12) - index * 1_000).toISOString().replace("Z", "");
+      postgrest.feedback.push({ ...feedbackRow(index), updated_at: `${at}123+00:00` });
+    }
+    const result = await store.records(SUBJECT);
+    if (!result.found) throw new Error("esperava as listas");
+    expect(result.feedback.map((row) => row.analysisId)).toEqual(Array.from({ length: 1_001 }, (_, index) => uuid(index + 1)));
+    const second = postgrest.requests.map((request) => new URL(request.url, "http://x")).filter((url) => url.pathname === "/rest/v1/analysis_feedback")[1];
+    const last = String(postgrest.feedback[999]?.["updated_at"]);
+    expect(second?.searchParams.get("or")).toBe(`(updated_at.lt."${last}",and(updated_at.eq."${last}",analysis_id.lt.${uuid(1_000)}))`);
+  });
+
+  test.each([2, 3])("a %iª página falha: a lista inteira é indisponível, sem documento parcial", async (failing) => {
+    plantAnalyses(2_500);
+    let calls = 0;
+    const stub: PostgrestUserClient = {
+      ...client,
+      select: (table, query, token, signal) => {
+        if (table === "analyses") calls += 1;
+        return table === "analyses" && calls === failing ? Promise.resolve(FAILURE) : client.select(table, query, token, signal);
+      },
+    };
+    await expect(createSupabaseAccountStore({ client: stub }).records(SUBJECT)).resolves.toEqual(RECORDS_UNAVAILABLE);
+  });
+
+  test("a sonda de corte que falha: indisponível", async () => {
+    plantAnalyses(ACCOUNT_EXPORT_MAX_ROWS);
+    const stub: PostgrestUserClient = {
+      ...client,
+      select: (table, query, token, signal) => (query["limit"] === "1" ? Promise.resolve(FAILURE) : client.select(table, query, token, signal)),
+    };
+    await expect(createSupabaseAccountStore({ client: stub }).records(SUBJECT)).resolves.toEqual(RECORDS_UNAVAILABLE);
   });
 
   test.each<[string, OwnedRow]>([
@@ -368,7 +448,7 @@ describe("records (ADR-029 D4)", () => {
     ["coluna a mais na análise", "/rest/v1/analyses", [{ ...analysisRow(1), job_text: "vaga" }]],
     ["o dono na avaliação", "/rest/v1/analysis_feedback", [feedbackRow(1)]],
     ["objeto no lugar da lista", "/rest/v1/analyses", {}],
-    ["mais de 501 linhas", "/rest/v1/analyses", Array.from({ length: 502 }, (_, index) => ({ id: uuid(index), created_at: "2026-11-15T12:00:00+00:00", decision_path: "extracao_llm", verdict: "neutro", score: 1 }))],
+    ["mais de 1.000 linhas numa página", "/rest/v1/analyses", Array.from({ length: 1_001 }, (_, index) => ({ id: uuid(index), created_at: "2026-11-15T12:00:00+00:00", decision_path: "extracao_llm", verdict: "neutro", score: 1 }))],
   ])("resposta fora do contrato (%s): indisponível", async (_caso, path, body) => {
     const stub: PostgrestUserClient = {
       ...client,

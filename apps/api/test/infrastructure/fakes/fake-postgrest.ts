@@ -18,6 +18,9 @@
 // inserção e 200 na atualização; na análise de outro dono que já tem avaliação, 403 `42501` (o ramo do update bate na
 // RLS); na de outro dono sem avaliação, ou num id que não existe, 409 `23503` (a FK composta).
 //
+// Exportação paginada (ADR-031 D5): o `GET` das duas listas respeita o `order` (chaves em ordem decrescente), o filtro
+// `or` do cursor de chave composta (`(k.lt."v",and(k.eq."v",i.lt.id))`) e o `max_rows` de 1.000 do PostgREST real.
+//
 // Opcionalmente serve o JWKS do Auth no mesmo host (o teste de boot usa uma SUPABASE_URL só).
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -72,6 +75,8 @@ export interface FakePostgrest {
   deleteResult: unknown;
   /** O teto de linhas do dono em `analyses` (o gatilho do banco, ADR-031 D2): acima dele, 429 `PT429`. */
   analysesCap: number;
+  /** O `max_rows` do PostgREST (1.000 na pilha do Supabase): nenhuma leitura devolve mais que isto. */
+  maxRows: number;
   /** O dono de cada chamada aceita do RPC. */
   readonly deletions: string[];
   /** Token → dono (o `auth.uid()` da RLS). */
@@ -82,6 +87,21 @@ export interface FakePostgrest {
 }
 
 const JWKS_PATH = "/auth/v1/.well-known/jwks.json";
+
+/** Um `timestamptz` como o Postgres o guarda: microssegundos desde a época, ou `null` se o texto não é data. */
+function microseconds(value: string): bigint | null {
+  const match = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,6}))?(Z|[+-]\d\d:\d\d)$/.exec(value);
+  if (match === null) return null;
+  const [, base = "", fraction = "", zone = ""] = match;
+  return BigInt(Date.parse(`${base}${zone}`)) * 1_000n + BigInt(fraction.padEnd(6, "0"));
+}
+
+/** Compara como o Postgres: datas pelo instante (o formato e o fuso não importam); o resto como texto. */
+function compareValues(a: string, b: string): number {
+  const [x, y] = [microseconds(a), microseconds(b)];
+  if (x !== null && y !== null) return x === y ? 0 : x < y ? -1 : 1;
+  return a === b ? 0 : a < b ? -1 : 1;
+}
 
 function send(response: ServerResponse, status: number, body: string | Buffer, contentType: string | null = "application/json; charset=utf-8"): void {
   response.writeHead(status, contentType === null ? {} : { "content-type": contentType });
@@ -95,7 +115,7 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
   const feedback: OwnedRow[] = [];
   const deletions: string[] = [];
   const sessions = new Map<string, string>();
-  const fake = { mode: { kind: "normal" } as PostgrestMode, jwks: null as JWK[] | null, deleteResult: "excluida" as unknown, analysesCap: 100 };
+  const fake = { mode: { kind: "normal" } as PostgrestMode, jwks: null as JWK[] | null, deleteResult: "excluida" as unknown, analysesCap: 100, maxRows: 1_000 };
   const lists: Readonly<Record<string, OwnedRow[]>> = { "/rest/v1/analyses": analyses, "/rest/v1/analysis_feedback": feedback };
   const RPC_PATH = "/rest/v1/rpc/delete_own_account";
   /** Tira do array, no lugar, as linhas do dono. */
@@ -193,9 +213,31 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
       }
       if (list !== undefined) {
         const wanted = url.searchParams.get("user_id");
-        const limit = Number(url.searchParams.get("limit") ?? "1000");
+        const limit = Math.min(Number(url.searchParams.get("limit") ?? String(fake.maxRows)), fake.maxRows);
         const listed = (url.searchParams.get("select") ?? "").split(",");
-        const visible = list.filter((row) => row.user_id === owner && wanted === `eq.${row.user_id}`).slice(0, limit);
+        // `order=a.desc,b.asc`: cada chave na sua direção, com as datas comparadas como o Postgres (em microssegundos).
+        const keys = (url.searchParams.get("order") ?? "")
+          .split(",")
+          .filter((part) => part.endsWith(".desc") || part.endsWith(".asc"))
+          .map((part) => ({ key: part.slice(0, part.lastIndexOf(".")), direction: part.endsWith(".desc") ? -1 : 1 }));
+        const ordered = [...list].sort((a, b) => {
+          for (const { key, direction } of keys) {
+            const order = compareValues(String(a[key]), String(b[key]));
+            if (order !== 0) return order * direction;
+          }
+          return 0;
+        });
+        // O cursor de chave composta: `(k.lt."v",and(k.eq."v",i.lt.id))`. Qualquer outra forma é 400, como o real.
+        const or = url.searchParams.get("or");
+        const cursor = or === null ? null : /^\((\w+)\.lt\."([^"]+)",and\(\1\.eq\."\2",(\w+)\.lt\.([0-9a-f-]{36})\)\)$/.exec(or);
+        if (or !== null && cursor === null) return send(response, 400, '{"code":"PGRST100","message":"failed to parse logic tree"}');
+        const after = (row: OwnedRow): boolean => {
+          if (cursor === null) return true;
+          const [, key = "", value = "", idKey = "", id = ""] = cursor;
+          const order = compareValues(String(row[key]), value);
+          return order < 0 || (order === 0 && compareValues(String(row[idKey]), id) < 0);
+        };
+        const visible = ordered.filter((row) => row.user_id === owner && wanted === `eq.${row.user_id}` && after(row)).slice(0, limit);
         return send(response, 200, JSON.stringify(visible.map((row) => Object.fromEntries(listed.filter((column) => column in row).map((column) => [column, row[column]])))));
       }
       if (method === "POST") {

@@ -6,7 +6,7 @@
 //   `origin`, `referer` ou `x-forwarded-for`: a interface nem recebe cabeçalho. Sem `Origin`, a borda da API deixa
 //   passar sem CORS, e o JWT protege (ADR-007 D6).
 // - `redirect: "error"` (o Bearer nunca segue um 3xx), prazo de 5 s, teto de 32 KiB, UTF-8 estrito, JSON sem chave de
-//   protótipo e `cache: "no-store"`.
+//   protótipo e `cache: "no-store"`. A exportação tem 15 s e 4 MiB próprios (ADR-031 D5).
 // - Classificação pelo `code` do corpo da API (ADR-021 D2), nunca pelo status sozinho (T30). No `PUT`, o que não prova
 //   que nada foi gravado é `pode_ter_gravado` (o 503 do guarda pode vir depois da escrita, ADR-021 D5). Sem nova
 //   tentativa. Nunca rejeita, e nada do token, do corpo ou da resposta sai daqui.
@@ -54,14 +54,18 @@ export interface ApiClient {
 export const API_CLIENT_POLICY = Object.freeze({
   timeoutMs: 5_000,
   maxResponseBytes: 32 * 1024,
-  /** A exportação: os critérios e duas listas de até 500 linhas (ADR-029 D4). */
-  exportMaxResponseBytes: 256 * 1024,
+  /** A exportação: os critérios e duas listas de até 10.000 linhas (ADR-029 D4; ADR-031 D5), cerca de 3 MiB no pior caso. */
+  exportMaxResponseBytes: 4 * 1024 * 1024,
+  /** A API lê as duas listas em até 10 páginas cada, com 10 s de prazo próprio (ADR-031 D5): a exportação espera mais. */
+  exportTimeoutMs: 15_000,
 });
 
 export interface ApiClientConfig {
   readonly apiOrigin: string;
   /** Só para os testes encurtarem o prazo. */
   readonly timeoutMs?: number;
+  /** Só para os testes encurtarem o prazo da exportação. */
+  readonly exportTimeoutMs?: number;
 }
 
 const ACCESS_TOKEN = /^[\w-]+\.[\w-]+\.[\w-]+$/;
@@ -85,6 +89,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
   const exportEndpoint = new URL(ACCOUNT_ROUTES.export, config.apiOrigin);
   const deleteEndpoint = new URL(ACCOUNT_ROUTES.delete, config.apiOrigin);
   const timeoutMs = config.timeoutMs ?? API_CLIENT_POLICY.timeoutMs;
+  const exportTimeoutMs = config.exportTimeoutMs ?? API_CLIENT_POLICY.exportTimeoutMs;
 
   const call = async (
     method: "GET" | "PUT" | "POST",
@@ -92,9 +97,10 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     body: string | null,
     signal: AbortSignal | undefined,
     target: URL = endpoint,
+    deadlineMs: number = timeoutMs,
   ): Promise<Response | "nao_conectou" | "talvez"> => {
     if (signal?.aborted === true) return "nao_conectou";
-    const timeout = AbortSignal.timeout(timeoutMs);
+    const timeout = AbortSignal.timeout(deadlineMs);
     try {
       return await fetch(target, {
         method,
@@ -162,7 +168,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
 
     async exportAccount(accessToken, signal) {
       if (!validToken(accessToken)) return READ_NOT_RECEIVED;
-      const response = await call("GET", { authorization: `Bearer ${accessToken}`, accept: "application/json" }, null, signal, exportEndpoint);
+      const response = await call("GET", { authorization: `Bearer ${accessToken}`, accept: "application/json" }, null, signal, exportEndpoint, exportTimeoutMs);
       // A leitura não tem efeito: prazo, aborto e socket cortado são só "não recebido".
       if (!(response instanceof Response)) return READ_NOT_RECEIVED;
       if (response.status === 200) {

@@ -51,7 +51,7 @@ describe('constantes (ADR-029 D10)', () => {
   });
 
   test('limites na fonte única', () => {
-    expect(limits.ACCOUNT_EXPORT_MAX_ROWS).toBe(500);
+    expect(limits.ACCOUNT_EXPORT_MAX_ROWS).toBe(10_000);
     expect(limits.ACCOUNT_DELETE_BODY_MAX_BYTES).toBe(256);
     expect(limits.ACCOUNT_RECENT_LOGIN_SECONDS).toBe(600);
     // O corpo válido cabe no teto com folga.
@@ -161,7 +161,7 @@ describe('AccountExportSchema (ADR-029 D4)', () => {
     expect(parsed.feedback).toEqual([feedback]);
   });
 
-  test('o teto de 500 linhas por lista', () => {
+  test('o teto de 10.000 linhas por lista (ADR-031 D5)', () => {
     const rows = (count: number) => Array.from({ length: count }, () => analysis);
     const notes = (count: number) => Array.from({ length: count }, () => feedback);
     expect(AccountExportSchema.safeParse({ ...empty, analyses: rows(limits.ACCOUNT_EXPORT_MAX_ROWS), analysesTruncated: true }).success).toBe(true);

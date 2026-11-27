@@ -124,8 +124,11 @@ export interface ComposedApp {
 
 const titleSchema = safeText(JOB_TITLE_MAX_CHARS);
 
-/** O cliente do PostgREST da conta (ADR-029 D3 e D4): logo abaixo dos 2 s do AccountService, e 128 KiB para as 500 linhas. */
-export const ACCOUNT_POSTGREST_CLIENT = Object.freeze({ timeoutMs: 1_800, maxResponseBytes: 128 * 1024 });
+/**
+ * O cliente do PostgREST da conta (ADR-029 D3 e D4; ADR-031 D5): cada chamada logo abaixo dos 2 s da exclusão, e
+ * 256 KiB por página de 1.000 linhas da exportação.
+ */
+export const ACCOUNT_POSTGREST_CLIENT = Object.freeze({ timeoutMs: 1_800, maxResponseBytes: 256 * 1024 });
 
 export function composeApp(source: Environment, options: ComposeOptions = {}): ComposedApp {
   const server = ServerEnvSchema.parse(source);
