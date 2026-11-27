@@ -160,7 +160,7 @@ describe("RateLimitGuard", () => {
 
   test("toda classe da política passa pelo guarda e chega à porta como veio", async () => {
     const classes = Object.keys(RATE_LIMIT_POLICY.classes) as RateLimitClass[];
-    expect(classes).toEqual(["padrao", "analise", "criterios", "conta"]);
+    expect(classes).toEqual(["padrao", "analise", "criterios", "conta", "feedback"]);
     for (const rateClass of classes) {
       const h = rateHarness({ kind: "valor", value: { ok: true } });
       await expect(h.clock.run(h.guard.check(rateClass, SUBJECT))).resolves.toEqual({ ok: true });

@@ -396,6 +396,43 @@ describe("rotas de critérios (F1-API-05 commit 5; ADR-021 §4)", () => {
   });
 });
 
+describe("rota de feedback (ADR-031 D4)", () => {
+  test("o boot monta POST /v1/analyses/:analysisId/feedback: 401 com no-store sem token, sem tocar o banco nem o Redis", async () => {
+    const instance = boot();
+    const res = await instance.app.inject({
+      method: "POST",
+      url: "/v1/analyses/1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d/feedback",
+      headers: { "content-type": "application/json" },
+      payload: '{"agreement":"concordo","reason":null}',
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(postgrest.requests).toHaveLength(0);
+    expect(upstash.requests).toHaveLength(0);
+  });
+
+  test("pelas peças reais: a própria análise dá 204, a de outro dono dá 404 PROIBIDO, a classe `feedback` no Redis", async () => {
+    const token = await ownerToken();
+    const mine = "1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d";
+    const theirs = "2c3d4e5f-6071-4b8c-9d0e-1f2a3b4c5d6e";
+    postgrest.analyses.push({ id: mine, user_id: OWNER }, { id: theirs, user_id: "0d9c8b7a-6f5e-4d3c-8b2a-1f0e9d8c7b6a" });
+    const instance = boot();
+    const send = (id: string) =>
+      instance.app.inject({
+        method: "POST",
+        url: `/v1/analyses/${id}/feedback`,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        payload: '{"agreement":"discordo","reason":"veredito_errado"}',
+      });
+    expect((await send(mine)).statusCode).toBe(204);
+    const denied = await send(theirs);
+    expect(denied.statusCode).toBe(404);
+    expect(ApiErrorSchema.parse(denied.json()).code).toBe("PROIBIDO");
+    expect(postgrest.feedback).toEqual([expect.objectContaining({ analysis_id: mine, user_id: OWNER, agreement: "discordo" })]);
+    expect(JSON.stringify(upstash.requests)).toContain("feedback");
+  });
+});
+
 describe("rotas da conta (ADR-029 D3 a D5)", () => {
   const OTHER_OWNER = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
   const ANALYSIS_ID = "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b";

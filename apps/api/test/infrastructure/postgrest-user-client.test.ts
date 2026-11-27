@@ -11,6 +11,7 @@ import {
   POSTGREST_CLIENT_POLICY,
   PostgrestClientConfigError,
   createPostgrestUserClient,
+  type PostgrestUpsert,
   type PostgrestUserClient,
 } from "../../src/infrastructure/supabase/postgrest-user-client.js";
 import { HAPPY_PATH_TIMEOUT_MS } from "../support/socket-deadlines.js";
@@ -82,6 +83,7 @@ describe("construtor: só a chave publishable", () => {
       accessTokenMaxChars: 8_192,
       rpcMaxResponseBytes: 64,
       insertRefusedStatuses: [400, 403, 409],
+      upsertDeniedStatuses: [403, 409],
     });
   });
 });
@@ -304,7 +306,7 @@ const WRITE_ROW = {
 const UPSERT = { columns: COLUMNS, onConflict: "user_id", row: WRITE_ROW } as const;
 const WRITTEN = { ok: true };
 
-const upsert = (token = TOKEN, signal?: AbortSignal, write: Parameters<PostgrestUserClient["upsert"]>[1] = UPSERT) =>
+const upsert = (token = TOKEN, signal?: AbortSignal, write: PostgrestUpsert<"user_criteria"> = UPSERT) =>
   client.upsert("user_criteria", write, token, signal);
 
 /** O corpo que o cliente monta: só as colunas, na ordem delas. */
@@ -688,5 +690,75 @@ describe("insert: rede e prazo viram `indisponivel`", () => {
     postgrest = await startFakePostgrest(PUBLISHABLE);
     const closed = createPostgrestUserClient({ url, publishableKey: PUBLISHABLE, timeoutMs: 300 });
     await expect(closed.insert("analyses", INSERT, TOKEN)).resolves.toBe("indisponivel");
+  });
+});
+
+// ---------- upsert classificado (ADR-031 D4) ----------
+
+const FEEDBACK_COLUMNS = ["analysis_id", "user_id", "agreement", "reason"] as const;
+const FEEDBACK_ROW = { analysis_id: ANALYSIS_ID, user_id: USER, agreement: "discordo", reason: null };
+const FEEDBACK = { columns: FEEDBACK_COLUMNS, onConflict: "analysis_id", row: FEEDBACK_ROW } as const;
+const classified = (status: number) => {
+  postgrest.mode = { kind: "status", status, body: '{"details":"CANARIO-LINHA"}' };
+  return client.upsertClassified("analysis_feedback", FEEDBACK, TOKEN);
+};
+
+describe("upsertClassified: só pelo status, sem ler o corpo", () => {
+  test.each([
+    [201, "gravada"],
+    [200, "gravada"],
+    [403, "negada"],
+    [409, "negada"],
+    [400, "indisponivel"],
+    [401, "indisponivel"],
+    [404, "indisponivel"],
+    [429, "indisponivel"],
+    [500, "indisponivel"],
+    [503, "indisponivel"],
+    [204, "indisponivel"],
+  ] as const)("%i → %s", async (status, expected) => {
+    await expect(classified(status)).resolves.toBe(expected);
+  });
+
+  test("mesmo protocolo do upsert: on_conflict, columns, merge-duplicates e só as colunas declaradas", async () => {
+    postgrest.analyses.push({ id: ANALYSIS_ID, user_id: USER });
+    await expect(client.upsertClassified("analysis_feedback", { ...FEEDBACK, row: { ...FEEDBACK_ROW, updated_at: "2099" } as typeof FEEDBACK_ROW }, TOKEN)).resolves.toBe("gravada");
+    const [sent] = postgrest.requests;
+    const url = new URL(sent?.url ?? "", "http://x");
+    expect(url.pathname).toBe("/rest/v1/analysis_feedback");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ on_conflict: "analysis_id", columns: FEEDBACK_COLUMNS.join(",") });
+    expect(sent?.prefer).toBe("resolution=merge-duplicates,return=minimal");
+    expect(Object.keys(JSON.parse(sent?.body ?? "{}") as object)).toEqual([...FEEDBACK_COLUMNS]);
+  });
+
+  test("corpo que nunca termina: o cliente não espera o corpo", async () => {
+    postgrest.mode = { kind: "sem_fim", status: 409, chunk: '{"details":"' };
+    const slow = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 10_000 });
+    const start = performance.now();
+    await expect(slow.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("negada");
+    expect(performance.now() - start).toBeLessThan(2_000);
+  });
+
+  test("token fora da forma: `indisponivel`, sem requisição", async () => {
+    await expect(client.upsertClassified("analysis_feedback", FEEDBACK, "a.b")).resolves.toBe("indisponivel");
+    expect(postgrest.requests).toHaveLength(0);
+  });
+
+  test("rede: lento além do prazo, redirecionamento e socket cortado viram `indisponivel`", async () => {
+    postgrest.mode = { kind: "lento", delayMs: 1_000 };
+    await expect(short.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("indisponivel");
+    other = await startFakePostgrest(PUBLISHABLE);
+    postgrest.mode = { kind: "redireciona", location: `${other.url.origin}/rest/v1/analysis_feedback` };
+    await expect(client.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("indisponivel");
+    expect(other.requests).toHaveLength(0);
+    postgrest.mode = { kind: "corta" };
+    await expect(client.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("indisponivel");
+  });
+
+  test("o caminho dos critérios não muda: o upsert de user_criteria continua só com ok verdadeiro ou falso", async () => {
+    for (const status of [403, 409]) {
+      postgrest.mode = { kind: "status", status };
+      await expect(upsert()).resolves.toStrictEqual(FAILURE);
+    }
   });
 });

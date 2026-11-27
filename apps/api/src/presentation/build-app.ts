@@ -25,6 +25,7 @@ import { type AccountRouteOptions, accountRoutes } from "./routes/account.js";
 import { type AnalysisRouteOptions, analyzeRoutes } from "./routes/analyze.js";
 import { type AuthRouteOptions, authRoutes } from "./routes/auth.js";
 import { type CriteriaRouteOptions, criteriaRoutes } from "./routes/criteria.js";
+import { type FeedbackRouteOptions, feedbackRoutes } from "./routes/feedback.js";
 import { healthRoutes } from "./routes/health.js";
 
 declare module "fastify" {
@@ -71,6 +72,10 @@ export interface BuildAppOptions {
    * POST /v1/account/delete são rotas inexistentes (404).
    */
   readonly account?: AccountRouteOptions;
+  /**
+   * O AnalysisFeedbackService (ADR-031 D4). Sem a opção, POST /v1/analyses/:analysisId/feedback é rota inexistente (404).
+   */
+  readonly feedback?: FeedbackRouteOptions;
   /**
    * Os casos de uso do BFF (07f), o limitador local pré-JWT e a amostragem de log (ADR-004 D4 e D8). Sem a opção, as
    * rotas /v1/auth/* são inexistentes. O composeApp monta tudo uma vez por processo.
@@ -183,6 +188,7 @@ export function buildApp(options: BuildAppOptions) {
   if (options.analysis !== undefined) void app.register(analyzeRoutes, options.analysis);
   if (options.criteria !== undefined) void app.register(criteriaRoutes, options.criteria);
   if (options.account !== undefined) void app.register(accountRoutes, options.account);
+  if (options.feedback !== undefined) void app.register(feedbackRoutes, options.feedback);
   if (options.auth !== undefined) void app.register(authRoutes, options.auth);
   return app;
 }

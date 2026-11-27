@@ -98,6 +98,8 @@ export default defineConfig({
         "src/presentation/routes/criteria.ts",
         // Rotas do BFF de autenticação (F1-API-07 07g, ADR-004 D4 e D7).
         "src/presentation/routes/auth.ts",
+        // POST /v1/analyses/:analysisId/feedback (F1-API-06 fatia 4, ADR-031 D4).
+        "src/presentation/routes/feedback.ts",
         "src/presentation/streaming/**/*.ts",
         "src/presentation/build-app.ts",
         // Guarda do test:db (F1-OPS-01 parte 2, ADR-019 D8): só 127.0.0.1 e a publishable local. A suíte do banco

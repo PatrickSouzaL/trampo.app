@@ -14,6 +14,10 @@
 // (medido na pilha local): 201 sem corpo; 403 `42501` com a linha de outro dono (a RLS); 409 `23505` com o id
 // repetido (nada é sobrescrito); 429 `PT429` com o teto do dono (`analysesCap`, o gatilho do banco).
 //
+// Feedback (ADR-031 D4, M3 e M4): `POST /rest/v1/analysis_feedback?on_conflict=analysis_id` como o real: 201 na
+// inserção e 200 na atualização; na análise de outro dono que já tem avaliação, 403 `42501` (o ramo do update bate na
+// RLS); na de outro dono sem avaliação, ou num id que não existe, 409 `23503` (a FK composta).
+//
 // Opcionalmente serve o JWKS do Auth no mesmo host (o teste de boot usa uma SUPABASE_URL só).
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -140,7 +144,8 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
       const list = method === "GET" ? lists[url.pathname] : undefined;
       const rpc = method === "POST" && url.pathname === RPC_PATH;
       const analysisInsert = method === "POST" && url.pathname === "/rest/v1/analyses";
-      if (list === undefined && !rpc && !analysisInsert && (!["GET", "POST"].includes(method) || url.pathname !== "/rest/v1/user_criteria")) {
+      const feedbackUpsert = method === "POST" && url.pathname === "/rest/v1/analysis_feedback";
+      if (list === undefined && !rpc && !analysisInsert && !feedbackUpsert && (!["GET", "POST"].includes(method) || url.pathname !== "/rest/v1/user_criteria")) {
         return send(response, 404, '{"message":"not found"}');
       }
       if (header("apikey") !== publishableKey) return send(response, 401, '{"message":"Invalid API key"}');
@@ -165,6 +170,26 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
         }
         analyses.push({ ...row, created_at: new Date().toISOString() });
         return send(response, 201, "", null);
+      }
+      if (feedbackUpsert) {
+        const listed = (url.searchParams.get("columns") ?? "").split(",");
+        const sent = JSON.parse(body) as Record<string, unknown>;
+        const row = Object.fromEntries(listed.filter((column) => column in sent).map((column) => [column, sent[column]])) as OwnedRow;
+        const updatedAt = new Date().toISOString();
+        const owned = analyses.some((analysis) => analysis["id"] === row["analysis_id"] && analysis.user_id === row.user_id);
+        const existing = feedback.findIndex((entry) => entry["analysis_id"] === row["analysis_id"]);
+        // A RLS do insert e do update (`auth.uid() = user_id`), inclusive no ramo do update da linha de outro dono.
+        if (row.user_id !== owner || (existing !== -1 && feedback[existing]?.user_id !== owner)) {
+          return send(response, 403, '{"code":"42501","message":"new row violates row-level security policy"}');
+        }
+        // A FK composta (analysis_id, user_id): só a análise do mesmo dono.
+        if (!owned) return send(response, 409, '{"code":"23503","message":"insert or update violates foreign key constraint"}');
+        if (existing === -1) {
+          feedback.push({ ...row, updated_at: updatedAt });
+          return send(response, 201, "", null);
+        }
+        feedback[existing] = { ...feedback[existing], ...row, updated_at: updatedAt };
+        return send(response, 200, "", null);
       }
       if (list !== undefined) {
         const wanted = url.searchParams.get("user_id");

@@ -9,6 +9,7 @@ import {
   AUTH_OPERATIONS,
   AUTH_RESULTS,
   AnalysisEventSchema,
+  AnalysisFeedbackEventSchema,
   AnalysisRecordEventSchema,
   AuthEventSchema,
   LlmExtractionEventSchema,
@@ -160,7 +161,13 @@ describe("TelemetryEventSchema (estrito)", () => {
     expect(TELEMETRY_LATENCY_MAX_MS).toBe(120_000);
     expect(TELEMETRY_STEPS_MAX).toBe(6);
     expect(TELEMETRY_GUARD_NORMALIZATION_MAX).toBe(8_192);
-    expect(TelemetryEventSchema.options).toEqual([LlmExtractionEventSchema, AnalysisEventSchema, AuthEventSchema, AnalysisRecordEventSchema]);
+    expect(TelemetryEventSchema.options).toEqual([
+      LlmExtractionEventSchema,
+      AnalysisEventSchema,
+      AuthEventSchema,
+      AnalysisRecordEventSchema,
+      AnalysisFeedbackEventSchema,
+    ]);
   });
 
   test.each([
@@ -264,6 +271,7 @@ describe("catálogo de métricas (ADR-010 D6)", () => {
       auth_renovacao_total: { type: "counter", labels: ["resultado"] },
       auth_logout_total: { type: "counter", labels: ["resultado"] },
       analysis_record_total: { type: "counter", labels: ["outcome"] },
+      analysis_feedback_total: { type: "counter", labels: ["agreement"] },
     });
   });
 
@@ -557,6 +565,23 @@ describe("evento analysis_record (ADR-031 D7; F1-API-06 fatia 3)", () => {
     ["o dono", { kind: "analysis_record", outcome: "gravada", userId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f" }],
     ["a nota", { kind: "analysis_record", outcome: "gravada", score: 70 }],
     ["o veredito", { kind: "analysis_record", outcome: "gravada", verdict: "recomendado" }],
+  ])("recusa: %s (SR-12)", (_name, event) => {
+    expect(TelemetryEventSchema.safeParse(event).success).toBe(false);
+  });
+});
+
+describe("evento analysis_feedback (ADR-031 D7; F1-API-06 fatia 4)", () => {
+  test.each(["concordo", "discordo"] as const)("%s: uma série só, com o agreement", (agreement) => {
+    const event = { kind: "analysis_feedback", agreement } as const;
+    expect(TelemetryEventSchema.parse(event)).toEqual(event);
+    expect(telemetryMetricSamples(event)).toEqual([{ name: "analysis_feedback_total", labels: { agreement }, value: 1 }]);
+  });
+
+  test.each([
+    ["agreement fora do enum", { kind: "analysis_feedback", agreement: "talvez" }],
+    ["o motivo", { kind: "analysis_feedback", agreement: "discordo", reason: "outro" }],
+    ["o id da análise", { kind: "analysis_feedback", agreement: "discordo", analysisId: "1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d" }],
+    ["o dono", { kind: "analysis_feedback", agreement: "discordo", userId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f" }],
   ])("recusa: %s (SR-12)", (_name, event) => {
     expect(TelemetryEventSchema.safeParse(event).success).toBe(false);
   });

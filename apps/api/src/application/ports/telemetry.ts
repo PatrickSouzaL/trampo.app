@@ -1,7 +1,13 @@
 // Porta de telemetria (ADR-001 §5.9; ADR-010 D5 e D6). Eventos só com enums e números: nenhum texto livre,
 // nenhum dado de perfil, nenhum id de usuário e nenhum reqId (métrica é agregado, não rastro). O schema
 // estrito é a definição; o adapter valida cada evento com ele e descarta o que não casar.
-import { AnalysisWarningSchema, DecisionPathSchema, LlmProviderIdSchema, PlatformSchema } from "@trampo/contracts";
+import {
+  AnalysisFeedbackRequestSchema,
+  AnalysisWarningSchema,
+  DecisionPathSchema,
+  LlmProviderIdSchema,
+  PlatformSchema,
+} from "@trampo/contracts";
 import { uniqueArray } from "@trampo/contracts/primitives";
 import { z } from "zod";
 
@@ -125,17 +131,25 @@ export const AnalysisRecordEventSchema = z.strictObject({
 });
 export type AnalysisRecordEvent = z.infer<typeof AnalysisRecordEventSchema>;
 
+/** A avaliação gravada (ADR-031 D7): só o `agreement`. Nenhum motivo, id ou dono (SR-12). */
+export const AnalysisFeedbackEventSchema = z.strictObject({
+  kind: z.literal("analysis_feedback"),
+  agreement: AnalysisFeedbackRequestSchema.shape.agreement,
+});
+export type AnalysisFeedbackEvent = z.infer<typeof AnalysisFeedbackEventSchema>;
+
 /**
  * União fechada: um tipo novo de evento entra por ADR (ADR-010 D5; `analysis` pelo ADR-017 D5; `auth` pelo ADR-004 D8;
- * `analysis_record` pelo ADR-031 D7).
+ * `analysis_record` e `analysis_feedback` pelo ADR-031 D7).
  */
 export const TelemetryEventSchema = z.discriminatedUnion("kind", [
   LlmExtractionEventSchema,
   AnalysisEventSchema,
   AuthEventSchema,
   AnalysisRecordEventSchema,
+  AnalysisFeedbackEventSchema,
 ]);
-export type TelemetryEvent = LlmExtractionEvent | AnalysisEvent | AuthEvent | AnalysisRecordEvent;
+export type TelemetryEvent = LlmExtractionEvent | AnalysisEvent | AuthEvent | AnalysisRecordEvent | AnalysisFeedbackEvent;
 
 export interface Telemetry {
   /** Nunca lança: a contabilidade não pode derrubar uma análise. */
