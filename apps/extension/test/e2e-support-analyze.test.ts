@@ -149,7 +149,8 @@ describe("fake-auth: POST /v1/analyze (D22)", () => {
     const { auth, accessToken } = await session();
     const reply = auth.analyze(analyzeBody(), authorization(accessToken));
     expect(reply.status).toBe(401);
-    expect(ApiErrorSchema.parse(reply.body)).toMatchObject({ code: "NAO_AUTENTICADO", requestId: null });
+    // Como a API real (F1-EXT-09): o id do servidor desta resposta, registrado no snapshot.
+    expect(ApiErrorSchema.parse(reply.body)).toMatchObject({ code: "NAO_AUTENTICADO", requestId: auth.snapshot().serverRequestIds.at(-1) });
     expect(reply.sse).toBeUndefined();
     expect(auth.snapshot()).toMatchObject({ counters: { analyze: { ok: 0, recusado: 1 } }, refusals: ["analyze:bearer"], analyses: [] });
   });
@@ -230,11 +231,13 @@ describe("fake-auth: roteiro da análise (D23), só depois das barreiras", () =>
   test.each([
     ["401", 401, "NAO_AUTENTICADO"],
     ["503", 503, "SERVICO_INDISPONIVEL"],
-  ] as const)("%s: o ApiError do contrato com o requestId do pedido, sem stream", async (step, status, code) => {
+  ] as const)("%s: o ApiError do contrato com o id do servidor (nunca o do pedido), sem stream", async (step, status, code) => {
     const { reply, body, auth } = await scripted(step);
     expect(reply.status).toBe(status);
     expect(reply.sse).toBeUndefined();
-    expect(ApiErrorSchema.parse(reply.body)).toMatchObject({ code, requestId: body.requestId });
+    const error = ApiErrorSchema.parse(reply.body);
+    expect(error).toMatchObject({ code, requestId: auth.snapshot().serverRequestIds.at(-1) });
+    expect(error.requestId).not.toBe(body.requestId);
     expect(auth.snapshot().counters.analyze).toEqual({ ok: 0, recusado: 1 });
   });
 

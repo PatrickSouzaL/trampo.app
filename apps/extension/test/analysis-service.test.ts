@@ -1,7 +1,9 @@
 // F1-EXT-04 parte 2, 04b-1 (ADR-025 §6 D10 e D11; ADR-004 D11.1 e D11.4): o envio da vaga no Service Worker. Portões
 // antes de qualquer rede (o consentimento antes do accessToken), o pedido do contrato, o repasse do stream, o 401 com o
 // token capturado no envio e um reenvio só, o erro sintetizado só com texto do catálogo e a captura que cancela.
-import { type AnalysisStreamEvent, AnalysisStreamEventSchema, type AnalyzeJobRequestInput, ApiErrorSchema } from "@trampo/contracts/api";
+import { readFileSync } from "node:fs";
+
+import { type AnalysisStreamEvent, AnalysisStreamEventSchema, type AnalyzeJobRequestInput, type ApiError, ApiErrorSchema } from "@trampo/contracts/api";
 import { describe, expect, test, vi } from "vitest";
 
 import type { AnalyzeCall, AnalyzeResult, StreamControl } from "../src/api/api-client";
@@ -274,15 +276,23 @@ describe("stream (D8 e D10)", () => {
     expect(logs).toEqual(["analise_violacao"]);
   });
 
+  // F1-EXT-09: a API real põe o id do servidor no `requestId`; qualquer UUID (ou nulo) passa, sem comparar.
   test.each([
-    ["requestId do pedido", ID, true],
-    ["requestId nulo", null, true],
-    ["requestId de outro pedido", OUTRO_ID, false],
-  ])("erro do servidor no stream com %s", async (_nome, requestId, passes) => {
+    ["requestId do pedido", ID],
+    ["requestId nulo", null],
+    ["requestId do servidor (outro UUID)", OUTRO_ID],
+  ])("erro do servidor no stream com %s: vai ao painel como veio", async (_nome, requestId) => {
     const error = { type: "error", error: { ...apiError("SERVICO_INDISPONIVEL", requestId), retryAfterSeconds: 30 } } as Event;
     const { service, events } = setup([{ sse: [frame(error)] }]);
     await service.analyze("auto");
-    expect(events()).toEqual([passes ? error : local("ERRO_INTERNO", ID)]);
+    expect(events()).toEqual([error]);
+  });
+
+  test("erro no stream fora do schema (requestId que não é UUID): violação, ERRO_INTERNO com o requestId do pedido", async () => {
+    const error = { type: "error", error: { ...apiError("SERVICO_INDISPONIVEL", "nao-e-uuid") } } as unknown as Event;
+    const { service, events } = setup([{ sse: [frame(error)] }]);
+    await service.analyze("auto");
+    expect(events()).not.toContainEqual(error);
   });
 });
 
@@ -294,6 +304,7 @@ describe("status antes do stream (D10)", () => {
     [429, "COTA_DIARIA_ESGOTADA", null],
     [413, "PAYLOAD_GRANDE_DEMAIS", ID],
     [401, "PROIBIDO", ID],
+    [404, "PAYLOAD_INVALIDO", OUTRO_ID],
   ])("%i com o ApiError válido: vai ao painel como veio", async (s, code, requestId) => {
     const error = apiError(code, requestId);
     const { service, events, deps, logs } = setup([status(s, error)]);
@@ -308,10 +319,11 @@ describe("status antes do stream (D10)", () => {
     [503, "", "SERVICO_INDISPONIVEL"],
     [500, "{}", "SERVICO_INDISPONIVEL"],
     [400, "<html>", "ERRO_INTERNO"],
-    [404, apiError("PAYLOAD_INVALIDO", OUTRO_ID), "ERRO_INTERNO"],
+    [404, { ...apiError("PAYLOAD_INVALIDO", OUTRO_ID), extra: 1 }, "ERRO_INTERNO"],
     [401, "", "SERVICO_INDISPONIVEL"],
     [401, { error: "invalid" }, "SERVICO_INDISPONIVEL"],
-    [401, apiError("NAO_AUTENTICADO", OUTRO_ID), "SERVICO_INDISPONIVEL"],
+    [401, { message: "Invalid API key" }, "SERVICO_INDISPONIVEL"],
+    [401, apiError("NAO_AUTENTICADO", "nao-e-uuid"), "SERVICO_INDISPONIVEL"],
   ])("%i com corpo fora do contrato: o código sai do status", async (s, body, code) => {
     const { service, events, deps, logs } = setup([status(s, body)]);
     await service.analyze("auto");
@@ -365,6 +377,16 @@ describe("401 da análise (ADR-004 D11.4, Emenda da F1-EXT-07)", () => {
     expect(deps.auth.onUnauthorized).not.toHaveBeenCalled();
     expect(analyze).toHaveBeenCalledTimes(1);
     expect(events()).toEqual([]);
+  });
+
+  test("F1-EXT-09: o 401 da API real (o id do servidor) renova e reenvia o MESMO requestId do pedido", async () => {
+    const real: AnalyzeResult = { ok: true, stream: false, status: 401, body: JSON.stringify(apiError("NAO_AUTENTICADO", OUTRO_ID)) };
+    const randomUUID = vi.fn().mockReturnValueOnce(ID).mockReturnValue(OUTRO_ID);
+    const { service, deps, calls, events } = setup([real, { sse: [frame(RESULT)] }], { randomUUID });
+    await service.analyze("auto");
+    expect(deps.auth.onUnauthorized).toHaveBeenCalledWith(1, TOKEN);
+    expect(calls.map((call) => call.body.requestId)).toEqual([ID, ID]);
+    expect(events()).toEqual([RESULT]);
   });
 
   test("o 401 com ApiError sem requestId também é o da sessão", async () => {
@@ -684,5 +706,44 @@ describe("repasse ao painel (D10 e D11)", () => {
       "analise_erro_servidor",
       "analise_falha_interna",
     ]);
+  });
+});
+
+// F1-EXT-09 (ADR-017, emenda da sessão 34; condição 1): a tabela de ApiError que o teste da API confere pelo
+// `apiError` dela, lida aqui pelo `analysis-service` real. Nenhum import cruzado: os dois lados leem o mesmo arquivo.
+const ContractTable = (raw: unknown) => {
+  const table = raw as { serverRequestId: string; rows: Array<{ status: number; body: ApiError }> };
+  return { serverRequestId: table.serverRequestId, rows: table.rows.map((row) => ({ status: row.status, body: ApiErrorSchema.parse(row.body) })) };
+};
+const contract = ContractTable(JSON.parse(readFileSync(new URL("../../../packages/contracts/fixtures/api-errors.json", import.meta.url), "utf8")));
+
+describe("a tabela de ApiError do contrato, pelo analysis-service real (F1-EXT-09)", () => {
+  test("o id do servidor nunca é o do pedido da extensão", () => {
+    expect(contract.serverRequestId).not.toBe(ID);
+    for (const row of contract.rows) expect(row.body.requestId).toBe(contract.serverRequestId);
+  });
+
+  test.each(contract.rows.map((row) => [`${row.status} ${row.body.code}`, row] as const))("%s, antes do stream: nunca vira violação", async (_name, row) => {
+    const answer: AnalyzeResult = { ok: true, stream: false, status: row.status, body: JSON.stringify(row.body) };
+    const { service, events, deps, logs, calls } = setup([answer, { sse: [frame(RESULT)] }]);
+    await service.analyze("auto");
+    expect(logs).not.toContain("analise_violacao");
+    if (row.status === 401 && row.body.code === "NAO_AUTENTICADO") {
+      // A sessão: uma renovação e o reenvio do mesmo pedido.
+      expect(deps.auth.onUnauthorized).toHaveBeenCalledWith(1, TOKEN);
+      expect(calls.map((call) => call.body.requestId)).toEqual([ID, ID]);
+      expect(events()).toEqual([RESULT]);
+    } else {
+      expect(deps.auth.onUnauthorized).not.toHaveBeenCalled();
+      expect(events()).toEqual([{ type: "error", error: row.body }]);
+    }
+  });
+
+  test.each(contract.rows.map((row) => [row.body.code, row] as const))("%s no evento error do stream: vai ao painel como veio", async (_name, row) => {
+    const error = { type: "error", error: row.body } as Event;
+    const { service, events, logs } = setup([{ sse: [frame(STAGE), frame(error)] }]);
+    await service.analyze("auto");
+    expect(events()).toEqual([STAGE, error]);
+    expect(logs).not.toContain("analise_violacao");
   });
 });

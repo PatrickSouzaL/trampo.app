@@ -76,10 +76,15 @@ function parseJson(text: string): unknown {
   }
 }
 
-/** O `ApiError` do servidor vale se for do contrato e deste pedido (ou sem pedido). */
-function serverError(raw: unknown, requestId: string): ApiError | undefined {
+/**
+ * O `ApiError` do servidor vale se for do contrato (F1-EXT-09; ADR-017, emenda da sessão 34). O `requestId` dele é o id
+ * do servidor (o do log da API), nunca comparado ao do pedido: a resposta já é deste pedido pelo próprio `fetch`, e a
+ * geração descarta a análise antiga. Quem escreve a resposta já podia mandar o `requestId` nulo, então a comparação
+ * não protegia nada e recusava todo erro real.
+ */
+function serverError(raw: unknown): ApiError | undefined {
   const parsed = ApiErrorSchema.safeParse(raw);
-  return parsed.success && (parsed.data.requestId === null || parsed.data.requestId === requestId) ? parsed.data : undefined;
+  return parsed.success ? parsed.data : undefined;
 }
 
 /** O código pelo status, quando o corpo não é um `ApiError` deste pedido. O 401 sem ele não pede login (T30). */
@@ -127,7 +132,7 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
       return result.reason === "sem_resposta" ? fail("analise_indisponivel", "SERVICO_INDISPONIVEL", requestId) : fail("analise_violacao", "ERRO_INTERNO", requestId);
     }
     if (!result.stream) {
-      const error = serverError(parseJson(result.body), requestId);
+      const error = serverError(parseJson(result.body));
       if (error === undefined) return fail("analise_violacao", codeForStatus(result.status), requestId);
       if (result.status === 401 && error.code === "NAO_AUTENTICADO") return { kind: "nao_autenticado" };
       return { kind: "terminal", event: { type: "error", error }, motivo: "analise_erro_servidor" };
@@ -138,9 +143,8 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
     if (ended.kind !== "completo") {
       return ended.kind === "incompleto" ? fail("analise_indisponivel", "SERVICO_INDISPONIVEL", requestId) : fail("analise_violacao", "ERRO_INTERNO", requestId);
     }
-    const { terminal } = ended;
-    if (terminal.type === "error" && serverError(terminal.error, requestId) === undefined) return fail("analise_violacao", "ERRO_INTERNO", requestId);
-    return { kind: "terminal", event: terminal, motivo: null };
+    // O leitor já validou o terminal pelo AnalysisStreamEventSchema (o `error` é um ApiError do contrato, F1-EXT-09).
+    return { kind: "terminal", event: ended.terminal, motivo: null };
   };
 
   /**

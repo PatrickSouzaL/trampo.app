@@ -5,9 +5,9 @@
 // O roteiro (05c-2) torna os falsos mais hostis, nunca mais permissivos: ele só age depois das barreiras de sempre.
 // 04b-3 (ADR-025 §6.5): o `POST /v1/analyze` em SSE, com o Bearer de uma sessão viva e o corpo do contrato da API, e os
 // roteiros da análise e da renovação. O registro de cada análise guarda índice, contagem e hash, nunca token nem texto.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
-import { type AnalysisStreamEvent, AnalysisStreamEventSchema, AnalyzeJobRequestSchema, type ApiError, type ApiErrorCode } from "@trampo/contracts/api";
+import { type AnalysisStreamEvent, AnalysisStreamEventSchema, AnalyzeJobRequestSchema, type ApiError, type ApiErrorCode, ApiErrorSchema } from "@trampo/contracts/api";
 import { AUTH_SCHEMA_VERSION, AuthExchangeRequestSchema, AuthLogoutRequestSchema, AuthRefreshRequestSchema } from "@trampo/contracts/auth";
 import { z } from "zod";
 
@@ -133,6 +133,8 @@ export interface FakeAuthSnapshot {
   readonly roteiro: readonly string[];
   /** As análises que passaram das barreiras, na ordem. */
   readonly analyses: readonly AnalyzeRecord[];
+  /** O `requestId` de cada `ApiError` respondido, na ordem: o id do servidor, como o da API real (F1-EXT-09). */
+  readonly serverRequestIds: readonly string[];
 }
 
 export interface FakeAuth {
@@ -161,6 +163,8 @@ export interface FakeAuthDeps {
   readonly newAccess?: () => AccessCanary;
   readonly newEnvelope?: () => EnvelopeCanary;
   readonly newError?: () => string;
+  /** O id do servidor de cada `ApiError` (padrão: um UUID novo por resposta, como o `request.id` da API real). */
+  readonly newServerRequestId?: () => string;
 }
 
 const apiError = (code: ApiErrorCode): ApiError => ({ code, message: "Recusado pelo BFF falso do E2E.", requestId: null, retryAfterSeconds: null });
@@ -191,6 +195,8 @@ export function createFakeAuth(deps: FakeAuthDeps): FakeAuth {
     analyze: { ok: 0, recusado: 0 },
   };
   const refusals: string[] = [];
+  const serverRequestIds: string[] = [];
+  const newServerRequestId = deps.newServerRequestId ?? randomUUID;
   const verifiers: string[] = [];
   const accessTokens: string[] = [];
   const canaries: string[] = [];
@@ -208,7 +214,13 @@ export function createFakeAuth(deps: FakeAuthDeps): FakeAuth {
   const refuse = (route: keyof FakeAuthCounters, motivo: string, reply: HttpReply): HttpReply => {
     counters[route].recusado += 1;
     refusals.push(`${route}:${motivo}`);
-    return reply;
+    // Como a API real (F1-EXT-09; ADR-017, emenda da sessão 34): todo ApiError leva o id do servidor desta resposta, o
+    // mesmo do log, nunca o `requestId` do pedido. O corpo fora do contrato segue como veio.
+    const error = ApiErrorSchema.safeParse(reply.body);
+    if (!error.success) return reply;
+    const requestId = newServerRequestId();
+    serverRequestIds.push(requestId);
+    return { ...reply, body: { ...error.data, requestId } };
   };
 
   const issue = (): HttpReply => {
@@ -340,7 +352,7 @@ export function createFakeAuth(deps: FakeAuthDeps): FakeAuth {
         resposta: script ?? "stream",
       });
       if (script !== undefined) roteiro.push(`analyze:${script}`);
-      const failure = (status: number, code: ApiErrorCode): HttpReply => refuse("analyze", `roteiro_${script}`, { status, body: { ...apiError(code), requestId } });
+      const failure = (status: number, code: ApiErrorCode): HttpReply => refuse("analyze", `roteiro_${script}`, { status, body: apiError(code) });
       if (script === "401") return failure(401, "NAO_AUTENTICADO");
       if (script === "503") return failure(503, "SERVICO_INDISPONIVEL");
       if (script === "fora_do_contrato") {
@@ -376,7 +388,7 @@ export function createFakeAuth(deps: FakeAuthDeps): FakeAuth {
     },
 
     snapshot() {
-      return structuredClone({ counters, refusals, verifiers, accessTokens, canaries, roteiro, analyses });
+      return structuredClone({ counters, refusals, verifiers, accessTokens, canaries, roteiro, analyses, serverRequestIds });
     },
   };
 }
