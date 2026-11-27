@@ -133,3 +133,38 @@ export const DELETE_ANALYSES_SQL = `
 with gone as (delete from public.analyses where id = any(string_to_array(:'ids', ',')::uuid[]) returning id)
 select json_build_object('linhas', count(*)) from gone;
 `;
+
+/** Envelhece (com `commit`) o lote recém-plantado do usuário `:'uid'` (a última hora) em `:'idade'` (ADR-031 D5). */
+export const AGE_PLANTED_BATCH_SQL = `
+with aged as (
+  update public.analyses set created_at = created_at - :'idade'::interval
+  where user_id = :'uid'::uuid and created_at > now() - interval '1 hour'
+  returning id
+)
+select json_build_object('linhas', count(*)) from aged;
+`;
+
+/** Uma avaliação para cada análise do usuário `:'uid'`, num comando só: todas com o mesmo `updated_at` (o gatilho). */
+export const PLANT_FEEDBACK_FOR_ALL_SQL = `
+with planted as (
+  insert into public.analysis_feedback (analysis_id, user_id, agreement, reason)
+  select id, user_id, 'concordo', null from public.analyses where user_id = :'uid'::uuid
+  returning analysis_id
+)
+select json_build_object('linhas', count(*)) from planted;
+`;
+
+/** Os ids das duas listas do usuário `:'uid'` na ordem que a exportação promete (a do índice, com o desempate). */
+export const EXPORT_ORDER_SQL = `
+select json_build_object(
+  'analyses', (select coalesce(json_agg(id order by created_at desc, id desc), '[]') from public.analyses where user_id = :'uid'::uuid),
+  'feedback', (select coalesce(json_agg(analysis_id order by updated_at desc, analysis_id desc), '[]')
+    from public.analysis_feedback where user_id = :'uid'::uuid)
+);
+`;
+
+/** Apaga (como `postgres`) todas as análises do usuário `:'uid'`, e o feedback vai junto pela FK. */
+export const DELETE_USER_ANALYSES_SQL = `
+with gone as (delete from public.analyses where user_id = :'uid'::uuid returning id)
+select json_build_object('linhas', count(*)) from gone;
+`;

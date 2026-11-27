@@ -14,6 +14,8 @@ export const RATE_LIMIT_POLICY = {
     criterios: { user: 10, address: 30 },
     /** Exportar e excluir a conta (ADR-029 D5): a exportação decifra e faz três leituras; a exclusão é destrutiva. */
     conta: { user: 3, address: 10 },
+    /** A avaliação de uma análise (ADR-031 D4): uma escrita curta, idempotente, com o dono conferido no banco. */
+    feedback: { user: 10, address: 30 },
   },
 } as const satisfies { windowMs: number; classes: Record<RateLimitClass, { user: number; address: number }> };
 

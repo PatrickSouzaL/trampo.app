@@ -30,6 +30,7 @@ import type { AccessTokenVerifier } from "../application/ports/access-token-veri
 import {
   AnalyzeJob,
   AccountService,
+  AnalysisFeedbackService,
   CriteriaGuard,
   DailyQuotaGuard,
   InMemoryProviderStateStore,
@@ -69,6 +70,7 @@ import { createRedisDailyQuota } from "../infrastructure/limits/redis-daily-quot
 import { createRedisQuotaLedger } from "../infrastructure/limits/redis-quota-ledger.js";
 import { createRedisRateLimiter } from "../infrastructure/limits/redis-rate-limiter.js";
 import { createSupabaseAccountStore } from "../infrastructure/persistence/supabase-account-store.js";
+import { createSupabaseAnalysisFeedbackStore } from "../infrastructure/persistence/supabase-analysis-feedback.js";
 import { createSupabaseCriteriaRepository } from "../infrastructure/persistence/supabase-criteria-repository.js";
 import { cryptoRandom } from "../infrastructure/random/crypto-random.js";
 import { createUpstashRestClient, type RedisTransactions } from "../infrastructure/redis/upstash-rest-client.js";
@@ -122,8 +124,11 @@ export interface ComposedApp {
 
 const titleSchema = safeText(JOB_TITLE_MAX_CHARS);
 
-/** O cliente do PostgREST da conta (ADR-029 D3 e D4): logo abaixo dos 2 s do AccountService, e 128 KiB para as 500 linhas. */
-export const ACCOUNT_POSTGREST_CLIENT = Object.freeze({ timeoutMs: 1_800, maxResponseBytes: 128 * 1024 });
+/**
+ * O cliente do PostgREST da conta (ADR-029 D3 e D4; ADR-031 D5): cada chamada logo abaixo dos 2 s da exclusão, e
+ * 256 KiB por página de 1.000 linhas da exportação.
+ */
+export const ACCOUNT_POSTGREST_CLIENT = Object.freeze({ timeoutMs: 1_800, maxResponseBytes: 256 * 1024 });
 
 export function composeApp(source: Environment, options: ComposeOptions = {}): ComposedApp {
   const server = ServerEnvSchema.parse(source);
@@ -218,6 +223,14 @@ export function composeApp(source: Environment, options: ComposeOptions = {}): C
     // O mesmo guarda (prazo e revalidação) lê para a análise e lê e grava para o portal.
     criteria: { repository: criteria },
     account: { service: account },
+    // A avaliação (ADR-031 D4): cliente de usuário próprio com o prazo padrão; o dono é conferido no banco.
+    feedback: {
+      service: new AnalysisFeedbackService({
+        store: createSupabaseAnalysisFeedbackStore({ client: createPostgrestUserClient({ url: supabaseOrigin, publishableKey }) }),
+        clock: systemClock,
+        telemetry,
+      }),
+    },
     auth: authRoutes,
     ...(options.logger === undefined ? {} : { logger: options.logger }),
   });

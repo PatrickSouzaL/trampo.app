@@ -166,8 +166,9 @@ describe("envio da vaga com o BFF falso em SSE (ADR-025 §6.5 D22 e D23)", () =>
     expect(await l!.panel.locator("main").innerText()).not.toContain("Recusado pelo BFF falso");
     const state = await control.state();
     expect(state.auth.analyses.slice(before).map((a) => a.resposta)).toEqual(["503"]);
-    // O código do pedido que a tela mostra é o do pedido que saiu.
-    expect(await aviso.innerText()).toContain(String(state.auth.analyses.at(-1)?.requestId));
+    // F1-EXT-09: o código que a tela mostra é o id do servidor (o do log da API), como a API real o manda.
+    expect(await aviso.innerText()).toContain(String(state.auth.serverRequestIds.at(-1)));
+    expect(state.auth.serverRequestIds.at(-1)).not.toBe(state.auth.analyses.at(-1)?.requestId);
     expect(state.auth.counters.refresh).toEqual({ ok: 1, recusado: 0 });
     expect(await analysisButton(l!.panel).innerText()).toBe(ANALYZE_LABELS.auto);
   });

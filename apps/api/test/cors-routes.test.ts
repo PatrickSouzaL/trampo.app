@@ -9,7 +9,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { buildApp, type BuildAppOptions } from "../src/presentation/build-app.js";
-import { EXTENSION_ROUTES } from "../src/presentation/edge/cors.js";
+import { EXTENSION_PATTERN_ROUTES, EXTENSION_ROUTES } from "../src/presentation/edge/cors.js";
 import { TEST_AUTHORIZATION, fakeVerifier } from "./auth-fakes.js";
 import { fakeLimits } from "./limit-fakes.js";
 
@@ -103,6 +103,15 @@ describe("EXTENSION_ROUTES (ADR-021 D8.3)", () => {
   test("congelada: ninguém acrescenta rota em tempo de execução", () => {
     expect(Object.isFrozen(EXTENSION_ROUTES)).toBe(true);
     for (const route of EXTENSION_ROUTES) expect(Object.isFrozen(route)).toBe(true);
+  });
+
+  test("a rota de padrão (ADR-031 D4): só o POST do feedback, pelo padrão roteado E pela regex do caminho cru", () => {
+    expect(EXTENSION_PATTERN_ROUTES.map(({ method, pattern, raw }) => ({ method, pattern, raw: raw.source }))).toEqual([
+      { method: "POST", pattern: "/v1/analyses/:analysisId/feedback", raw: "^\\/v1\\/analyses\\/[0-9a-f-]{36}\\/feedback$" },
+    ]);
+    expect(EXTENSION_PATTERN_ROUTES[0]?.raw.flags).toBe("");
+    expect(Object.isFrozen(EXTENSION_PATTERN_ROUTES)).toBe(true);
+    for (const route of EXTENSION_PATTERN_ROUTES) expect(Object.isFrozen(route)).toBe(true);
   });
 });
 

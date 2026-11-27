@@ -90,7 +90,7 @@ const BAD_SUBJECTS: ReadonlyArray<readonly [string, unknown]> = [
 
 describe("política (ADR-029 D3)", () => {
   test("prazos de 2 s e o teto do token do contrato", () => {
-    expect(ACCOUNT_SERVICE_POLICY).toEqual({ deleteTimeoutMs: 2_000, recordsTimeoutMs: 2_000, accessTokenMaxChars: 8_192 });
+    expect(ACCOUNT_SERVICE_POLICY).toEqual({ deleteTimeoutMs: 2_000, recordsTimeoutMs: 10_000, accessTokenMaxChars: 8_192 });
   });
 });
 

@@ -45,6 +45,25 @@ export {
   type ProviderLimits,
 } from "./limits/limit-policy.js";
 export { withDeadline } from "./shared/with-deadline.js";
+export { ANALYSIS_RECORDER_POLICY, AnalysisRecorder, type AnalysisRecorderDeps } from "./analysis/analysis-recorder.js";
+export {
+  ANALYSIS_FEEDBACK_POLICY,
+  AnalysisFeedbackService,
+  type AnalysisFeedbackServiceDeps,
+} from "./feedback/analysis-feedback-service.js";
+export {
+  FEEDBACK_SAVE_OUTCOMES,
+  type AnalysisFeedbackEntry,
+  type AnalysisFeedbackStore,
+  type FeedbackSaveOutcome,
+} from "./ports/analysis-feedback-store.js";
+export {
+  ANALYSIS_LOG_OUTCOMES,
+  type AnalysisLog,
+  type AnalysisLogEntry,
+  type AnalysisLogOutcome,
+  type AnalysisLogSubject,
+} from "./ports/analysis-log.js";
 export {
   isEpochMs,
   quotaDay,
@@ -149,6 +168,8 @@ export {
   AUTH_RESULTS,
   AnalysisCacheStatusSchema,
   AnalysisEventSchema,
+  AnalysisFeedbackEventSchema,
+  AnalysisRecordEventSchema,
   AuthEventSchema,
   LlmExtractionEventSchema,
   TELEMETRY_LATENCY_MAX_MS,
@@ -157,6 +178,8 @@ export {
   TelemetryEventSchema,
   type AnalysisCacheStatus,
   type AnalysisEvent,
+  type AnalysisFeedbackEvent,
+  type AnalysisRecordEvent,
   type AuthEvent,
   type AuthOperation,
   type AuthResult,

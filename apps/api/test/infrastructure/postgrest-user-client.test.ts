@@ -11,6 +11,7 @@ import {
   POSTGREST_CLIENT_POLICY,
   PostgrestClientConfigError,
   createPostgrestUserClient,
+  type PostgrestUpsert,
   type PostgrestUserClient,
 } from "../../src/infrastructure/supabase/postgrest-user-client.js";
 import { HAPPY_PATH_TIMEOUT_MS } from "../support/socket-deadlines.js";
@@ -81,6 +82,8 @@ describe("construtor: só a chave publishable", () => {
       upsertSuccessStatuses: [201, 200],
       accessTokenMaxChars: 8_192,
       rpcMaxResponseBytes: 64,
+      insertRefusedStatuses: [400, 403, 409],
+      upsertDeniedStatuses: [403, 409],
     });
   });
 });
@@ -303,7 +306,7 @@ const WRITE_ROW = {
 const UPSERT = { columns: COLUMNS, onConflict: "user_id", row: WRITE_ROW } as const;
 const WRITTEN = { ok: true };
 
-const upsert = (token = TOKEN, signal?: AbortSignal, write: Parameters<PostgrestUserClient["upsert"]>[1] = UPSERT) =>
+const upsert = (token = TOKEN, signal?: AbortSignal, write: PostgrestUpsert<"user_criteria"> = UPSERT) =>
   client.upsert("user_criteria", write, token, signal);
 
 /** O corpo que o cliente monta: só as colunas, na ordem delas. */
@@ -508,5 +511,254 @@ describe("upsert: falha fechado, sem ler o corpo da resposta", () => {
     postgrest = await startFakePostgrest(PUBLISHABLE);
     const closed = createPostgrestUserClient({ url, publishableKey: PUBLISHABLE, timeoutMs: 300 });
     await expect(closed.upsert("user_criteria", UPSERT, TOKEN)).resolves.toEqual(FAILURE);
+  });
+});
+
+// ---------- insert (ADR-031 D1) ----------
+
+const INSERT_COLUMNS = ["id", "user_id", "decision_path", "verdict", "score"] as const;
+const ANALYSIS_ID = "1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d";
+const INSERT_ROW = { id: ANALYSIS_ID, user_id: USER, decision_path: "extracao_llm", verdict: "recomendado", score: 72 };
+const INSERT = { columns: INSERT_COLUMNS, row: INSERT_ROW } as const;
+
+const insert = (token = TOKEN, signal?: AbortSignal, write: Parameters<PostgrestUserClient["insert"]>[1] = INSERT) =>
+  client.insert("analyses", write, token, signal);
+
+describe("insert: protocolo", () => {
+  test("POST /rest/v1/analyses só com columns (sem on_conflict); o 201 é `gravada` e a linha fica guardada", async () => {
+    await expect(insert()).resolves.toBe("gravada");
+    const [sent] = postgrest.requests;
+    const url = new URL(sent?.url ?? "", "http://x");
+    expect(sent?.method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/analyses");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ columns: INSERT_COLUMNS.join(",") });
+    expect(postgrest.analyses).toEqual([expect.objectContaining(INSERT_ROW)]);
+  });
+
+  test("cabeçalhos exatos: publishable, Bearer do dono, JSON e só o return=minimal (sem resolução de conflito)", async () => {
+    await insert();
+    expect(postgrest.requests[0]).toMatchObject({
+      apikey: PUBLISHABLE,
+      authorization: `Bearer ${TOKEN}`,
+      contentType: "application/json",
+      prefer: "return=minimal",
+    });
+  });
+
+  test("o corpo leva exatamente as 5 colunas, na ordem delas, mesmo com chave a mais no row", async () => {
+    const row = { ...INSERT_ROW, requestId: "CANARIO-REQUEST", text: "CANARIO-TEXTO", created_at: "2099-01-01T00:00:00Z" };
+    await insert(TOKEN, undefined, { ...INSERT, row });
+    const body = postgrest.requests[0]?.body ?? "";
+    expect(Object.keys(JSON.parse(body) as object)).toEqual([...INSERT_COLUMNS]);
+    expect(body).not.toContain("CANARIO");
+    expect(body).not.toContain("2099");
+  });
+
+  test("nenhum token na URL", async () => {
+    await insert();
+    expect(postgrest.requests[0]?.url).not.toContain(TOKEN);
+  });
+
+  test("a lista dos status de recusa é congelada", () => {
+    expect(Object.isFrozen(POSTGREST_CLIENT_POLICY.insertRefusedStatuses)).toBe(true);
+  });
+});
+
+describe("insert: a classificação é só pelo status, e o corpo da resposta nunca é lido", () => {
+  test.each([
+    [201, "gravada"],
+    [200, "indisponivel"],
+    [202, "indisponivel"],
+    [204, "indisponivel"],
+    [400, "recusada"],
+    [401, "indisponivel"],
+    [403, "recusada"],
+    [404, "indisponivel"],
+    [409, "recusada"],
+    [413, "indisponivel"],
+    [429, "limite"],
+    [500, "indisponivel"],
+    [503, "indisponivel"],
+  ] as const)("%i → %s", async (status, expected) => {
+    postgrest.mode = { kind: "status", status, body: '{"details":"Failing row contains (CANARIO-LINHA)"}' };
+    const result = await insert();
+    expect(result).toBe(expected);
+    expect(JSON.stringify(result)).not.toContain("CANARIO");
+  });
+
+  test.each([
+    ["inserção", 201, "gravada"],
+    ["recusa", 409, "recusada"],
+    ["teto", 429, "limite"],
+  ] as const)("resposta de %s com corpo que nunca termina: o cliente não espera o corpo", async (_name, status, expected) => {
+    postgrest.mode = { kind: "sem_fim", status, chunk: '{"details":"Failing row contains (' };
+    const slow = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 10_000 });
+    const start = performance.now();
+    await expect(slow.insert("analyses", INSERT, TOKEN)).resolves.toBe(expected);
+    expect(performance.now() - start).toBeLessThan(2_000);
+  });
+
+  test("id repetido (409 23505 no PostgREST): `recusada`, e a linha original não muda", async () => {
+    await expect(insert()).resolves.toBe("gravada");
+    const second = { ...INSERT_ROW, verdict: "foge", score: 3 };
+    await expect(insert(TOKEN, undefined, { ...INSERT, row: second })).resolves.toBe("recusada");
+    expect(postgrest.analyses).toEqual([expect.objectContaining(INSERT_ROW)]);
+  });
+
+  test("linha de outro dono (403 da RLS): `recusada`, e nada é guardado", async () => {
+    await expect(insert(TOKEN, undefined, { ...INSERT, row: { ...INSERT_ROW, user_id: "0d9c8b7a-6f5e-4d3c-8b2a-1f0e9d8c7b6a" } })).resolves.toBe("recusada");
+    expect(postgrest.analyses).toEqual([]);
+  });
+
+  test("o teto do banco (429 PT429): `limite`, e nada é guardado", async () => {
+    postgrest.analysesCap = 0;
+    await expect(insert()).resolves.toBe("limite");
+    expect(postgrest.analyses).toEqual([]);
+  });
+});
+
+describe("insert: nada é enviado fora da forma", () => {
+  test.each([
+    ["vazio", ""],
+    ["sem três partes", "a.b"],
+    ["com quebra de linha", `${TOKEN}\r\nx-injetado: 1`],
+    ["acima do teto", `${"a".repeat(POSTGREST_CLIENT_POLICY.accessTokenMaxChars - 3)}.b.c`],
+  ])("token %s: `recusada`, sem requisição", async (_name, token) => {
+    await expect(insert(token)).resolves.toBe("recusada");
+    expect(postgrest.requests).toHaveLength(0);
+  });
+
+  test("corpo acima de 32 KiB: `recusada`, sem requisição", async () => {
+    const row = { ...INSERT_ROW, verdict: "x".repeat(POSTGREST_CLIENT_POLICY.maxRequestBytes) };
+    await expect(insert(TOKEN, undefined, { ...INSERT, row })).resolves.toBe("recusada");
+    expect(postgrest.requests).toHaveLength(0);
+  });
+
+  test("valor que não serializa: `recusada`, sem requisição", async () => {
+    await expect(insert(TOKEN, undefined, { ...INSERT, row: { ...INSERT_ROW, score: 1n } })).resolves.toBe("recusada");
+    expect(postgrest.requests).toHaveLength(0);
+  });
+});
+
+describe("insert: rede e prazo viram `indisponivel`", () => {
+  test("lento além do prazo", async () => {
+    postgrest.mode = { kind: "lento", delayMs: 1_000 };
+    const start = performance.now();
+    await expect(short.insert("analyses", INSERT, TOKEN)).resolves.toBe("indisponivel");
+    expect(performance.now() - start).toBeLessThan(900);
+  });
+
+  test("travado, sem signal do chamador: o prazo próprio vale", async () => {
+    postgrest.mode = { kind: "trava" };
+    const start = performance.now();
+    await expect(short.insert("analyses", INSERT, TOKEN)).resolves.toBe("indisponivel");
+    expect(performance.now() - start).toBeLessThan(2_000);
+  });
+
+  test("socket cortado", async () => {
+    postgrest.mode = { kind: "corta" };
+    await expect(insert()).resolves.toBe("indisponivel");
+  });
+
+  test("o signal do chamador aborta a requisição", async () => {
+    postgrest.mode = { kind: "trava" };
+    const slow = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 10_000 });
+    const controller = new AbortController();
+    const pending = slow.insert("analyses", INSERT, TOKEN, controller.signal);
+    setTimeout(() => controller.abort(), 20);
+    const start = performance.now();
+    await expect(pending).resolves.toBe("indisponivel");
+    expect(performance.now() - start).toBeLessThan(2_000);
+  });
+
+  test("redirecionamento não é seguido: nem o token nem a linha vão para outro host", async () => {
+    other = await startFakePostgrest(PUBLISHABLE);
+    other.sessions.set(TOKEN, USER);
+    postgrest.mode = { kind: "redireciona", location: `${other.url.origin}/rest/v1/analyses` };
+    await expect(insert()).resolves.toBe("indisponivel");
+    expect(other.requests).toHaveLength(0);
+  });
+
+  test("publishable errada (401)", async () => {
+    const wrong = createPostgrestUserClient({ url: postgrest.url, publishableKey: "sb_publishable_outra", timeoutMs: HAPPY_PATH_TIMEOUT_MS });
+    await expect(wrong.insert("analyses", INSERT, TOKEN)).resolves.toBe("indisponivel");
+  });
+
+  test("servidor fora do ar (porta fechada)", async () => {
+    const url = postgrest.url;
+    await postgrest.close();
+    postgrest = await startFakePostgrest(PUBLISHABLE);
+    const closed = createPostgrestUserClient({ url, publishableKey: PUBLISHABLE, timeoutMs: 300 });
+    await expect(closed.insert("analyses", INSERT, TOKEN)).resolves.toBe("indisponivel");
+  });
+});
+
+// ---------- upsert classificado (ADR-031 D4) ----------
+
+const FEEDBACK_COLUMNS = ["analysis_id", "user_id", "agreement", "reason"] as const;
+const FEEDBACK_ROW = { analysis_id: ANALYSIS_ID, user_id: USER, agreement: "discordo", reason: null };
+const FEEDBACK = { columns: FEEDBACK_COLUMNS, onConflict: "analysis_id", row: FEEDBACK_ROW } as const;
+const classified = (status: number) => {
+  postgrest.mode = { kind: "status", status, body: '{"details":"CANARIO-LINHA"}' };
+  return client.upsertClassified("analysis_feedback", FEEDBACK, TOKEN);
+};
+
+describe("upsertClassified: só pelo status, sem ler o corpo", () => {
+  test.each([
+    [201, "gravada"],
+    [200, "gravada"],
+    [403, "negada"],
+    [409, "negada"],
+    [400, "indisponivel"],
+    [401, "indisponivel"],
+    [404, "indisponivel"],
+    [429, "indisponivel"],
+    [500, "indisponivel"],
+    [503, "indisponivel"],
+    [204, "indisponivel"],
+  ] as const)("%i → %s", async (status, expected) => {
+    await expect(classified(status)).resolves.toBe(expected);
+  });
+
+  test("mesmo protocolo do upsert: on_conflict, columns, merge-duplicates e só as colunas declaradas", async () => {
+    postgrest.analyses.push({ id: ANALYSIS_ID, user_id: USER });
+    await expect(client.upsertClassified("analysis_feedback", { ...FEEDBACK, row: { ...FEEDBACK_ROW, updated_at: "2099" } as typeof FEEDBACK_ROW }, TOKEN)).resolves.toBe("gravada");
+    const [sent] = postgrest.requests;
+    const url = new URL(sent?.url ?? "", "http://x");
+    expect(url.pathname).toBe("/rest/v1/analysis_feedback");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ on_conflict: "analysis_id", columns: FEEDBACK_COLUMNS.join(",") });
+    expect(sent?.prefer).toBe("resolution=merge-duplicates,return=minimal");
+    expect(Object.keys(JSON.parse(sent?.body ?? "{}") as object)).toEqual([...FEEDBACK_COLUMNS]);
+  });
+
+  test("corpo que nunca termina: o cliente não espera o corpo", async () => {
+    postgrest.mode = { kind: "sem_fim", status: 409, chunk: '{"details":"' };
+    const slow = createPostgrestUserClient({ url: postgrest.url, publishableKey: PUBLISHABLE, timeoutMs: 10_000 });
+    const start = performance.now();
+    await expect(slow.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("negada");
+    expect(performance.now() - start).toBeLessThan(2_000);
+  });
+
+  test("token fora da forma: `indisponivel`, sem requisição", async () => {
+    await expect(client.upsertClassified("analysis_feedback", FEEDBACK, "a.b")).resolves.toBe("indisponivel");
+    expect(postgrest.requests).toHaveLength(0);
+  });
+
+  test("rede: lento além do prazo, redirecionamento e socket cortado viram `indisponivel`", async () => {
+    postgrest.mode = { kind: "lento", delayMs: 1_000 };
+    await expect(short.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("indisponivel");
+    other = await startFakePostgrest(PUBLISHABLE);
+    postgrest.mode = { kind: "redireciona", location: `${other.url.origin}/rest/v1/analysis_feedback` };
+    await expect(client.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("indisponivel");
+    expect(other.requests).toHaveLength(0);
+    postgrest.mode = { kind: "corta" };
+    await expect(client.upsertClassified("analysis_feedback", FEEDBACK, TOKEN)).resolves.toBe("indisponivel");
+  });
+
+  test("o caminho dos critérios não muda: o upsert de user_criteria continua só com ok verdadeiro ou falso", async () => {
+    for (const status of [403, 409]) {
+      postgrest.mode = { kind: "status", status };
+      await expect(upsert()).resolves.toStrictEqual(FAILURE);
+    }
   });
 });

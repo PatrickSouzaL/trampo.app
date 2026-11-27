@@ -51,10 +51,11 @@ export const CRITERIA_BODY_MAX_BYTES = 16_384;
 export const ACCESS_TOKEN_MAX_CHARS = 8_192;
 
 /**
- * Teto de linhas de cada lista da exportação da conta (ADR-029 D4): as 500 mais novas, com a marca de corte no
- * próprio arquivo. A paginação entra com a F1-API-06, que passa a gravar as análises.
+ * Teto de linhas de cada lista da exportação da conta (ADR-029 D4; ADR-031 D5): as 10.000 mais novas, lidas em páginas
+ * de 1.000, acima do máximo que a retenção e o teto do banco permitem (cerca de 9.100). A marca de corte continua no
+ * próprio arquivo, para o caso impossível.
  */
-export const ACCOUNT_EXPORT_MAX_ROWS = 500;
+export const ACCOUNT_EXPORT_MAX_ROWS = 10_000;
 
 /** `bodyLimit` do `POST /v1/account/delete` (ADR-029 D3): o corpo é a versão e a frase de confirmação. */
 export const ACCOUNT_DELETE_BODY_MAX_BYTES = 256;

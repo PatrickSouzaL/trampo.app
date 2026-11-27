@@ -6,6 +6,10 @@
 // (EXTENSION_ONLY_ROUTES). Nas duas públicas, sem JWT que as proteja, o `Origin` é obrigatório (ORIGIN_REQUIRED_ROUTES):
 // é higiene, não controle. As duas listas valem pelo caminho cru e também pelo padrão que o roteador casou, porque o
 // roteador decodifica `%61uth` e chegaria à rota com um caminho cru fora da lista.
+// A rota de feedback tem parâmetro e não cabe na lista exata (ADR-031 D4): a extensão a alcança só pelo padrão roteado
+// E pelo caminho cru que casa com a regex fechada (EXTENSION_PATTERN_ROUTES). No preflight não há rota casada, então
+// vale a regex sozinha; `..`, `%2F`, a barra dupla e as maiúsculas ficam de fora.
+import { ANALYSIS_FEEDBACK_ROUTE } from "@trampo/contracts/api";
 import { AUTH_ROUTES } from "@trampo/contracts/auth";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -22,15 +26,25 @@ export interface CorsRoute {
 
 const post = (path: string): CorsRoute => Object.freeze({ method: "POST", path });
 
-/**
- * Lista positiva das rotas que a origem da extensão alcança: método e caminho exatos. O F1-API-06 acrescenta a
- * rota de feedback, se o botão ficar no Side Panel.
- */
+/** Lista positiva das rotas que a origem da extensão alcança: método e caminho exatos. */
 export const EXTENSION_ROUTES: readonly CorsRoute[] = Object.freeze([
   post("/v1/analyze"),
   post(AUTH_ROUTES.exchange),
   post(AUTH_ROUTES.refresh),
   post(AUTH_ROUTES.logout),
+]);
+
+export interface CorsPatternRoute {
+  readonly method: string;
+  /** O padrão que o roteador casa, como foi registrado. */
+  readonly pattern: string;
+  /** O caminho cru (antes do `?`) tem de casar com esta regex, ancorada e sem flag. */
+  readonly raw: RegExp;
+}
+
+/** Rotas com parâmetro que a extensão alcança (ADR-031 D4): o padrão roteado E o caminho cru. */
+export const EXTENSION_PATTERN_ROUTES: readonly CorsPatternRoute[] = Object.freeze([
+  Object.freeze({ method: "POST", pattern: ANALYSIS_FEEDBACK_ROUTE, raw: /^\/v1\/analyses\/[0-9a-f-]{36}\/feedback$/ }),
 ]);
 
 /** Só a extensão: a origem de web leva 403 (ADR-004 D8 item 2). O portal terá login próprio no servidor. */
@@ -70,14 +84,34 @@ function restrictedToExtensionRoutes(origin: string): boolean {
   return !WEB_ORIGIN.test(origin);
 }
 
+/** O caminho CRU (o `request.url` do Fastify é o `raw.url`) antes do primeiro `?`, sem decodificar nem normalizar. */
+function rawPath(url: string): string {
+  const query = url.indexOf("?");
+  return query === -1 ? url : url.slice(0, query);
+}
+
 /**
- * Método e caminho CRU (o `request.url` do Fastify é o `raw.url`) antes do primeiro `?`, sem decodificar nem
- * normalizar: `%61`, barra dupla, barra final, `..` e maiúsculas ficam fora da lista, embora o roteador decodifique
- * o `%61` e chegasse à rota.
+ * Método e caminho cru: `%61`, barra dupla, barra final, `..` e maiúsculas ficam fora da lista, embora o roteador
+ * decodifique o `%61` e chegasse à rota.
  */
 function rawRouteKey(method: string, url: string): string {
-  const query = url.indexOf("?");
-  return `${method} ${query === -1 ? url : url.slice(0, query)}`;
+  return `${method} ${rawPath(url)}`;
+}
+
+/**
+ * A rota de padrão da extensão: o caminho cru casa com a regex e, na requisição real, o roteador casou o padrão
+ * (`routed`). No preflight (`routed` é `undefined`), só a regex decide.
+ */
+function patternAllowed(method: string, url: string, routed: string | null | undefined): boolean {
+  const path = rawPath(url);
+  return EXTENSION_PATTERN_ROUTES.some(
+    (route) => route.method === method && route.raw.test(path) && (routed === undefined || routed === `${route.method} ${route.pattern}`),
+  );
+}
+
+/** A origem da extensão alcança a rota: a lista exata pelo caminho cru, ou a rota de padrão. */
+function extensionAllowed(method: string, url: string, routed: string | null | undefined): boolean {
+  return EXTENSION_ROUTE_KEYS.has(rawRouteKey(method, url)) || patternAllowed(method, url, routed);
 }
 
 /** Método e padrão que o roteador casou. Rota inexistente (e todo preflight) não tem padrão. */
@@ -113,7 +147,7 @@ export function createCorsHook(allowedOrigins: readonly string[]) {
       if (
         !METHODS.has(requestedMethod) ||
         !headersAllowed(request.headers["access-control-request-headers"]) ||
-        (restricted ? !EXTENSION_ROUTE_KEYS.has(rawKey) : EXTENSION_ONLY_KEYS.has(rawKey))
+        (restricted ? !extensionAllowed(requestedMethod, request.url, undefined) : EXTENSION_ONLY_KEYS.has(rawKey))
       ) {
         return sendApiError(reply, request.id, "PROIBIDO");
       }
@@ -128,7 +162,7 @@ export function createCorsHook(allowedOrigins: readonly string[]) {
 
     // A requisição real também é conferida: o preflight é do navegador, e quem não o faz não passa por ele.
     const rawKey = rawRouteKey(request.method, request.url);
-    if (restricted ? !EXTENSION_ROUTE_KEYS.has(rawKey) : extensionOnly(rawKey, routed)) {
+    if (restricted ? !extensionAllowed(request.method, request.url, routed) : extensionOnly(rawKey, routed)) {
       return sendApiError(reply, request.id, "PROIBIDO");
     }
 

@@ -206,3 +206,6 @@ As duas passam da quarentena de 3 dias do T26 e têm licença MIT. **Mesmo assim
 
 ## Emenda da F1-API-06 (sessão 33, 2026-11-16), só o desenho
 O [ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D4 cria a classe **`feedback`** (10 por minuto por usuário, 30 por IP) para o `POST /v1/analyses/:analysisId/feedback`, na fatia 4. O D2 do mesmo ADR põe no banco um teto de 100 análises gravadas por usuário em 24 h, o dobro da `analysesPerDay` daqui; um teste da API prende essa relação.
+
+### Emenda da sessão 34 (2026-11-27): a classe `feedback` (F1-API-06, [ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D4)
+O `RATE_LIMIT_POLICY` ganha a classe **`feedback`: 10 por minuto por usuário e 30 por IP** (o molde da `criterios`: uma escrita curta, idempotente, com o dono conferido no banco). A `conta` continua a mais estrita (`STRICTEST_RATE_LIMIT_CLASS`), e um valor fora do conjunto continua caindo nela. O schema de entrada do `RateLimitGuard` (`limit-guards.ts`) e o tipo `RateLimitClass` ganharam o valor; os números estão presos pelo `limit-policy.test.ts`, e a rota declara a classe (teste e mutante F-09). Commit `bdf11da`.

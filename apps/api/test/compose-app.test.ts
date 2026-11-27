@@ -233,6 +233,17 @@ describe("fluxo completo com as peças reais", () => {
     expect(telemetry.seriesKeys().some((key) => key.startsWith("auth_"))).toBe(false);
   });
 
+  test("F1-API-06: o composeApp NÃO liga o gravador até o consentimento (ADR-031 D6 e §7.2): nada vai a `analyses`", async () => {
+    const token = await storeOwnerCriteria();
+    const telemetry = new InMemoryTelemetry();
+    const instance = boot({}, { telemetry });
+    expect((await analyze(instance, { authorization: `Bearer ${token}` })).statusCode).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(postgrest.requests.some((sent) => sent.url.startsWith("/rest/v1/analyses"))).toBe(false);
+    expect(postgrest.analyses).toHaveLength(0);
+    expect(telemetry.seriesKeys().some((series) => series.startsWith("analysis_record_total"))).toBe(false);
+  });
+
   test("sem linha de critérios: 409 CRITERIOS_NAO_CONFIGURADOS", async () => {
     const token = await signToken(key, supabaseClaims(`${postgrest.url.origin}/auth/v1`, { sub: OWNER }));
     postgrest.sessions.set(token, OWNER);
@@ -385,6 +396,43 @@ describe("rotas de critérios (F1-API-05 commit 5; ADR-021 §4)", () => {
   });
 });
 
+describe("rota de feedback (ADR-031 D4)", () => {
+  test("o boot monta POST /v1/analyses/:analysisId/feedback: 401 com no-store sem token, sem tocar o banco nem o Redis", async () => {
+    const instance = boot();
+    const res = await instance.app.inject({
+      method: "POST",
+      url: "/v1/analyses/1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d/feedback",
+      headers: { "content-type": "application/json" },
+      payload: '{"agreement":"concordo","reason":null}',
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(postgrest.requests).toHaveLength(0);
+    expect(upstash.requests).toHaveLength(0);
+  });
+
+  test("pelas peças reais: a própria análise dá 204, a de outro dono dá 404 PROIBIDO, a classe `feedback` no Redis", async () => {
+    const token = await ownerToken();
+    const mine = "1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d";
+    const theirs = "2c3d4e5f-6071-4b8c-9d0e-1f2a3b4c5d6e";
+    postgrest.analyses.push({ id: mine, user_id: OWNER }, { id: theirs, user_id: "0d9c8b7a-6f5e-4d3c-8b2a-1f0e9d8c7b6a" });
+    const instance = boot();
+    const send = (id: string) =>
+      instance.app.inject({
+        method: "POST",
+        url: `/v1/analyses/${id}/feedback`,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        payload: '{"agreement":"discordo","reason":"veredito_errado"}',
+      });
+    expect((await send(mine)).statusCode).toBe(204);
+    const denied = await send(theirs);
+    expect(denied.statusCode).toBe(404);
+    expect(ApiErrorSchema.parse(denied.json()).code).toBe("PROIBIDO");
+    expect(postgrest.feedback).toEqual([expect.objectContaining({ analysis_id: mine, user_id: OWNER, agreement: "discordo" })]);
+    expect(JSON.stringify(upstash.requests)).toContain("feedback");
+  });
+});
+
 describe("rotas da conta (ADR-029 D3 a D5)", () => {
   const OTHER_OWNER = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
   const ANALYSIS_ID = "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b";
@@ -397,8 +445,8 @@ describe("rotas da conta (ADR-029 D3 a D5)", () => {
   const analysisRow = (owner: string) => ({ id: ANALYSIS_ID, user_id: owner, created_at: "2026-11-15T12:00:00+00:00", decision_path: "extracao_llm", verdict: "neutro", score: 50 });
   const feedbackRow = (owner: string) => ({ analysis_id: ANALYSIS_ID, user_id: owner, agreement: "concordo", reason: null, updated_at: "2026-11-15T12:30:00+00:00" });
 
-  test("o cliente da conta fica logo abaixo do prazo do serviço e lê até 128 KiB", () => {
-    expect(ACCOUNT_POSTGREST_CLIENT).toEqual({ timeoutMs: 1_800, maxResponseBytes: 131_072 });
+  test("o cliente da conta fica logo abaixo do prazo da exclusão e lê até 256 KiB por página (ADR-031 D5)", () => {
+    expect(ACCOUNT_POSTGREST_CLIENT).toEqual({ timeoutMs: 1_800, maxResponseBytes: 262_144 });
     expect(Object.isFrozen(ACCOUNT_POSTGREST_CLIENT)).toBe(true);
   });
 

@@ -1,0 +1,17 @@
+{
+  "comment": "F1-EXT-09 (ADR-017, emenda da sessão 34): a tabela de ApiError entre a API e a extensão. A API a confere pelo apiError (test/api-error-contract.test.ts) e a extensão a lê pelo analysis-service real (test/api-error-contract.test.ts). O requestId é um id de servidor sintético, diferente do do pedido do cliente. Não é exportada pelo pacote.",
+  "serverRequestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7",
+  "rows": [
+    { "status": 401, "body": { "code": "NAO_AUTENTICADO", "message": "Sessão expirada. Entre de novo para continuar.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 403, "body": { "code": "PROIBIDO", "message": "Recurso não disponível.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 404, "statusOverride": true, "body": { "code": "PROIBIDO", "message": "Recurso não disponível.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 413, "body": { "code": "PAYLOAD_GRANDE_DEMAIS", "message": "O texto enviado é grande demais.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 400, "body": { "code": "PAYLOAD_INVALIDO", "message": "Os dados enviados não são válidos.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 422, "body": { "code": "TEXTO_CURTO_DEMAIS", "message": "O texto da vaga é curto demais para analisar.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 409, "body": { "code": "CRITERIOS_NAO_CONFIGURADOS", "message": "Configure os seus critérios no portal antes de analisar.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 429, "body": { "code": "LIMITE_DE_TAXA", "message": "Muitas análises seguidas. Tente de novo em instantes.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": 30 } },
+    { "status": 429, "body": { "code": "COTA_DIARIA_ESGOTADA", "message": "A cota de análises de hoje acabou. Volte amanhã.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": 3600 } },
+    { "status": 503, "body": { "code": "SERVICO_INDISPONIVEL", "message": "Serviço indisponível no momento. Tente de novo em instantes.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } },
+    { "status": 500, "body": { "code": "ERRO_INTERNO", "message": "Erro interno. Tente de novo em instantes.", "requestId": "9e1f3c2a-5b7d-4e8f-a0b1-c2d3e4f5a6b7", "retryAfterSeconds": null } }
+  ]
+}
