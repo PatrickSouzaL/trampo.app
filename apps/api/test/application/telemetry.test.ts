@@ -9,6 +9,7 @@ import {
   AUTH_OPERATIONS,
   AUTH_RESULTS,
   AnalysisEventSchema,
+  AnalysisRecordEventSchema,
   AuthEventSchema,
   LlmExtractionEventSchema,
   METRIC_CATALOG,
@@ -159,7 +160,7 @@ describe("TelemetryEventSchema (estrito)", () => {
     expect(TELEMETRY_LATENCY_MAX_MS).toBe(120_000);
     expect(TELEMETRY_STEPS_MAX).toBe(6);
     expect(TELEMETRY_GUARD_NORMALIZATION_MAX).toBe(8_192);
-    expect(TelemetryEventSchema.options).toEqual([LlmExtractionEventSchema, AnalysisEventSchema, AuthEventSchema]);
+    expect(TelemetryEventSchema.options).toEqual([LlmExtractionEventSchema, AnalysisEventSchema, AuthEventSchema, AnalysisRecordEventSchema]);
   });
 
   test.each([
@@ -262,6 +263,7 @@ describe("catálogo de métricas (ADR-010 D6)", () => {
       auth_troca_total: { type: "counter", labels: ["resultado"] },
       auth_renovacao_total: { type: "counter", labels: ["resultado"] },
       auth_logout_total: { type: "counter", labels: ["resultado"] },
+      analysis_record_total: { type: "counter", labels: ["outcome"] },
     });
   });
 
@@ -538,5 +540,24 @@ describe("evento auth (ADR-004 D8 item 7; F1-API-07 07i)", () => {
   test("mapa do D7 para o resultado do logout", () => {
     expect(endSessionResult({ kind: "encerrada" })).toBe("ok");
     expect(endSessionResult({ kind: "indisponivel", reason: "auth_provedor_indisponivel", retryAfterSeconds: null })).toBe("indisponivel");
+  });
+});
+
+describe("evento analysis_record (ADR-031 D7; F1-API-06 fatia 3)", () => {
+  test.each(["gravada", "recusada", "limite", "indisponivel"] as const)("%s: uma série só, com o outcome", (outcome) => {
+    const event = { kind: "analysis_record", outcome } as const;
+    expect(TelemetryEventSchema.parse(event)).toEqual(event);
+    expect(telemetryMetricSamples(event)).toEqual([{ name: "analysis_record_total", labels: { outcome }, value: 1 }]);
+  });
+
+  test.each([
+    ["outcome fora da lista", { kind: "analysis_record", outcome: "ok" }],
+    ["sem outcome", { kind: "analysis_record" }],
+    ["o id da análise", { kind: "analysis_record", outcome: "gravada", analysisId: "1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d" }],
+    ["o dono", { kind: "analysis_record", outcome: "gravada", userId: "6f0c2a4e-1b3d-4c5e-8f70-9a1b2c3d4e5f" }],
+    ["a nota", { kind: "analysis_record", outcome: "gravada", score: 70 }],
+    ["o veredito", { kind: "analysis_record", outcome: "gravada", verdict: "recomendado" }],
+  ])("recusa: %s (SR-12)", (_name, event) => {
+    expect(TelemetryEventSchema.safeParse(event).success).toBe(false);
   });
 });

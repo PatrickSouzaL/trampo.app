@@ -11,6 +11,11 @@
 //
 // RPC (ADR-029 D3): `POST /rest/v1/rpc/<função>` com o corpo fixo `{}` e o nome numa lista fechada. Nada de quem
 // chama vira URL nem argumento: a função decide tudo pelo JWT. Só o 200 com JSON de até 64 bytes vale.
+//
+// Insert (ADR-031 D1): `POST /rest/v1/<tabela>?columns=<lista>` com `Prefer: return=minimal`, sem `on_conflict`
+// (um id repetido é recusado, nunca sobrescrito), as colunas de uma lista fechada e o mesmo teto de 32 KiB. O
+// resultado se classifica só pelo status, sem ler o corpo: 201 gravada; 429 o teto do banco; 400, 403 e 409 recusa;
+// o resto (5xx, prazo, rede, redirecionamento) indisponível. Nada enviado (token ou corpo fora da forma) é recusa.
 import { ACCESS_TOKEN_MAX_CHARS } from "@trampo/contracts/limits";
 
 import { parseJsonWithoutPrototypeKeys } from "../../application/llm/llm-output-guard.js";
@@ -30,6 +35,11 @@ export const POSTGREST_CLIENT_POLICY = {
   accessTokenMaxChars: ACCESS_TOKEN_MAX_CHARS,
   /** A resposta de um RPC é uma palavra entre aspas (ADR-029 D2): nada maior é lido. */
   rpcMaxResponseBytes: 64,
+  /**
+   * Os status do insert que são recusa do banco (ADR-031 §1.1, medidos na pilha local): 400 (forma), 403 (a RLS) e
+   * 409 (o id repetido, `23505`). O 201 é a gravação e o 429 o teto do gatilho (`PT429`); o resto é indisponível.
+   */
+  insertRefusedStatuses: Object.freeze([400, 403, 409] as const),
 } as const;
 
 /** Tabelas que o cliente de usuário pode ler. Só `user_criteria` é gravável (PostgrestWritableColumns). */
@@ -48,6 +58,22 @@ export type PostgrestRead = { readonly ok: true; readonly value: unknown } | { r
 export type PostgrestWrite = { readonly ok: true } | { readonly ok: false };
 
 export type PostgrestWritableTable = keyof PostgrestWritableColumns;
+
+/** Colunas que o cliente pode inserir em cada tabela (ADR-031 D1): só a linha mínima da análise. */
+export interface PostgrestInsertColumns {
+  readonly analyses: "id" | "user_id" | "decision_path" | "verdict" | "score";
+}
+
+export type PostgrestInsertTable = keyof PostgrestInsertColumns;
+
+/** Um `INSERT` simples, com as colunas explícitas e sem resolução de conflito. */
+export interface PostgrestInsert<T extends PostgrestInsertTable> {
+  readonly columns: readonly PostgrestInsertColumns[T][];
+  readonly row: Readonly<Record<PostgrestInsertColumns[T], unknown>>;
+}
+
+/** O resultado do insert, só pelo status (ADR-031 D1). */
+export type PostgrestInsertOutcome = "gravada" | "recusada" | "limite" | "indisponivel";
 
 /** Um `INSERT ... ON CONFLICT DO UPDATE` com as colunas explícitas. */
 export interface PostgrestUpsert<T extends PostgrestWritableTable> {
@@ -80,6 +106,16 @@ export interface PostgrestUserClient {
    * 200. Nunca rejeita, e `{ ok: false }` NÃO prova que a função não rodou.
    */
   rpc(name: PostgrestFunction, accessToken: string, signal?: AbortSignal): Promise<PostgrestRead>;
+  /**
+   * `POST /rest/v1/<table>?columns=<lista>` com o token do dono e `Prefer: return=minimal`. O corpo leva só as colunas
+   * de `columns`, na ordem delas. Nunca rejeita, e o corpo da resposta nunca é lido.
+   */
+  insert<T extends PostgrestInsertTable>(
+    table: T,
+    insert: PostgrestInsert<T>,
+    accessToken: string,
+    signal?: AbortSignal,
+  ): Promise<PostgrestInsertOutcome>;
 }
 
 export interface PostgrestUserClientConfig {
@@ -108,6 +144,7 @@ const FAILURE = { ok: false } as const;
 const WRITTEN: PostgrestWrite = { ok: true };
 const UPSERT_PREFER = "resolution=merge-duplicates,return=minimal";
 const UPSERT_SUCCESS: ReadonlySet<number> = new Set(POSTGREST_CLIENT_POLICY.upsertSuccessStatuses);
+const INSERT_REFUSED: ReadonlySet<number> = new Set(POSTGREST_CLIENT_POLICY.insertRefusedStatuses);
 const FUNCTIONS: ReadonlySet<string> = new Set(POSTGREST_FUNCTIONS);
 
 /** Token fora da forma nem sai daqui (e nunca vira cabeçalho com quebra de linha). */
@@ -115,8 +152,15 @@ function isAccessToken(accessToken: string): boolean {
   return accessToken.length <= POSTGREST_CLIENT_POLICY.accessTokenMaxChars && ACCESS_TOKEN.test(accessToken);
 }
 
+/** Só o status decide (ADR-031 D1): o corpo da resposta nunca é lido. */
+function insertOutcome(status: number): PostgrestInsertOutcome {
+  if (status === 201) return "gravada";
+  if (status === 429) return "limite";
+  return INSERT_REFUSED.has(status) ? "recusada" : "indisponivel";
+}
+
 /** O corpo com só as colunas declaradas, ou `null` se não serializa ou passa do teto. */
-function upsertBody(columns: readonly string[], row: Readonly<Record<string, unknown>>): string | null {
+function rowBody(columns: readonly string[], row: Readonly<Record<string, unknown>>): string | null {
   try {
     const body = JSON.stringify(Object.fromEntries(columns.map((column) => [column, row[column]])));
     return Buffer.byteLength(body, "utf8") <= POSTGREST_CLIENT_POLICY.maxRequestBytes ? body : null;
@@ -211,7 +255,7 @@ export function createPostgrestUserClient(config: PostgrestUserClientConfig): Po
 
     async upsert(table, upsert, accessToken, signal) {
       if (!isAccessToken(accessToken)) return FAILURE;
-      const body = upsertBody(upsert.columns, upsert.row);
+      const body = rowBody(upsert.columns, upsert.row);
       if (body === null) return FAILURE;
       const endpoint = new URL(table, base);
       endpoint.search = new URLSearchParams({ on_conflict: upsert.onConflict, columns: upsert.columns.join(",") }).toString();
@@ -234,6 +278,34 @@ export function createPostgrestUserClient(config: PostgrestUserClientConfig): Po
         return UPSERT_SUCCESS.has(response.status) ? WRITTEN : FAILURE;
       } catch {
         return FAILURE;
+      }
+    },
+
+    async insert(table, insert, accessToken, signal) {
+      if (!isAccessToken(accessToken)) return "recusada";
+      const body = rowBody(insert.columns, insert.row);
+      if (body === null) return "recusada";
+      const endpoint = new URL(table, base);
+      endpoint.search = new URLSearchParams({ columns: insert.columns.join(",") }).toString();
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            apikey: publishableKey,
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
+            prefer: "return=minimal",
+          },
+          body,
+          // Seguir um redirecionamento levaria o token e a linha do usuário para outro host.
+          redirect: "error",
+          signal: deadline(signal),
+        });
+        // O corpo nunca é lido: o erro do Postgres ecoa a linha recusada.
+        await response.body?.cancel();
+        return insertOutcome(response.status);
+      } catch {
+        return "indisponivel";
       }
     },
   };

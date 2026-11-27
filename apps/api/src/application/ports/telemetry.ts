@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import type { AnalysisMode, InjectionLevel, PreFilterRule } from "../../domain/index.js";
 import type { CacheMissReason } from "../cache/job-facts-cache.js";
+import { ANALYSIS_LOG_OUTCOMES } from "./analysis-log.js";
 import type { ExtractionFailureReason, RouterTrailEntry } from "../llm/llm-provider-router.js";
 import type { LlmOutputRejection, LlmOutputSanitization } from "../llm/llm-output-guard.js";
 
@@ -115,9 +116,26 @@ export const AuthEventSchema = z.strictObject({
 });
 export type AuthEvent = z.infer<typeof AuthEventSchema>;
 
-/** União fechada: um tipo novo de evento entra por ADR (ADR-010 D5; `analysis` pelo ADR-017 D5; `auth` pelo ADR-004 D8). */
-export const TelemetryEventSchema = z.discriminatedUnion("kind", [LlmExtractionEventSchema, AnalysisEventSchema, AuthEventSchema]);
-export type TelemetryEvent = LlmExtractionEvent | AnalysisEvent | AuthEvent;
+/**
+ * A gravação da linha mínima de uma análise (ADR-031 D7): só o resultado. Nenhum id, nota, veredito ou dono (SR-12).
+ */
+export const AnalysisRecordEventSchema = z.strictObject({
+  kind: z.literal("analysis_record"),
+  outcome: z.enum(ANALYSIS_LOG_OUTCOMES),
+});
+export type AnalysisRecordEvent = z.infer<typeof AnalysisRecordEventSchema>;
+
+/**
+ * União fechada: um tipo novo de evento entra por ADR (ADR-010 D5; `analysis` pelo ADR-017 D5; `auth` pelo ADR-004 D8;
+ * `analysis_record` pelo ADR-031 D7).
+ */
+export const TelemetryEventSchema = z.discriminatedUnion("kind", [
+  LlmExtractionEventSchema,
+  AnalysisEventSchema,
+  AuthEventSchema,
+  AnalysisRecordEventSchema,
+]);
+export type TelemetryEvent = LlmExtractionEvent | AnalysisEvent | AuthEvent | AnalysisRecordEvent;
 
 export interface Telemetry {
   /** Nunca lança: a contabilidade não pode derrubar uma análise. */

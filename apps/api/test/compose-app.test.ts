@@ -233,6 +233,17 @@ describe("fluxo completo com as peças reais", () => {
     expect(telemetry.seriesKeys().some((key) => key.startsWith("auth_"))).toBe(false);
   });
 
+  test("F1-API-06: o composeApp NÃO liga o gravador até o consentimento (ADR-031 D6 e §7.2): nada vai a `analyses`", async () => {
+    const token = await storeOwnerCriteria();
+    const telemetry = new InMemoryTelemetry();
+    const instance = boot({}, { telemetry });
+    expect((await analyze(instance, { authorization: `Bearer ${token}` })).statusCode).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(postgrest.requests.some((sent) => sent.url.startsWith("/rest/v1/analyses"))).toBe(false);
+    expect(postgrest.analyses).toHaveLength(0);
+    expect(telemetry.seriesKeys().some((series) => series.startsWith("analysis_record_total"))).toBe(false);
+  });
+
   test("sem linha de critérios: 409 CRITERIOS_NAO_CONFIGURADOS", async () => {
     const token = await signToken(key, supabaseClaims(`${postgrest.url.origin}/auth/v1`, { sub: OWNER }));
     postgrest.sessions.set(token, OWNER);

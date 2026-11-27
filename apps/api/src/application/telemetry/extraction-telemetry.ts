@@ -9,6 +9,7 @@ import {
   TELEMETRY_GUARD_NORMALIZATION_MAX,
   TELEMETRY_LATENCY_MAX_MS,
   type AnalysisEvent,
+  type AnalysisRecordEvent,
   type AuthEvent,
   type AuthOperation,
   type LlmExtractionEvent,
@@ -86,6 +87,8 @@ export const METRIC_CATALOG = {
   auth_troca_total: { type: "counter", labels: ["resultado"] },
   auth_renovacao_total: { type: "counter", labels: ["resultado"] },
   auth_logout_total: { type: "counter", labels: ["resultado"] },
+  // ADR-031 D7 (F1-API-06): a gravação da linha mínima, só com o resultado.
+  analysis_record_total: { type: "counter", labels: ["outcome"] },
 } as const;
 export type MetricName = keyof typeof METRIC_CATALOG;
 
@@ -111,7 +114,13 @@ export function telemetryMetricSamples(event: TelemetryEvent): MetricSample[] {
       return authSamples(event);
     case "llm_extraction":
       return extractionSamples(event);
+    case "analysis_record":
+      return analysisRecordSamples(event);
   }
+}
+
+function analysisRecordSamples(event: AnalysisRecordEvent): MetricSample[] {
+  return [{ name: "analysis_record_total", labels: { outcome: event.outcome }, value: 1 }];
 }
 
 function authSamples(event: AuthEvent): MetricSample[] {

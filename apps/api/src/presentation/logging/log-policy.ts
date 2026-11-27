@@ -35,6 +35,8 @@ export const LOG_MESSAGES = [
   "criterios_indisponiveis",
   // PUT /v1/criteria (ADR-021 D9): gravação que virou 503. O GET reusa `criterios_indisponiveis`.
   "criterios_gravacao_indisponivel",
+  // A gravação da análise que falhou (ADR-031 D1): sem campo; a análise já saiu e não muda.
+  "analise_gravacao_falhou",
   // Exportar e excluir a conta (ADR-029 D3 e D4). `conta_excluida` é o registro mínimo do pedido atendido: sem campo.
   "conta_excluida",
   "conta_exclusao_indisponivel",

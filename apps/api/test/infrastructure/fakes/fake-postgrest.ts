@@ -10,6 +10,10 @@
 // `POST /rest/v1/rpc/delete_own_account`, que só aceita o corpo `{}` (com argumento, 404 `PGRST202`, como o real),
 // devolve a palavra de `deleteResult` e, com `excluida`, apaga as linhas do dono nas três tabelas.
 //
+// Análises (ADR-031 D1 e §1.1): `POST /rest/v1/analyses` guarda só as colunas de `columns=` e responde como o real
+// (medido na pilha local): 201 sem corpo; 403 `42501` com a linha de outro dono (a RLS); 409 `23505` com o id
+// repetido (nada é sobrescrito); 429 `PT429` com o teto do dono (`analysesCap`, o gatilho do banco).
+//
 // Opcionalmente serve o JWKS do Auth no mesmo host (o teste de boot usa uma SUPABASE_URL só).
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -62,6 +66,8 @@ export interface FakePostgrest {
   readonly feedback: OwnedRow[];
   /** O que a função `delete_own_account` devolve (qualquer JSON, para os casos fora do contrato). */
   deleteResult: unknown;
+  /** O teto de linhas do dono em `analyses` (o gatilho do banco, ADR-031 D2): acima dele, 429 `PT429`. */
+  analysesCap: number;
   /** O dono de cada chamada aceita do RPC. */
   readonly deletions: string[];
   /** Token → dono (o `auth.uid()` da RLS). */
@@ -85,7 +91,7 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
   const feedback: OwnedRow[] = [];
   const deletions: string[] = [];
   const sessions = new Map<string, string>();
-  const fake = { mode: { kind: "normal" } as PostgrestMode, jwks: null as JWK[] | null, deleteResult: "excluida" as unknown };
+  const fake = { mode: { kind: "normal" } as PostgrestMode, jwks: null as JWK[] | null, deleteResult: "excluida" as unknown, analysesCap: 100 };
   const lists: Readonly<Record<string, OwnedRow[]>> = { "/rest/v1/analyses": analyses, "/rest/v1/analysis_feedback": feedback };
   const RPC_PATH = "/rest/v1/rpc/delete_own_account";
   /** Tira do array, no lugar, as linhas do dono. */
@@ -133,7 +139,8 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
       const method = request.method ?? "";
       const list = method === "GET" ? lists[url.pathname] : undefined;
       const rpc = method === "POST" && url.pathname === RPC_PATH;
-      if (list === undefined && !rpc && (!["GET", "POST"].includes(method) || url.pathname !== "/rest/v1/user_criteria")) {
+      const analysisInsert = method === "POST" && url.pathname === "/rest/v1/analyses";
+      if (list === undefined && !rpc && !analysisInsert && (!["GET", "POST"].includes(method) || url.pathname !== "/rest/v1/user_criteria")) {
         return send(response, 404, '{"message":"not found"}');
       }
       if (header("apikey") !== publishableKey) return send(response, 401, '{"message":"Invalid API key"}');
@@ -145,6 +152,19 @@ export async function startFakePostgrest(publishableKey: string): Promise<FakePo
         deletions.push(owner);
         if (fake.deleteResult === "excluida") for (const owned of [rows, analyses, feedback]) dropOwned(owned, owner);
         return send(response, 200, JSON.stringify(fake.deleteResult));
+      }
+      if (analysisInsert) {
+        // Só as chaves de `columns=`, como o PostgREST; depois a RLS, a chave primária e o gatilho do teto.
+        const listed = (url.searchParams.get("columns") ?? "").split(",");
+        const sent = JSON.parse(body) as Record<string, unknown>;
+        const row = Object.fromEntries(listed.filter((column) => column in sent).map((column) => [column, sent[column]])) as OwnedRow;
+        if (row.user_id !== owner) return send(response, 403, '{"code":"42501","message":"new row violates row-level security policy"}');
+        if (analyses.some((existing) => existing["id"] === row["id"])) return send(response, 409, '{"code":"23505","message":"duplicate key value violates unique constraint"}');
+        if (analyses.filter((existing) => existing.user_id === owner).length >= fake.analysesCap) {
+          return send(response, 429, '{"code":"PT429","message":"analises_limite_diario"}');
+        }
+        analyses.push({ ...row, created_at: new Date().toISOString() });
+        return send(response, 201, "", null);
       }
       if (list !== undefined) {
         const wanted = url.searchParams.get("user_id");
