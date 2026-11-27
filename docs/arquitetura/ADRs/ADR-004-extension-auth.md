@@ -1398,3 +1398,23 @@ Hoje nenhum SR cobre T9 nem T22, e o guardrail do F1-EXT-05 é justamente "T9 e 
 **`[APPSEC]`:** sem veto. As funções novas imprimem só nomes, formas, booleanos, status e milissegundos; as sondas do bloco B usam chave, código e token inválidos gerados na hora e não tocam sessão de ninguém; a sonda do balde fica por último no dia (um 429 deixa o IP sem renovar por cerca de 1 minuto). Nenhum bloco gasta cota de LLM: a API não sobe nos blocos 0 a D, e o bloco E nunca analisa uma vaga.
 
 **Emenda do S-5 (sessão 33, 2026-11-16), D15:** o [ADR-030-hosting](ADR-030-hosting.md) D4 mantém o Site URL na **opção A** (o host chromiumapp, NXDOMAIN) também depois da hospedagem: a página estática prevista no D15 sai do plano, porque a opção A não tem servidor nem log. O Site URL só muda com o ID (PRE-LOJA-01). A Redirect URL do portal hospedado entra na allow-list exata, e por isso os casos E e F se refazem (bloco E2 do *spike-s3*).
+
+## 9. Emenda da sessão 34 (2026-11-27): o resultado dos blocos 0 a D do spike S-3
+
+**Fonte:** o *HITL-QUEUE §HITL-046*, respondido pelo humano no prompt da sessão 34, só com números, status, `error_code`, booleanos e o `?aviso=`. O registro completo, bloco a bloco, está no *spike-metrics* §4.2.
+
+**Portões fechados (`[QA_EVALS]` + `[APPSEC]`, sem veto):**
+- **P4:** aprovado. `code` e `st` na query, fragmento vazio, nos dois provedores (A e H); a negação no Google (G) veio só com `error`, `error_code` (`access_denied`) e `error_description` na query, mais o `st`. A ressalva do HITL-035 fecha.
+- **P5:** aprovado no Site URL A (`st` intacto em A, H e G). Refeito no bloco E2 com a Redirect URL do portal hospedado (D15, emenda do S-5).
+- **P7:** aprovado. Troca 200 pela *publishable*, fora do navegador, com `expires_in` 900; o `code` é **UUID de 36 caracteres** nos dois provedores. Consequência: o `AuthCodeSchema` (hoje largo, de 8 a 128 caracteres) pode apertar para `z.uuid()`, o que muda o contrato da extensão e da API (*BACKLOG §F1-AUTH-01*, com a mutação do `auth.test.ts` e o DOC-01).
+- **P8:** aprovado, com a evidência que faltava: B 400 `validation_failed`, C 400 `invalid_grant`, A (2º uso) 404 `flow_state_not_found` e D (6,15 min) 404 `flow_state_not_found`. Todos com corpo JSON e `error_code`: o adapter dá `recusado` (401), como o D7 prevê.
+- **P9:** aprovado. ES256 com `kid`, `typ` JWT, `aud` string `authenticated`, `role` `authenticated`, `session_id` UUID, `is_anonymous` falso, `amr` em objetos com o método `oauth`, `exp − iat` 900 e access de 809 (GitHub) e 824 (Google) caracteres. A CA-12 passa a ter o "relatório do P9" (a saída do `Ler-Claims`, §8 decisão 1).
+- **P18:** aprovado. Depois de mais de 24 h, a renovação deu **403 `session_expired`** sem access novo. O `error_code` difere do `unknown` medido na pilha local (cuidado 26); o adapter não depende do valor (qualquer `error_code` string com o corpo do GoTrue é recusa), então nada muda.
+- **P19:** aprovado. O `grant_type=pkce` cai no balde de cadastro e login: o 1º 429 veio no **31º** pedido, com `Retry-After` 60. A partição `troca` (14 por 300 s) e o teto de rajada de 15 do 07j ficam abaixo de 50% (D8 item 5 sem mudança). O logout com Bearer inválido não mostrou limitador em 35 pedidos.
+- **P21:** aprovado. O gateway respondeu 401 JSON só com `message`, sem `error_code`, na troca, na renovação e no logout: o adapter dá `nao_recebido` (503, sem apagar a sessão).
+
+**Painel (bloco 0):** cadastros desligados; Site URL na opção A; access de 900 s; sem *time-box* nem inatividade; hook ligado; Free e ativo. **Divergência corrigida na hora:** a Redirect URL de loopback do portal local estava na lista, embora o HITL-045 a tenha declarado removida; o humano a removeu e conferiu (linha na §9 do [threat-model](../threat-model.md)).
+
+**CA-12 e CA-15 (§4.10):** avançam, mas **não fecham**. Falta o bloco E: P1, P2, P3 (manual), P12, P13 (manual) e P14 (E1) e o P5 e o P6 com a Redirect URL do portal hospedado (E2). O bloco E espera a API em `https://` (S-5, agora no Cloud Run, [ADR-030-hosting](ADR-030-hosting.md)) e a *BACKLOG §F1-EXT-09*.
+
+**Latência:** a perna Brasil → `us-east-1` custa cerca de 150 ms (L1 148); a troca e a renovação são cerca de 2 × L1; a função de exclusão custa cerca de 170 ms além da leitura simples. A decisão da região fica no ADR-030 (`us-east4`, ao lado do `us-east-1`).

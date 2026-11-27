@@ -148,3 +148,51 @@ O requisito diz que o resultado da análise é "**Opcional, com consentimento**"
 - **Banco (`d26c949`):** a migration `20261116150000_analyses_history.sql` como o D2 e o D3 descrevem. **A retenção entrou na mesma fatia do banco** (a partição do §5 a punha junto; o prompt da sessão pedia fatia própria, e ela é a mesma migration). Idempotente: cada gatilho é removido antes de criado, e o job tem nome fixo.
 - **Provas:** o `analyses.db.test.ts` (17 casos, escritos antes da migration: 7 falharam pelo motivo certo) cobre as condições 2, 4 a 9 e o que a fatia 4 vai usar (o 409 `23505`, o 403 `42501` e o 409 `23503`); com 90 linhas na janela, 20 pedidos simultâneos gravam exatamente 10. Na estação, contra a pilha local com `db reset`: `test:db` **198 de 198**. Mutação `mut_analyses_db.py` **D- 24/24**. A prova que vale é o job `db` do PR do 13º ciclo; o projeto real é o *HITL-QUEUE §HITL-049* (runbook *analises-retencao*).
 - **Fatos novos:** o `create extension pg_cron with schema pg_catalog` e o `cron.schedule` rodam como `postgres` na pilha local da CLI 2.120.0, e o `cron.job` guarda o `username` `postgres`.
+
+### 7.2 Sessão 34 (2026-11-27): o HITL-048 (opção A), o HITL-049 e o desenho da fatia 6 (consentimento), antes do código
+
+**Respostas do humano (prompt da sessão 34):**
+- ***HITL-QUEUE §HITL-048*: A** ("consentimento explícito por usuário em 'Seus dados', desligado por padrão, apagando o histórico ao desativar"). O D6 fica decidido pela opção (A).
+- ***HITL-QUEUE §HITL-049*:** a migration `20261116150000_analyses_history.sql` foi aplicada no projeto real pelo SQL Editor, com o identificador do arquivo conferido; o §2 deu `pg_cron_ligado` 1, `funcoes_ja_existem` 0, `analises` 0 e `feedbacks` 0; o `pg_cron` já estava ativo (o painel não pediu nada); §4.1 a §4.4 conforme; §4.5 sem achado novo. **O §5 (o `cron.job_run_details` no dia seguinte) ficou pendente:** o humano declara a retenção ativa, mas a equipe só fecha a condição pela consulta. Nenhum "diverge": a decisão não volta ao `[ARCHITECT]` nem ao `[APPSEC]`. A residual "retenção só depois do HITL da migration" da §9 do [threat-model](../threat-model.md) fecha, com o §5 a conferir.
+- O job `db` do PR #31 (13º ciclo) rodou a migration e o `analyses.db.test.ts` pela 1ª vez no CI, verde (conferido por `gh pr view 31`: os 4 checks `SUCCESS`, merge `15e1b57`).
+
+**Consequência da opção (A): a fatia 6 muda de "só a ligação" para consentimento + ligação.** O desenho abaixo é a emenda do D6 (`[ARCHITECT]`; auditoria do `[APPSEC]` no fim, sem veto). Nenhum código antes desta emenda.
+
+**D6.1 A tabela `user_settings` (migration nova, idempotente):**
+- `public.user_settings (user_id uuid primary key references auth.users (id) on delete cascade, analysis_history boolean not null default false, updated_at timestamptz not null default now())`, RLS habilitada **e forçada**, uma policy de `select` só do dono (`auth.uid() = user_id`).
+- **Nenhum grant de escrita direta:** `authenticated` só tem `select`; `anon` e `service_role` nada (o `revoke` explícito, como na F1-DB-01). A opção só muda pelas duas funções do D6.2: se o dono pudesse gravar a coluna direto, desligaria a opção sem apagar o histórico (a promessa do HITL-048 quebraria).
+- **Sem linha = desligado.** Ninguém precisa de linha para nada funcionar; a exclusão da conta leva a linha pelo *cascade* do `auth.users`.
+
+**D6.2 Duas funções do próprio usuário, no molde da `delete_own_account` (ADR-029 D2):**
+- `public.enable_analysis_history()` e `public.disable_analysis_history()`, sem parâmetro, `security definer`, `search_path` vazio, dona `postgres`, `execute` só para `authenticated` (revogado de `public`, `anon` e `service_role`); o dono vem do `auth.uid()`; sem JWT, erro.
+- `enable` grava `analysis_history = true` (upsert da linha do dono) e devolve `ligado`.
+- `disable` grava `analysis_history = false` **e apaga as análises do dono na mesma transação** (o feedback vai junto pela FK composta) e devolve `desligado`. Repetir é seguro (idempotente).
+- A resposta é uma palavra JSON (o RPC do cliente lê até 64 bytes; ADR-029 D3). As duas entram na lista fechada `POSTGREST_FUNCTIONS`.
+
+**D6.3 O banco recusa a gravação sem consentimento (cuidado 39):**
+- O gatilho `analyses_before_insert` ganha, **antes** do relógio e do teto, a conferência da opção do dono: sem linha, ou com `false`, a inserção é recusada com um `SQLSTATE` próprio, `PT412` (que o PostgREST traduz em HTTP 412; **a medir na pilha local antes do código**, como o `PT429` do M5).
+- Isso fecha a corrida (a opção desligada entre a leitura do gravador e o insert) e a gravação direta pelo PostgREST com o próprio JWT (T55): sem a opção, nem o dono grava.
+
+**D6.4 O gravador lê a opção antes de gravar (defesa em profundidade):**
+- O `AnalysisRecorder` lê a `user_settings` do dono (um `select` com o mesmo JWT) e só tenta o insert com `analysis_history = true`. A leitura que falha (inclusive a tabela inexistente, num projeto real sem a migration nova) **não grava**: falha fechada.
+- O resultado ganha o `outcome` **`sem_consentimento`** (a leitura deu desligado, ou o insert deu 412), que não gera linha de log (é o caso normal de quem não ligou a opção) e conta na métrica `analysis_record_total{outcome}` (emenda ao D7 e ao [ADR-010-log-allowlist-and-telemetry](ADR-010-log-allowlist-and-telemetry.md) D5).
+- **A ligação no `composeApp` entra na mesma fatia, mas o deploy da API com o gravador só depois da migration nova no projeto real** (HITL novo, com o §5 do HITL-049). A leitura do D6.4 é a trava se a ordem falhar.
+
+**D6.5 A API e o portal:**
+- API: `GET /v1/account/settings` (`{ analysisHistory: boolean }`, validado na saída, `no-store`) e `PUT /v1/account/analysis-history` (`{ enabled: boolean }` estrito, 204, 503 sem eco), na classe `conta`, fora do alcance da extensão (o CORS da conta não muda). Contrato novo em `@trampo/contracts/account`, com a §9 do [contratos-zod](../contratos-zod.md).
+- Portal: a `/conta/dados` mostra o estado e um formulário (Route Handler `POST` com `Origin` exato e `Sec-Fetch-Site`, fora do segmento da página, cuidado 37). O texto do desligar avisa, antes do clique, que o histórico será apagado; "histórico apagado" só com o 204; o 503 diz "não confirmado" (cuidado 38).
+- A exportação não muda de forma (`schemaVersion` 1). O estado da opção no arquivo fica para a *BACKLOG §F1-PORTAL-05* (com o e-mail e o provedor).
+
+**D6.6 Partição da fatia 6 (commits):** 6a o banco (a tabela, as funções, o gatilho e o `test:db`, com o fato do 412 medido antes); 6b o contrato e a API (as rotas, o `select` no gravador, o `outcome` novo e a ligação no `composeApp`); 6c o portal (a opção na `/conta/dados`, a integração e o E2E). HITL novo: a migration no projeto real (com o §5 do HITL-049), antes de qualquer deploy com o gravador.
+
+**`[APPSEC]` (sem veto; condições 16 a 23, cada uma com teste):**
+16. **Desligado por padrão:** sem linha em `user_settings`, nenhuma análise é gravada (unidade do gravador e `test:db` pelo gatilho).
+17. **Desligar apaga:** depois do `disable_analysis_history`, o dono não tem análise nem feedback; a resposta só vem depois do `delete` (`test:db`).
+18. **Ninguém grava a opção direto:** `insert`, `update` e `delete` em `user_settings` com o JWT do dono dão 42501 (`test:db`, ACL no catálogo).
+19. **O gatilho recusa sem consentimento** também a gravação direta pelo PostgREST (412, medido), e recusa antes de tomar o *advisory lock*.
+20. **O gravador falha fechado** quando a leitura da opção falha, trava ou devolve lixo (unidade e socket real).
+21. **Promessa só com 204** no portal e na API; o 503 nunca diz "apagado" (integração e E2E).
+22. **A exclusão da conta leva a `user_settings`** pelo *cascade* (`account.db.test.ts` estendido).
+23. **Mutação** D- (a migration nova), R- (o gravador) e U-/I-/Q- (o portal) antes do push; **nenhuma linha gravada em produção antes do HITL da migration nova**.
+
+**Residual (§9 do [threat-model](../threat-model.md)):** quem liga a opção e grava direto pelo PostgREST ainda grava análises falsas para si (o T55 de antes, até 100 por dia); o consentimento em si é o registro da `user_settings` (o `updated_at` é a data do último consentimento ou da revogação), sem histórico de versões do aviso (o portão da Fase 2 decide se o texto do aviso ganha versão, como o `aviso-1` da extensão).
