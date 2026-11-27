@@ -171,3 +171,9 @@ Em `apps/api/test/log-policy.test.ts`, `apps/api/test/log-sr12.test.ts`, `apps/a
 ## Emendas da sessão 33 (2026-11-16), só o desenho
 - **F1-API-06 ([ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D7):** os eventos `analysis_record` (`outcome`) e `analysis_feedback` (`agreement`), com as métricas `analysis_record_total` e `analysis_feedback_total`, e as mensagens `analise_gravacao_falhou` e `feedback_gravacao_indisponivel`, sem campo. Entram com as fatias 3 e 4.
 - **S-5 ([ADR-030-hosting](ADR-030-hosting.md) D6):** o exportador da Fase 1 é uma linha de log `telemetria_resumo` a cada 15 minutos, com os contadores do catálogo do D6 e nenhum rótulo com identificador (*BACKLOG §F1-OBS-03*).
+
+### Emenda da sessão 34 (2026-11-27): os eventos e as mensagens da F1-API-06 ([ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D7)
+- **Eventos novos na união fechada `TelemetryEventSchema`:** `analysis_record` (só o `outcome`: `gravada`, `recusada`, `limite`, `indisponivel`) e `analysis_feedback` (só o `agreement`). Nenhum id, nota, veredito, motivo ou dono: o schema estrito os recusa (testes com cada campo).
+- **Métricas novas no `METRIC_CATALOG`:** `analysis_record_total{outcome}` e `analysis_feedback_total{agreement}`, com o `telemetryMetricSamples` exaustivo pelo `switch`.
+- **Mensagens novas no `LOG_MESSAGES`:** `analise_gravacao_falhou` (warn, sem campo; a gravação que não deu `gravada`) e `feedback_gravacao_indisponivel` (warn, sem campo; o 503 da avaliação).
+- Commits `d7d030d` e `bdf11da`. **Mutante equivalente registrado (R-10 do `mut_account_api.py`, rodado de novo na sessão 34):** pôr o `sub` no objeto da linha `conta_excluida` não muda a linha escrita, porque a lista fechada do `streamWrite` (D1) tira a chave; o `log-sr12.test.ts` prova a barreira.

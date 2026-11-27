@@ -220,3 +220,25 @@ Verificação:
 
 ## Emenda da F1-API-06 (sessão 33, 2026-11-16)
 O [ADR-031-analysis-history-and-feedback](ADR-031-analysis-history-and-feedback.md) D1 decide a gravação da análise **fora do `AnalyzeJob`**: a rota, que conhece o dono, chama um `AnalysisRecorder` depois de o `result` ter sido entregue ao stream (`write` devolveu `true`), sem esperar e sem mudar o relatório. O job continua sem o `userId` (D1) e o `aj1` não muda. A ligação no `composeApp` espera o *HITL-QUEUE §HITL-048*.
+
+## Emenda da sessão 34 (2026-11-27): o `requestId` do `ApiError` é o id do servidor, e a extensão deixa de compará-lo (F1-EXT-09)
+
+**Achado (sessão 33, *BACKLOG §F1-EXT-09*):** a API põe no `ApiError.requestId` o id do servidor (`request.id`, o mesmo do log), em toda resposta de erro e no evento `error` do stream (§3.2). O Service Worker só aceitava o `ApiError` com `requestId` nulo ou igual ao do pedido dele (`serverError` do `analysis-service.ts`). O BFF falso do E2E devolvia o do cliente, então nenhum teste pegou. Contra a API real, todo `ApiError` virava violação: o 401 `NAO_AUTENTICADO` não renovava (virava "serviço indisponível"), e o 409 dos critérios, a cota e o limite de taxa viravam o texto genérico.
+
+**As três opções (`[ARCHITECT]` + `[APPSEC]`):**
+- **(a)** a API devolve o `requestId` do pedido quando o corpo já foi lido e `null` antes; o id do servidor fica só no log (ou num cabeçalho). Muda cada resposta de erro da API (os hooks globais respondem antes do corpo e ficariam com `null`), tira da tela o código que casa com o log e ecoa um valor do cliente.
+- **(b)** a extensão aceita qualquer `ApiError` válido pelo schema (o `requestId` já é UUID ou nulo), sem compará-lo. A ligação entre a resposta e o pedido já vem do próprio `fetch` (uma resposta por chamada, sem multiplexação) e da geração do `analysis-service`, que descarta a análise antiga.
+- **(c)** o contrato ganha os dois campos (o do cliente e um `traceId` do servidor): muda o `ApiErrorSchema` público, a extensão, o portal e a §9 do [contratos-zod](../contratos-zod.md), para o mesmo ganho da (b).
+
+**O que um proxy ou BFF hostil ganharia ([APPSEC], T30 e a linha do "JSON alheio" da §9 do [threat-model](../threat-model.md)):** nas três opções, **nada novo**. Quem consegue escrever a resposta já conseguia, antes desta emenda, mandar um `ApiError` com `requestId` nulo, que a extensão aceitava; a comparação nunca foi uma barreira contra um intermediário, só contra uma resposta trocada de pedido, que o `fetch` não produz. O que protege a sessão continua igual: só o 401 **com** o `ApiError` `NAO_AUTENTICADO` renova, e só a recusa do GoTrue no BFF apaga (cuidado 17). Um corpo fora do schema (o 401 `{message}` do gateway, P21; o HTML de um proxy) continua sendo violação, com o código pelo status.
+
+**Decisão: a opção (b).** Nenhuma mudança na API nem no contrato. O `serverError` passa a ser só o `ApiErrorSchema`. O painel continua mostrando "Código do pedido" com o `requestId` do `ApiError`: no erro do servidor, é o id do log da API (melhor para o suporte); no erro sintetizado pela extensão, o do pedido dela.
+
+**Condições (cada uma com teste):**
+1. **O contrato entre os dois lados:** a tabela `packages/contracts/fixtures/api-errors.json` (um `ApiError` por código, com o status e um id de servidor) é gerada pelo `apiError` da API e conferida no teste dela, e lida pelo teste da extensão, que manda cada linha pelo `analysis-service` real: nenhuma vira violação. Nenhum import cruzado (os dois só leem o arquivo).
+2. **O 401 da API real** (o id do servidor) dispara a renovação e o reenvio com o **mesmo** `requestId` do pedido; o 409 `CRITERIOS_NAO_CONFIGURADOS` e o 429 mostram o texto certo (unidade e E2E no Edge).
+3. **O BFF falso do E2E imita a API real:** todo `ApiError` dele leva um id de servidor novo (nunca o do cliente), e o `error` do stream também.
+4. **Nada afrouxa além do `requestId`:** corpo fora do schema, `ApiError` com chave a mais, o 401 sem `NAO_AUTENTICADO` e o `NAO_AUTENTICADO` com outro status continuam como antes (os testes da tabela do D10 ficam).
+5. **Mutação dirigida** no `serverError` e no `apiError` (o id do servidor trocado pelo nulo ou pelo do cliente).
+
+**Implementação (sessão 34, `33ffed0`):** o `serverError` da extensão passou a ser só o `ApiErrorSchema`; a conferência do `error` do stream que sobrava saiu (o leitor estrito já valida o terminal pelo `AnalysisStreamEventSchema`). A tabela `packages/contracts/fixtures/api-errors.json` tem um `ApiError` por código (e o 404 `PROIBIDO` e os dois 429 com `retryAfterSeconds`), conferida pelo `api-error-contract.test.ts` da API e lida pelo `analysis-service.test.ts` da extensão. O BFF falso do E2E carimba um id de servidor novo em todo `ApiError` (o `serverRequestIds` do *snapshot*), e o E2E confere que o "Código do pedido" do painel é esse id. Condições 1 a 5 cumpridas: 25 testes vermelhos antes, extensão com 100%, E2E no Edge 3 × 146/146, mutação X- 7/7.

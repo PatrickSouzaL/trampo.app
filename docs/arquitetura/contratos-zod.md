@@ -170,10 +170,11 @@ export const CRITERIA_BODY_MAX_BYTES = 16_384;
 export const ACCESS_TOKEN_MAX_CHARS = 8_192;
 
 /**
- * Teto de linhas de cada lista da exportação da conta (ADR-029 D4): as 500 mais novas, com a marca de corte no
- * próprio arquivo. A paginação entra com a F1-API-06, que passa a gravar as análises.
+ * Teto de linhas de cada lista da exportação da conta (ADR-029 D4; ADR-031 D5): as 10.000 mais novas, lidas em páginas
+ * de 1.000, acima do máximo que a retenção e o teto do banco permitem (cerca de 9.100). A marca de corte continua no
+ * próprio arquivo, para o caso impossível.
  */
-export const ACCOUNT_EXPORT_MAX_ROWS = 500;
+export const ACCOUNT_EXPORT_MAX_ROWS = 10_000;
 
 /** `bodyLimit` do `POST /v1/account/delete` (ADR-029 D3): o corpo é a versão e a frase de confirmação. */
 export const ACCOUNT_DELETE_BODY_MAX_BYTES = 256;
@@ -1247,6 +1248,7 @@ Fonte: `git log -- packages/contracts/src`. Todas ficaram no `schemaVersion` 1 (
 | `47abd8c` | 2026-11-06 | F1-AUTH-00, [ADR-004-extension-auth](ADRs/ADR-004-extension-auth.md) D7 | `auth.ts` novo: `AUTH_SCHEMA_VERSION`, `AUTH_BODY_MAX_BYTES`, `AUTH_ROUTES` congelado, os schemas de formato (`AccessTokenSchema`, `PkceVerifierSchema`, `AuthCodeSchema`, `SealedRefreshSchema`), os 3 pedidos, a resposta de 4 chaves e os 4 tipos; `ACCESS_TOKEN_MAX_CHARS = 8_192` no `limits.ts` ([ADR-013-jwt-verification](ADRs/ADR-013-jwt-verification.md) D3); subpath `./auth` e reexport na raiz | Só acrescenta: nenhum schema existente muda. A API e a extensão ainda não importam o `auth`. Os 3 literais `8_192` da API trocam pelo import de `@trampo/contracts/limits` na F1-API-07, e o subpath entra no `CONTRACTS_ALLOWED` da extensão na F1-EXT-05a. O `AuthCodeSchema` fica largo até a anotação do `code_e_uuid` (HITL-036 item 3 ou spike S-3). |
 | `26958d9` | 2026-11-15 | F1-PORTAL-03, [ADR-029-account-export-and-delete](ADRs/ADR-029-account-export-and-delete.md) D10 | `account.ts` novo: `ACCOUNT_SCHEMA_VERSION`, `ACCOUNT_ROUTES` congelado, `ACCOUNT_DELETE_CONFIRMATION`, `AccountDeleteRequestSchema` (versão e a frase literal, sem alvo), `AccountDeleteResultSchema` (as três palavras da função do banco), `ExportedAnalysisSchema`, `ExportedFeedbackSchema` e `AccountExportSchema`; em `limits.ts`, `ACCOUNT_EXPORT_MAX_ROWS = 500`, `ACCOUNT_DELETE_BODY_MAX_BYTES = 256` e `ACCOUNT_RECENT_LOGIN_SECONDS = 600`; subpath `./account` | A API e o portal passam a falar as duas rotas da conta. **O `ApiErrorCodeSchema` não mudou** (o login antigo responde `PROIBIDO`), então a extensão não é afetada. A seção 4 foi regerada do `src/` por script, com 10 de 10 arquivos idênticos (a `account.ts` é a §4.10) |
 | `31f7a9b` | 2026-11-16 | F1-API-06, [ADR-031-analysis-history-and-feedback](ADRs/ADR-031-analysis-history-and-feedback.md) D2 a D4 | `limits.ts`: `ANALYSES_RETENTION_DAYS` (90), `ANALYSES_DAILY_ROW_CAP` (100) e `ANALYSIS_FEEDBACK_BODY_MAX_BYTES` (256). `api.ts`: `ANALYSIS_FEEDBACK_ROUTE`, o `AnalysisFeedbackParamsSchema` (só o UUID, estrito) e o `analysisFeedbackPath`, que lança fora do UUID. Nenhum schema existente muda; o teto da exportação continua 500 até a fatia 5. A seção 4 foi regerada do `src/` por script, com 10 de 10 arquivos idênticos |
+| `c1e6340` | 2026-11-27 | F1-API-06 fatia 5, [ADR-031-analysis-history-and-feedback](ADRs/ADR-031-analysis-history-and-feedback.md) D5 | `limits.ts`: `ACCOUNT_EXPORT_MAX_ROWS` passa de 500 para **10.000** (a exportação paginada em páginas de 1.000, com a marca de corte só no caso impossível). O `AccountExportSchema` não muda de forma, e o `schemaVersion` continua 1 (todos os leitores estão no monorepo). Fora do `src/` (não exportada pelo pacote): a tabela `fixtures/api-errors.json` da F1-EXT-09 (`33ffed0`), um `ApiError` por código com um id de servidor, que o teste da API e o da extensão conferem. A seção 4 foi regerada do `src/` por script, com 10 de 10 arquivos idênticos |
 
 Também entraram no pacote, sem mudar forma: os tipos `DimensionOutcome` e `AppliedImportance` (exportados para o domínio) e os comentários do SR-11 no `ScoreBreakdownEntrySchema`.
 
